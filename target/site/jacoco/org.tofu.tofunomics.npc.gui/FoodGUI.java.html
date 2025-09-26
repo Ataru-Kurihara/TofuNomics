@@ -1,0 +1,418 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FoodGUI.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.npc.gui</a> &gt; <span class="el_source">FoodGUI.java</span></div><h1>FoodGUI.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.npc.gui;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.npc.FoodNPCManager;
+import org.tofu.tofunomics.npc.NPCManager;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * 食料NPC用GUIシステム
+ */
+public class FoodGUI implements Listener {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    private final FoodNPCManager foodNPCManager;
+    
+<span class="nc" id="L33">    private final Map&lt;UUID, FoodGUISession&gt; activeSessions = new ConcurrentHashMap&lt;&gt;();</span>
+    
+<span class="nc" id="L35">    public FoodGUI(TofuNomics plugin, ConfigManager configManager, CurrencyConverter currencyConverter, FoodNPCManager foodNPCManager) {</span>
+<span class="nc" id="L36">        this.plugin = plugin;</span>
+<span class="nc" id="L37">        this.configManager = configManager;</span>
+<span class="nc" id="L38">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L39">        this.foodNPCManager = foodNPCManager;</span>
+<span class="nc" id="L40">    }</span>
+    
+    public static class FoodGUISession {
+        private final UUID playerId;
+        private final UUID npcId;
+        private final String npcName;
+        private final Inventory inventory;
+        
+<span class="nc" id="L48">        public FoodGUISession(UUID playerId, UUID npcId, String npcName, Inventory inventory) {</span>
+<span class="nc" id="L49">            this.playerId = playerId;</span>
+<span class="nc" id="L50">            this.npcId = npcId;</span>
+<span class="nc" id="L51">            this.npcName = npcName;</span>
+<span class="nc" id="L52">            this.inventory = inventory;</span>
+<span class="nc" id="L53">        }</span>
+        
+<span class="nc" id="L55">        public UUID getPlayerId() { return playerId; }</span>
+<span class="nc" id="L56">        public UUID getNpcId() { return npcId; }</span>
+<span class="nc" id="L57">        public String getNpcName() { return npcName; }</span>
+<span class="nc" id="L58">        public Inventory getInventory() { return inventory; }</span>
+    }
+    
+    /**
+     * 食料NPCのGUIを開く
+     */
+    public void openFoodGUI(Player player, UUID npcId, String npcName) {
+        try {
+            // NPCタイプに応じたタイトル表示
+<span class="nc" id="L67">            String npcType = getNPCType(npcId);</span>
+<span class="nc" id="L68">            String typeDisplayName = configManager.getFoodNPCTypeName(npcType);</span>
+<span class="nc" id="L69">            String title = typeDisplayName;</span>
+<span class="nc" id="L70">            Inventory gui = Bukkit.createInventory(null, 54, title);</span>
+            
+<span class="nc" id="L72">            setupFoodGUIItems(gui, player, npcId);</span>
+            
+<span class="nc" id="L74">            FoodGUISession session = new FoodGUISession(</span>
+<span class="nc" id="L75">                player.getUniqueId(), </span>
+                npcId,
+                npcName, 
+                gui
+            );
+            
+<span class="nc" id="L81">            activeSessions.put(player.getUniqueId(), session);</span>
+<span class="nc" id="L82">            player.openInventory(gui);</span>
+            
+<span class="nc" id="L84">            plugin.getLogger().info(&quot;食料GUIを開きました: &quot; + player.getName() + &quot; -&gt; &quot; + npcName);</span>
+            
+<span class="nc" id="L86">        } catch (Exception e) {</span>
+<span class="nc" id="L87">            plugin.getLogger().severe(&quot;食料GUI作成中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L88">            player.sendMessage(&quot;§cGUIの作成に失敗しました。管理者にお知らせください。&quot;);</span>
+<span class="nc" id="L89">            e.printStackTrace();</span>
+<span class="nc" id="L90">        }</span>
+<span class="nc" id="L91">    }</span>
+    
+    /**
+     * GUIアイテムのセットアップ
+     */
+    private void setupFoodGUIItems(Inventory gui, Player player, UUID npcId) {
+        // ヘッダー部分（0-8）
+<span class="nc" id="L98">        setupHeaderItems(gui, player);</span>
+        
+        // 食料アイテム部分（9-44）
+<span class="nc" id="L101">        setupFoodItems(gui, player, npcId);</span>
+        
+        // フッター部分（45-53）
+<span class="nc" id="L104">        setupFooterItems(gui);</span>
+<span class="nc" id="L105">    }</span>
+    
+    /**
+     * ヘッダーアイテムのセットアップ
+     */
+    private void setupHeaderItems(Inventory gui, Player player) {
+        // 残高表示
+<span class="nc" id="L112">        double balance = currencyConverter.getBalance(player.getUniqueId());</span>
+<span class="nc" id="L113">        String balanceText = currencyConverter.formatCurrency(balance);</span>
+        
+<span class="nc" id="L115">        ItemStack balanceItem = createGUIItem(</span>
+            Material.GOLD_INGOT,
+            &quot;§6現在の残高&quot;,
+<span class="nc" id="L118">            Arrays.asList(</span>
+                &quot;§f残高: §a&quot; + balanceText,
+                &quot;§7営業時間: §e22:00-8:00&quot;
+            )
+        );
+<span class="nc" id="L123">        gui.setItem(4, balanceItem);</span>
+        
+        // 装飾アイテム
+<span class="nc" id="L126">        ItemStack glassPane = createGUIItem(Material.GRAY_STAINED_GLASS_PANE, &quot;§7&quot;, Arrays.asList());</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        for (int i = 0; i &lt; 9; i++) {</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">            if (i != 4) {</span>
+<span class="nc" id="L129">                gui.setItem(i, glassPane);</span>
+            }
+        }
+<span class="nc" id="L132">    }</span>
+    
+    /**
+     * 食料アイテムのセットアップ
+     */
+    private void setupFoodItems(Inventory gui, Player player, UUID npcId) {
+        // 常に設定ファイルから商品リストを取得
+<span class="nc" id="L139">        Map&lt;Material, Double&gt; itemPrices = getCurrentFoodPrices(npcId);</span>
+<span class="nc" id="L140">        plugin.getLogger().info(&quot;FoodGUI: 商品データ取得完了 - 商品数: &quot; + itemPrices.size());</span>
+        
+<span class="nc" id="L142">        Map&lt;Material, Integer&gt; storeInventory = foodNPCManager.getStoreInventory(npcId);</span>
+<span class="nc" id="L143">        Map&lt;Material, Integer&gt; playerPurchases = foodNPCManager.getPlayerDailyPurchases(player.getUniqueId());</span>
+<span class="nc" id="L144">        int dailyLimit = configManager.getFoodNPCDailyLimitPerItem();</span>
+        
+<span class="nc" id="L146">        int slot = 9;</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        for (Map.Entry&lt;Material, Double&gt; entry : itemPrices.entrySet()) {</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">            if (slot &gt;= 45) break; // フッター領域に到達したら停止</span>
+            
+<span class="nc" id="L150">            Material material = entry.getKey();</span>
+<span class="nc" id="L151">            double price = entry.getValue();</span>
+            
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            int stock = storeInventory != null ? storeInventory.getOrDefault(material, 0) : 0;</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            int purchased = playerPurchases != null ? playerPurchases.getOrDefault(material, 0) : 0;</span>
+<span class="nc" id="L155">            int remaining = dailyLimit - purchased;</span>
+            
+            // アイテム作成
+<span class="nc" id="L158">            ItemStack foodItem = createFoodItem(material, price, stock, remaining);</span>
+<span class="nc" id="L159">            gui.setItem(slot, foodItem);</span>
+            
+<span class="nc" id="L161">            slot++;</span>
+<span class="nc" id="L162">        }</span>
+<span class="nc" id="L163">    }</span>
+    
+    /**
+     * フッターアイテムのセットアップ
+     */
+    private void setupFooterItems(Inventory gui) {
+<span class="nc" id="L169">        ItemStack glassPane = createGUIItem(Material.GRAY_STAINED_GLASS_PANE, &quot;§7&quot;, Arrays.asList());</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        for (int i = 45; i &lt; 54; i++) {</span>
+<span class="nc" id="L171">            gui.setItem(i, glassPane);</span>
+        }
+        
+        // 閉じるボタン
+<span class="nc" id="L175">        ItemStack closeItem = createGUIItem(</span>
+            Material.BARRIER,
+            &quot;§c閉じる&quot;,
+<span class="nc" id="L178">            Arrays.asList(&quot;§7クリックしてGUIを閉じます&quot;)</span>
+        );
+<span class="nc" id="L180">        gui.setItem(49, closeItem);</span>
+<span class="nc" id="L181">    }</span>
+    
+    /**
+     * 食料アイテムの作成
+     */
+    private ItemStack createFoodItem(Material material, double price, int stock, int remaining) {
+<span class="nc" id="L187">        List&lt;String&gt; lore = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc" id="L189">        String priceText = currencyConverter.formatCurrency(price);</span>
+<span class="nc" id="L190">        lore.add(&quot;§e価格: &quot; + priceText);</span>
+        
+        // 在庫状況
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (stock &gt; 0) {</span>
+<span class="nc" id="L194">            lore.add(&quot;§a在庫: &quot; + stock + &quot;個&quot;);</span>
+        } else {
+<span class="nc" id="L196">            lore.add(&quot;§c在庫: 売り切れ&quot;);</span>
+        }
+        
+        // 購入制限
+<span class="nc bnc" id="L200" title="All 2 branches missed.">        if (remaining &gt; 0) {</span>
+<span class="nc" id="L201">            lore.add(&quot;§7本日残り: &quot; + remaining + &quot;個購入可能&quot;);</span>
+        } else {
+<span class="nc" id="L203">            lore.add(&quot;§c本日の購入上限に達しています&quot;);</span>
+        }
+        
+<span class="nc" id="L206">        lore.add(&quot;&quot;);</span>
+<span class="nc" id="L207">        lore.add(&quot;§f購入数量:&quot;);</span>
+<span class="nc" id="L208">        lore.add(&quot;§7左クリック: §f1個&quot;);</span>
+<span class="nc" id="L209">        lore.add(&quot;§7右クリック: §f5個&quot;);</span>
+<span class="nc" id="L210">        lore.add(&quot;§7Shift+左クリック: §f10個&quot;);</span>
+<span class="nc" id="L211">        lore.add(&quot;§7Shift+右クリック: §f上限まで&quot;);</span>
+        
+        // 購入不可な場合
+<span class="nc bnc" id="L214" title="All 4 branches missed.">        if (stock == 0 || remaining == 0) {</span>
+<span class="nc" id="L215">            lore.add(&quot;&quot;);</span>
+<span class="nc" id="L216">            lore.add(&quot;§c購入できません&quot;);</span>
+        }
+        
+<span class="nc" id="L219">        String displayName = &quot;§a&quot; + getItemDisplayName(material);</span>
+<span class="nc" id="L220">        return createGUIItem(material, displayName, lore);</span>
+    }
+    
+    /**
+     * マテリアルの表示名を取得
+     */
+    private String getItemDisplayName(Material material) {
+<span class="nc bnc" id="L227" title="All 11 branches missed.">        switch (material) {</span>
+<span class="nc" id="L228">            case BREAD: return &quot;パン&quot;;</span>
+<span class="nc" id="L229">            case COOKED_BEEF: return &quot;焼き肉&quot;;</span>
+<span class="nc" id="L230">            case COOKED_PORKCHOP: return &quot;焼き豚&quot;;</span>
+<span class="nc" id="L231">            case APPLE: return &quot;りんご&quot;;</span>
+<span class="nc" id="L232">            case GOLDEN_APPLE: return &quot;金のりんご&quot;;</span>
+<span class="nc" id="L233">            case COOKED_CHICKEN: return &quot;焼き鳥&quot;;</span>
+<span class="nc" id="L234">            case BAKED_POTATO: return &quot;ベイクドポテト&quot;;</span>
+<span class="nc" id="L235">            case CARROT: return &quot;ニンジン&quot;;</span>
+<span class="nc" id="L236">            case BEETROOT: return &quot;ビートルート&quot;;</span>
+<span class="nc" id="L237">            case MUSHROOM_STEW: return &quot;キノコシチュー&quot;;</span>
+<span class="nc" id="L238">            default: return material.toString().toLowerCase().replace(&quot;_&quot;, &quot; &quot;);</span>
+        }
+    }
+    
+    /**
+     * 現在の食料価格を取得
+     */
+    /**
+     * NPCのタイプを取得
+     */
+    private String getNPCType(UUID npcId) {
+        // FoodNPCManagerからFoodStoreデータを取得してNPCタイプを確認
+<span class="nc" id="L250">        Map&lt;Material, Integer&gt; storeInventory = foodNPCManager.getStoreInventory(npcId);</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">        if (storeInventory != null) {</span>
+            // 実装上は、FoodNPCManagerのfoodStoresからFoodStoreを取得してgetNpcType()を呼ぶ
+            // ここでは一時的にgeneral_storeを返す
+<span class="nc" id="L254">            return &quot;general_store&quot;;</span>
+        }
+<span class="nc" id="L256">        return &quot;general_store&quot;;</span>
+    }
+    
+    /**
+     * 現在の食料価格を取得（NPCタイプ考慮）
+     */
+    private Map&lt;Material, Double&gt; getCurrentFoodPrices(UUID npcId) {
+<span class="nc" id="L263">        String npcType = getNPCType(npcId);</span>
+<span class="nc" id="L264">        Map&lt;String, Double&gt; configPrices = configManager.getFoodItemPrices();</span>
+<span class="nc" id="L265">        Map&lt;Material, Double&gt; prices = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L267">        double priceMultiplier = configManager.getFoodNPCPriceMultiplier(npcType);</span>
+<span class="nc" id="L268">        List&lt;String&gt; allowedItems = configManager.getFoodNPCTypeItems(npcType);</span>
+<span class="nc" id="L269">        boolean isGeneral = configManager.isFoodNPCTypeGeneral(npcType);</span>
+        
+<span class="nc bnc" id="L271" title="All 2 branches missed.">        for (Map.Entry&lt;String, Double&gt; entry : configPrices.entrySet()) {</span>
+            try {
+<span class="nc" id="L273">                Material material = Material.valueOf(entry.getKey().toUpperCase());</span>
+<span class="nc" id="L274">                double basePrice = entry.getValue();</span>
+                
+                // 商品フィルタリング
+<span class="nc bnc" id="L277" title="All 4 branches missed.">                if (isGeneral || allowedItems.contains(entry.getKey().toLowerCase())) {</span>
+                    // 価格倍率を適用
+<span class="nc" id="L279">                    double finalPrice = basePrice * priceMultiplier;</span>
+<span class="nc" id="L280">                    prices.put(material, finalPrice);</span>
+                }
+<span class="nc" id="L282">            } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L283">                plugin.getLogger().warning(&quot;無効なマテリアル名: &quot; + entry.getKey());</span>
+<span class="nc" id="L284">            }</span>
+<span class="nc" id="L285">        }</span>
+        
+<span class="nc" id="L287">        return prices;</span>
+    }
+    
+    /**
+     * GUIアイテムの作成
+     */
+    private ItemStack createGUIItem(Material material, String displayName, List&lt;String&gt; lore) {
+<span class="nc" id="L294">        ItemStack item = new ItemStack(material);</span>
+<span class="nc" id="L295">        ItemMeta meta = item.getItemMeta();</span>
+        
+<span class="nc bnc" id="L297" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L298">            meta.setDisplayName(displayName);</span>
+<span class="nc" id="L299">            meta.setLore(lore);</span>
+<span class="nc" id="L300">            item.setItemMeta(meta);</span>
+        }
+        
+<span class="nc" id="L303">        return item;</span>
+    }
+    
+    /**
+     * インベントリクリックイベント
+     */
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+<span class="nc" id="L311">        Player player = (Player) event.getWhoClicked();</span>
+<span class="nc" id="L312">        FoodGUISession session = activeSessions.get(player.getUniqueId());</span>
+        
+<span class="nc bnc" id="L314" title="All 4 branches missed.">        if (session == null || !event.getInventory().equals(session.getInventory())) {</span>
+<span class="nc" id="L315">            return;</span>
+        }
+        
+<span class="nc" id="L318">        event.setCancelled(true);</span>
+        
+<span class="nc" id="L320">        int slot = event.getSlot();</span>
+<span class="nc" id="L321">        ClickType clickType = event.getClick();</span>
+        
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        if (slot == 49) { // 閉じるボタン</span>
+<span class="nc" id="L324">            player.closeInventory();</span>
+<span class="nc" id="L325">            return;</span>
+        }
+        
+        // ヘッダー・フッター領域は無視
+<span class="nc bnc" id="L329" title="All 4 branches missed.">        if (slot &lt; 9 || slot &gt;= 45) {</span>
+<span class="nc" id="L330">            return;</span>
+        }
+        
+        // 食料アイテムのクリック処理
+<span class="nc" id="L334">        handleFoodItemClick(player, session, slot, clickType);</span>
+<span class="nc" id="L335">    }</span>
+    
+    /**
+     * 食料アイテムクリック処理
+     */
+    private void handleFoodItemClick(Player player, FoodGUISession session, int slot, ClickType clickType) {
+<span class="nc" id="L341">        ItemStack clickedItem = session.getInventory().getItem(slot);</span>
+<span class="nc bnc" id="L342" title="All 4 branches missed.">        if (clickedItem == null || clickedItem.getType() == Material.GRAY_STAINED_GLASS_PANE) {</span>
+<span class="nc" id="L343">            return;</span>
+        }
+        
+<span class="nc" id="L346">        Material material = clickedItem.getType();</span>
+<span class="nc" id="L347">        int amount = getPurchaseAmount(clickType);</span>
+        
+<span class="nc bnc" id="L349" title="All 2 branches missed.">        if (amount == 0) {</span>
+<span class="nc" id="L350">            return;</span>
+        }
+        
+<span class="nc" id="L353">        plugin.getLogger().info(&quot;食料購入処理: &quot; + player.getName() + &quot; -&gt; &quot; + material + &quot; x&quot; + amount);</span>
+        
+        // 購入処理実行
+<span class="nc" id="L356">        FoodNPCManager.PurchaseResult result = foodNPCManager.processFoodPurchase(</span>
+<span class="nc" id="L357">            player, session.getNpcId(), material, amount</span>
+        );
+        
+<span class="nc bnc" id="L360" title="All 2 branches missed.">        if (result.isSuccess()) {</span>
+<span class="nc" id="L361">            player.sendMessage(&quot;§a&quot; + getItemDisplayName(material) + &quot; を &quot; + amount + &quot;個購入しました！&quot;);</span>
+<span class="nc" id="L362">            player.sendMessage(&quot;§7支払い: &quot; + currencyConverter.formatCurrency(result.getTotalPrice()));</span>
+            
+            // GUIを更新
+<span class="nc" id="L365">            setupFoodGUIItems(session.getInventory(), player, session.getNpcId());</span>
+        } else {
+<span class="nc" id="L367">            player.sendMessage(&quot;§c購入に失敗しました: &quot; + result.getMessage());</span>
+        }
+<span class="nc" id="L369">    }</span>
+    
+    /**
+     * クリックタイプから購入数量を決定
+     */
+    private int getPurchaseAmount(ClickType clickType) {
+<span class="nc bnc" id="L375" title="All 5 branches missed.">        switch (clickType) {</span>
+<span class="nc" id="L376">            case LEFT: return 1;</span>
+<span class="nc" id="L377">            case RIGHT: return 5;</span>
+<span class="nc" id="L378">            case SHIFT_LEFT: return 10;</span>
+<span class="nc" id="L379">            case SHIFT_RIGHT: return 32; // 上限まで（実際の制限は処理内で適用）</span>
+<span class="nc" id="L380">            default: return 0;</span>
+        }
+    }
+    
+    /**
+     * インベントリクローズイベント
+     */
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+<span class="nc" id="L389">        Player player = (Player) event.getPlayer();</span>
+<span class="nc" id="L390">        FoodGUISession session = activeSessions.get(player.getUniqueId());</span>
+        
+<span class="nc bnc" id="L392" title="All 4 branches missed.">        if (session != null &amp;&amp; event.getInventory().equals(session.getInventory())) {</span>
+<span class="nc" id="L393">            activeSessions.remove(player.getUniqueId());</span>
+<span class="nc" id="L394">            plugin.getLogger().info(&quot;食料GUIを閉じました: &quot; + player.getName());</span>
+        }
+<span class="nc" id="L396">    }</span>
+    
+    /**
+     * 全GUIを閉じる
+     */
+    public void closeAllGUIs() {
+<span class="nc bnc" id="L402" title="All 2 branches missed.">        for (FoodGUISession session : activeSessions.values()) {</span>
+<span class="nc" id="L403">            Player player = Bukkit.getPlayer(session.getPlayerId());</span>
+<span class="nc bnc" id="L404" title="All 4 branches missed.">            if (player != null &amp;&amp; player.isOnline()) {</span>
+<span class="nc" id="L405">                player.closeInventory();</span>
+            }
+<span class="nc" id="L407">        }</span>
+<span class="nc" id="L408">        activeSessions.clear();</span>
+<span class="nc" id="L409">    }</span>
+    
+    /**
+     * アクティブセッション数を取得
+     */
+    public int getActiveSessionsCount() {
+<span class="nc" id="L415">        return activeSessions.size();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

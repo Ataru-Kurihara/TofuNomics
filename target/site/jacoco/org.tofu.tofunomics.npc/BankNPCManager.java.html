@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BankNPCManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.npc</a> &gt; <span class="el_source">BankNPCManager.java</span></div><h1>BankNPCManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.npc;
+
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.BankLocationManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.npc.gui.BankGUI;
+
+import java.util.Collection;
+import java.util.UUID;
+
+public class BankNPCManager {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final NPCManager npcManager;
+    private final BankLocationManager bankLocationManager;
+    private final CurrencyConverter currencyConverter;
+    private final BankGUI bankGUI;
+    
+    public BankNPCManager(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager, 
+                         BankLocationManager bankLocationManager, CurrencyConverter currencyConverter,
+<span class="nc" id="L26">                         BankGUI bankGUI) {</span>
+<span class="nc" id="L27">        this.plugin = plugin;</span>
+<span class="nc" id="L28">        this.configManager = configManager;</span>
+<span class="nc" id="L29">        this.npcManager = npcManager;</span>
+<span class="nc" id="L30">        this.bankLocationManager = bankLocationManager;</span>
+<span class="nc" id="L31">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L32">        this.bankGUI = bankGUI;</span>
+<span class="nc" id="L33">    }</span>
+    
+    public void initializeBankNPCs() {
+        try {
+<span class="nc bnc" id="L37" title="All 2 branches missed.">            if (!configManager.isBankNPCEnabled()) {</span>
+<span class="nc" id="L38">                plugin.getLogger().info(&quot;銀行NPCシステムは無効化されています&quot;);</span>
+<span class="nc" id="L39">                return;</span>
+            }
+            
+<span class="nc" id="L42">            spawnBankNPCs();</span>
+<span class="nc" id="L43">            plugin.getLogger().info(&quot;銀行NPCシステムを初期化しました&quot;);</span>
+<span class="nc" id="L44">        } catch (Exception e) {</span>
+<span class="nc" id="L45">            plugin.getLogger().severe(&quot;銀行NPCシステムの初期化中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L46">            e.printStackTrace();</span>
+<span class="nc" id="L47">        }</span>
+<span class="nc" id="L48">    }</span>
+    
+    private void spawnBankNPCs() {
+<span class="nc" id="L51">        plugin.getLogger().info(&quot;銀行NPCをスポーンしています...&quot;);</span>
+        
+        // config.ymlから銀行NPCの位置情報を取得してスポーン
+<span class="nc" id="L54">        java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; bankNPCLocations = configManager.getBankNPCLocations();</span>
+        
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if (!bankNPCLocations.isEmpty()) {</span>
+<span class="nc" id="L57">            plugin.getLogger().info(&quot;config.ymlから&quot; + bankNPCLocations.size() + &quot;個の銀行NPC設定を読み込みました&quot;);</span>
+            
+<span class="nc bnc" id="L59" title="All 2 branches missed.">            for (java.util.Map&lt;?, ?&gt; npcData : bankNPCLocations) {</span>
+                try {
+<span class="nc" id="L61">                    String worldName = (String) npcData.get(&quot;world&quot;);</span>
+<span class="nc" id="L62">                    int x = ((Number) npcData.get(&quot;x&quot;)).intValue();</span>
+<span class="nc" id="L63">                    int y = ((Number) npcData.get(&quot;y&quot;)).intValue();</span>
+<span class="nc" id="L64">                    int z = ((Number) npcData.get(&quot;z&quot;)).intValue();</span>
+<span class="nc" id="L65">                    String npcName = (String) npcData.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">                    String npcType = npcData.get(&quot;type&quot;) != null ? (String) npcData.get(&quot;type&quot;) : &quot;bank&quot;;</span>
+                    
+
+                    
+<span class="nc" id="L70">                    Location npcLocation = new Location(</span>
+<span class="nc" id="L71">                        plugin.getServer().getWorld(worldName),</span>
+                        x + 0.5,
+                        y,
+                        z + 0.5
+                    );
+                    
+<span class="nc" id="L77">                    Villager bankNPC = npcManager.createNPC(npcLocation, &quot;banker&quot;, npcName);</span>
+                    
+<span class="nc bnc" id="L79" title="All 2 branches missed.">                    if (bankNPC != null) {</span>
+<span class="nc" id="L80">                        setupBankNPC(bankNPC);</span>
+<span class="nc" id="L81">                        plugin.getLogger().info(&quot;銀行NPCを配置しました: &quot; + npcName + &quot; (&quot; + npcType + &quot;) at &quot; + </span>
+                            worldName + &quot; [&quot; + x + &quot;, &quot; + y + &quot;, &quot; + z + &quot;]&quot;);
+                    } else {
+<span class="nc" id="L84">                        plugin.getLogger().warning(&quot;銀行NPCの生成に失敗しました: &quot; + npcName);</span>
+                    }
+<span class="nc" id="L86">                } catch (Exception e) {</span>
+<span class="nc" id="L87">                    plugin.getLogger().severe(&quot;銀行NPCのスポーン中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L88">                    e.printStackTrace();</span>
+<span class="nc" id="L89">                }</span>
+<span class="nc" id="L90">            }</span>
+        } else {
+<span class="nc" id="L92">            plugin.getLogger().info(&quot;config.ymlに銀行NPC設定が見つかりません&quot;);</span>
+        }
+        
+        // 既存のBankLocationManagerベースの処理も保持（後方互換性）
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        for (BankLocationManager.BankLocation bankLocation : bankLocationManager.getBankLocations()) {</span>
+<span class="nc" id="L97">            String npcName = configManager.getBankNPCName(bankLocation.getName());</span>
+            
+            // 削除フラグをチェック
+
+            
+<span class="nc" id="L102">            Location npcLocation = new Location(</span>
+<span class="nc" id="L103">                plugin.getServer().getWorld(bankLocation.getWorld()),</span>
+<span class="nc" id="L104">                bankLocation.getX() + 0.5,</span>
+<span class="nc" id="L105">                bankLocation.getY(),</span>
+<span class="nc" id="L106">                bankLocation.getZ() + 0.5</span>
+            );
+            
+<span class="nc" id="L109">            Villager bankNPC = npcManager.createNPC(npcLocation, &quot;banker&quot;, npcName);</span>
+            
+<span class="nc bnc" id="L111" title="All 2 branches missed.">            if (bankNPC != null) {</span>
+<span class="nc" id="L112">                setupBankNPC(bankNPC);</span>
+<span class="nc" id="L113">                plugin.getLogger().info(&quot;銀行NPCを配置しました: &quot; + npcName + &quot; at &quot; + bankLocation.getName());</span>
+            }
+<span class="nc" id="L115">        }</span>
+        
+        // ATM場所にもNPCを配置
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        for (BankLocationManager.BankLocation atmLocation : bankLocationManager.getAtmLocations()) {</span>
+<span class="nc" id="L119">            String npcName = configManager.getATMNPCName(atmLocation.getName());</span>
+            
+            // 削除フラグをチェック
+
+            
+<span class="nc" id="L124">            Location npcLocation = new Location(</span>
+<span class="nc" id="L125">                plugin.getServer().getWorld(atmLocation.getWorld()),</span>
+<span class="nc" id="L126">                atmLocation.getX() + 0.5,</span>
+<span class="nc" id="L127">                atmLocation.getY(),</span>
+<span class="nc" id="L128">                atmLocation.getZ() + 0.5</span>
+            );
+            
+<span class="nc" id="L131">            Villager atmNPC = npcManager.createNPC(npcLocation, &quot;banker&quot;, npcName);</span>
+            
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            if (atmNPC != null) {</span>
+<span class="nc" id="L134">                setupBankNPC(atmNPC);</span>
+<span class="nc" id="L135">                plugin.getLogger().info(&quot;ATM NPCを配置しました: &quot; + npcName + &quot; at &quot; + atmLocation.getName());</span>
+            }
+<span class="nc" id="L137">        }</span>
+<span class="nc" id="L138">    }</span>
+    
+    private void setupBankNPC(Villager npc) {
+        // NPCの外見設定
+<span class="nc" id="L142">        npc.setProfession(Villager.Profession.LIBRARIAN);</span>
+<span class="nc" id="L143">        npc.setVillagerType(Villager.Type.PLAINS);</span>
+<span class="nc" id="L144">        npc.setAdult();</span>
+<span class="nc" id="L145">        npc.setAI(false);</span>
+<span class="nc" id="L146">        npc.setInvulnerable(true);</span>
+<span class="nc" id="L147">        npc.setSilent(true);</span>
+<span class="nc" id="L148">        npc.setCanPickupItems(false);</span>
+        
+        // NPCのカスタム名を設定
+<span class="nc" id="L151">        npc.setCustomNameVisible(true);</span>
+        
+        // タグを付けて銀行NPCとして識別
+<span class="nc" id="L154">        npc.addScoreboardTag(&quot;tofu_bank_npc&quot;);</span>
+<span class="nc" id="L155">    }</span>
+    
+    public boolean handleBankNPCInteraction(Player player, UUID npcId) {
+<span class="nc" id="L158">        NPCManager.NPCData npcData = npcManager.getNPCData(npcId);</span>
+<span class="nc bnc" id="L159" title="All 4 branches missed.">        if (npcData == null || !npcData.getNpcType().equals(&quot;banker&quot;)) {</span>
+<span class="nc" id="L160">            return false;</span>
+        }
+        
+        // 銀行操作距離の確認
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        if (npcData.getLocation().distance(player.getLocation()) &gt; configManager.getBankAccessRange()) {</span>
+<span class="nc" id="L165">            player.sendMessage(configManager.getMessage(&quot;npc.bank.too_far&quot;));</span>
+<span class="nc" id="L166">            return false;</span>
+        }
+        
+        // 銀行NPCメニューを開く
+<span class="nc" id="L170">        openBankMenu(player, npcData);</span>
+<span class="nc" id="L171">        return true;</span>
+    }
+    
+    private void openBankMenu(Player player, NPCManager.NPCData npcData) {
+        // ウェルカムメッセージを送信
+<span class="nc" id="L176">        player.sendMessage(configManager.getMessage(&quot;npc.bank.welcome&quot;, &quot;player&quot;, player.getName()));</span>
+        
+        // 銀行GUIを開く
+<span class="nc" id="L179">        bankGUI.openBankGUI(player, npcData);</span>
+<span class="nc" id="L180">    }</span>
+    
+    public void removeBankNPCs() {
+<span class="nc" id="L183">        plugin.getLogger().info(&quot;全ての銀行NPCを削除しています...&quot;);</span>
+        
+<span class="nc" id="L185">        Collection&lt;NPCManager.NPCData&gt; allNPCs = npcManager.getAllNPCs();</span>
+<span class="nc" id="L186">        int removedCount = 0;</span>
+        
+<span class="nc bnc" id="L188" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : allNPCs) {</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">            if (npcData.getNpcType().equals(&quot;banker&quot;)) {</span>
+<span class="nc" id="L190">                npcManager.removeNPC(npcData.getEntityId());</span>
+<span class="nc" id="L191">                removedCount++;</span>
+            }
+<span class="nc" id="L193">        }</span>
+        
+<span class="nc" id="L195">        plugin.getLogger().info(&quot;全ての銀行NPCを削除しました: &quot; + removedCount + &quot;体&quot;);</span>
+<span class="nc" id="L196">    }</span>
+    
+    public void reloadBankNPCs() {
+<span class="nc" id="L199">        plugin.getLogger().info(&quot;銀行NPCをリロードしています...&quot;);</span>
+<span class="nc" id="L200">        removeBankNPCs();</span>
+<span class="nc" id="L201">        spawnBankNPCs();</span>
+<span class="nc" id="L202">        plugin.getLogger().info(&quot;銀行NPCのリロードが完了しました&quot;);</span>
+<span class="nc" id="L203">    }</span>
+    
+    public String getBankNPCInfo(UUID npcId) {
+<span class="nc" id="L206">        NPCManager.NPCData npcData = npcManager.getNPCData(npcId);</span>
+<span class="nc bnc" id="L207" title="All 4 branches missed.">        if (npcData == null || !npcData.getNpcType().equals(&quot;banker&quot;)) {</span>
+<span class="nc" id="L208">            return null;</span>
+        }
+        
+<span class="nc" id="L211">        Location loc = npcData.getLocation();</span>
+<span class="nc" id="L212">        return String.format(&quot;銀行NPC: %s (%s) at %s [%.1f, %.1f, %.1f]&quot;,</span>
+<span class="nc" id="L213">            npcData.getName(),</span>
+<span class="nc" id="L214">            npcData.getNpcType(),</span>
+<span class="nc" id="L215">            loc.getWorld().getName(),</span>
+<span class="nc" id="L216">            loc.getX(),</span>
+<span class="nc" id="L217">            loc.getY(),</span>
+<span class="nc" id="L218">            loc.getZ()</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

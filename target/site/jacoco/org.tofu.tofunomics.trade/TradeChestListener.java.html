@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TradeChestListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.trade</a> &gt; <span class="el_source">TradeChestListener.java</span></div><h1>TradeChestListener.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.trade;
+
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Chest;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+import org.tofu.tofunomics.models.PlayerTradeHistory;
+import org.tofu.tofunomics.models.TradeChest;
+import org.tofu.tofunomics.trade.TradePriceManager.TradeResult;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * チェストイベント監視システム
+ */
+public class TradeChestListener implements Listener {
+    
+    private final TradeChestManager tradeChestManager;
+    private final TradePriceManager tradePriceManager;
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final JobManager jobManager;
+    
+    // プレイヤーが開いている取引チェストの追跡
+    private final Map&lt;String, TradeChestSession&gt; activeTradesSessions;
+    
+    public TradeChestListener(TradeChestManager tradeChestManager, TradePriceManager tradePriceManager,
+<span class="nc" id="L44">                             ConfigManager configManager, PlayerDAO playerDAO, JobManager jobManager) {</span>
+<span class="nc" id="L45">        this.tradeChestManager = tradeChestManager;</span>
+<span class="nc" id="L46">        this.tradePriceManager = tradePriceManager;</span>
+<span class="nc" id="L47">        this.configManager = configManager;</span>
+<span class="nc" id="L48">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L49">        this.jobManager = jobManager;</span>
+<span class="nc" id="L50">        this.activeTradesSessions = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L51">    }</span>
+    
+    @EventHandler
+    public void onInventoryOpen(InventoryOpenEvent event) {
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (!(event.getPlayer() instanceof Player)) return;</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if (event.getInventory().getType() != InventoryType.CHEST) return;</span>
+        
+<span class="nc" id="L58">        Player player = (Player) event.getPlayer();</span>
+<span class="nc" id="L59">        Location chestLocation = event.getInventory().getLocation();</span>
+        
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (chestLocation == null) return;</span>
+        
+<span class="nc" id="L63">        TradeChest tradeChest = tradeChestManager.getTradeChest(chestLocation);</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (tradeChest == null) return;</span>
+        
+        // 取引セッション開始
+<span class="nc" id="L67">        TradeChestSession session = new TradeChestSession(player, tradeChest, </span>
+<span class="nc" id="L68">                                                         captureInventoryContents(event.getInventory()));</span>
+<span class="nc" id="L69">        activeTradesSessions.put(player.getUniqueId().toString(), session);</span>
+        
+        // プレイヤーに取引チェスト情報を表示
+<span class="nc" id="L72">        String jobDisplayName = configManager.getJobDisplayName(tradeChest.getJobType());</span>
+<span class="nc" id="L73">        player.sendMessage(ChatColor.GOLD + &quot;=== &quot; + jobDisplayName + &quot; 取引所 ===&quot;);</span>
+<span class="nc" id="L74">        player.sendMessage(ChatColor.YELLOW + &quot;アイテムをチェストに入れると自動で買取します。&quot;);</span>
+<span class="nc" id="L75">        player.sendMessage(ChatColor.GRAY + &quot;チェストを閉じると取引が実行されます。&quot;);</span>
+<span class="nc" id="L76">    }</span>
+    
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if (!(event.getPlayer() instanceof Player)) return;</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (event.getInventory().getType() != InventoryType.CHEST) return;</span>
+        
+<span class="nc" id="L83">        Player player = (Player) event.getPlayer();</span>
+<span class="nc" id="L84">        String playerUUID = player.getUniqueId().toString();</span>
+        
+<span class="nc" id="L86">        TradeChestSession session = activeTradesSessions.remove(playerUUID);</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        if (session == null) return;</span>
+        
+        // 取引処理実行
+<span class="nc" id="L90">        processTrade(player, session, event.getInventory());</span>
+<span class="nc" id="L91">    }</span>
+    
+    /**
+     * 取引処理を実行
+     */
+    private void processTrade(Player player, TradeChestSession session, Inventory currentInventory) {
+<span class="nc" id="L97">        TradeChest tradeChest = session.getTradeChest();</span>
+<span class="nc" id="L98">        Map&lt;Material, Integer&gt; initialContents = session.getInitialContents();</span>
+<span class="nc" id="L99">        Map&lt;Material, Integer&gt; currentContents = captureInventoryContents(currentInventory);</span>
+        
+        // 追加されたアイテムを計算
+<span class="nc" id="L102">        Map&lt;Material, Integer&gt; addedItems = calculateAddedItems(initialContents, currentContents);</span>
+        
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (addedItems.isEmpty()) {</span>
+<span class="nc" id="L105">            player.sendMessage(ChatColor.YELLOW + &quot;取引するアイテムがありませんでした。&quot;);</span>
+<span class="nc" id="L106">            return;</span>
+        }
+        
+        // 各アイテムの取引を処理
+<span class="nc" id="L110">        List&lt;TradeTransaction&gt; transactions = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L111">        double totalEarnings = 0.0;</span>
+        
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        for (Map.Entry&lt;Material, Integer&gt; entry : addedItems.entrySet()) {</span>
+<span class="nc" id="L114">            Material material = entry.getKey();</span>
+<span class="nc" id="L115">            int amount = entry.getValue();</span>
+            
+<span class="nc" id="L117">            TradeResult result = tradePriceManager.calculateTradePrice(player, tradeChest, material, amount);</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">            if (result.isSuccess()) {</span>
+<span class="nc" id="L119">                TradeTransaction transaction = new TradeTransaction(material, amount, result);</span>
+<span class="nc" id="L120">                transactions.add(transaction);</span>
+<span class="nc" id="L121">                totalEarnings += result.getTotalPrice();</span>
+                
+                // チェストからアイテムを削除
+<span class="nc" id="L124">                removeItemFromInventory(currentInventory, material, amount);</span>
+            }
+<span class="nc" id="L126">        }</span>
+        
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (transactions.isEmpty()) {</span>
+<span class="nc" id="L129">            player.sendMessage(ChatColor.RED + &quot;買取できるアイテムがありませんでした。&quot;);</span>
+<span class="nc" id="L130">            return;</span>
+        }
+        
+        // プレイヤーに金額を付与
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        if (totalEarnings &gt; 0) {</span>
+            try {
+<span class="nc" id="L136">                org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">                if (tofuPlayer != null) {</span>
+<span class="nc" id="L138">                    tofuPlayer.setBalance(tofuPlayer.getBalance() + totalEarnings);</span>
+<span class="nc" id="L139">                    playerDAO.updatePlayer(tofuPlayer);</span>
+                }
+<span class="nc" id="L141">            } catch (Exception e) {</span>
+<span class="nc" id="L142">                player.sendMessage(ChatColor.RED + &quot;残高の更新に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L143">                return;</span>
+<span class="nc" id="L144">            }</span>
+        }
+        
+        // 取引履歴を保存
+<span class="nc" id="L148">        saveTradeHistory(player, tradeChest, transactions);</span>
+        
+        // 取引結果をプレイヤーに表示
+<span class="nc" id="L151">        displayTradeResult(player, transactions, totalEarnings);</span>
+<span class="nc" id="L152">    }</span>
+    
+    /**
+     * 追加されたアイテムを計算
+     */
+    private Map&lt;Material, Integer&gt; calculateAddedItems(Map&lt;Material, Integer&gt; initial, 
+                                                      Map&lt;Material, Integer&gt; current) {
+<span class="nc" id="L159">        Map&lt;Material, Integer&gt; added = new HashMap&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        for (Map.Entry&lt;Material, Integer&gt; entry : current.entrySet()) {</span>
+<span class="nc" id="L162">            Material material = entry.getKey();</span>
+<span class="nc" id="L163">            int currentAmount = entry.getValue();</span>
+<span class="nc" id="L164">            int initialAmount = initial.getOrDefault(material, 0);</span>
+            
+<span class="nc bnc" id="L166" title="All 2 branches missed.">            if (currentAmount &gt; initialAmount) {</span>
+<span class="nc" id="L167">                added.put(material, currentAmount - initialAmount);</span>
+            }
+<span class="nc" id="L169">        }</span>
+        
+<span class="nc" id="L171">        return added;</span>
+    }
+    
+    /**
+     * インベントリの内容を取得
+     */
+    private Map&lt;Material, Integer&gt; captureInventoryContents(Inventory inventory) {
+<span class="nc" id="L178">        Map&lt;Material, Integer&gt; contents = new HashMap&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L180" title="All 2 branches missed.">        for (ItemStack item : inventory.getContents()) {</span>
+<span class="nc bnc" id="L181" title="All 4 branches missed.">            if (item != null &amp;&amp; item.getType() != Material.AIR) {</span>
+<span class="nc" id="L182">                Material material = item.getType();</span>
+<span class="nc" id="L183">                int amount = contents.getOrDefault(material, 0) + item.getAmount();</span>
+<span class="nc" id="L184">                contents.put(material, amount);</span>
+            }
+        }
+        
+<span class="nc" id="L188">        return contents;</span>
+    }
+    
+    /**
+     * インベントリから指定アイテムを削除
+     */
+    private void removeItemFromInventory(Inventory inventory, Material material, int amountToRemove) {
+<span class="nc" id="L195">        int remaining = amountToRemove;</span>
+        
+<span class="nc bnc" id="L197" title="All 4 branches missed.">        for (int i = 0; i &lt; inventory.getSize() &amp;&amp; remaining &gt; 0; i++) {</span>
+<span class="nc" id="L198">            ItemStack item = inventory.getItem(i);</span>
+<span class="nc bnc" id="L199" title="All 4 branches missed.">            if (item != null &amp;&amp; item.getType() == material) {</span>
+<span class="nc" id="L200">                int itemAmount = item.getAmount();</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">                if (itemAmount &lt;= remaining) {</span>
+<span class="nc" id="L202">                    inventory.setItem(i, null);</span>
+<span class="nc" id="L203">                    remaining -= itemAmount;</span>
+                } else {
+<span class="nc" id="L205">                    item.setAmount(itemAmount - remaining);</span>
+<span class="nc" id="L206">                    remaining = 0;</span>
+                }
+            }
+        }
+<span class="nc" id="L210">    }</span>
+    
+    /**
+     * 取引履歴を保存
+     */
+    private void saveTradeHistory(Player player, TradeChest tradeChest, List&lt;TradeTransaction&gt; transactions) {
+<span class="nc" id="L216">        String playerUUID = player.getUniqueId().toString();</span>
+        
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        for (TradeTransaction transaction : transactions) {</span>
+<span class="nc" id="L219">            PlayerJob playerJob = jobManager.getPlayerJob(player, tradeChest.getJobType());</span>
+            
+<span class="nc" id="L221">            PlayerTradeHistory history = new PlayerTradeHistory(</span>
+                playerUUID,
+<span class="nc" id="L223">                tradeChest.getId(),</span>
+<span class="nc" id="L224">                transaction.getMaterial().name(),</span>
+<span class="nc" id="L225">                transaction.getAmount(),</span>
+<span class="nc" id="L226">                transaction.getResult().getBasePrice(),</span>
+<span class="nc" id="L227">                tradeChest.getJobType(),</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">                playerJob != null ? playerJob.getLevel() : 1</span>
+            );
+            
+<span class="nc" id="L231">            history.setJobBonus(transaction.getResult().getJobBonus());</span>
+<span class="nc" id="L232">            tradeChestManager.saveTradeHistory(history);</span>
+<span class="nc" id="L233">        }</span>
+<span class="nc" id="L234">    }</span>
+    
+    /**
+     * 取引結果を表示
+     */
+    private void displayTradeResult(Player player, List&lt;TradeTransaction&gt; transactions, double totalEarnings) {
+<span class="nc" id="L240">        player.sendMessage(ChatColor.GOLD + &quot;=== 取引完了 ===&quot;);</span>
+        
+<span class="nc bnc" id="L242" title="All 2 branches missed.">        for (TradeTransaction transaction : transactions) {</span>
+<span class="nc" id="L243">            String itemName = getItemDisplayName(transaction.getMaterial());</span>
+<span class="nc" id="L244">            String message = String.format(&quot;%s%s x%d §f→ §a%.2f金塊&quot;, </span>
+<span class="nc" id="L245">                ChatColor.YELLOW, itemName, transaction.getAmount(), </span>
+<span class="nc" id="L246">                transaction.getResult().getTotalPrice());</span>
+            
+<span class="nc bnc" id="L248" title="All 2 branches missed.">            if (transaction.getResult().getJobBonus() &gt; 0) {</span>
+<span class="nc" id="L249">                message += String.format(&quot; §7(ボーナス: +%.2f)&quot;, transaction.getResult().getJobBonus());</span>
+            }
+            
+<span class="nc" id="L252">            player.sendMessage(message);</span>
+<span class="nc" id="L253">        }</span>
+        
+<span class="nc" id="L255">        player.sendMessage(String.format(&quot;%s合計収益: §a%.2f金塊&quot;, ChatColor.GOLD, totalEarnings));</span>
+<span class="nc" id="L256">        player.sendMessage(ChatColor.GRAY + &quot;残高に追加されました。&quot;);</span>
+<span class="nc" id="L257">    }</span>
+    
+    /**
+     * アイテム表示名を取得
+     */
+    private String getItemDisplayName(Material material) {
+        // 簡略実装
+<span class="nc" id="L264">        return material.name().toLowerCase().replace(&quot;_&quot;, &quot; &quot;);</span>
+    }
+    
+    /**
+     * 取引セッションクラス
+     */
+    private static class TradeChestSession {
+        private final Player player;
+        private final TradeChest tradeChest;
+        private final Map&lt;Material, Integer&gt; initialContents;
+        
+<span class="nc" id="L275">        public TradeChestSession(Player player, TradeChest tradeChest, Map&lt;Material, Integer&gt; initialContents) {</span>
+<span class="nc" id="L276">            this.player = player;</span>
+<span class="nc" id="L277">            this.tradeChest = tradeChest;</span>
+<span class="nc" id="L278">            this.initialContents = initialContents;</span>
+<span class="nc" id="L279">        }</span>
+        
+<span class="nc" id="L281">        public Player getPlayer() { return player; }</span>
+<span class="nc" id="L282">        public TradeChest getTradeChest() { return tradeChest; }</span>
+<span class="nc" id="L283">        public Map&lt;Material, Integer&gt; getInitialContents() { return initialContents; }</span>
+    }
+    
+    /**
+     * 取引トランザクションクラス
+     */
+    private static class TradeTransaction {
+        private final Material material;
+        private final int amount;
+        private final TradeResult result;
+        
+<span class="nc" id="L294">        public TradeTransaction(Material material, int amount, TradeResult result) {</span>
+<span class="nc" id="L295">            this.material = material;</span>
+<span class="nc" id="L296">            this.amount = amount;</span>
+<span class="nc" id="L297">            this.result = result;</span>
+<span class="nc" id="L298">        }</span>
+        
+<span class="nc" id="L300">        public Material getMaterial() { return material; }</span>
+<span class="nc" id="L301">        public int getAmount() { return amount; }</span>
+<span class="nc" id="L302">        public TradeResult getResult() { return result; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

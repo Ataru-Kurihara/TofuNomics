@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PayCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">PayCommand.java</span></div><h1>PayCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+
+public class PayCommand implements CommandExecutor {
+    
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    
+<span class="fc" id="L17">    public PayCommand(ConfigManager configManager, CurrencyConverter currencyConverter) {</span>
+<span class="fc" id="L18">        this.configManager = configManager;</span>
+<span class="fc" id="L19">        this.currencyConverter = currencyConverter;</span>
+<span class="fc" id="L20">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="pc bpc" id="L24" title="1 of 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L25">            sender.sendMessage(ChatColor.RED + &quot;このコマンドはプレイヤーのみ実行できます。&quot;);</span>
+<span class="nc" id="L26">            return true;</span>
+        }
+        
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        if (args.length != 2) {</span>
+<span class="fc" id="L30">            sender.sendMessage(ChatColor.RED + &quot;使用法: /pay &lt;プレイヤー名&gt; &lt;金額&gt;&quot;);</span>
+<span class="fc" id="L31">            return true;</span>
+        }
+        
+<span class="fc" id="L34">        Player fromPlayer = (Player) sender;</span>
+<span class="fc" id="L35">        String targetPlayerName = args[0];</span>
+<span class="fc" id="L36">        String amountString = args[1];</span>
+        
+<span class="fc" id="L38">        Player targetPlayer = Bukkit.getPlayer(targetPlayerName);</span>
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">        if (targetPlayer == null) {</span>
+<span class="nc" id="L40">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L41">                configManager.getMessagePrefix() + configManager.getMessage(&quot;player_not_found&quot;)));</span>
+<span class="nc" id="L42">            return true;</span>
+        }
+        
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (fromPlayer.getUniqueId().equals(targetPlayer.getUniqueId())) {</span>
+<span class="fc" id="L46">            sender.sendMessage(ChatColor.RED + &quot;自分自身には送金できません。&quot;);</span>
+<span class="fc" id="L47">            return true;</span>
+        }
+        
+        double amount;
+        try {
+<span class="fc" id="L52">            amount = Double.parseDouble(amountString);</span>
+<span class="fc" id="L53">        } catch (NumberFormatException e) {</span>
+<span class="fc" id="L54">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="fc" id="L55">                configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="fc" id="L56">            return true;</span>
+<span class="fc" id="L57">        }</span>
+        
+<span class="fc" id="L59">        double minAmount = configManager.getMinimumPayAmount();</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        if (amount &lt; minAmount) {</span>
+<span class="fc" id="L61">            sender.sendMessage(ChatColor.RED + &quot;最低送金額は &quot; + </span>
+<span class="fc" id="L62">                currencyConverter.formatCurrency(minAmount) + &quot; &quot; + </span>
+<span class="fc" id="L63">                configManager.getCurrencySymbol() + &quot; です。&quot;);</span>
+<span class="fc" id="L64">            return true;</span>
+        }
+        
+<span class="fc" id="L67">        double maxAmount = configManager.getMaximumPayAmount();</span>
+<span class="pc bpc" id="L68" title="2 of 4 branches missed.">        if (maxAmount &gt; 0 &amp;&amp; amount &gt; maxAmount) {</span>
+<span class="nc" id="L69">            sender.sendMessage(ChatColor.RED + &quot;最高送金額は &quot; + </span>
+<span class="nc" id="L70">                currencyConverter.formatCurrency(maxAmount) + &quot; &quot; + </span>
+<span class="nc" id="L71">                configManager.getCurrencySymbol() + &quot; です。&quot;);</span>
+<span class="nc" id="L72">            return true;</span>
+        }
+        
+<span class="fc" id="L75">        double fee = amount * (configManager.getPayFeePercentage() / 100.0);</span>
+<span class="fc" id="L76">        double totalCost = amount + fee;</span>
+        
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (!currencyConverter.canAfford(fromPlayer, totalCost)) {</span>
+<span class="fc" id="L79">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="fc" id="L80">                configManager.getMessagePrefix() + configManager.getMessage(&quot;insufficient_balance&quot;)));</span>
+<span class="fc" id="L81">            return true;</span>
+        }
+        
+        // 送金額のみを受取人に送金し、手数料は送金者から差し引く
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (currencyConverter.transfer(fromPlayer, targetPlayer, amount)) {</span>
+            // 手数料がある場合は送金者から追加で差し引く
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            if (fee &gt; 0) {</span>
+<span class="fc" id="L88">                currencyConverter.subtractBalance(fromPlayer.getUniqueId(), fee);</span>
+            }
+            
+<span class="fc" id="L91">            String formattedAmount = currencyConverter.formatCurrency(amount);</span>
+<span class="fc" id="L92">            String currencySymbol = configManager.getCurrencySymbol();</span>
+            
+<span class="fc" id="L94">            String senderMessage = configManager.getMessage(&quot;economy.pay_sent&quot;,</span>
+<span class="fc" id="L95">                &quot;player&quot;, targetPlayer.getName(),</span>
+                &quot;amount&quot;, formattedAmount,
+                &quot;currency&quot;, currencySymbol);
+            
+<span class="fc" id="L99">            String receiverMessage = configManager.getMessage(&quot;economy.pay_received&quot;,</span>
+<span class="fc" id="L100">                &quot;player&quot;, fromPlayer.getName(),</span>
+                &quot;amount&quot;, formattedAmount,
+                &quot;currency&quot;, currencySymbol);
+            
+<span class="fc" id="L104">            fromPlayer.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="fc" id="L105">                configManager.getMessagePrefix() + senderMessage));</span>
+            
+<span class="fc" id="L107">            targetPlayer.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="fc" id="L108">                configManager.getMessagePrefix() + receiverMessage));</span>
+            
+<span class="fc bfc" id="L110" title="All 2 branches covered.">            if (fee &gt; 0) {</span>
+<span class="fc" id="L111">                fromPlayer.sendMessage(ChatColor.YELLOW + &quot;送金手数料: &quot; + </span>
+<span class="fc" id="L112">                    currencyConverter.formatCurrency(fee) + &quot; &quot; + currencySymbol);</span>
+            }
+            
+<span class="fc" id="L115">        } else {</span>
+<span class="fc" id="L116">            sender.sendMessage(ChatColor.RED + &quot;送金に失敗しました。しばらくしてから再度お試しください。&quot;);</span>
+        }
+        
+<span class="fc" id="L119">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobCraftPermissionManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.jobs</a> &gt; <span class="el_source">JobCraftPermissionManager.java</span></div><h1>JobCraftPermissionManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.jobs;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.tofu.tofunomics.config.ConfigManager;
+
+import java.util.*;
+
+/**
+ * 職業別クラフト制限管理クラス
+ */
+public class JobCraftPermissionManager {
+    
+    private final JavaPlugin plugin;
+    private final JobManager jobManager;
+    private final ConfigManager configManager;
+    private final Map&lt;String, Set&lt;Material&gt;&gt; jobCraftableItems;
+    private final Set&lt;Material&gt; publicCraftableItems;
+    
+<span class="nc" id="L21">    public JobCraftPermissionManager(JavaPlugin plugin, JobManager jobManager, ConfigManager configManager) {</span>
+<span class="nc" id="L22">        this.plugin = plugin;</span>
+<span class="nc" id="L23">        this.jobManager = jobManager;</span>
+<span class="nc" id="L24">        this.configManager = configManager;</span>
+<span class="nc" id="L25">        this.jobCraftableItems = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L26">        this.publicCraftableItems = new HashSet&lt;&gt;();</span>
+        
+<span class="nc" id="L28">        initializeJobCraftableItems();</span>
+<span class="nc" id="L29">        initializePublicCraftableItems();</span>
+<span class="nc" id="L30">    }</span>
+    
+    /**
+     * 職業ごとのクラフト可能アイテムを初期化
+     */
+    private void initializeJobCraftableItems() {
+        // 鍛冶屋 (blacksmith) - 防具、武器、かまど
+<span class="nc" id="L37">        Set&lt;Material&gt; blacksmithItems = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // 防具類
+            Material.LEATHER_HELMET, Material.LEATHER_CHESTPLATE, Material.LEATHER_LEGGINGS, Material.LEATHER_BOOTS,
+            Material.CHAINMAIL_HELMET, Material.CHAINMAIL_CHESTPLATE, Material.CHAINMAIL_LEGGINGS, Material.CHAINMAIL_BOOTS,
+            Material.IRON_HELMET, Material.IRON_CHESTPLATE, Material.IRON_LEGGINGS, Material.IRON_BOOTS,
+            Material.GOLDEN_HELMET, Material.GOLDEN_CHESTPLATE, Material.GOLDEN_LEGGINGS, Material.GOLDEN_BOOTS,
+            Material.DIAMOND_HELMET, Material.DIAMOND_CHESTPLATE, Material.DIAMOND_LEGGINGS, Material.DIAMOND_BOOTS,
+            Material.NETHERITE_HELMET, Material.NETHERITE_CHESTPLATE, Material.NETHERITE_LEGGINGS, Material.NETHERITE_BOOTS,
+            // 武器類
+            Material.WOODEN_SWORD, Material.STONE_SWORD, Material.IRON_SWORD, Material.GOLDEN_SWORD, 
+            Material.DIAMOND_SWORD, Material.NETHERITE_SWORD,
+            Material.BOW, Material.CROSSBOW, Material.TRIDENT,
+            // 設備類
+            Material.FURNACE, Material.BLAST_FURNACE, Material.ANVIL, Material.CHIPPED_ANVIL, Material.DAMAGED_ANVIL,
+            Material.GRINDSTONE, Material.SMITHING_TABLE
+        ));
+<span class="nc" id="L53">        jobCraftableItems.put(&quot;blacksmith&quot;, blacksmithItems);</span>
+        
+        // 鉱夫 (miner) - つるはし、石関連
+<span class="nc" id="L56">        Set&lt;Material&gt; minerItems = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // つるはし類
+            Material.WOODEN_PICKAXE, Material.STONE_PICKAXE, Material.IRON_PICKAXE, 
+            Material.GOLDEN_PICKAXE, Material.DIAMOND_PICKAXE, Material.NETHERITE_PICKAXE,
+            // 石関連
+            Material.STONE, Material.SMOOTH_STONE, Material.STONE_BRICKS, Material.MOSSY_STONE_BRICKS,
+            Material.CRACKED_STONE_BRICKS, Material.CHISELED_STONE_BRICKS, Material.POLISHED_GRANITE,
+            Material.POLISHED_DIORITE, Material.POLISHED_ANDESITE, Material.COBBLESTONE,
+            Material.MOSSY_COBBLESTONE, Material.STONE_STAIRS, Material.STONE_BRICK_STAIRS,
+            Material.COBBLESTONE_STAIRS, Material.STONE_SLAB, Material.STONE_BRICK_SLAB,
+            Material.COBBLESTONE_SLAB, Material.STONE_BRICK_WALL, Material.COBBLESTONE_WALL,
+            Material.STONE_BRICK_WALL
+        ));
+<span class="nc" id="L69">        jobCraftableItems.put(&quot;miner&quot;, minerItems);</span>
+        
+        // 農家 (farmer) - くわ、食料関連
+<span class="nc" id="L72">        Set&lt;Material&gt; farmerItems = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // くわ類
+            Material.WOODEN_HOE, Material.STONE_HOE, Material.IRON_HOE, 
+            Material.GOLDEN_HOE, Material.DIAMOND_HOE, Material.NETHERITE_HOE,
+            // 食料関連
+            Material.BREAD, Material.CAKE, Material.COOKIE, Material.PUMPKIN_PIE,
+            Material.MUSHROOM_STEW, Material.RABBIT_STEW, Material.BEETROOT_SOUP,
+            Material.SUSPICIOUS_STEW, Material.HONEY_BOTTLE,
+            // 農業関連設備
+            Material.COMPOSTER, Material.FLOWER_POT, Material.CAULDRON,
+            Material.BARREL, Material.SMOKER
+        ));
+<span class="nc" id="L84">        jobCraftableItems.put(&quot;farmer&quot;, farmerItems);</span>
+        
+        // 木こり (woodcutter) - 斧、木関連
+<span class="nc" id="L87">        Set&lt;Material&gt; woodcutterItems = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // 斧類
+            Material.WOODEN_AXE, Material.STONE_AXE, Material.IRON_AXE,
+            Material.GOLDEN_AXE, Material.DIAMOND_AXE, Material.NETHERITE_AXE,
+            // 木材関連
+            Material.OAK_PLANKS, Material.SPRUCE_PLANKS, Material.BIRCH_PLANKS, Material.JUNGLE_PLANKS,
+            Material.ACACIA_PLANKS, Material.DARK_OAK_PLANKS, Material.CRIMSON_PLANKS, Material.WARPED_PLANKS,
+            Material.OAK_STAIRS, Material.SPRUCE_STAIRS, Material.BIRCH_STAIRS, Material.JUNGLE_STAIRS,
+            Material.ACACIA_STAIRS, Material.DARK_OAK_STAIRS, Material.CRIMSON_STAIRS, Material.WARPED_STAIRS,
+            Material.OAK_SLAB, Material.SPRUCE_SLAB, Material.BIRCH_SLAB, Material.JUNGLE_SLAB,
+            Material.ACACIA_SLAB, Material.DARK_OAK_SLAB, Material.CRIMSON_SLAB, Material.WARPED_SLAB,
+            Material.OAK_FENCE, Material.SPRUCE_FENCE, Material.BIRCH_FENCE, Material.JUNGLE_FENCE,
+            Material.ACACIA_FENCE, Material.DARK_OAK_FENCE, Material.CRIMSON_FENCE, Material.WARPED_FENCE,
+            Material.OAK_FENCE_GATE, Material.SPRUCE_FENCE_GATE, Material.BIRCH_FENCE_GATE, Material.JUNGLE_FENCE_GATE,
+            Material.ACACIA_FENCE_GATE, Material.DARK_OAK_FENCE_GATE, Material.CRIMSON_FENCE_GATE, Material.WARPED_FENCE_GATE,
+            Material.OAK_DOOR, Material.SPRUCE_DOOR, Material.BIRCH_DOOR, Material.JUNGLE_DOOR,
+            Material.ACACIA_DOOR, Material.DARK_OAK_DOOR, Material.CRIMSON_DOOR, Material.WARPED_DOOR,
+            Material.CHEST, Material.TRAPPED_CHEST, Material.CRAFTING_TABLE, Material.CARTOGRAPHY_TABLE,
+            Material.FLETCHING_TABLE, Material.LOOM, Material.LECTERN
+        ));
+<span class="nc" id="L107">        jobCraftableItems.put(&quot;woodcutter&quot;, woodcutterItems);</span>
+        
+        // 釣り人 (fisherman) - 船、釣竿
+<span class="nc" id="L110">        Set&lt;Material&gt; fishermanItems = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // 釣竿
+            Material.FISHING_ROD,
+            // 船類
+            Material.OAK_BOAT, Material.SPRUCE_BOAT, Material.BIRCH_BOAT, Material.JUNGLE_BOAT,
+            Material.ACACIA_BOAT, Material.DARK_OAK_BOAT
+        ));
+<span class="nc" id="L117">        jobCraftableItems.put(&quot;fisherman&quot;, fishermanItems);</span>
+        
+        // ポーション屋 (alchemist) - ポーション、醸造関連
+<span class="nc" id="L120">        Set&lt;Material&gt; alchemistItems = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // 醸造関連設備
+            Material.BREWING_STAND, Material.CAULDRON,
+            // ポーション関連（基本的なもの）
+            Material.GLASS_BOTTLE, Material.FERMENTED_SPIDER_EYE, Material.GLISTERING_MELON_SLICE,
+            Material.GOLDEN_CARROT, Material.MAGMA_CREAM, Material.BLAZE_POWDER
+        ));
+<span class="nc" id="L127">        jobCraftableItems.put(&quot;alchemist&quot;, alchemistItems);</span>
+        
+        // エンチャンター (enchanter) - エンチャント関連
+<span class="nc" id="L130">        Set&lt;Material&gt; enchanterItems = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // エンチャント関連
+            Material.ENCHANTING_TABLE, Material.BOOKSHELF, Material.BOOK,
+            Material.WRITABLE_BOOK, Material.WRITTEN_BOOK, Material.PAPER,
+            Material.ITEM_FRAME, Material.ITEM_FRAME
+        ));
+<span class="nc" id="L136">        jobCraftableItems.put(&quot;enchanter&quot;, enchanterItems);</span>
+        
+        // 建築家 (builder) - 建築関連ブロック
+<span class="nc" id="L139">        Set&lt;Material&gt; builderItems = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // 装飾ブロック
+            Material.BRICKS, Material.NETHER_BRICKS, Material.RED_NETHER_BRICKS,
+            Material.QUARTZ_BLOCK, Material.SMOOTH_QUARTZ, Material.CHISELED_QUARTZ_BLOCK,
+            Material.QUARTZ_PILLAR, Material.QUARTZ_STAIRS, Material.QUARTZ_SLAB,
+            Material.BRICK_STAIRS, Material.BRICK_SLAB, Material.BRICK_WALL,
+            Material.NETHER_BRICK_STAIRS, Material.NETHER_BRICK_SLAB, Material.NETHER_BRICK_WALL,
+            Material.RED_NETHER_BRICK_STAIRS, Material.RED_NETHER_BRICK_SLAB, Material.RED_NETHER_BRICK_WALL,
+            // 各種階段・ハーフブロック・塀
+            Material.SANDSTONE_STAIRS, Material.SANDSTONE_SLAB, Material.SANDSTONE_WALL,
+            Material.RED_SANDSTONE_STAIRS, Material.RED_SANDSTONE_SLAB, Material.RED_SANDSTONE_WALL,
+            Material.PRISMARINE_STAIRS, Material.PRISMARINE_SLAB, Material.PRISMARINE_WALL,
+            // ガラス関連
+            Material.GLASS, Material.GLASS_PANE, Material.WHITE_STAINED_GLASS, Material.WHITE_STAINED_GLASS_PANE,
+            Material.ORANGE_STAINED_GLASS, Material.ORANGE_STAINED_GLASS_PANE,
+            Material.MAGENTA_STAINED_GLASS, Material.MAGENTA_STAINED_GLASS_PANE,
+            Material.LIGHT_BLUE_STAINED_GLASS, Material.LIGHT_BLUE_STAINED_GLASS_PANE,
+            Material.YELLOW_STAINED_GLASS, Material.YELLOW_STAINED_GLASS_PANE,
+            Material.LIME_STAINED_GLASS, Material.LIME_STAINED_GLASS_PANE,
+            Material.PINK_STAINED_GLASS, Material.PINK_STAINED_GLASS_PANE,
+            Material.GRAY_STAINED_GLASS, Material.GRAY_STAINED_GLASS_PANE,
+            Material.LIGHT_GRAY_STAINED_GLASS, Material.LIGHT_GRAY_STAINED_GLASS_PANE,
+            Material.CYAN_STAINED_GLASS, Material.CYAN_STAINED_GLASS_PANE,
+            Material.PURPLE_STAINED_GLASS, Material.PURPLE_STAINED_GLASS_PANE,
+            Material.BLUE_STAINED_GLASS, Material.BLUE_STAINED_GLASS_PANE,
+            Material.BROWN_STAINED_GLASS, Material.BROWN_STAINED_GLASS_PANE,
+            Material.GREEN_STAINED_GLASS, Material.GREEN_STAINED_GLASS_PANE,
+            Material.RED_STAINED_GLASS, Material.RED_STAINED_GLASS_PANE,
+            Material.BLACK_STAINED_GLASS, Material.BLACK_STAINED_GLASS_PANE
+        ));
+<span class="nc" id="L169">        jobCraftableItems.put(&quot;builder&quot;, builderItems);</span>
+<span class="nc" id="L170">    }</span>
+    
+    /**
+     * 誰でもクラフト可能なアイテムを初期化
+     */
+    private void initializePublicCraftableItems() {
+<span class="nc" id="L176">        publicCraftableItems.addAll(Arrays.asList(</span>
+            // 基本的なサバイバル用品
+            Material.STICK, Material.TORCH, Material.LADDER, 
+            Material.WHITE_BED, Material.ORANGE_BED, Material.MAGENTA_BED, Material.LIGHT_BLUE_BED,
+            Material.YELLOW_BED, Material.LIME_BED, Material.PINK_BED, Material.GRAY_BED,
+            Material.LIGHT_GRAY_BED, Material.CYAN_BED, Material.PURPLE_BED, Material.BLUE_BED,
+            Material.BROWN_BED, Material.GREEN_BED, Material.RED_BED, Material.BLACK_BED,
+            // 基本ツール（木製のみ）
+            Material.WOODEN_SWORD, Material.WOODEN_PICKAXE, Material.WOODEN_AXE, 
+            Material.WOODEN_SHOVEL, Material.WOODEN_HOE,
+            // 基本的な食料
+            Material.BOWL, Material.BUCKET,
+            // その他生活必需品
+            Material.COAL, Material.CHARCOAL, Material.STRING, Material.LEATHER
+        ));
+<span class="nc" id="L191">    }</span>
+    
+    /**
+     * プレイヤーが指定されたアイテムをクラフトできるかチェック
+     */
+    public boolean canPlayerCraftItem(Player player, Material material) {
+        // null チェック
+<span class="nc bnc" id="L198" title="All 4 branches missed.">        if (player == null || material == null) {</span>
+<span class="nc" id="L199">            plugin.getLogger().warning(&quot;canPlayerCraftItem: player または material が null です&quot;);</span>
+<span class="nc" id="L200">            return false;</span>
+        }
+        
+        // publicCraftableItems の null チェック
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        if (publicCraftableItems == null) {</span>
+<span class="nc" id="L205">            plugin.getLogger().warning(&quot;publicCraftableItems が初期化されていません&quot;);</span>
+<span class="nc" id="L206">            return false;</span>
+        }
+        
+        // パブリック（誰でもクラフト可能）アイテムはチェック不要
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        if (publicCraftableItems.contains(material)) {</span>
+<span class="nc" id="L211">            return true;</span>
+        }
+        
+        // jobManager の null チェック
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        if (jobManager == null) {</span>
+<span class="nc" id="L216">            plugin.getLogger().warning(&quot;jobManager が初期化されていません&quot;);</span>
+<span class="nc" id="L217">            return false;</span>
+        }
+        
+        // プレイヤーの職業を取得
+<span class="nc" id="L221">        String playerJob = jobManager.getPlayerJob(player.getUniqueId());</span>
+        
+        // 無職の場合はパブリックアイテムのみ
+<span class="nc bnc" id="L224" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L225">            return false;</span>
+        }
+        
+        // jobCraftableItems の null チェック
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (jobCraftableItems == null) {</span>
+<span class="nc" id="L230">            plugin.getLogger().warning(&quot;jobCraftableItems が初期化されていません&quot;);</span>
+<span class="nc" id="L231">            return false;</span>
+        }
+        
+        // 該当職業でクラフト可能かチェック
+<span class="nc" id="L235">        Set&lt;Material&gt; jobItems = jobCraftableItems.get(playerJob);</span>
+<span class="nc bnc" id="L236" title="All 4 branches missed.">        return jobItems != null &amp;&amp; jobItems.contains(material);</span>
+    }
+    
+    /**
+     * クラフト制限時のメッセージを取得
+     */
+    public String getCraftDeniedMessage(Player player, Material material) {
+        // null チェック
+<span class="nc bnc" id="L244" title="All 4 branches missed.">        if (player == null || material == null) {</span>
+<span class="nc" id="L245">            plugin.getLogger().warning(&quot;getCraftDeniedMessage: player または material が null です&quot;);</span>
+<span class="nc" id="L246">            return &quot;§cクラフト制限エラー: 無効なパラメータです。&quot;;</span>
+        }
+        
+<span class="nc bnc" id="L249" title="All 2 branches missed.">        if (jobManager == null) {</span>
+<span class="nc" id="L250">            plugin.getLogger().warning(&quot;jobManager が初期化されていません&quot;);</span>
+<span class="nc" id="L251">            return &quot;§cシステムエラー: 職業管理システムが利用できません。&quot;;</span>
+        }
+        
+<span class="nc bnc" id="L254" title="All 2 branches missed.">        if (configManager == null) {</span>
+<span class="nc" id="L255">            plugin.getLogger().warning(&quot;configManager が初期化されていません&quot;);</span>
+<span class="nc" id="L256">            return &quot;§cシステムエラー: 設定管理システムが利用できません。&quot;;</span>
+        }
+        
+<span class="nc" id="L259">        String playerJob = jobManager.getPlayerJob(player.getUniqueId());</span>
+        
+<span class="nc bnc" id="L261" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L262">            String message = configManager.getMessage(&quot;messages.craft.no_job_required&quot;);</span>
+            
+            // フォールバック処理
+<span class="nc bnc" id="L265" title="All 2 branches missed.">            if (message.startsWith(&quot;メッセージが見つかりません:&quot;)) {</span>
+<span class="nc" id="L266">                return &quot;§c職業に就いていないため、このアイテムをクラフトできません。&quot;;</span>
+            }
+<span class="nc" id="L268">            return message;</span>
+        }
+        
+        // どの職業でクラフト可能かを調べる
+<span class="nc" id="L272">        String requiredJob = null;</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">        for (Map.Entry&lt;String, Set&lt;Material&gt;&gt; entry : jobCraftableItems.entrySet()) {</span>
+<span class="nc bnc" id="L274" title="All 2 branches missed.">            if (entry.getValue().contains(material)) {</span>
+<span class="nc" id="L275">                requiredJob = entry.getKey();</span>
+<span class="nc" id="L276">                break;</span>
+            }
+<span class="nc" id="L278">        }</span>
+        
+<span class="nc bnc" id="L280" title="All 2 branches missed.">        plugin.getLogger().info(&quot;必要職業: &quot; + (requiredJob != null ? requiredJob : &quot;なし&quot;));</span>
+        
+<span class="nc bnc" id="L282" title="All 2 branches missed.">        if (requiredJob != null) {</span>
+<span class="nc" id="L283">            String message = configManager.getMessage(&quot;messages.craft.wrong_job_required&quot;)</span>
+<span class="nc" id="L284">                .replace(&quot;{item}&quot;, material.name().toLowerCase())</span>
+<span class="nc" id="L285">                .replace(&quot;{required_job}&quot;, configManager.getJobDisplayName(requiredJob))</span>
+<span class="nc" id="L286">                .replace(&quot;{current_job}&quot;, configManager.getJobDisplayName(playerJob));</span>
+            
+<span class="nc" id="L288">            plugin.getLogger().info(&quot;職業違いメッセージ: &quot; + message);</span>
+            
+            // フォールバック処理
+<span class="nc bnc" id="L291" title="All 2 branches missed.">            if (message.startsWith(&quot;メッセージが見つかりません:&quot;)) {</span>
+<span class="nc" id="L292">                String fallbackMessage = &quot;§c&quot; + material.name().toLowerCase() + &quot;をクラフトするには&quot; + </span>
+<span class="nc" id="L293">                    configManager.getJobDisplayName(requiredJob) + &quot;である必要があります。（現在: &quot; + </span>
+<span class="nc" id="L294">                    configManager.getJobDisplayName(playerJob) + &quot;）&quot;;</span>
+<span class="nc" id="L295">                plugin.getLogger().warning(&quot;設定メッセージが見つからないため、フォールバックメッセージを使用: &quot; + fallbackMessage);</span>
+<span class="nc" id="L296">                return fallbackMessage;</span>
+            }
+<span class="nc" id="L298">            return message;</span>
+        }
+        
+<span class="nc" id="L301">        String message = configManager.getMessage(&quot;messages.craft.item_not_craftable&quot;);</span>
+<span class="nc" id="L302">        plugin.getLogger().info(&quot;クラフト不可メッセージ: &quot; + message);</span>
+        
+        // フォールバック処理
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (message.startsWith(&quot;メッセージが見つかりません:&quot;)) {</span>
+<span class="nc" id="L306">            String fallbackMessage = &quot;§cこのアイテムはクラフトできません。&quot;;</span>
+<span class="nc" id="L307">            plugin.getLogger().warning(&quot;設定メッセージが見つからないため、フォールバックメッセージを使用: &quot; + fallbackMessage);</span>
+<span class="nc" id="L308">            return fallbackMessage;</span>
+        }
+<span class="nc" id="L310">        return message;</span>
+    }
+    
+    /**
+     * デバッグ用：職業のクラフト可能アイテム数を表示
+     */
+    public void logJobCraftableItemCounts() {
+<span class="nc" id="L317">        plugin.getLogger().info(&quot;=== 職業別クラフト可能アイテム数 ===&quot;);</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        for (Map.Entry&lt;String, Set&lt;Material&gt;&gt; entry : jobCraftableItems.entrySet()) {</span>
+<span class="nc" id="L319">            plugin.getLogger().info(entry.getKey() + &quot;: &quot; + entry.getValue().size() + &quot;種類&quot;);</span>
+<span class="nc" id="L320">        }</span>
+<span class="nc" id="L321">        plugin.getLogger().info(&quot;パブリック: &quot; + publicCraftableItems.size() + &quot;種類&quot;);</span>
+<span class="nc" id="L322">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

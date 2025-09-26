@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FoodNPCManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.npc</a> &gt; <span class="el_source">FoodNPCManager.java</span></div><h1>FoodNPCManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.npc;
+
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Villager;
+import org.bukkit.inventory.ItemStack;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.dao.PlayerDAO;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * 食料NPC管理システム
+ * 農家プレイヤーがいない時間帯の緊急食料供給を担当
+ */
+public class FoodNPCManager {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final NPCManager npcManager;
+    private final CurrencyConverter currencyConverter;
+    private final PlayerDAO playerDAO;
+    
+    // 食料商店データ
+<span class="nc" id="L32">    private final Map&lt;UUID, FoodStore&gt; foodStores = new ConcurrentHashMap&lt;&gt;();</span>
+    
+    // プレイヤーの日次購入履歴
+<span class="nc" id="L35">    private final Map&lt;UUID, Map&lt;Material, Integer&gt;&gt; dailyPurchases = new ConcurrentHashMap&lt;&gt;();</span>
+    
+    // 在庫管理
+<span class="nc" id="L38">    private final Map&lt;UUID, Map&lt;Material, Integer&gt;&gt; storeInventories = new ConcurrentHashMap&lt;&gt;();</span>
+    
+    // 最終リセット日付
+<span class="nc" id="L41">    private String lastResetDate = &quot;&quot;;</span>
+    
+    public FoodNPCManager(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
+<span class="nc" id="L44">                         CurrencyConverter currencyConverter, PlayerDAO playerDAO) {</span>
+<span class="nc" id="L45">        this.plugin = plugin;</span>
+<span class="nc" id="L46">        this.configManager = configManager;</span>
+<span class="nc" id="L47">        this.npcManager = npcManager;</span>
+<span class="nc" id="L48">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L49">        this.playerDAO = playerDAO;</span>
+        
+<span class="nc" id="L51">        initializeResetDate();</span>
+<span class="nc" id="L52">    }</span>
+    
+    /**
+     * 食料商店データクラス
+     */
+    public static class FoodStore {
+        private final UUID npcId;
+        private final String name;
+        private final Location location;
+        private final Map&lt;Material, Double&gt; itemPrices;
+        private final String npcType; // NPCタイプを追加
+        
+<span class="nc" id="L64">        public FoodStore(UUID npcId, String name, Location location, Map&lt;Material, Double&gt; itemPrices, String npcType) {</span>
+<span class="nc" id="L65">            this.npcId = npcId;</span>
+<span class="nc" id="L66">            this.name = name;</span>
+<span class="nc" id="L67">            this.location = location;</span>
+<span class="nc" id="L68">            this.itemPrices = itemPrices;</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">            this.npcType = npcType != null ? npcType : &quot;general_store&quot;; // デフォルトは総合店</span>
+<span class="nc" id="L70">        }</span>
+        
+<span class="nc" id="L72">        public UUID getNpcId() { return npcId; }</span>
+<span class="nc" id="L73">        public String getName() { return name; }</span>
+<span class="nc" id="L74">        public Location getLocation() { return location; }</span>
+<span class="nc" id="L75">        public Map&lt;Material, Double&gt; getItemPrices() { return itemPrices; }</span>
+<span class="nc" id="L76">        public String getNpcType() { return npcType; }</span>
+        
+        public double getItemPrice(Material material) {
+<span class="nc" id="L79">            return itemPrices.getOrDefault(material, 0.0);</span>
+        }
+        
+        public boolean sellsItem(Material material) {
+<span class="nc bnc" id="L83" title="All 4 branches missed.">            return itemPrices.containsKey(material) &amp;&amp; itemPrices.get(material) &gt; 0;</span>
+        }
+    }
+    
+    /**
+     * 食料NPCシステムの初期化
+     */
+    public void initializeFoodNPCs() {
+        try {
+<span class="nc bnc" id="L92" title="All 2 branches missed.">            if (!configManager.isFoodNPCEnabled()) {</span>
+<span class="nc" id="L93">                plugin.getLogger().info(&quot;食料NPCシステムは無効化されています&quot;);</span>
+<span class="nc" id="L94">                return;</span>
+            }
+            
+<span class="nc" id="L97">            spawnFoodNPCs();</span>
+<span class="nc" id="L98">            checkDailyReset();</span>
+<span class="nc" id="L99">            plugin.getLogger().info(&quot;食料NPCシステムを初期化しました&quot;);</span>
+<span class="nc" id="L100">        } catch (Exception e) {</span>
+<span class="nc" id="L101">            plugin.getLogger().severe(&quot;食料NPCシステムの初期化中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L102">            e.printStackTrace();</span>
+<span class="nc" id="L103">        }</span>
+<span class="nc" id="L104">    }</span>
+    
+    /**
+     * 食料NPCをスポーンする
+     */
+    private void spawnFoodNPCs() {
+<span class="nc" id="L110">        plugin.getLogger().info(&quot;=== 食料NPC生成開始 ===&quot;);</span>
+        
+        // 既存の食料店データをクリア
+<span class="nc" id="L113">        foodStores.clear();</span>
+<span class="nc" id="L114">        plugin.getLogger().info(&quot;既存の食料店データをクリアしました&quot;);</span>
+        
+<span class="nc" id="L116">        List&lt;Map&lt;?, ?&gt;&gt; foodNPCConfigs = configManager.getFoodNPCConfigs();</span>
+<span class="nc" id="L117">        plugin.getLogger().info(&quot;設定から &quot; + foodNPCConfigs.size() + &quot; 個の食料NPCを読み込み&quot;);</span>
+        
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        for (Map&lt;?, ?&gt; config : foodNPCConfigs) {</span>
+            try {
+<span class="nc" id="L121">                String name = (String) config.get(&quot;name&quot;);</span>
+<span class="nc" id="L122">                String world = (String) config.get(&quot;world&quot;);</span>
+<span class="nc" id="L123">                int x = (Integer) config.get(&quot;x&quot;);</span>
+<span class="nc" id="L124">                int y = (Integer) config.get(&quot;y&quot;);</span>
+<span class="nc" id="L125">                int z = (Integer) config.get(&quot;z&quot;);</span>
+                
+<span class="nc bnc" id="L127" title="All 4 branches missed.">                if (name == null || world == null) {</span>
+<span class="nc" id="L128">                    plugin.getLogger().warning(&quot;食料NPCの設定が不完全です: &quot; + config);</span>
+<span class="nc" id="L129">                    continue;</span>
+                }
+                
+<span class="nc" id="L132">                Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5);</span>
+<span class="nc" id="L133">                plugin.getLogger().info(&quot;食料NPCを生成中: &quot; + name + &quot; at [&quot; + x + &quot;, &quot; + y + &quot;, &quot; + z + &quot;] (world: &quot; + world + &quot;)&quot;);</span>
+                
+<span class="nc" id="L135">                Villager foodNPC = npcManager.createNPC(location, &quot;food_merchant&quot;, name);</span>
+                
+<span class="nc bnc" id="L137" title="All 2 branches missed.">                if (foodNPC != null) {</span>
+<span class="nc" id="L138">                    setupFoodNPC(foodNPC);</span>
+                    
+<span class="nc" id="L140">                    String npcType = &quot;general_store&quot;; // デフォルトタイプ</span>
+<span class="nc" id="L141">                    Map&lt;Material, Double&gt; prices = buildFoodItemPrices(npcType);</span>
+<span class="nc" id="L142">                    FoodStore foodStore = new FoodStore(foodNPC.getUniqueId(), name, location, prices, npcType);</span>
+<span class="nc" id="L143">                    foodStores.put(foodNPC.getUniqueId(), foodStore);</span>
+                    
+                    // 在庫を初期化
+<span class="nc" id="L146">                    initializeStoreInventory(foodNPC.getUniqueId());</span>
+                    
+<span class="nc" id="L148">                    plugin.getLogger().info(&quot;========================================&quot;);</span>
+<span class="nc" id="L149">                    plugin.getLogger().info(&quot;食料NPC配置成功:&quot;);</span>
+<span class="nc" id="L150">                    plugin.getLogger().info(&quot;  名前: &quot; + name);</span>
+<span class="nc" id="L151">                    plugin.getLogger().info(&quot;  UUID: &quot; + foodNPC.getUniqueId());</span>
+<span class="nc" id="L152">                    plugin.getLogger().info(&quot;  座標: [&quot; + x + &quot;, &quot; + y + &quot;, &quot; + z + &quot;]&quot;);</span>
+<span class="nc" id="L153">                    plugin.getLogger().info(&quot;  ワールド: &quot; + world);</span>
+<span class="nc" id="L154">                    plugin.getLogger().info(&quot;========================================&quot;);</span>
+<span class="nc" id="L155">                } else {</span>
+<span class="nc" id="L156">                    plugin.getLogger().severe(&quot;食料NPCの生成に失敗しました: &quot; + name + &quot; at [&quot; + x + &quot;, &quot; + y + &quot;, &quot; + z + &quot;]&quot;);</span>
+                }
+                
+<span class="nc" id="L159">            } catch (Exception e) {</span>
+<span class="nc" id="L160">                plugin.getLogger().warning(&quot;食料NPC生成中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L161">                e.printStackTrace();</span>
+<span class="nc" id="L162">            }</span>
+<span class="nc" id="L163">        }</span>
+<span class="nc" id="L164">    }</span>
+    
+    /**
+     * 食料NPCの設定
+     */
+    private void setupFoodNPC(Villager npc) {
+<span class="nc" id="L170">        npc.setProfession(Villager.Profession.BUTCHER);</span>
+<span class="nc" id="L171">        npc.setVillagerType(Villager.Type.PLAINS);</span>
+<span class="nc" id="L172">        npc.setVillagerLevel(5);</span>
+<span class="nc" id="L173">    }</span>
+    
+    /**
+     * 食料アイテムの価格マップを構築
+     */
+    /**
+     * NPCタイプに応じた商品価格を構築
+     */
+    private Map&lt;Material, Double&gt; buildFoodItemPrices(String npcType) {
+<span class="nc" id="L182">        Map&lt;Material, Double&gt; allPrices = buildBaseFoodItemPrices();</span>
+<span class="nc" id="L183">        Map&lt;Material, Double&gt; filteredPrices = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L185">        double priceMultiplier = configManager.getFoodNPCPriceMultiplier(npcType);</span>
+<span class="nc" id="L186">        List&lt;String&gt; allowedItems = configManager.getFoodNPCTypeItems(npcType);</span>
+<span class="nc" id="L187">        boolean isGeneral = configManager.isFoodNPCTypeGeneral(npcType);</span>
+        
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        for (Map.Entry&lt;Material, Double&gt; entry : allPrices.entrySet()) {</span>
+<span class="nc" id="L190">            Material material = entry.getKey();</span>
+<span class="nc" id="L191">            double basePrice = entry.getValue();</span>
+            
+            // 商品フィルタリング
+<span class="nc" id="L194">            String materialName = material.toString().toLowerCase();</span>
+<span class="nc bnc" id="L195" title="All 4 branches missed.">            boolean isAllowed = isGeneral || allowedItems.contains(materialName);</span>
+            
+<span class="nc bnc" id="L197" title="All 2 branches missed.">            if (isAllowed) {</span>
+                // 価格倍率を適用
+<span class="nc" id="L199">                double finalPrice = basePrice * priceMultiplier;</span>
+<span class="nc" id="L200">                filteredPrices.put(material, finalPrice);</span>
+            }
+<span class="nc" id="L202">        }</span>
+        
+<span class="nc" id="L204">        plugin.getLogger().info(&quot;NPCタイプ &quot; + npcType + &quot; の商品価格構築完了: &quot; + filteredPrices.size() + &quot;アイテム (倍率: &quot; + priceMultiplier + &quot;)&quot;);</span>
+<span class="nc" id="L205">        return filteredPrices;</span>
+    }
+    
+    /**
+     * 基本食料価格を構築（旧buildFoodItemPricesメソッド）
+     */
+    private Map&lt;Material, Double&gt; buildBaseFoodItemPrices() {
+<span class="nc" id="L212">        Map&lt;Material, Double&gt; prices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L213">        Map&lt;String, Double&gt; configPrices = configManager.getFoodItemPrices();</span>
+        
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        for (Map.Entry&lt;String, Double&gt; entry : configPrices.entrySet()) {</span>
+            try {
+<span class="nc" id="L217">                Material material = Material.valueOf(entry.getKey().toUpperCase());</span>
+<span class="nc" id="L218">                double price = entry.getValue();</span>
+<span class="nc" id="L219">                prices.put(material, price);</span>
+<span class="nc" id="L220">            } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L221">                plugin.getLogger().warning(&quot;無効なマテリアル名です: &quot; + entry.getKey());</span>
+<span class="nc" id="L222">            }</span>
+<span class="nc" id="L223">        }</span>
+        
+<span class="nc" id="L225">        return prices;</span>
+    }
+    
+    /**
+     * 店舗在庫の初期化
+     */
+    private void initializeStoreInventory(UUID storeId) {
+<span class="nc" id="L232">        Map&lt;Material, Integer&gt; inventory = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L233">        Map&lt;String, Double&gt; configPrices = configManager.getFoodItemPrices();</span>
+<span class="nc" id="L234">        int stockLimit = configManager.getFoodNPCDailyStockLimit();</span>
+        
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        for (String itemName : configPrices.keySet()) {</span>
+            try {
+<span class="nc" id="L238">                Material material = Material.valueOf(itemName.toUpperCase());</span>
+<span class="nc" id="L239">                inventory.put(material, stockLimit);</span>
+<span class="nc" id="L240">            } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L241">                plugin.getLogger().warning(&quot;無効なマテリアル名です: &quot; + itemName);</span>
+<span class="nc" id="L242">            }</span>
+<span class="nc" id="L243">        }</span>
+        
+<span class="nc" id="L245">        storeInventories.put(storeId, inventory);</span>
+<span class="nc" id="L246">    }</span>
+    
+    /**
+     * 食料NPC相互作用の処理
+     */
+    public boolean handleFoodNPCInteraction(Player player, UUID npcId) {
+<span class="nc" id="L252">        plugin.getLogger().info(&quot;=== 食料NPC相互作用開始 ===&quot;);</span>
+<span class="nc" id="L253">        plugin.getLogger().info(&quot;プレイヤー: &quot; + player.getName() + &quot;, NPC ID: &quot; + npcId);</span>
+        
+        try {
+            // NPCデータ取得
+<span class="nc" id="L257">            FoodStore foodStore = foodStores.get(npcId);</span>
+<span class="nc bnc" id="L258" title="All 2 branches missed.">            if (foodStore == null) {</span>
+<span class="nc" id="L259">                plugin.getLogger().warning(&quot;食料店データが見つかりません: &quot; + npcId);</span>
+<span class="nc" id="L260">                plugin.getLogger().warning(&quot;登録済み食料店数: &quot; + foodStores.size());</span>
+<span class="nc" id="L261">                plugin.getLogger().warning(&quot;登録済み食料店ID: &quot; + foodStores.keySet());</span>
+<span class="nc" id="L262">                return false;</span>
+            }
+            
+            // 営業時間チェック
+<span class="nc bnc" id="L266" title="All 2 branches missed.">            if (!isOperatingHours()) {</span>
+<span class="nc" id="L267">                player.sendMessage(&quot;§c「申し訳ありません。営業時間は22:00-8:00です」&quot;);</span>
+<span class="nc" id="L268">                return true;</span>
+            }
+            
+            // 日次リセットチェック
+<span class="nc" id="L272">            checkDailyReset();</span>
+            
+            // 挨拶メッセージ
+<span class="nc" id="L275">            player.sendMessage(&quot;§6「夜分にすみません、&quot; + player.getName() + &quot;さん」&quot;);</span>
+<span class="nc" id="L276">            player.sendMessage(&quot;§e「緊急時の食料でしたら、こちらで調達できますよ」&quot;);</span>
+            
+            // 購入GUIを表示
+<span class="nc bnc" id="L279" title="All 2 branches missed.">            if (plugin.getFoodGUI() != null) {</span>
+<span class="nc" id="L280">                plugin.getFoodGUI().openFoodGUI(player, npcId, foodStore.getName());</span>
+            } else {
+                // フォールバック: チャットメニュー
+<span class="nc" id="L283">                showFoodMenu(player, foodStore);</span>
+            }
+            
+<span class="nc" id="L286">            return true;</span>
+            
+<span class="nc" id="L288">        } catch (Exception e) {</span>
+<span class="nc" id="L289">            plugin.getLogger().severe(&quot;食料NPC処理中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L290">            player.sendMessage(&quot;§c処理中にエラーが発生しました。管理者にお知らせください。&quot;);</span>
+<span class="nc" id="L291">            e.printStackTrace();</span>
+<span class="nc" id="L292">            return true;</span>
+        }
+    }
+    
+    /**
+     * 営業時間チェック
+     */
+    private boolean isOperatingHours() {
+<span class="nc bnc" id="L300" title="All 2 branches missed.">        if (!configManager.isFoodNPCOperatingHoursEnabled()) {</span>
+<span class="nc" id="L301">            return true;</span>
+        }
+        
+<span class="nc" id="L304">        LocalDateTime now = LocalDateTime.now();</span>
+<span class="nc" id="L305">        int currentHour = now.getHour();</span>
+<span class="nc" id="L306">        int startHour = configManager.getFoodNPCStartHour();</span>
+<span class="nc" id="L307">        int endHour = configManager.getFoodNPCEndHour();</span>
+        
+        // 22:00-8:00の場合の処理
+<span class="nc bnc" id="L310" title="All 2 branches missed.">        if (startHour &gt; endHour) {</span>
+<span class="nc bnc" id="L311" title="All 4 branches missed.">            return currentHour &gt;= startHour || currentHour &lt;= endHour;</span>
+        } else {
+<span class="nc bnc" id="L313" title="All 4 branches missed.">            return currentHour &gt;= startHour &amp;&amp; currentHour &lt;= endHour;</span>
+        }
+    }
+    
+    /**
+     * 食料メニューの表示
+     */
+    private void showFoodMenu(Player player, FoodStore foodStore) {
+<span class="nc" id="L321">        player.sendMessage(&quot;§a=== 食料品メニュー ===&quot;);</span>
+        
+<span class="nc" id="L323">        Map&lt;Material, Integer&gt; storeInventory = storeInventories.get(foodStore.getNpcId());</span>
+<span class="nc" id="L324">        Map&lt;Material, Integer&gt; playerPurchases = dailyPurchases.getOrDefault(player.getUniqueId(), new HashMap&lt;&gt;());</span>
+<span class="nc" id="L325">        int dailyLimit = configManager.getFoodNPCDailyLimitPerItem();</span>
+        
+<span class="nc bnc" id="L327" title="All 2 branches missed.">        for (Map.Entry&lt;Material, Double&gt; entry : foodStore.getItemPrices().entrySet()) {</span>
+<span class="nc" id="L328">            Material material = entry.getKey();</span>
+<span class="nc" id="L329">            double price = entry.getValue();</span>
+            
+<span class="nc" id="L331">            int stock = storeInventory.getOrDefault(material, 0);</span>
+<span class="nc" id="L332">            int purchased = playerPurchases.getOrDefault(material, 0);</span>
+<span class="nc" id="L333">            int remaining = dailyLimit - purchased;</span>
+            
+<span class="nc bnc" id="L335" title="All 2 branches missed.">            String stockStatus = stock &gt; 0 ? &quot;§a在庫あり&quot; : &quot;§c売り切れ&quot;;</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">            String limitStatus = remaining &gt; 0 ? &quot;§7(残り&quot; + remaining + &quot;個購入可能)&quot; : &quot;§c(本日上限達成)&quot;;</span>
+            
+<span class="nc" id="L338">            String formattedPrice = currencyConverter.formatCurrency(price);</span>
+<span class="nc" id="L339">            player.sendMessage(&quot;§f• &quot; + material.toString().toLowerCase() + &quot;: §e&quot; + formattedPrice + &quot; &quot; + stockStatus + &quot; &quot; + limitStatus);</span>
+<span class="nc" id="L340">        }</span>
+        
+<span class="nc" id="L342">        player.sendMessage(&quot;§e手に持ったアイテムと同じものを右クリックで購入できます&quot;);</span>
+<span class="nc" id="L343">        player.sendMessage(&quot;§7例: パンを持ってNPCを右クリック→パンを購入&quot;);</span>
+<span class="nc" id="L344">    }</span>
+    
+    /**
+     * 食料アイテムの購入処理
+     */
+    public PurchaseResult processFoodPurchase(Player player, UUID npcId, Material itemType, int amount) {
+<span class="nc" id="L350">        FoodStore foodStore = foodStores.get(npcId);</span>
+<span class="nc bnc" id="L351" title="All 2 branches missed.">        if (foodStore == null) {</span>
+<span class="nc" id="L352">            return new PurchaseResult(false, &quot;食料店が見つかりません&quot;, 0.0);</span>
+        }
+        
+        // 営業時間チェック
+<span class="nc bnc" id="L356" title="All 2 branches missed.">        if (!isOperatingHours()) {</span>
+<span class="nc" id="L357">            return new PurchaseResult(false, &quot;営業時間外です（22:00-8:00）&quot;, 0.0);</span>
+        }
+        
+        // アイテム販売チェック
+<span class="nc bnc" id="L361" title="All 2 branches missed.">        if (!foodStore.sellsItem(itemType)) {</span>
+<span class="nc" id="L362">            return new PurchaseResult(false, itemType.toString() + &quot;は販売していません&quot;, 0.0);</span>
+        }
+        
+        // 在庫チェック
+<span class="nc" id="L366">        Map&lt;Material, Integer&gt; storeInventory = storeInventories.get(npcId);</span>
+<span class="nc" id="L367">        int currentStock = storeInventory.getOrDefault(itemType, 0);</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">        if (currentStock &lt; amount) {</span>
+<span class="nc" id="L369">            return new PurchaseResult(false, itemType.toString() + &quot;の在庫が不足しています（在庫: &quot; + currentStock + &quot;個）&quot;, 0.0);</span>
+        }
+        
+        // 購入制限チェック
+<span class="nc" id="L373">        Map&lt;Material, Integer&gt; playerPurchases = dailyPurchases.getOrDefault(player.getUniqueId(), new HashMap&lt;&gt;());</span>
+<span class="nc" id="L374">        int alreadyPurchased = playerPurchases.getOrDefault(itemType, 0);</span>
+<span class="nc" id="L375">        int dailyLimit = configManager.getFoodNPCDailyLimitPerItem();</span>
+        
+<span class="nc bnc" id="L377" title="All 2 branches missed.">        if (alreadyPurchased + amount &gt; dailyLimit) {</span>
+<span class="nc" id="L378">            int remaining = dailyLimit - alreadyPurchased;</span>
+<span class="nc" id="L379">            return new PurchaseResult(false, &quot;1日の購入上限を超えています（残り購入可能: &quot; + remaining + &quot;個）&quot;, 0.0);</span>
+        }
+        
+        // 価格計算
+<span class="nc" id="L383">        double unitPrice = foodStore.getItemPrice(itemType);</span>
+<span class="nc" id="L384">        double totalPrice = unitPrice * amount;</span>
+        
+        // 所持金チェック
+<span class="nc bnc" id="L387" title="All 2 branches missed.">        if (!currencyConverter.canAffordWithCash(player, totalPrice)) {</span>
+<span class="nc" id="L388">            return new PurchaseResult(false, &quot;所持金が不足しています（必要: &quot; + currencyConverter.formatCurrency(totalPrice) + &quot;）&quot;, 0.0);</span>
+        }
+        
+        // 購入処理実行（所持金から支払い）
+<span class="nc bnc" id="L392" title="All 2 branches missed.">        if (!currencyConverter.payWithCash(player, totalPrice)) {</span>
+<span class="nc" id="L393">            return new PurchaseResult(false, &quot;支払い処理に失敗しました&quot;, 0.0);</span>
+        }
+        
+        // アイテム付与
+<span class="nc" id="L397">        ItemStack item = new ItemStack(itemType, amount);</span>
+<span class="nc" id="L398">        player.getInventory().addItem(item);</span>
+        
+        // 在庫減少
+<span class="nc" id="L401">        storeInventory.put(itemType, currentStock - amount);</span>
+        
+        // 購入履歴更新
+<span class="nc" id="L404">        playerPurchases.put(itemType, alreadyPurchased + amount);</span>
+<span class="nc" id="L405">        dailyPurchases.put(player.getUniqueId(), playerPurchases);</span>
+        
+<span class="nc" id="L407">        return new PurchaseResult(true, &quot;購入完了&quot;, totalPrice);</span>
+    }
+    
+    /**
+     * 日次リセット処理
+     */
+    private void checkDailyReset() {
+<span class="nc" id="L414">        String currentDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd&quot;));</span>
+        
+<span class="nc bnc" id="L416" title="All 2 branches missed.">        if (!currentDate.equals(lastResetDate)) {</span>
+<span class="nc" id="L417">            plugin.getLogger().info(&quot;食料NPCの日次リセットを実行: &quot; + currentDate);</span>
+            
+            // 購入履歴リセット
+<span class="nc" id="L420">            dailyPurchases.clear();</span>
+            
+            // 在庫リセット
+<span class="nc bnc" id="L423" title="All 2 branches missed.">            for (UUID storeId : foodStores.keySet()) {</span>
+<span class="nc" id="L424">                initializeStoreInventory(storeId);</span>
+<span class="nc" id="L425">            }</span>
+            
+<span class="nc" id="L427">            lastResetDate = currentDate;</span>
+<span class="nc" id="L428">            plugin.getLogger().info(&quot;食料NPCの日次リセット完了&quot;);</span>
+        }
+<span class="nc" id="L430">    }</span>
+    
+    /**
+     * リセット日付の初期化
+     */
+    private void initializeResetDate() {
+<span class="nc" id="L436">        lastResetDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd&quot;));</span>
+<span class="nc" id="L437">    }</span>
+    
+    /**
+     * 購入結果クラス
+     */
+    public static class PurchaseResult {
+        private final boolean success;
+        private final String message;
+        private final double totalPrice;
+        
+<span class="nc" id="L447">        public PurchaseResult(boolean success, String message, double totalPrice) {</span>
+<span class="nc" id="L448">            this.success = success;</span>
+<span class="nc" id="L449">            this.message = message;</span>
+<span class="nc" id="L450">            this.totalPrice = totalPrice;</span>
+<span class="nc" id="L451">        }</span>
+        
+<span class="nc" id="L453">        public boolean isSuccess() { return success; }</span>
+<span class="nc" id="L454">        public String getMessage() { return message; }</span>
+<span class="nc" id="L455">        public double getTotalPrice() { return totalPrice; }</span>
+    }
+    
+    /**
+     * 食料NPCの削除
+     */
+    public void removeFoodNPCs() {
+<span class="nc" id="L462">        Collection&lt;NPCManager.NPCData&gt; foodNPCs = npcManager.getNPCsByType(&quot;food_merchant&quot;);</span>
+<span class="nc bnc" id="L463" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : foodNPCs) {</span>
+<span class="nc" id="L464">            npcManager.removeNPC(npcData.getEntityId());</span>
+<span class="nc" id="L465">        }</span>
+<span class="nc" id="L466">        foodStores.clear();</span>
+<span class="nc" id="L467">        storeInventories.clear();</span>
+<span class="nc" id="L468">        dailyPurchases.clear();</span>
+<span class="nc" id="L469">        plugin.getLogger().info(&quot;全ての食料NPCを削除しました&quot;);</span>
+<span class="nc" id="L470">    }</span>
+    
+    /**
+     * 食料NPCのリロード
+     */
+    public void reloadFoodNPCs() {
+<span class="nc" id="L476">        plugin.getLogger().info(&quot;食料NPCをリロードしています...&quot;);</span>
+<span class="nc" id="L477">        removeFoodNPCs();</span>
+<span class="nc" id="L478">        initializeFoodNPCs();</span>
+<span class="nc" id="L479">        plugin.getLogger().info(&quot;食料NPCのリロードが完了しました&quot;);</span>
+<span class="nc" id="L480">    }</span>
+    
+    /**
+     * 指定プレイヤーの購入履歴取得
+     */
+    public Map&lt;Material, Integer&gt; getPlayerDailyPurchases(UUID playerId) {
+<span class="nc" id="L486">        return dailyPurchases.getOrDefault(playerId, new HashMap&lt;&gt;());</span>
+    }
+    
+    /**
+     * 指定店舗の在庫情報取得
+     */
+    public Map&lt;Material, Integer&gt; getStoreInventory(UUID storeId) {
+<span class="nc" id="L493">        return storeInventories.getOrDefault(storeId, new HashMap&lt;&gt;());</span>
+    }
+
+    /**
+     * 手動スポーンされたNPCをFoodNPCManagerに登録
+     */
+    public void registerFoodNPC(Villager villager, String name, String npcType) {
+<span class="nc" id="L500">        UUID npcId = villager.getUniqueId();</span>
+<span class="nc" id="L501">        Location location = villager.getLocation();</span>
+        
+<span class="nc" id="L503">        plugin.getLogger().info(&quot;=== 食料NPC登録開始 ===&quot;);</span>
+<span class="nc" id="L504">        plugin.getLogger().info(&quot;手動スポーンされた食料NPCを登録中: &quot; + name + &quot; (ID: &quot; + npcId + &quot;)&quot;);</span>
+<span class="nc" id="L505">        plugin.getLogger().info(&quot;Location: &quot; + location.toString());</span>
+        
+        try {
+            // Villagerの設定
+<span class="nc" id="L509">            setupFoodNPC(villager);</span>
+<span class="nc" id="L510">            plugin.getLogger().info(&quot;VillagerのセットアップOK&quot;);</span>
+            
+            // NPCタイプの検証
+<span class="nc bnc" id="L513" title="All 4 branches missed.">            if (npcType == null || npcType.isEmpty()) {</span>
+<span class="nc" id="L514">                npcType = &quot;general_store&quot;; // デフォルト</span>
+            }
+            
+            // 有効なNPCタイプかチェック
+<span class="nc bnc" id="L518" title="All 2 branches missed.">            if (!configManager.getFoodNPCTypes().contains(npcType)) {</span>
+<span class="nc" id="L519">                plugin.getLogger().warning(&quot;無効なNPCタイプ: &quot; + npcType + &quot;。general_storeを使用します。&quot;);</span>
+<span class="nc" id="L520">                npcType = &quot;general_store&quot;;</span>
+            }
+            
+            // FoodStoreデータを作成
+<span class="nc" id="L524">            Map&lt;Material, Double&gt; prices = buildFoodItemPrices(npcType);</span>
+<span class="nc" id="L525">            plugin.getLogger().info(&quot;価格データ作成OK: &quot; + prices.size() + &quot;アイテム&quot;);</span>
+            
+<span class="nc" id="L527">            FoodStore foodStore = new FoodStore(npcId, name, location, prices, npcType);</span>
+<span class="nc" id="L528">            foodStores.put(npcId, foodStore);</span>
+<span class="nc" id="L529">            plugin.getLogger().info(&quot;FoodStoreデータ登録OK - 現在の登録数: &quot; + foodStores.size());</span>
+            
+            // 在庫を初期化
+<span class="nc" id="L532">            initializeStoreInventory(npcId);</span>
+<span class="nc" id="L533">            plugin.getLogger().info(&quot;在庫初期化OK&quot;);</span>
+            
+<span class="nc" id="L535">            plugin.getLogger().info(&quot;=== 食料NPCの登録が完了しました: &quot; + name + &quot; ===&quot;);</span>
+<span class="nc" id="L536">        } catch (Exception e) {</span>
+<span class="nc" id="L537">            plugin.getLogger().severe(&quot;食料NPC登録中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L538">            e.printStackTrace();</span>
+<span class="nc" id="L539">        }</span>
+<span class="nc" id="L540">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

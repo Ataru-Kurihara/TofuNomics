@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobsCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">JobsCommand.java</span></div><h1>JobsCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.jobs.ExperienceManager;
+import org.tofu.tofunomics.models.PlayerJob;
+import org.tofu.tofunomics.models.Job;
+
+public class JobsCommand implements CommandExecutor {
+    
+    private final ConfigManager configManager;
+    private final JobManager jobManager;
+    private final ExperienceManager experienceManager;
+    
+<span class="nc" id="L20">    public JobsCommand(ConfigManager configManager, JobManager jobManager, ExperienceManager experienceManager) {</span>
+<span class="nc" id="L21">        this.configManager = configManager;</span>
+<span class="nc" id="L22">        this.jobManager = jobManager;</span>
+<span class="nc" id="L23">        this.experienceManager = experienceManager;</span>
+<span class="nc" id="L24">    }</span>
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc bnc" id="L28" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L29">            sender.sendMessage(&quot;このコマンドはプレイヤーのみ実行できます。&quot;);</span>
+<span class="nc" id="L30">            return true;</span>
+        }
+        
+<span class="nc" id="L33">        Player player = (Player) sender;</span>
+        
+<span class="nc bnc" id="L35" title="All 2 branches missed.">        if (args.length == 0) {</span>
+<span class="nc" id="L36">            sendHelpMessage(player);</span>
+<span class="nc" id="L37">            return true;</span>
+        }
+        
+<span class="nc" id="L40">        String subCommand = args[0].toLowerCase();</span>
+        
+<span class="nc bnc" id="L42" title="All 7 branches missed.">        switch (subCommand) {</span>
+            case &quot;list&quot;:
+<span class="nc" id="L44">                return handleJobsList(player);</span>
+            case &quot;join&quot;:
+<span class="nc" id="L46">                return handleJobJoin(player, args);</span>
+            case &quot;leave&quot;:
+<span class="nc" id="L48">                return handleJobLeave(player, args);</span>
+            case &quot;stats&quot;:
+<span class="nc" id="L50">                return handleJobStats(player, args);</span>
+            case &quot;info&quot;:
+<span class="nc" id="L52">                return handleJobInfo(player, args);</span>
+            case &quot;debug&quot;:
+<span class="nc" id="L54">                return handleJobDebug(player);</span>
+            default:
+<span class="nc" id="L56">                sendHelpMessage(player);</span>
+<span class="nc" id="L57">                return true;</span>
+        }
+    }
+
+    private boolean handleJobsList(Player player) {
+<span class="nc" id="L62">        player.sendMessage(ChatColor.GOLD + &quot;=== 利用可能な職業 ===&quot;);</span>
+        
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        for (String jobName : jobManager.getJobNames()) {</span>
+<span class="nc" id="L65">            String displayName = jobManager.getJobDisplayName(jobName);</span>
+<span class="nc" id="L66">            String description = configManager.getJobDescription(jobName);</span>
+<span class="nc" id="L67">            int maxLevel = configManager.getJobMaxLevel(jobName);</span>
+<span class="nc" id="L68">            double incomeMultiplier = configManager.getJobIncomeMultiplier(jobName);</span>
+            
+<span class="nc" id="L70">            player.sendMessage(ChatColor.YELLOW + &quot;▶ &quot; + displayName + ChatColor.GRAY + &quot; (&quot; + jobName + &quot;)&quot;);</span>
+<span class="nc bnc" id="L71" title="All 4 branches missed.">            if (description != null &amp;&amp; !description.isEmpty()) {</span>
+<span class="nc" id="L72">                player.sendMessage(ChatColor.WHITE + &quot;  &quot; + description);</span>
+            }
+<span class="nc" id="L74">            player.sendMessage(ChatColor.AQUA + &quot;  最大レベル: &quot; + maxLevel + </span>
+<span class="nc" id="L75">                             &quot; | 収入倍率: &quot; + String.format(&quot;%.1f&quot;, incomeMultiplier) + &quot;x&quot;);</span>
+            
+            // プレイヤーがこの職業に就いているかチェック
+<span class="nc bnc" id="L78" title="All 2 branches missed.">            if (jobManager.hasJob(player, jobName)) {</span>
+<span class="nc" id="L79">                PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">                if (playerJob != null) {</span>
+<span class="nc" id="L81">                    int currentLevel = playerJob.getLevel();</span>
+<span class="nc" id="L82">                    double currentExp = playerJob.getExperience();</span>
+<span class="nc" id="L83">                    int requiredExp = configManager.calculateRequiredExperience(currentLevel + 1);</span>
+                    
+<span class="nc" id="L85">                    player.sendMessage(ChatColor.GREEN + &quot;  ★ 現在就職中 - レベル &quot; + currentLevel + </span>
+                                     &quot; (経験値: &quot; + (int)currentExp + &quot;/&quot; + requiredExp + &quot;)&quot;);
+                }
+            }
+<span class="nc" id="L89">            player.sendMessage(&quot;&quot;);</span>
+        }
+        
+<span class="nc" id="L92">        player.sendMessage(ChatColor.GOLD + &quot;職業に就くには: &quot; + ChatColor.WHITE + &quot;/jobs join &lt;職業名&gt;&quot;);</span>
+<span class="nc" id="L93">        return true;</span>
+    }
+
+    private boolean handleJobJoin(Player player, String[] args) {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (args.length != 2) {</span>
+<span class="nc" id="L98">            player.sendMessage(ChatColor.RED + &quot;使用法: /jobs join &lt;職業名&gt;&quot;);</span>
+<span class="nc" id="L99">            return true;</span>
+        }
+        
+<span class="nc" id="L102">        String jobName = args[1].toLowerCase();</span>
+        
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (!jobManager.isValidJobName(jobName)) {</span>
+<span class="nc" id="L105">            player.sendMessage(ChatColor.RED + &quot;存在しない職業です: &quot; + jobName);</span>
+<span class="nc" id="L106">            player.sendMessage(ChatColor.YELLOW + &quot;利用可能な職業: &quot; + String.join(&quot;, &quot;, jobManager.getJobNames()));</span>
+<span class="nc" id="L107">            return true;</span>
+        }
+        
+<span class="nc" id="L110">        JobManager.JobJoinResult result = jobManager.joinJob(player, jobName);</span>
+        
+<span class="nc bnc" id="L112" title="All 7 branches missed.">        switch (result) {</span>
+            case SUCCESS:
+<span class="nc" id="L114">                String displayName = jobManager.getJobDisplayName(jobName);</span>
+<span class="nc" id="L115">                String message = configManager.getMessage(&quot;jobs.job_joined&quot;, &quot;job&quot;, displayName);</span>
+                
+                // メッセージが見つからない場合のフォールバック
+<span class="nc bnc" id="L118" title="All 2 branches missed.">                if (message.startsWith(&quot;メッセージが見つかりません:&quot;)) {</span>
+<span class="nc" id="L119">                    message = &quot;&amp;a職業「&quot; + displayName + &quot;」に就職しました。&quot;;</span>
+                }
+                
+<span class="nc" id="L122">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L123">                    configManager.getMessagePrefix() + message));</span>
+<span class="nc" id="L124">                break;</span>
+                
+            case ALREADY_HAS_JOB:
+<span class="nc" id="L127">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L128">                    configManager.getMessagePrefix() + configManager.getMessage(&quot;jobs.already_have_job&quot;)));</span>
+<span class="nc" id="L129">                break;</span>
+                
+            case JOB_NOT_FOUND:
+<span class="nc" id="L132">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L133">                    configManager.getMessagePrefix() + configManager.getMessage(&quot;jobs.job_not_found&quot;)));</span>
+<span class="nc" id="L134">                break;</span>
+                
+            case DAILY_LIMIT_EXCEEDED:
+<span class="nc" id="L137">                player.sendMessage(ChatColor.RED + &quot;職業変更は1日1回までです。明日になったら再度お試しください。&quot;);</span>
+<span class="nc" id="L138">                break;</span>
+                
+            case MAX_JOBS_REACHED:
+<span class="nc" id="L141">                int maxJobs = configManager.getMaxJobsPerPlayer();</span>
+<span class="nc" id="L142">                player.sendMessage(ChatColor.RED + &quot;同時に就ける職業数の上限(&quot; + maxJobs + &quot;)に達しています。&quot;);</span>
+<span class="nc" id="L143">                break;</span>
+                
+            case DATABASE_ERROR:
+<span class="nc" id="L146">                player.sendMessage(ChatColor.RED + &quot;データベースエラーが発生しました。しばらくしてから再度お試しください。&quot;);</span>
+                break;
+        }
+        
+<span class="nc" id="L150">        return true;</span>
+    }
+
+    private boolean handleJobLeave(Player player, String[] args) {
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        if (args.length != 2) {</span>
+<span class="nc" id="L155">            player.sendMessage(ChatColor.RED + &quot;使用法: /jobs leave &lt;職業名&gt;&quot;);</span>
+<span class="nc" id="L156">            return true;</span>
+        }
+        
+<span class="nc" id="L159">        String jobName = args[1].toLowerCase();</span>
+        
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        if (!jobManager.hasJob(player, jobName)) {</span>
+<span class="nc" id="L162">            player.sendMessage(ChatColor.RED + &quot;その職業には就いていません: &quot; + jobName);</span>
+<span class="nc" id="L163">            return true;</span>
+        }
+        
+<span class="nc" id="L166">        JobManager.JobLeaveResult result = jobManager.leaveJob(player, jobName);</span>
+        
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        if (result == JobManager.JobLeaveResult.SUCCESS) {</span>
+<span class="nc" id="L169">            String displayName = jobManager.getJobDisplayName(jobName);</span>
+<span class="nc" id="L170">            String message = configManager.getMessage(&quot;jobs.job_left&quot;, &quot;job&quot;, displayName);</span>
+            
+            // メッセージが見つからない場合のフォールバック
+<span class="nc bnc" id="L173" title="All 2 branches missed.">            if (message.startsWith(&quot;メッセージが見つかりません:&quot;)) {</span>
+<span class="nc" id="L174">                message = &quot;&amp;a職業「&quot; + displayName + &quot;」を辞職しました。&quot;;</span>
+            }
+            
+<span class="nc" id="L177">            player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L178">                configManager.getMessagePrefix() + message));</span>
+<span class="nc" id="L179">        } else {</span>
+<span class="nc" id="L180">            player.sendMessage(ChatColor.RED + &quot;職業の辞職に失敗しました。&quot;);</span>
+        }
+        
+<span class="nc" id="L183">        return true;</span>
+    }
+
+    private boolean handleJobStats(Player player, String[] args) {
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (args.length &gt; 2) {</span>
+<span class="nc" id="L188">            player.sendMessage(ChatColor.RED + &quot;使用法: /jobs stats [職業名]&quot;);</span>
+<span class="nc" id="L189">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (args.length == 1) {</span>
+            // すべての職業の統計を表示
+<span class="nc" id="L194">            player.sendMessage(ChatColor.GOLD + &quot;=== あなたの職業統計 ===&quot;);</span>
+            
+<span class="nc bnc" id="L196" title="All 2 branches missed.">            for (PlayerJob playerJob : jobManager.getPlayerJobs(player)) {</span>
+<span class="nc" id="L197">                Job job = jobManager.getJobById(playerJob.getJobId());</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">                if (job != null) {</span>
+<span class="nc" id="L199">                    String displayName = job.getDisplayName();</span>
+<span class="nc" id="L200">                    int level = playerJob.getLevel();</span>
+<span class="nc" id="L201">                    double experience = playerJob.getExperience();</span>
+<span class="nc" id="L202">                    int requiredExp = configManager.calculateRequiredExperience(level + 1);</span>
+                    
+<span class="nc" id="L204">                    player.sendMessage(ChatColor.YELLOW + &quot;▶ &quot; + displayName);</span>
+<span class="nc" id="L205">                    player.sendMessage(ChatColor.WHITE + &quot;  レベル: &quot; + level + &quot; (経験値: &quot; + (int)experience + &quot;/&quot; + requiredExp + &quot;)&quot;);</span>
+                }
+<span class="nc" id="L207">            }</span>
+        } else {
+            // 特定の職業の統計を表示
+<span class="nc" id="L210">            String jobName = args[1].toLowerCase();</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">            if (!jobManager.hasJob(player, jobName)) {</span>
+<span class="nc" id="L212">                player.sendMessage(ChatColor.RED + &quot;その職業には就いていません: &quot; + jobName);</span>
+<span class="nc" id="L213">                return true;</span>
+            }
+            
+<span class="nc" id="L216">            PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">            if (playerJob != null) {</span>
+<span class="nc" id="L218">                String displayName = jobManager.getJobDisplayName(jobName);</span>
+<span class="nc" id="L219">                int level = playerJob.getLevel();</span>
+<span class="nc" id="L220">                double experience = playerJob.getExperience();</span>
+<span class="nc" id="L221">                int requiredExp = configManager.calculateRequiredExperience(level + 1);</span>
+                
+<span class="nc" id="L223">                player.sendMessage(ChatColor.GOLD + &quot;=== &quot; + displayName + &quot; 統計 ===&quot;);</span>
+<span class="nc" id="L224">                player.sendMessage(ChatColor.WHITE + &quot;レベル: &quot; + level);</span>
+<span class="nc" id="L225">                player.sendMessage(ChatColor.WHITE + &quot;経験値: &quot; + (int)experience + &quot;/&quot; + requiredExp);</span>
+            }
+        }
+        
+<span class="nc" id="L229">        return true;</span>
+    }
+
+    private boolean handleJobInfo(Player player, String[] args) {
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        if (args.length != 2) {</span>
+<span class="nc" id="L234">            player.sendMessage(ChatColor.RED + &quot;使用法: /jobs info &lt;職業名&gt;&quot;);</span>
+<span class="nc" id="L235">            return true;</span>
+        }
+        
+<span class="nc" id="L238">        String jobName = args[1].toLowerCase();</span>
+        
+<span class="nc bnc" id="L240" title="All 2 branches missed.">        if (!jobManager.isValidJobName(jobName)) {</span>
+<span class="nc" id="L241">            player.sendMessage(ChatColor.RED + &quot;存在しない職業です: &quot; + jobName);</span>
+<span class="nc" id="L242">            return true;</span>
+        }
+        
+<span class="nc" id="L245">        String displayName = jobManager.getJobDisplayName(jobName);</span>
+<span class="nc" id="L246">        String description = configManager.getJobDescription(jobName);</span>
+<span class="nc" id="L247">        int maxLevel = configManager.getJobMaxLevel(jobName);</span>
+<span class="nc" id="L248">        double incomeMultiplier = configManager.getJobIncomeMultiplier(jobName);</span>
+<span class="nc" id="L249">        double expMultiplier = configManager.getJobExpMultiplier(jobName);</span>
+        
+<span class="nc" id="L251">        player.sendMessage(ChatColor.GOLD + &quot;=== &quot; + displayName + &quot; 情報 ===&quot;);</span>
+<span class="nc bnc" id="L252" title="All 4 branches missed.">        if (description != null &amp;&amp; !description.isEmpty()) {</span>
+<span class="nc" id="L253">            player.sendMessage(ChatColor.WHITE + &quot;説明: &quot; + description);</span>
+        }
+<span class="nc" id="L255">        player.sendMessage(ChatColor.WHITE + &quot;最大レベル: &quot; + maxLevel);</span>
+<span class="nc" id="L256">        player.sendMessage(ChatColor.WHITE + &quot;収入倍率: &quot; + String.format(&quot;%.1f&quot;, incomeMultiplier) + &quot;x&quot;);</span>
+<span class="nc" id="L257">        player.sendMessage(ChatColor.WHITE + &quot;経験値倍率: &quot; + String.format(&quot;%.1f&quot;, expMultiplier) + &quot;x&quot;);</span>
+        
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (jobManager.hasJob(player, jobName)) {</span>
+<span class="nc" id="L260">            PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">            if (playerJob != null) {</span>
+<span class="nc" id="L262">                int currentLevel = playerJob.getLevel();</span>
+<span class="nc" id="L263">                player.sendMessage(ChatColor.GREEN + &quot;現在のレベル: &quot; + currentLevel);</span>
+            }
+        }
+        
+<span class="nc" id="L267">        return true;</span>
+    }
+
+
+
+    private boolean handleJobDebug(Player player) {
+<span class="nc" id="L273">        player.sendMessage(ChatColor.GOLD + &quot;=== 職業デバッグ情報 ===&quot;);</span>
+        
+        // プレイヤーUUID表示
+<span class="nc" id="L276">        player.sendMessage(ChatColor.YELLOW + &quot;プレイヤーUUID: &quot; + ChatColor.WHITE + player.getUniqueId().toString());</span>
+        
+        // JobManagerから直接職業を取得
+<span class="nc" id="L279">        String currentJob = jobManager.getPlayerJob(player.getUniqueId());</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">        player.sendMessage(ChatColor.YELLOW + &quot;現在の職業 (JobManager): &quot; + ChatColor.WHITE + (currentJob != null ? currentJob : &quot;無職&quot;));</span>
+        
+        // すべてのプレイヤー職業を表示
+<span class="nc" id="L283">        player.sendMessage(ChatColor.YELLOW + &quot;所持している職業一覧:&quot;);</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">        for (PlayerJob playerJob : jobManager.getPlayerJobs(player)) {</span>
+<span class="nc" id="L285">            Job job = jobManager.getJobById(playerJob.getJobId());</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">            if (job != null) {</span>
+<span class="nc" id="L287">                player.sendMessage(ChatColor.WHITE + &quot;  - &quot; + job.getName() + &quot; (ID: &quot; + job.getId() + &quot;, Level: &quot; + playerJob.getLevel() + &quot;)&quot;);</span>
+            }
+<span class="nc" id="L289">        }</span>
+        
+        // データベース確認
+<span class="nc" id="L292">        player.sendMessage(ChatColor.YELLOW + &quot;データベース状態確認中...&quot;);</span>
+        // この部分は実際のデータベース状態を確認するためのもの
+        
+<span class="nc" id="L295">        return true;</span>
+    }
+
+    private void sendHelpMessage(Player player) {
+<span class="nc" id="L299">        player.sendMessage(ChatColor.GOLD + &quot;=== Jobs コマンドヘルプ ===&quot;);</span>
+<span class="nc" id="L300">        player.sendMessage(ChatColor.YELLOW + &quot;/jobs list &quot; + ChatColor.WHITE + &quot;- 利用可能な職業一覧を表示&quot;);</span>
+<span class="nc" id="L301">        player.sendMessage(ChatColor.YELLOW + &quot;/jobs join &lt;職業名&gt; &quot; + ChatColor.WHITE + &quot;- 指定した職業に就く&quot;);</span>
+<span class="nc" id="L302">        player.sendMessage(ChatColor.YELLOW + &quot;/jobs leave &lt;職業名&gt; &quot; + ChatColor.WHITE + &quot;- 指定した職業を辞める&quot;);</span>
+<span class="nc" id="L303">        player.sendMessage(ChatColor.YELLOW + &quot;/jobs stats [職業名] &quot; + ChatColor.WHITE + &quot;- 職業の統計を表示&quot;);</span>
+<span class="nc" id="L304">        player.sendMessage(ChatColor.YELLOW + &quot;/jobs info &lt;職業名&gt; &quot; + ChatColor.WHITE + &quot;- 職業の詳細情報を表示&quot;);</span>
+<span class="nc" id="L305">        player.sendMessage(ChatColor.YELLOW + &quot;/jobs debug &quot; + ChatColor.WHITE + &quot;- 職業の詳細デバッグ情報を表示&quot;);</span>
+<span class="nc" id="L306">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

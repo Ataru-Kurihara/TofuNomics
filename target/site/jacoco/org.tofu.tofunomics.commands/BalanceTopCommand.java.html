@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BalanceTopCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">BalanceTopCommand.java</span></div><h1>BalanceTopCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+
+import java.util.List;
+import java.util.UUID;
+
+public class BalanceTopCommand implements CommandExecutor {
+    
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    private final PlayerDAO playerDAO;
+    
+<span class="nc" id="L22">    public BalanceTopCommand(ConfigManager configManager, CurrencyConverter currencyConverter, PlayerDAO playerDAO) {</span>
+<span class="nc" id="L23">        this.configManager = configManager;</span>
+<span class="nc" id="L24">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L25">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L26">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc" id="L30">        int limit = 10;</span>
+        
+<span class="nc bnc" id="L32" title="All 2 branches missed.">        if (args.length == 1) {</span>
+            try {
+<span class="nc" id="L34">                int requestedLimit = Integer.parseInt(args[0]);</span>
+<span class="nc bnc" id="L35" title="All 4 branches missed.">                if (requestedLimit &gt; 0 &amp;&amp; requestedLimit &lt;= 50) {</span>
+<span class="nc" id="L36">                    limit = requestedLimit;</span>
+                } else {
+<span class="nc" id="L38">                    sender.sendMessage(ChatColor.RED + &quot;表示数は1から50までの範囲で指定してください。&quot;);</span>
+<span class="nc" id="L39">                    return true;</span>
+                }
+<span class="nc" id="L41">            } catch (NumberFormatException e) {</span>
+<span class="nc" id="L42">                sender.sendMessage(ChatColor.RED + &quot;無効な数値です。使用法: /balancetop [表示数]&quot;);</span>
+<span class="nc" id="L43">                return true;</span>
+<span class="nc" id="L44">            }</span>
+<span class="nc bnc" id="L45" title="All 2 branches missed.">        } else if (args.length &gt; 1) {</span>
+<span class="nc" id="L46">            sender.sendMessage(ChatColor.RED + &quot;使用法: /balancetop [表示数]&quot;);</span>
+<span class="nc" id="L47">            return true;</span>
+        }
+        
+<span class="nc" id="L50">        List&lt;org.tofu.tofunomics.models.Player&gt; topPlayers = playerDAO.getTopPlayersByBalance(limit);</span>
+        
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        if (topPlayers.isEmpty()) {</span>
+<span class="nc" id="L53">            sender.sendMessage(ChatColor.YELLOW + &quot;残高データが見つかりませんでした。&quot;);</span>
+<span class="nc" id="L54">            return true;</span>
+        }
+        
+<span class="nc" id="L57">        String currencySymbol = configManager.getCurrencySymbol();</span>
+        
+<span class="nc" id="L59">        sender.sendMessage(ChatColor.GOLD + &quot;==================== 残高ランキング TOP &quot; + limit + &quot; ====================&quot;);</span>
+        
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        for (int i = 0; i &lt; topPlayers.size(); i++) {</span>
+<span class="nc" id="L62">            org.tofu.tofunomics.models.Player tofuPlayer = topPlayers.get(i);</span>
+<span class="nc" id="L63">            int rank = i + 1;</span>
+            
+<span class="nc" id="L65">            String playerName = getPlayerName(tofuPlayer.getUuid().toString());</span>
+<span class="nc" id="L66">            String formattedBalance = currencyConverter.formatCurrency(tofuPlayer.getBalance());</span>
+            
+<span class="nc" id="L68">            ChatColor rankColor = getRankColor(rank);</span>
+            
+<span class="nc" id="L70">            String rankText = getRankText(rank);</span>
+            
+<span class="nc" id="L72">            sender.sendMessage(String.format(&quot;%s%s %s%s: %s%s %s&quot;, </span>
+                rankColor, rankText,
+                ChatColor.WHITE, playerName,
+                ChatColor.GREEN, formattedBalance, currencySymbol));
+        }
+        
+<span class="nc" id="L78">        sender.sendMessage(ChatColor.GOLD + &quot;================================================================&quot;);</span>
+        
+<span class="nc" id="L80">        return true;</span>
+    }
+    
+    private String getPlayerName(String uuidString) {
+        try {
+<span class="nc" id="L85">            UUID uuid = UUID.fromString(uuidString);</span>
+<span class="nc" id="L86">            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);</span>
+<span class="nc" id="L87">            String name = offlinePlayer.getName();</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            return name != null ? name : &quot;Unknown&quot;;</span>
+<span class="nc" id="L89">        } catch (Exception e) {</span>
+<span class="nc" id="L90">            return &quot;Unknown&quot;;</span>
+        }
+    }
+    
+    private ChatColor getRankColor(int rank) {
+<span class="nc bnc" id="L95" title="All 4 branches missed.">        switch (rank) {</span>
+            case 1:
+<span class="nc" id="L97">                return ChatColor.GOLD;</span>
+            case 2:
+<span class="nc" id="L99">                return ChatColor.GRAY;</span>
+            case 3:
+<span class="nc" id="L101">                return ChatColor.DARK_RED;</span>
+            default:
+<span class="nc" id="L103">                return ChatColor.YELLOW;</span>
+        }
+    }
+    
+    private String getRankText(int rank) {
+<span class="nc bnc" id="L108" title="All 4 branches missed.">        switch (rank) {</span>
+            case 1:
+<span class="nc" id="L110">                return &quot;🥇 1位&quot;;</span>
+            case 2:
+<span class="nc" id="L112">                return &quot;🥈 2位&quot;;</span>
+            case 3:
+<span class="nc" id="L114">                return &quot;🥉 3位&quot;;</span>
+            default:
+<span class="nc" id="L116">                return rank + &quot;位&quot;;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,706 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TradingGUI.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.npc.gui</a> &gt; <span class="el_source">TradingGUI.java</span></div><h1>TradingGUI.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.npc.gui;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.npc.TradingNPCManager;
+import org.tofu.tofunomics.trade.TradePriceManager;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+public class TradingGUI implements Listener {
+    
+<span class="nc" id="L26">    public enum ItemCategory {</span>
+<span class="nc" id="L27">        ALL(&quot;§7すべて&quot;, Material.CHEST),</span>
+<span class="nc" id="L28">        MINING(&quot;§8鉱物&quot;, Material.DIAMOND_PICKAXE),</span>
+<span class="nc" id="L29">        FARMING(&quot;§a農作物&quot;, Material.WHEAT),</span>
+<span class="nc" id="L30">        LOGGING(&quot;§2木材&quot;, Material.OAK_LOG),</span>
+<span class="nc" id="L31">        FISHING(&quot;§9海産物&quot;, Material.COD),</span>
+<span class="nc" id="L32">        CRAFTING(&quot;§6製作品&quot;, Material.CRAFTING_TABLE),</span>
+<span class="nc" id="L33">        MATERIALS(&quot;§5素材&quot;, Material.BLAZE_POWDER);</span>
+        
+        private final String displayName;
+        private final Material icon;
+        
+<span class="nc" id="L38">        ItemCategory(String displayName, Material icon) {</span>
+<span class="nc" id="L39">            this.displayName = displayName;</span>
+<span class="nc" id="L40">            this.icon = icon;</span>
+<span class="nc" id="L41">        }</span>
+        
+<span class="nc" id="L43">        public String getDisplayName() { return displayName; }</span>
+<span class="nc" id="L44">        public Material getIcon() { return icon; }</span>
+    }
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    private final JobManager jobManager;
+    private final TradingNPCManager tradingNPCManager;
+    private final TradePriceManager tradePriceManager;
+    
+<span class="nc" id="L54">    private final Map&lt;UUID, TradingGUISession&gt; activeSessions = new ConcurrentHashMap&lt;&gt;();</span>
+    
+    public TradingGUI(TofuNomics plugin, ConfigManager configManager, CurrencyConverter currencyConverter,
+<span class="nc" id="L57">                     JobManager jobManager, TradingNPCManager tradingNPCManager, TradePriceManager tradePriceManager) {</span>
+<span class="nc" id="L58">        this.plugin = plugin;</span>
+<span class="nc" id="L59">        this.configManager = configManager;</span>
+<span class="nc" id="L60">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L61">        this.jobManager = jobManager;</span>
+<span class="nc" id="L62">        this.tradingNPCManager = tradingNPCManager;</span>
+<span class="nc" id="L63">        this.tradePriceManager = tradePriceManager;</span>
+<span class="nc" id="L64">    }</span>
+    
+    private static class TradingGUISession {
+        private final UUID playerId;
+        private final String tradingPostId;
+        private final Inventory inventory;
+        private final long createdTime;
+        private int currentPage;
+        private ItemCategory currentCategory;
+        private String searchFilter;
+        
+<span class="nc" id="L75">        public TradingGUISession(UUID playerId, String tradingPostId, Inventory inventory) {</span>
+<span class="nc" id="L76">            this.playerId = playerId;</span>
+<span class="nc" id="L77">            this.tradingPostId = tradingPostId;</span>
+<span class="nc" id="L78">            this.inventory = inventory;</span>
+<span class="nc" id="L79">            this.createdTime = System.currentTimeMillis();</span>
+<span class="nc" id="L80">            this.currentPage = 0;</span>
+<span class="nc" id="L81">            this.currentCategory = ItemCategory.ALL;</span>
+<span class="nc" id="L82">            this.searchFilter = &quot;&quot;;</span>
+<span class="nc" id="L83">        }</span>
+        
+<span class="nc" id="L85">        public UUID getPlayerId() { return playerId; }</span>
+<span class="nc" id="L86">        public String getTradingPostId() { return tradingPostId; }</span>
+<span class="nc" id="L87">        public Inventory getInventory() { return inventory; }</span>
+<span class="nc" id="L88">        public long getCreatedTime() { return createdTime; }</span>
+<span class="nc" id="L89">        public int getCurrentPage() { return currentPage; }</span>
+<span class="nc" id="L90">        public void setCurrentPage(int page) { this.currentPage = page; }</span>
+<span class="nc" id="L91">        public ItemCategory getCurrentCategory() { return currentCategory; }</span>
+<span class="nc" id="L92">        public void setCurrentCategory(ItemCategory category) { this.currentCategory = category; }</span>
+<span class="nc" id="L93">        public String getSearchFilter() { return searchFilter; }</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        public void setSearchFilter(String filter) { this.searchFilter = filter != null ? filter : &quot;&quot;; }</span>
+    }
+    
+    public void openTradingGUI(Player player, TradingNPCManager.TradingPost tradingPost) {
+<span class="nc" id="L98">        plugin.getLogger().info(&quot;TradingGUI.openTradingGUI開始: プレイヤー=&quot; + player.getName() + &quot;, 取引所=&quot; + tradingPost.getName());</span>
+        
+        try {
+<span class="nc" id="L101">            String playerJob = jobManager.getPlayerJob(player.getUniqueId());</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            plugin.getLogger().info(&quot;TradingGUI内での職業確認: &quot; + (playerJob != null ? playerJob : &quot;職業なし&quot;));</span>
+            
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            if (playerJob == null) {</span>
+<span class="nc" id="L105">                plugin.getLogger().info(&quot;TradingGUI: 職業なしのため処理中断&quot;);</span>
+<span class="nc" id="L106">                String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());</span>
+<span class="nc" id="L107">                configManager.sendNPCSpecificMessageList(player, npcType, &quot;no_job&quot;);</span>
+<span class="nc" id="L108">                return;</span>
+            }
+            
+<span class="nc" id="L111">            plugin.getLogger().info(&quot;TradingGUI: 職業対応チェック - プレイヤー職業=&quot; + playerJob + &quot;, 対応職業=&quot; + String.join(&quot;, &quot;, tradingPost.getAcceptedJobTypes()));</span>
+            
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            if (!tradingPost.acceptsJob(playerJob)) {</span>
+<span class="nc" id="L114">                plugin.getLogger().info(&quot;TradingGUI: 職業不対応のため処理中断&quot;);</span>
+<span class="nc" id="L115">                String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());</span>
+<span class="nc" id="L116">                String acceptedJobsStr = String.join(&quot;, &quot;, tradingPost.getAcceptedJobTypes());</span>
+<span class="nc" id="L117">                configManager.sendNPCSpecificMessageList(player, npcType, &quot;job_not_accepted&quot;, </span>
+<span class="nc" id="L118">                    &quot;player&quot;, player.getName(), </span>
+                    &quot;job&quot;, playerJob, 
+                    &quot;accepted_jobs&quot;, acceptedJobsStr);
+<span class="nc" id="L121">                return;</span>
+            }
+            
+<span class="nc" id="L124">            String title = &quot;§6&quot; + tradingPost.getName() + &quot; - アイテム取引&quot;;</span>
+<span class="nc" id="L125">            plugin.getLogger().info(&quot;TradingGUI: GUIタイトル設定完了: &quot; + title);</span>
+            
+<span class="nc" id="L127">            Inventory gui = Bukkit.createInventory(null, 54, title);</span>
+<span class="nc" id="L128">            plugin.getLogger().info(&quot;TradingGUI: インベントリ作成完了&quot;);</span>
+            
+<span class="nc" id="L130">            TradingGUISession session = new TradingGUISession(</span>
+<span class="nc" id="L131">                player.getUniqueId(),</span>
+<span class="nc" id="L132">                tradingPost.getId(),</span>
+                gui
+            );
+<span class="nc" id="L135">            plugin.getLogger().info(&quot;TradingGUI: セッション作成完了&quot;);</span>
+            
+<span class="nc" id="L137">            setupTradingGUIItems(gui, player, tradingPost, session);</span>
+<span class="nc" id="L138">            plugin.getLogger().info(&quot;TradingGUI: GUIアイテム設定完了&quot;);</span>
+            
+<span class="nc" id="L140">            activeSessions.put(player.getUniqueId(), session);</span>
+<span class="nc" id="L141">            player.openInventory(gui);</span>
+<span class="nc" id="L142">            plugin.getLogger().info(&quot;TradingGUI: インベントリ開起完了&quot;);</span>
+            
+<span class="nc" id="L144">            plugin.getLogger().info(&quot;取引GUIを開きました: &quot; + player.getName() + &quot; -&gt; &quot; + tradingPost.getName());</span>
+            
+<span class="nc" id="L146">        } catch (Exception e) {</span>
+<span class="nc" id="L147">            plugin.getLogger().severe(&quot;取引GUI作成中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L148">            plugin.getLogger().severe(&quot;プレイヤー: &quot; + player.getName() + &quot;, 取引所: &quot; + tradingPost.getName());</span>
+<span class="nc" id="L149">            player.sendMessage(&quot;§c取引画面の表示中にエラーが発生しました。&quot;);</span>
+<span class="nc" id="L150">            player.sendMessage(&quot;§c管理者にお知らせください。詳細はサーバーログを確認してください。&quot;);</span>
+<span class="nc" id="L151">            e.printStackTrace();</span>
+<span class="nc" id="L152">        }</span>
+<span class="nc" id="L153">    }</span>
+    
+    private void setupTradingGUIItems(Inventory gui, Player player, TradingNPCManager.TradingPost tradingPost, TradingGUISession session) {
+<span class="nc" id="L156">        gui.clear();</span>
+        
+<span class="nc" id="L158">        String playerJob = jobManager.getPlayerJob(player.getUniqueId());</span>
+<span class="nc" id="L159">        List&lt;Map.Entry&lt;Material, Double&gt;&gt; allItems = new ArrayList&lt;&gt;(tradingPost.getItemPrices().entrySet());</span>
+        
+        // フィルタリング適用
+<span class="nc" id="L162">        List&lt;Map.Entry&lt;Material, Double&gt;&gt; filteredItems = filterItems(allItems, session.getCurrentCategory(), session.getSearchFilter());</span>
+        
+        // ページング設定
+<span class="nc" id="L165">        int itemsPerPage = 21; // 3行 x 7列 (カテゴリボタン用に上部を確保)</span>
+<span class="nc" id="L166">        int startIndex = session.getCurrentPage() * itemsPerPage;</span>
+<span class="nc" id="L167">        int endIndex = Math.min(startIndex + itemsPerPage, filteredItems.size());</span>
+        
+        // カテゴリボタン表示
+<span class="nc" id="L170">        setupCategoryButtons(gui, session.getCurrentCategory());</span>
+        
+        // アイテム表示（2行目から開始）
+<span class="nc" id="L173">        int slot = 18; // 2行目開始スロット</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        for (int i = startIndex; i &lt; endIndex; i++) {</span>
+<span class="nc" id="L175">            Map.Entry&lt;Material, Double&gt; entry = filteredItems.get(i);</span>
+<span class="nc" id="L176">            Material material = entry.getKey();</span>
+<span class="nc" id="L177">            double basePrice = entry.getValue();</span>
+            
+            // 最終価格を計算（職業ボーナス適用）
+<span class="nc" id="L180">            double finalPrice = tradePriceManager.calculateFinalPrice(</span>
+<span class="nc" id="L181">                material.toString().toLowerCase(), </span>
+                playerJob, 
+                basePrice
+            );
+            
+            // プレイヤーの手持ち数量をカウント
+<span class="nc" id="L187">            int playerAmount = countPlayerItems(player, material);</span>
+            
+<span class="nc" id="L189">            ItemStack displayItem = createTradingItem(material, basePrice, finalPrice, playerAmount, playerJob);</span>
+<span class="nc" id="L190">            gui.setItem(slot, displayItem);</span>
+            
+            // スロット位置調整
+<span class="nc" id="L193">            slot++;</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">            if ((slot - 18) % 9 == 7) { // 行末に達したら次の行の最初へ</span>
+<span class="nc" id="L195">                slot += 2;</span>
+            }
+<span class="nc bnc" id="L197" title="All 2 branches missed.">            if (slot &gt;= 45) break; // 最下段に達したら終了</span>
+        }
+        
+        // 情報表示
+<span class="nc" id="L201">        double balance = currencyConverter.getBalance(player.getUniqueId());</span>
+<span class="nc" id="L202">        ItemStack infoItem = createGUIItem(</span>
+            Material.GOLD_NUGGET,
+            &quot;§6取引情報&quot;,
+<span class="nc" id="L205">            Arrays.asList(</span>
+<span class="nc" id="L206">                &quot;§f現在の残高: §a&quot; + currencyConverter.formatCurrency(balance),</span>
+                &quot;§f職業: §e&quot; + playerJob,
+<span class="nc" id="L208">                &quot;§f職業ボーナス: §a&quot; + String.format(&quot;%.0f%%&quot;, (configManager.getJobPriceMultiplier(playerJob) - 1.0) * 100),</span>
+                &quot;&quot;,
+                &quot;§7アイテムをクリックして売却&quot;
+            )
+        );
+<span class="nc" id="L213">        gui.setItem(4, infoItem);</span>
+        
+        // ページング
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        if (session.getCurrentPage() &gt; 0) {</span>
+<span class="nc" id="L217">            ItemStack prevPage = createGUIItem(</span>
+                Material.ARROW,
+                &quot;§a前のページ&quot;,
+<span class="nc" id="L220">                Arrays.asList(&quot;§7ページ &quot; + (session.getCurrentPage() + 1) + &quot; → &quot; + session.getCurrentPage())</span>
+            );
+<span class="nc" id="L222">            gui.setItem(48, prevPage);</span>
+        }
+        
+<span class="nc bnc" id="L225" title="All 2 branches missed.">        if (endIndex &lt; filteredItems.size()) {</span>
+<span class="nc" id="L226">            ItemStack nextPage = createGUIItem(</span>
+                Material.ARROW,
+                &quot;§a次のページ&quot;,
+<span class="nc" id="L229">                Arrays.asList(&quot;§7ページ &quot; + (session.getCurrentPage() + 1) + &quot; → &quot; + (session.getCurrentPage() + 2))</span>
+            );
+<span class="nc" id="L231">            gui.setItem(50, nextPage);</span>
+        }
+        
+        // 現在のフィルター状態表示
+<span class="nc" id="L235">        ItemStack filterInfo = createGUIItem(</span>
+            Material.BOOK,
+            &quot;§6フィルター情報&quot;,
+<span class="nc" id="L238">            Arrays.asList(</span>
+<span class="nc" id="L239">                &quot;§fカテゴリ: &quot; + session.getCurrentCategory().getDisplayName(),</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                &quot;§f検索: &quot; + (session.getSearchFilter().isEmpty() ? &quot;§7なし&quot; : &quot;§e&quot; + session.getSearchFilter()),</span>
+<span class="nc" id="L241">                &quot;§f表示中: §a&quot; + filteredItems.size() + &quot; §f/ &quot; + allItems.size() + &quot; アイテム&quot;,</span>
+                &quot;§7カテゴリボタンでフィルタリング&quot;
+            )
+        );
+<span class="nc" id="L245">        gui.setItem(45, filterInfo);</span>
+        
+        // 全て売却ボタン
+<span class="nc" id="L248">        ItemStack sellAllItem = createGUIItem(</span>
+            Material.CHEST,
+            &quot;§c全アイテム売却&quot;,
+<span class="nc" id="L251">            Arrays.asList(</span>
+                &quot;§7売却可能な全てのアイテムを一度に売却&quot;,
+                &quot;§c※ 元に戻すことはできません&quot;,
+                &quot;§eクリックで実行&quot;
+            )
+        );
+<span class="nc" id="L257">        gui.setItem(49, sellAllItem);</span>
+        
+        // 閉じるボタン
+<span class="nc" id="L260">        ItemStack closeItem = createGUIItem(</span>
+            Material.BARRIER,
+            &quot;§c閉じる&quot;,
+<span class="nc" id="L263">            Arrays.asList(&quot;§7GUIを閉じます&quot;)</span>
+        );
+<span class="nc" id="L265">        gui.setItem(53, closeItem);</span>
+        
+        // 装飾アイテム
+<span class="nc" id="L268">        fillEmptySlots(gui);</span>
+<span class="nc" id="L269">    }</span>
+    
+    private ItemStack createTradingItem(Material material, double basePrice, double finalPrice, 
+                                      int playerAmount, String playerJob) {
+<span class="nc" id="L273">        ItemStack item = new ItemStack(material);</span>
+<span class="nc" id="L274">        ItemMeta meta = item.getItemMeta();</span>
+        
+<span class="nc bnc" id="L276" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L277">            meta.setDisplayName(&quot;§f&quot; + getDisplayName(material));</span>
+            
+<span class="nc" id="L279">            List&lt;String&gt; lore = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L280">            lore.add(&quot;§f基本価格: §e&quot; + currencyConverter.formatCurrency(basePrice));</span>
+            
+<span class="nc bnc" id="L282" title="All 2 branches missed.">            if (Math.abs(finalPrice - basePrice) &gt; 0.01) {</span>
+<span class="nc" id="L283">                double bonusPercent = ((finalPrice / basePrice) - 1.0) * 100;</span>
+<span class="nc" id="L284">                lore.add(&quot;§f職業価格: §a&quot; + currencyConverter.formatCurrency(finalPrice) + </span>
+<span class="nc" id="L285">                        &quot; §7(+&quot; + String.format(&quot;%.1f&quot;, bonusPercent) + &quot;%)&quot;);</span>
+            }
+            
+<span class="nc" id="L288">            lore.add(&quot;§f所持数: §b&quot; + playerAmount + &quot;個&quot;);</span>
+            
+<span class="nc bnc" id="L290" title="All 2 branches missed.">            if (playerAmount &gt; 0) {</span>
+<span class="nc" id="L291">                double totalValue = finalPrice * playerAmount;</span>
+<span class="nc" id="L292">                lore.add(&quot;§f合計価値: §a&quot; + currencyConverter.formatCurrency(totalValue));</span>
+<span class="nc" id="L293">                lore.add(&quot;&quot;);</span>
+<span class="nc" id="L294">                lore.add(&quot;§e左クリック: §f1個売却&quot;);</span>
+<span class="nc" id="L295">                lore.add(&quot;§e右クリック: §f10個売却&quot;);</span>
+<span class="nc" id="L296">                lore.add(&quot;§eシフト+クリック: §f全て売却&quot;);</span>
+<span class="nc" id="L297">            } else {</span>
+<span class="nc" id="L298">                lore.add(&quot;§c売却可能なアイテムがありません&quot;);</span>
+            }
+            
+<span class="nc" id="L301">            meta.setLore(lore);</span>
+<span class="nc" id="L302">            item.setItemMeta(meta);</span>
+        }
+        
+<span class="nc" id="L305">        return item;</span>
+    }
+    
+    private String getDisplayName(Material material) {
+<span class="nc" id="L309">        String name = material.toString().toLowerCase().replace(&quot;_&quot;, &quot; &quot;);</span>
+<span class="nc" id="L310">        String[] parts = name.split(&quot; &quot;);</span>
+<span class="nc" id="L311">        StringBuilder displayName = new StringBuilder();</span>
+        
+<span class="nc bnc" id="L313" title="All 2 branches missed.">        for (String part : parts) {</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">            if (displayName.length() &gt; 0) displayName.append(&quot; &quot;);</span>
+<span class="nc" id="L315">            displayName.append(part.substring(0, 1).toUpperCase()).append(part.substring(1));</span>
+        }
+        
+<span class="nc" id="L318">        return displayName.toString();</span>
+    }
+    
+    private int countPlayerItems(Player player, Material material) {
+<span class="nc" id="L322">        int count = 0;</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        for (ItemStack item : player.getInventory().getContents()) {</span>
+<span class="nc bnc" id="L324" title="All 4 branches missed.">            if (item != null &amp;&amp; item.getType() == material) {</span>
+<span class="nc" id="L325">                count += item.getAmount();</span>
+            }
+        }
+<span class="nc" id="L328">        return count;</span>
+    }
+    
+    private ItemStack createGUIItem(Material material, String name, List&lt;String&gt; lore) {
+<span class="nc" id="L332">        ItemStack item = new ItemStack(material);</span>
+<span class="nc" id="L333">        ItemMeta meta = item.getItemMeta();</span>
+        
+<span class="nc bnc" id="L335" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L336">            meta.setDisplayName(name);</span>
+<span class="nc" id="L337">            meta.setLore(lore);</span>
+<span class="nc" id="L338">            item.setItemMeta(meta);</span>
+        }
+        
+<span class="nc" id="L341">        return item;</span>
+    }
+    
+    /**
+     * カテゴリボタンを設定
+     */
+    private void setupCategoryButtons(Inventory gui, ItemCategory currentCategory) {
+<span class="nc" id="L348">        int slot = 1;</span>
+<span class="nc bnc" id="L349" title="All 2 branches missed.">        for (ItemCategory category : ItemCategory.values()) {</span>
+<span class="nc bnc" id="L350" title="All 2 branches missed.">            boolean isSelected = category == currentCategory;</span>
+<span class="nc" id="L351">            ItemStack categoryButton = createGUIItem(</span>
+<span class="nc" id="L352">                category.getIcon(),</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">                (isSelected ? &quot;§a§l&quot; : &quot;§f&quot;) + category.getDisplayName(),</span>
+<span class="nc" id="L354">                Arrays.asList(</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">                    isSelected ? &quot;§a選択中のカテゴリ&quot; : &quot;§7クリックで選択&quot;,</span>
+                    &quot;§7このカテゴリのアイテムを表示&quot;
+                )
+            );
+<span class="nc" id="L359">            gui.setItem(slot, categoryButton);</span>
+<span class="nc" id="L360">            slot++;</span>
+        }
+<span class="nc" id="L362">    }</span>
+    
+    /**
+     * アイテムフィルタリング
+     */
+    private List&lt;Map.Entry&lt;Material, Double&gt;&gt; filterItems(List&lt;Map.Entry&lt;Material, Double&gt;&gt; items, 
+                                                          ItemCategory category, String searchFilter) {
+<span class="nc" id="L369">        return items.stream()</span>
+<span class="nc" id="L370">            .filter(entry -&gt; matchesCategory(entry.getKey(), category))</span>
+<span class="nc" id="L371">            .filter(entry -&gt; matchesSearch(entry.getKey(), searchFilter))</span>
+<span class="nc" id="L372">            .collect(Collectors.toList());</span>
+    }
+    
+    /**
+     * カテゴリマッチング
+     */
+    private boolean matchesCategory(Material material, ItemCategory category) {
+<span class="nc bnc" id="L379" title="All 2 branches missed.">        if (category == ItemCategory.ALL) {</span>
+<span class="nc" id="L380">            return true;</span>
+        }
+        
+<span class="nc" id="L383">        String materialName = material.toString().toLowerCase();</span>
+<span class="nc bnc" id="L384" title="All 7 branches missed.">        switch (category) {</span>
+            case MINING:
+<span class="nc" id="L386">                return isMiningItem(materialName);</span>
+            case FARMING:
+<span class="nc" id="L388">                return isFarmingItem(materialName);</span>
+            case LOGGING:
+<span class="nc" id="L390">                return isLoggingItem(materialName);</span>
+            case FISHING:
+<span class="nc" id="L392">                return isFishingItem(materialName);</span>
+            case CRAFTING:
+<span class="nc" id="L394">                return isCraftingItem(materialName);</span>
+            case MATERIALS:
+<span class="nc" id="L396">                return isMaterialItem(materialName);</span>
+            default:
+<span class="nc" id="L398">                return true;</span>
+        }
+    }
+    
+    /**
+     * 検索フィルターマッチング
+     */
+    private boolean matchesSearch(Material material, String searchFilter) {
+<span class="nc bnc" id="L406" title="All 4 branches missed.">        if (searchFilter == null || searchFilter.trim().isEmpty()) {</span>
+<span class="nc" id="L407">            return true;</span>
+        }
+        
+<span class="nc" id="L410">        String materialName = material.toString().toLowerCase();</span>
+<span class="nc" id="L411">        String displayName = getDisplayName(material).toLowerCase();</span>
+<span class="nc" id="L412">        String filter = searchFilter.toLowerCase().trim();</span>
+        
+<span class="nc bnc" id="L414" title="All 4 branches missed.">        return materialName.contains(filter) || displayName.contains(filter);</span>
+    }
+    
+    // カテゴリ判定メソッド群
+    private boolean isMiningItem(String materialName) {
+<span class="nc bnc" id="L419" title="All 4 branches missed.">        return materialName.contains(&quot;ore&quot;) || materialName.contains(&quot;ingot&quot;) || </span>
+<span class="nc bnc" id="L420" title="All 4 branches missed.">               materialName.contains(&quot;coal&quot;) || materialName.contains(&quot;diamond&quot;) || </span>
+<span class="nc bnc" id="L421" title="All 4 branches missed.">               materialName.contains(&quot;emerald&quot;) || materialName.contains(&quot;redstone&quot;) ||</span>
+<span class="nc bnc" id="L422" title="All 4 branches missed.">               materialName.contains(&quot;lapis&quot;) || materialName.contains(&quot;quartz&quot;) ||</span>
+<span class="nc bnc" id="L423" title="All 4 branches missed.">               materialName.contains(&quot;stone&quot;) || materialName.contains(&quot;cobblestone&quot;);</span>
+    }
+    
+    private boolean isFarmingItem(String materialName) {
+<span class="nc bnc" id="L427" title="All 4 branches missed.">        return materialName.contains(&quot;wheat&quot;) || materialName.contains(&quot;potato&quot;) ||</span>
+<span class="nc bnc" id="L428" title="All 4 branches missed.">               materialName.contains(&quot;carrot&quot;) || materialName.contains(&quot;beetroot&quot;) ||</span>
+<span class="nc bnc" id="L429" title="All 4 branches missed.">               materialName.contains(&quot;pumpkin&quot;) || materialName.contains(&quot;melon&quot;) ||</span>
+<span class="nc bnc" id="L430" title="All 4 branches missed.">               materialName.contains(&quot;apple&quot;) || materialName.contains(&quot;bread&quot;) ||</span>
+<span class="nc bnc" id="L431" title="All 4 branches missed.">               materialName.contains(&quot;sugar&quot;) || materialName.contains(&quot;cocoa&quot;);</span>
+    }
+    
+    private boolean isLoggingItem(String materialName) {
+<span class="nc bnc" id="L435" title="All 4 branches missed.">        return materialName.contains(&quot;log&quot;) || materialName.contains(&quot;wood&quot;) ||</span>
+<span class="nc bnc" id="L436" title="All 4 branches missed.">               materialName.contains(&quot;plank&quot;) || materialName.contains(&quot;stick&quot;) ||</span>
+<span class="nc bnc" id="L437" title="All 4 branches missed.">               materialName.contains(&quot;bark&quot;) || materialName.contains(&quot;stem&quot;);</span>
+    }
+    
+    private boolean isFishingItem(String materialName) {
+<span class="nc bnc" id="L441" title="All 4 branches missed.">        return materialName.contains(&quot;cod&quot;) || materialName.contains(&quot;salmon&quot;) ||</span>
+<span class="nc bnc" id="L442" title="All 4 branches missed.">               materialName.contains(&quot;fish&quot;) || materialName.contains(&quot;kelp&quot;) ||</span>
+<span class="nc bnc" id="L443" title="All 4 branches missed.">               materialName.contains(&quot;seagrass&quot;) || materialName.contains(&quot;prismarine&quot;);</span>
+    }
+    
+    private boolean isCraftingItem(String materialName) {
+<span class="nc bnc" id="L447" title="All 4 branches missed.">        return materialName.contains(&quot;sword&quot;) || materialName.contains(&quot;pickaxe&quot;) ||</span>
+<span class="nc bnc" id="L448" title="All 4 branches missed.">               materialName.contains(&quot;axe&quot;) || materialName.contains(&quot;shovel&quot;) ||</span>
+<span class="nc bnc" id="L449" title="All 4 branches missed.">               materialName.contains(&quot;hoe&quot;) || materialName.contains(&quot;helmet&quot;) ||</span>
+<span class="nc bnc" id="L450" title="All 4 branches missed.">               materialName.contains(&quot;chestplate&quot;) || materialName.contains(&quot;leggings&quot;) ||</span>
+<span class="nc bnc" id="L451" title="All 2 branches missed.">               materialName.contains(&quot;boots&quot;);</span>
+    }
+    
+    private boolean isMaterialItem(String materialName) {
+<span class="nc bnc" id="L455" title="All 4 branches missed.">        return materialName.contains(&quot;powder&quot;) || materialName.contains(&quot;dust&quot;) ||</span>
+<span class="nc bnc" id="L456" title="All 4 branches missed.">               materialName.contains(&quot;tear&quot;) || materialName.contains(&quot;eye&quot;) ||</span>
+<span class="nc bnc" id="L457" title="All 4 branches missed.">               materialName.contains(&quot;membrane&quot;) || materialName.contains(&quot;cream&quot;);</span>
+    }
+    
+    private void fillEmptySlots(Inventory gui) {
+<span class="nc" id="L461">        ItemStack glassPane = createGUIItem(Material.GRAY_STAINED_GLASS_PANE, &quot;§r&quot;, Collections.emptyList());</span>
+        
+        // 上段と下段の装飾
+<span class="nc bnc" id="L464" title="All 2 branches missed.">        for (int i = 0; i &lt; 9; i++) {</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">            if (gui.getItem(i) == null) gui.setItem(i, glassPane);</span>
+        }
+<span class="nc bnc" id="L467" title="All 2 branches missed.">        for (int i = 45; i &lt; 54; i++) {</span>
+<span class="nc bnc" id="L468" title="All 2 branches missed.">            if (gui.getItem(i) == null) gui.setItem(i, glassPane);</span>
+        }
+        
+        // 左右の装飾
+<span class="nc" id="L472">        int[] sideSlots = {9, 18, 27, 36, 17, 26, 35, 44};</span>
+<span class="nc bnc" id="L473" title="All 2 branches missed.">        for (int slot : sideSlots) {</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">            if (gui.getItem(slot) == null) gui.setItem(slot, glassPane);</span>
+        }
+<span class="nc" id="L476">    }</span>
+    
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+<span class="nc bnc" id="L480" title="All 2 branches missed.">        if (!(event.getWhoClicked() instanceof Player)) {</span>
+<span class="nc" id="L481">            return;</span>
+        }
+        
+<span class="nc" id="L484">        Player player = (Player) event.getWhoClicked();</span>
+<span class="nc" id="L485">        UUID playerId = player.getUniqueId();</span>
+        
+<span class="nc" id="L487">        TradingGUISession session = activeSessions.get(playerId);</span>
+<span class="nc bnc" id="L488" title="All 4 branches missed.">        if (session == null || !session.getInventory().equals(event.getInventory())) {</span>
+<span class="nc" id="L489">            return;</span>
+        }
+        
+<span class="nc" id="L492">        event.setCancelled(true);</span>
+        
+<span class="nc" id="L494">        ItemStack clickedItem = event.getCurrentItem();</span>
+<span class="nc bnc" id="L495" title="All 4 branches missed.">        if (clickedItem == null || clickedItem.getType() == Material.AIR) {</span>
+<span class="nc" id="L496">            return;</span>
+        }
+        
+        try {
+<span class="nc" id="L500">            handleTradingGUIClick(player, session, event.getSlot(), event.getClick(), clickedItem);</span>
+<span class="nc" id="L501">        } catch (Exception e) {</span>
+<span class="nc" id="L502">            plugin.getLogger().severe(&quot;取引GUIクリック処理中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L503">            player.sendMessage(configManager.getMessage(&quot;npc.trading.action_error&quot;));</span>
+<span class="nc" id="L504">            e.printStackTrace();</span>
+<span class="nc" id="L505">        }</span>
+<span class="nc" id="L506">    }</span>
+    
+    private void handleTradingGUIClick(Player player, TradingGUISession session, int slot, 
+                                     org.bukkit.event.inventory.ClickType clickType, ItemStack clickedItem) {
+        
+<span class="nc" id="L511">        TradingNPCManager.TradingPost tradingPost = tradingNPCManager.getTradingPost(session.getTradingPostId());</span>
+<span class="nc bnc" id="L512" title="All 2 branches missed.">        if (tradingPost == null) {</span>
+<span class="nc" id="L513">            player.sendMessage(configManager.getMessage(&quot;npc.trading.post_not_found&quot;));</span>
+<span class="nc" id="L514">            return;</span>
+        }
+        
+        // カテゴリボタン処理 (スロット1-7)
+<span class="nc bnc" id="L518" title="All 4 branches missed.">        if (slot &gt;= 1 &amp;&amp; slot &lt;= 7) {</span>
+<span class="nc" id="L519">            ItemCategory[] categories = ItemCategory.values();</span>
+<span class="nc" id="L520">            int categoryIndex = slot - 1;</span>
+<span class="nc bnc" id="L521" title="All 2 branches missed.">            if (categoryIndex &lt; categories.length) {</span>
+<span class="nc" id="L522">                session.setCurrentCategory(categories[categoryIndex]);</span>
+<span class="nc" id="L523">                session.setCurrentPage(0); // カテゴリ変更時はページをリセット</span>
+<span class="nc" id="L524">                setupTradingGUIItems(session.getInventory(), player, tradingPost, session);</span>
+            }
+<span class="nc" id="L526">            return;</span>
+        }
+        
+<span class="nc bnc" id="L529" title="All 5 branches missed.">        switch (slot) {</span>
+            case 48: // 前のページ
+<span class="nc bnc" id="L531" title="All 2 branches missed.">                if (session.getCurrentPage() &gt; 0) {</span>
+<span class="nc" id="L532">                    session.setCurrentPage(session.getCurrentPage() - 1);</span>
+<span class="nc" id="L533">                    setupTradingGUIItems(session.getInventory(), player, tradingPost, session);</span>
+                }
+                break;
+                
+            case 50: // 次のページ
+<span class="nc" id="L538">                session.setCurrentPage(session.getCurrentPage() + 1);</span>
+<span class="nc" id="L539">                setupTradingGUIItems(session.getInventory(), player, tradingPost, session);</span>
+<span class="nc" id="L540">                break;</span>
+                
+            case 49: // 全て売却
+<span class="nc" id="L543">                handleSellAll(player, tradingPost);</span>
+<span class="nc" id="L544">                setupTradingGUIItems(session.getInventory(), player, tradingPost, session);</span>
+<span class="nc" id="L545">                break;</span>
+                
+            case 53: // 閉じる
+<span class="nc" id="L548">                player.closeInventory();</span>
+<span class="nc" id="L549">                break;</span>
+                
+            default:
+                // アイテム売却処理 (スロット18-44の範囲)
+<span class="nc bnc" id="L553" title="All 2 branches missed.">                if (isItemSlot(slot)) {</span>
+<span class="nc" id="L554">                    Material material = clickedItem.getType();</span>
+<span class="nc bnc" id="L555" title="All 2 branches missed.">                    if (tradingPost.getItemPrice(material) &gt; 0) {</span>
+<span class="nc" id="L556">                        handleItemSell(player, tradingPost, material, clickType);</span>
+<span class="nc" id="L557">                        setupTradingGUIItems(session.getInventory(), player, tradingPost, session);</span>
+                    }
+                }
+                break;
+        }
+<span class="nc" id="L562">    }</span>
+    
+    private boolean isItemSlot(int slot) {
+        // アイテム表示エリアのスロット判定（2行目～4行目）
+<span class="nc bnc" id="L566" title="All 4 branches missed.">        if (slot &lt; 18 || slot &gt; 44) return false;</span>
+<span class="nc" id="L567">        int row = (slot - 18) / 9;</span>
+<span class="nc" id="L568">        int column = (slot - 18) % 9;</span>
+<span class="nc bnc" id="L569" title="All 8 branches missed.">        return row &gt;= 0 &amp;&amp; row &lt;= 2 &amp;&amp; column &gt;= 0 &amp;&amp; column &lt;= 6; // 3行 x 7列</span>
+    }
+    
+    private void handleItemSell(Player player, TradingNPCManager.TradingPost tradingPost, 
+                               Material material, org.bukkit.event.inventory.ClickType clickType) {
+        int sellAmount;
+        
+<span class="nc bnc" id="L576" title="All 4 branches missed.">        switch (clickType) {</span>
+            case LEFT:
+<span class="nc" id="L578">                sellAmount = 1;</span>
+<span class="nc" id="L579">                break;</span>
+            case RIGHT:
+<span class="nc" id="L581">                sellAmount = 10;</span>
+<span class="nc" id="L582">                break;</span>
+            case SHIFT_LEFT:
+            case SHIFT_RIGHT:
+<span class="nc" id="L585">                sellAmount = Integer.MAX_VALUE;</span>
+<span class="nc" id="L586">                break;</span>
+            default:
+<span class="nc" id="L588">                return;</span>
+        }
+        
+        // プレイヤーのアイテムから売却処理
+<span class="nc" id="L592">        List&lt;ItemStack&gt; itemsToSell = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L593">        int remaining = sellAmount;</span>
+        
+<span class="nc bnc" id="L595" title="All 2 branches missed.">        for (ItemStack item : player.getInventory().getContents()) {</span>
+<span class="nc bnc" id="L596" title="All 6 branches missed.">            if (item != null &amp;&amp; item.getType() == material &amp;&amp; remaining &gt; 0) {</span>
+<span class="nc" id="L597">                int available = item.getAmount();</span>
+<span class="nc" id="L598">                int takeAmount = Math.min(available, remaining);</span>
+                
+<span class="nc bnc" id="L600" title="All 2 branches missed.">                if (takeAmount &gt; 0) {</span>
+<span class="nc" id="L601">                    ItemStack sellItem = item.clone();</span>
+<span class="nc" id="L602">                    sellItem.setAmount(takeAmount);</span>
+<span class="nc" id="L603">                    itemsToSell.add(sellItem);</span>
+<span class="nc" id="L604">                    remaining -= takeAmount;</span>
+                }
+            }
+        }
+        
+<span class="nc bnc" id="L609" title="All 2 branches missed.">        if (itemsToSell.isEmpty()) {</span>
+<span class="nc" id="L610">            player.sendMessage(configManager.getMessage(&quot;npc.trading.no_items_to_sell&quot;));</span>
+<span class="nc" id="L611">            return;</span>
+        }
+        
+        // 売却処理を実行
+<span class="nc" id="L615">        TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(</span>
+            player, 
+<span class="nc" id="L617">            tradingPost.getNpcId(), </span>
+            itemsToSell
+        );
+        
+<span class="nc bnc" id="L621" title="All 2 branches missed.">        if (result.isSuccess()) {</span>
+<span class="nc" id="L622">            String earnings = currencyConverter.formatCurrency(result.getTotalEarnings());</span>
+<span class="nc" id="L623">            player.sendMessage(configManager.getMessage(&quot;npc.trading.sale_success&quot;, &quot;total&quot;, earnings));</span>
+<span class="nc" id="L624">        } else {</span>
+<span class="nc" id="L625">            player.sendMessage(result.getMessage());</span>
+        }
+<span class="nc" id="L627">    }</span>
+    
+    private void handleSellAll(Player player, TradingNPCManager.TradingPost tradingPost) {
+<span class="nc" id="L630">        List&lt;ItemStack&gt; allItems = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L632" title="All 2 branches missed.">        for (ItemStack item : player.getInventory().getContents()) {</span>
+<span class="nc bnc" id="L633" title="All 6 branches missed.">            if (item != null &amp;&amp; item.getAmount() &gt; 0 &amp;&amp; tradingPost.getItemPrice(item.getType()) &gt; 0) {</span>
+<span class="nc" id="L634">                allItems.add(item.clone());</span>
+            }
+        }
+        
+<span class="nc bnc" id="L638" title="All 2 branches missed.">        if (allItems.isEmpty()) {</span>
+<span class="nc" id="L639">            player.sendMessage(configManager.getMessage(&quot;npc.trading.no_sellable_items&quot;));</span>
+<span class="nc" id="L640">            return;</span>
+        }
+        
+<span class="nc" id="L643">        TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(</span>
+            player, 
+<span class="nc" id="L645">            tradingPost.getNpcId(), </span>
+            allItems
+        );
+        
+<span class="nc bnc" id="L649" title="All 2 branches missed.">        if (result.isSuccess()) {</span>
+<span class="nc" id="L650">            String earnings = currencyConverter.formatCurrency(result.getTotalEarnings());</span>
+<span class="nc" id="L651">            player.sendMessage(configManager.getMessage(&quot;npc.trading.sell_all_success&quot;, </span>
+                &quot;total&quot;, earnings,
+<span class="nc" id="L653">                &quot;count&quot;, String.valueOf(result.getSoldItems().values().stream().mapToInt(Integer::intValue).sum())));</span>
+<span class="nc" id="L654">        } else {</span>
+<span class="nc" id="L655">            player.sendMessage(result.getMessage());</span>
+        }
+<span class="nc" id="L657">    }</span>
+    
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+<span class="nc bnc" id="L661" title="All 2 branches missed.">        if (!(event.getPlayer() instanceof Player)) {</span>
+<span class="nc" id="L662">            return;</span>
+        }
+        
+<span class="nc" id="L665">        Player player = (Player) event.getPlayer();</span>
+<span class="nc" id="L666">        UUID playerId = player.getUniqueId();</span>
+        
+<span class="nc" id="L668">        TradingGUISession session = activeSessions.remove(playerId);</span>
+<span class="nc bnc" id="L669" title="All 2 branches missed.">        if (session != null) {</span>
+<span class="nc" id="L670">            plugin.getLogger().info(&quot;取引GUIを閉じました: &quot; + player.getName());</span>
+        }
+<span class="nc" id="L672">    }</span>
+    
+    public void closeAllGUIs() {
+<span class="nc bnc" id="L675" title="All 2 branches missed.">        for (TradingGUISession session : activeSessions.values()) {</span>
+<span class="nc" id="L676">            Player player = Bukkit.getPlayer(session.getPlayerId());</span>
+<span class="nc bnc" id="L677" title="All 4 branches missed.">            if (player != null &amp;&amp; player.isOnline()) {</span>
+<span class="nc" id="L678">                player.closeInventory();</span>
+            }
+<span class="nc" id="L680">        }</span>
+<span class="nc" id="L681">        activeSessions.clear();</span>
+<span class="nc" id="L682">    }</span>
+    
+    public int getActiveSessionsCount() {
+<span class="nc" id="L685">        return activeSessions.size();</span>
+    }
+    
+    /**
+     * 取引所IDからNPCタイプを取得（個性的なメッセージ用）
+     */
+    private String getNPCTypeFromTradingPostId(String tradingPostId) {
+        // config.ymlの設定と対応するNPCタイプにマッピング
+<span class="nc bnc" id="L693" title="All 4 branches missed.">        switch (tradingPostId) {</span>
+            case &quot;central_market&quot;:
+<span class="nc" id="L695">                return &quot;central_market&quot;;</span>
+            case &quot;mining_post&quot;:
+<span class="nc" id="L697">                return &quot;mining_post&quot;;</span>
+            case &quot;wood_market&quot;:
+<span class="nc" id="L699">                return &quot;wood_market&quot;;</span>
+            default:
+                // デフォルトは中央市場スタイル
+<span class="nc" id="L702">                return &quot;central_market&quot;;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

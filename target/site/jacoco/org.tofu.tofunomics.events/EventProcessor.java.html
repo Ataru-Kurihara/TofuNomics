@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EventProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.events</a> &gt; <span class="el_source">EventProcessor.java</span></div><h1>EventProcessor.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.events;
+
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityEvent;
+import org.bukkit.event.inventory.InventoryEvent;
+import org.bukkit.event.player.PlayerEvent;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * イベント処理振り分けシステム
+ * イベントを適切なハンドラに振り分け、処理すべきかどうかを判定
+ */
+public class EventProcessor {
+    
+    private final ConfigManager configManager;
+    private final JobManager jobManager;
+    
+    // 除外ワールドのキャッシュ
+    private final Set&lt;String&gt; excludedWorlds;
+    
+    // 除外ゲームモード
+    private final Set&lt;GameMode&gt; excludedGameModes;
+    
+<span class="nc" id="L36">    public EventProcessor(ConfigManager configManager, JobManager jobManager) {</span>
+<span class="nc" id="L37">        this.configManager = configManager;</span>
+<span class="nc" id="L38">        this.jobManager = jobManager;</span>
+<span class="nc" id="L39">        this.excludedWorlds = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L40">        this.excludedGameModes = new HashSet&lt;&gt;();</span>
+        
+<span class="nc" id="L42">        initializeExclusions();</span>
+<span class="nc" id="L43">    }</span>
+    
+    /**
+     * 除外設定の初期化
+     */
+    private void initializeExclusions() {
+        // 除外ワールドの設定
+<span class="nc" id="L50">        List&lt;String&gt; worlds = configManager.getExcludedWorlds();</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        if (worlds != null) {</span>
+<span class="nc" id="L52">            excludedWorlds.addAll(worlds);</span>
+        }
+        
+        // 除外ゲームモードの設定
+<span class="nc" id="L56">        excludedGameModes.add(GameMode.CREATIVE);</span>
+<span class="nc" id="L57">        excludedGameModes.add(GameMode.SPECTATOR);</span>
+        
+        // configから追加の除外ゲームモード読み込み（将来の拡張用）
+<span class="nc" id="L60">        List&lt;String&gt; modes = configManager.getExcludedGameModes();</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (modes != null) {</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">            for (String mode : modes) {</span>
+                try {
+<span class="nc" id="L64">                    excludedGameModes.add(GameMode.valueOf(mode.toUpperCase()));</span>
+<span class="nc" id="L65">                } catch (IllegalArgumentException e) {</span>
+                    // 無効なゲームモード名は無視
+<span class="nc" id="L67">                }</span>
+<span class="nc" id="L68">            }</span>
+        }
+<span class="nc" id="L70">    }</span>
+    
+    /**
+     * イベント処理を行うべきか判定
+     * @param event イベント
+     * @return 処理すべき場合true
+     */
+    public boolean shouldProcessEvent(Event event) {
+<span class="nc" id="L78">        Player player = extractPlayer(event);</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (player == null) {</span>
+<span class="nc" id="L80">            return false;</span>
+        }
+        
+        // プレイヤーの基本チェック
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (!isValidPlayer(player)) {</span>
+<span class="nc" id="L85">            return false;</span>
+        }
+        
+        // ワールドチェック
+<span class="nc bnc" id="L89" title="All 2 branches missed.">        if (!isValidWorld(player.getWorld())) {</span>
+<span class="nc" id="L90">            return false;</span>
+        }
+        
+        // ゲームモードチェック
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        if (!isValidGameMode(player.getGameMode())) {</span>
+<span class="nc" id="L95">            return false;</span>
+        }
+        
+        // 権限チェック
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (!hasRequiredPermission(player, event)) {</span>
+<span class="nc" id="L100">            return false;</span>
+        }
+        
+        // 職業チェック
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (!hasValidJob(player, event)) {</span>
+<span class="nc" id="L105">            return false;</span>
+        }
+        
+<span class="nc" id="L108">        return true;</span>
+    }
+    
+    /**
+     * イベントからプレイヤーを抽出
+     */
+    private Player extractPlayer(Event event) {
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (event instanceof PlayerEvent) {</span>
+<span class="nc" id="L116">            return ((PlayerEvent) event).getPlayer();</span>
+        }
+        
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (event instanceof BlockBreakEvent) {</span>
+<span class="nc" id="L120">            return ((BlockBreakEvent) event).getPlayer();</span>
+        }
+        
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        if (event instanceof BlockPlaceEvent) {</span>
+<span class="nc" id="L124">            return ((BlockPlaceEvent) event).getPlayer();</span>
+        }
+        
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        if (event instanceof InventoryEvent) {</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">            if (((InventoryEvent) event).getView().getPlayer() instanceof Player) {</span>
+<span class="nc" id="L129">                return (Player) ((InventoryEvent) event).getView().getPlayer();</span>
+            }
+        }
+        
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (event instanceof EntityEvent) {</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            if (((EntityEvent) event).getEntity() instanceof Player) {</span>
+<span class="nc" id="L135">                return (Player) ((EntityEvent) event).getEntity();</span>
+            }
+        }
+        
+<span class="nc" id="L139">        return null;</span>
+    }
+    
+    /**
+     * プレイヤーの妥当性チェック
+     */
+    private boolean isValidPlayer(Player player) {
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (player == null) {</span>
+<span class="nc" id="L147">            return false;</span>
+        }
+        
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (!player.isOnline()) {</span>
+<span class="nc" id="L151">            return false;</span>
+        }
+        
+        // NPCチェック（他プラグインのNPCを除外）
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        if (player.hasMetadata(&quot;NPC&quot;)) {</span>
+<span class="nc" id="L156">            return false;</span>
+        }
+        
+<span class="nc" id="L159">        return true;</span>
+    }
+    
+    /**
+     * ワールドの妥当性チェック
+     */
+    private boolean isValidWorld(World world) {
+<span class="nc bnc" id="L166" title="All 2 branches missed.">        if (world == null) {</span>
+<span class="nc" id="L167">            return false;</span>
+        }
+        
+<span class="nc" id="L170">        String worldName = world.getName();</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (excludedWorlds.contains(worldName)) {</span>
+<span class="nc" id="L172">            return false;</span>
+        }
+        
+<span class="nc" id="L175">        return true;</span>
+    }
+    
+    /**
+     * ゲームモードの妥当性チェック
+     */
+    private boolean isValidGameMode(GameMode gameMode) {
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        if (gameMode == null) {</span>
+<span class="nc" id="L183">            return false;</span>
+        }
+        
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        if (excludedGameModes.contains(gameMode)) {</span>
+<span class="nc" id="L187">            return false;</span>
+        }
+        
+<span class="nc" id="L190">        return true;</span>
+    }
+    
+    /**
+     * 必要な権限をチェック
+     */
+    private boolean hasRequiredPermission(Player player, Event event) {
+        // 基本的な権限チェック
+<span class="nc bnc" id="L198" title="All 2 branches missed.">        if (!player.hasPermission(&quot;tofunomics.use&quot;)) {</span>
+            // デフォルトでは全員に権限があるものとする
+            // （権限が明示的に設定されていない場合はtrue）
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            if (player.isPermissionSet(&quot;tofunomics.use&quot;)) {</span>
+<span class="nc" id="L202">                return false;</span>
+            }
+        }
+        
+        // イベント固有の権限チェック
+<span class="nc" id="L207">        String eventPermission = getEventPermission(event);</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        if (eventPermission != null) {</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">            if (!player.hasPermission(eventPermission)) {</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">                if (player.isPermissionSet(eventPermission)) {</span>
+<span class="nc" id="L211">                    return false;</span>
+                }
+            }
+        }
+        
+<span class="nc" id="L216">        return true;</span>
+    }
+    
+    /**
+     * イベントに対応する権限を取得
+     */
+    private String getEventPermission(Event event) {
+<span class="nc" id="L223">        String className = event.getClass().getSimpleName();</span>
+        
+<span class="nc bnc" id="L225" title="All 9 branches missed.">        switch (className) {</span>
+            case &quot;BlockBreakEvent&quot;:
+<span class="nc" id="L227">                return &quot;tofunomics.event.blockbreak&quot;;</span>
+            case &quot;BlockPlaceEvent&quot;:
+<span class="nc" id="L229">                return &quot;tofunomics.event.blockplace&quot;;</span>
+            case &quot;CraftItemEvent&quot;:
+<span class="nc" id="L231">                return &quot;tofunomics.event.craft&quot;;</span>
+            case &quot;EnchantItemEvent&quot;:
+<span class="nc" id="L233">                return &quot;tofunomics.event.enchant&quot;;</span>
+            case &quot;BrewEvent&quot;:
+<span class="nc" id="L235">                return &quot;tofunomics.event.brew&quot;;</span>
+            case &quot;PlayerFishEvent&quot;:
+<span class="nc" id="L237">                return &quot;tofunomics.event.fish&quot;;</span>
+            case &quot;EntityDeathEvent&quot;:
+<span class="nc" id="L239">                return &quot;tofunomics.event.kill&quot;;</span>
+            case &quot;EntityBreedEvent&quot;:
+<span class="nc" id="L241">                return &quot;tofunomics.event.breed&quot;;</span>
+            default:
+<span class="nc" id="L243">                return null;</span>
+        }
+    }
+    
+    /**
+     * 有効な職業を持っているかチェック
+     */
+    private boolean hasValidJob(Player player, Event event) {
+<span class="nc" id="L251">        System.out.println(&quot;=== hasValidJob デバッグ開始 ===&quot;);</span>
+<span class="nc" id="L252">        System.out.println(&quot;プレイヤー: &quot; + player.getName());</span>
+<span class="nc" id="L253">        System.out.println(&quot;イベント: &quot; + event.getClass().getSimpleName());</span>
+        
+        // 特定のイベントは職業なしでも処理可能
+<span class="nc bnc" id="L256" title="All 2 branches missed.">        if (isJobOptionalEvent(event)) {</span>
+<span class="nc" id="L257">            System.out.println(&quot;職業不要イベントのため許可&quot;);</span>
+<span class="nc" id="L258">            return true;</span>
+        }
+        
+        // プレイヤーが少なくとも1つの職業を持っているかチェック
+<span class="nc" id="L262">        List&lt;PlayerJob&gt; jobs = jobManager.getPlayerJobs(player);</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">        System.out.println(&quot;取得した職業リスト: &quot; + (jobs != null ? jobs.size() + &quot;個&quot; : &quot;null&quot;));</span>
+        
+<span class="nc bnc" id="L265" title="All 4 branches missed.">        if (jobs == null || jobs.isEmpty()) {</span>
+<span class="nc" id="L266">            System.out.println(&quot;判定結果: 職業なしのため拒否&quot;);</span>
+<span class="nc" id="L267">            return false;</span>
+        }
+        
+        // アクティブな職業があるかチェック
+<span class="nc bnc" id="L271" title="All 2 branches missed.">        for (PlayerJob job : jobs) {</span>
+<span class="nc" id="L272">            System.out.println(&quot;職業チェック: JobID=&quot; + job.getJobId() + &quot;, レベル=&quot; + job.getLevel() + &quot;, アクティブ: &quot; + job.isActive());</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">            if (job.isActive()) {</span>
+<span class="nc" id="L274">                System.out.println(&quot;判定結果: アクティブな職業があるため許可&quot;);</span>
+<span class="nc" id="L275">                return true;</span>
+            }
+<span class="nc" id="L277">        }</span>
+        
+<span class="nc" id="L279">        System.out.println(&quot;判定結果: アクティブな職業がないため拒否&quot;);</span>
+<span class="nc" id="L280">        return false;</span>
+    }
+    
+    /**
+     * 職業が必須でないイベントかチェック
+     */
+    private boolean isJobOptionalEvent(Event event) {
+        // 基本的な移動やチャットなどのイベントは職業不要
+<span class="nc" id="L288">        String className = event.getClass().getSimpleName();</span>
+        
+<span class="nc bnc" id="L290" title="All 2 branches missed.">        switch (className) {</span>
+            case &quot;PlayerMoveEvent&quot;:
+            case &quot;PlayerChatEvent&quot;:
+            case &quot;PlayerJoinEvent&quot;:
+            case &quot;PlayerQuitEvent&quot;:
+            case &quot;BlockBreakEvent&quot;:  // ブロック破壊は職業チェックをスキップし、具体的な制限は後で行う
+            case &quot;BlockPlaceEvent&quot;:  // ブロック設置も同様
+<span class="nc" id="L297">                return true;</span>
+            default:
+<span class="nc" id="L299">                return false;</span>
+        }
+    }
+    
+    /**
+     * 除外ワールドリストを更新
+     */
+    public void updateExcludedWorlds(List&lt;String&gt; worlds) {
+<span class="nc" id="L307">        excludedWorlds.clear();</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">        if (worlds != null) {</span>
+<span class="nc" id="L309">            excludedWorlds.addAll(worlds);</span>
+        }
+<span class="nc" id="L311">    }</span>
+    
+    /**
+     * 除外ゲームモードリストを更新
+     */
+    public void updateExcludedGameModes(List&lt;GameMode&gt; modes) {
+<span class="nc" id="L317">        excludedGameModes.clear();</span>
+<span class="nc" id="L318">        excludedGameModes.add(GameMode.CREATIVE); // 常に除外</span>
+<span class="nc" id="L319">        excludedGameModes.add(GameMode.SPECTATOR); // 常に除外</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">        if (modes != null) {</span>
+<span class="nc" id="L321">            excludedGameModes.addAll(modes);</span>
+        }
+<span class="nc" id="L323">    }</span>
+    
+    /**
+     * 統計情報を取得
+     */
+    public ProcessorStatistics getStatistics() {
+<span class="nc" id="L329">        return new ProcessorStatistics(</span>
+<span class="nc" id="L330">            excludedWorlds.size(),</span>
+<span class="nc" id="L331">            excludedGameModes.size()</span>
+        );
+    }
+    
+    /**
+     * プロセッサー統計クラス
+     */
+    public static class ProcessorStatistics {
+        private final int excludedWorldCount;
+        private final int excludedGameModeCount;
+        
+<span class="nc" id="L342">        public ProcessorStatistics(int excludedWorldCount, int excludedGameModeCount) {</span>
+<span class="nc" id="L343">            this.excludedWorldCount = excludedWorldCount;</span>
+<span class="nc" id="L344">            this.excludedGameModeCount = excludedGameModeCount;</span>
+<span class="nc" id="L345">        }</span>
+        
+<span class="nc" id="L347">        public int getExcludedWorldCount() { return excludedWorldCount; }</span>
+<span class="nc" id="L348">        public int getExcludedGameModeCount() { return excludedGameModeCount; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,590 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TradingNPCManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.npc</a> &gt; <span class="el_source">TradingNPCManager.java</span></div><h1>TradingNPCManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.npc;
+
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
+import org.bukkit.inventory.ItemStack;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.trade.TradePriceManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+
+import java.util.*;
+
+public class TradingNPCManager {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final NPCManager npcManager;
+    private final CurrencyConverter currencyConverter;
+    private final JobManager jobManager;
+    private final TradePriceManager tradePriceManager;
+    private final PlayerDAO playerDAO;
+    
+<span class="nc" id="L27">    private final Map&lt;String, TradingPost&gt; tradingPosts = new HashMap&lt;&gt;();</span>
+    
+    public TradingNPCManager(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
+                           CurrencyConverter currencyConverter, JobManager jobManager, 
+<span class="nc" id="L31">                           TradePriceManager tradePriceManager, PlayerDAO playerDAO) {</span>
+<span class="nc" id="L32">        this.plugin = plugin;</span>
+<span class="nc" id="L33">        this.configManager = configManager;</span>
+<span class="nc" id="L34">        this.npcManager = npcManager;</span>
+<span class="nc" id="L35">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L36">        this.jobManager = jobManager;</span>
+<span class="nc" id="L37">        this.tradePriceManager = tradePriceManager;</span>
+<span class="nc" id="L38">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L39">    }</span>
+    
+    public static class TradingPost {
+        private final String id;
+        private final String name;
+        private final Location location;
+        private final List&lt;String&gt; acceptedJobTypes;
+        private final Map&lt;Material, Double&gt; itemPrices;
+        private UUID npcId; // 変更可能にしてリカバリー機能を実装
+        
+        public TradingPost(String id, String name, Location location, List&lt;String&gt; acceptedJobTypes, 
+<span class="nc" id="L50">                         Map&lt;Material, Double&gt; itemPrices, UUID npcId) {</span>
+<span class="nc" id="L51">            this.id = id;</span>
+<span class="nc" id="L52">            this.name = name;</span>
+<span class="nc" id="L53">            this.location = location;</span>
+<span class="nc" id="L54">            this.acceptedJobTypes = acceptedJobTypes;</span>
+<span class="nc" id="L55">            this.itemPrices = itemPrices;</span>
+<span class="nc" id="L56">            this.npcId = npcId;</span>
+<span class="nc" id="L57">        }</span>
+        
+<span class="nc" id="L59">        public String getId() { return id; }</span>
+<span class="nc" id="L60">        public String getName() { return name; }</span>
+<span class="nc" id="L61">        public Location getLocation() { return location; }</span>
+<span class="nc" id="L62">        public List&lt;String&gt; getAcceptedJobTypes() { return acceptedJobTypes; }</span>
+<span class="nc" id="L63">        public Map&lt;Material, Double&gt; getItemPrices() { return itemPrices; }</span>
+<span class="nc" id="L64">        public UUID getNpcId() { return npcId; }</span>
+        
+        // UUID更新用のセッター（リカバリー機能）
+        public void setNpcId(UUID npcId) { 
+<span class="nc" id="L68">            this.npcId = npcId; </span>
+<span class="nc" id="L69">        }</span>
+        
+        public boolean acceptsJob(String jobType) {
+<span class="nc bnc" id="L72" title="All 4 branches missed.">            return acceptedJobTypes.isEmpty() || acceptedJobTypes.contains(jobType);</span>
+        }
+        
+        public double getItemPrice(Material material) {
+<span class="nc" id="L76">            return itemPrices.getOrDefault(material, 0.0);</span>
+        }
+    }
+    
+    public void initializeTradingNPCs() {
+        try {
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            if (!configManager.isTradingNPCEnabled()) {</span>
+<span class="nc" id="L83">                plugin.getLogger().info(&quot;取引NPCシステムは無効化されています&quot;);</span>
+<span class="nc" id="L84">                return;</span>
+            }
+            
+<span class="nc" id="L87">            spawnTradingNPCs();</span>
+<span class="nc" id="L88">            plugin.getLogger().info(&quot;取引NPCシステムを初期化しました&quot;);</span>
+<span class="nc" id="L89">        } catch (Exception e) {</span>
+<span class="nc" id="L90">            plugin.getLogger().severe(&quot;取引NPCシステムの初期化中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L91">            e.printStackTrace();</span>
+<span class="nc" id="L92">        }</span>
+<span class="nc" id="L93">    }</span>
+    
+    private void spawnTradingNPCs() {
+<span class="nc" id="L96">        plugin.getLogger().info(&quot;=== 取引NPC生成開始 ===&quot;);</span>
+        
+        // 既存の取引所データをクリア
+<span class="nc" id="L99">        tradingPosts.clear();</span>
+<span class="nc" id="L100">        plugin.getLogger().info(&quot;既存の取引所データをクリアしました&quot;);</span>
+        
+<span class="nc" id="L102">        List&lt;Map&lt;?, ?&gt;&gt; tradingPostConfigs = configManager.getTradingPostConfigs();</span>
+<span class="nc" id="L103">        plugin.getLogger().info(&quot;設定から &quot; + tradingPostConfigs.size() + &quot; 個の取引所を読み込み&quot;);</span>
+        
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        for (Map&lt;?, ?&gt; config : tradingPostConfigs) {</span>
+            try {
+<span class="nc" id="L107">                String id = (String) config.get(&quot;id&quot;);</span>
+<span class="nc" id="L108">                String name = (String) config.get(&quot;name&quot;);</span>
+<span class="nc" id="L109">                String world = (String) config.get(&quot;world&quot;);</span>
+<span class="nc" id="L110">                int x = (Integer) config.get(&quot;x&quot;);</span>
+<span class="nc" id="L111">                int y = (Integer) config.get(&quot;y&quot;);</span>
+<span class="nc" id="L112">                int z = (Integer) config.get(&quot;z&quot;);</span>
+                
+<span class="nc" id="L114">                Object acceptedJobsObj = config.get(&quot;accepted_jobs&quot;);</span>
+                List&lt;String&gt; acceptedJobs;
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                if (acceptedJobsObj instanceof List) {</span>
+                    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L118">                    List&lt;String&gt; tempList = (List&lt;String&gt;) acceptedJobsObj;</span>
+<span class="nc" id="L119">                    acceptedJobs = tempList;</span>
+<span class="nc" id="L120">                } else {</span>
+<span class="nc" id="L121">                    acceptedJobs = new ArrayList&lt;String&gt;();</span>
+                }
+                
+<span class="nc bnc" id="L124" title="All 6 branches missed.">                if (id == null || name == null || world == null) {</span>
+<span class="nc" id="L125">                    plugin.getLogger().warning(&quot;取引NPCの設定が不完全です: &quot; + config);</span>
+<span class="nc" id="L126">                    continue;</span>
+                }
+                
+<span class="nc" id="L129">                Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5);</span>
+<span class="nc" id="L130">                plugin.getLogger().info(&quot;取引NPCを生成中: &quot; + name + &quot; at [&quot; + x + &quot;, &quot; + y + &quot;, &quot; + z + &quot;] (world: &quot; + world + &quot;)&quot;);</span>
+<span class="nc" id="L131">                Villager tradingNPC = npcManager.createNPC(location, &quot;trader&quot;, name);</span>
+                
+<span class="nc bnc" id="L133" title="All 2 branches missed.">                if (tradingNPC != null) {</span>
+<span class="nc" id="L134">                    setupTradingNPC(tradingNPC);</span>
+                    
+<span class="nc" id="L136">                    Map&lt;Material, Double&gt; prices = buildItemPrices(acceptedJobs);</span>
+<span class="nc" id="L137">                    TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, tradingNPC.getUniqueId());</span>
+<span class="nc" id="L138">                    tradingPosts.put(id, tradingPost);</span>
+                    
+<span class="nc" id="L140">                    plugin.getLogger().info(&quot;========================================&quot;);</span>
+<span class="nc" id="L141">                    plugin.getLogger().info(&quot;取引NPC配置成功:&quot;);</span>
+<span class="nc" id="L142">                    plugin.getLogger().info(&quot;  名前: &quot; + name);</span>
+<span class="nc" id="L143">                    plugin.getLogger().info(&quot;  ID: &quot; + id);</span>
+<span class="nc" id="L144">                    plugin.getLogger().info(&quot;  UUID: &quot; + tradingNPC.getUniqueId());</span>
+<span class="nc" id="L145">                    plugin.getLogger().info(&quot;  座標: [&quot; + x + &quot;, &quot; + y + &quot;, &quot; + z + &quot;]&quot;);</span>
+<span class="nc" id="L146">                    plugin.getLogger().info(&quot;  ワールド: &quot; + world);</span>
+<span class="nc" id="L147">                    plugin.getLogger().info(&quot;========================================&quot;);</span>
+<span class="nc" id="L148">                } else {</span>
+<span class="nc" id="L149">                    plugin.getLogger().severe(&quot;取引NPCの生成に失敗しました: &quot; + name + &quot; at [&quot; + x + &quot;, &quot; + y + &quot;, &quot; + z + &quot;]&quot;);</span>
+                }
+                
+<span class="nc" id="L152">            } catch (Exception e) {</span>
+<span class="nc" id="L153">                plugin.getLogger().warning(&quot;取引NPC生成中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L154">                e.printStackTrace();</span>
+<span class="nc" id="L155">            }</span>
+<span class="nc" id="L156">        }</span>
+<span class="nc" id="L157">    }</span>
+    
+    private void setupTradingNPC(Villager npc) {
+<span class="nc" id="L160">        npc.setProfession(Villager.Profession.WEAPONSMITH);</span>
+<span class="nc" id="L161">        npc.setVillagerType(Villager.Type.PLAINS);</span>
+<span class="nc" id="L162">        npc.setVillagerLevel(5);</span>
+<span class="nc" id="L163">    }</span>
+    
+    private Map&lt;Material, Double&gt; buildItemPrices(List&lt;String&gt; acceptedJobs) {
+<span class="nc" id="L166">        Map&lt;Material, Double&gt; prices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L167">        Map&lt;String, Double&gt; basePrices = configManager.getItemBasePrices();</span>
+        
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        for (Map.Entry&lt;String, Double&gt; entry : basePrices.entrySet()) {</span>
+            try {
+<span class="nc" id="L171">                Material material = Material.valueOf(entry.getKey().toUpperCase());</span>
+<span class="nc" id="L172">                double basePrice = entry.getValue();</span>
+                
+                // 職業別価格調整（最高価格を採用）
+<span class="nc" id="L175">                double finalPrice = basePrice;</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">                if (!acceptedJobs.isEmpty()) {</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">                    for (String jobType : acceptedJobs) {</span>
+<span class="nc" id="L178">                        double jobMultiplier = configManager.getJobPriceMultiplier(jobType);</span>
+<span class="nc" id="L179">                        double adjustedPrice = basePrice * jobMultiplier;</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">                        if (adjustedPrice &gt; finalPrice) {</span>
+<span class="nc" id="L181">                            finalPrice = adjustedPrice;</span>
+                        }
+<span class="nc" id="L183">                    }</span>
+                }
+                
+<span class="nc" id="L186">                prices.put(material, finalPrice);</span>
+<span class="nc" id="L187">            } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L188">                plugin.getLogger().warning(&quot;無効なマテリアル名です: &quot; + entry.getKey());</span>
+<span class="nc" id="L189">            }</span>
+<span class="nc" id="L190">        }</span>
+        
+<span class="nc" id="L192">        return prices;</span>
+    }
+    
+    public boolean handleTradingNPCInteraction(Player player, UUID npcId) {
+<span class="nc" id="L196">        plugin.getLogger().info(&quot;=== 取引NPC相互作用開始 ===&quot;);</span>
+<span class="nc" id="L197">        plugin.getLogger().info(&quot;プレイヤー: &quot; + player.getName() + &quot;, NPC ID: &quot; + npcId);</span>
+        
+        try {
+            // Step 1: NPC存在チェック
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            if (!npcManager.isNPCEntity(npcId)) {</span>
+<span class="nc" id="L202">                plugin.getLogger().warning(&quot;NPCエンティティが見つかりません: &quot; + npcId);</span>
+<span class="nc" id="L203">                return false;</span>
+            }
+<span class="nc" id="L205">            plugin.getLogger().info(&quot;Step 1: NPCエンティティチェック - 成功&quot;);</span>
+            
+            // Step 2: NPCデータ取得
+<span class="nc" id="L208">            NPCManager.NPCData npcData = npcManager.getNPCData(npcId);</span>
+<span class="nc bnc" id="L209" title="All 4 branches missed.">            if (npcData == null || !npcData.getNpcType().equals(&quot;trader&quot;)) {</span>
+<span class="nc" id="L210">                plugin.getLogger().warning(&quot;取引NPCデータが見つかりません: &quot; + npcId);</span>
+<span class="nc" id="L211">                return false;</span>
+            }
+<span class="nc" id="L213">            plugin.getLogger().info(&quot;Step 2: NPCデータ取得 - 成功 (&quot; + npcData.getName() + &quot;)&quot;);</span>
+            
+            // Step 3: 取引所データ取得
+<span class="nc" id="L216">            plugin.getLogger().info(&quot;=== 取引所データ検索開始 ===&quot;);</span>
+<span class="nc" id="L217">            plugin.getLogger().info(&quot;検索対象NPC UUID: &quot; + npcId);</span>
+<span class="nc" id="L218">            plugin.getLogger().info(&quot;登録済み取引所数: &quot; + tradingPosts.size());</span>
+            
+            // デバッグ：登録済み取引所のUUID一覧
+<span class="nc bnc" id="L221" title="All 2 branches missed.">            for (Map.Entry&lt;String, TradingPost&gt; entry : tradingPosts.entrySet()) {</span>
+<span class="nc" id="L222">                plugin.getLogger().info(&quot;  取引所[&quot; + entry.getKey() + &quot;]: NPC UUID=&quot; + entry.getValue().getNpcId());</span>
+<span class="nc" id="L223">            }</span>
+            
+<span class="nc" id="L225">            TradingPost tradingPost = getTradingPostByNPCId(npcId);</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">            if (tradingPost == null) {</span>
+<span class="nc" id="L227">                plugin.getLogger().warning(&quot;取引所データが見つかりません: &quot; + npcId);</span>
+<span class="nc" id="L228">                plugin.getLogger().warning(&quot;NPCの名前: &quot; + npcData.getName());</span>
+                
+                // 位置情報での検索を試みる
+<span class="nc" id="L231">                tradingPost = findTradingPostByLocation(npcData.getLocation());</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">                if (tradingPost != null) {</span>
+<span class="nc" id="L233">                    plugin.getLogger().info(&quot;位置情報で取引所を発見: &quot; + tradingPost.getName());</span>
+                    // UUIDを更新してデータを同期
+<span class="nc" id="L235">                    updateTradingPostNPCId(tradingPost, npcId);</span>
+                } else {
+                    // 名前での検索を試みる
+<span class="nc" id="L238">                    tradingPost = findTradingPostByName(npcData.getName());</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">                    if (tradingPost != null) {</span>
+<span class="nc" id="L240">                        plugin.getLogger().info(&quot;名前で取引所を発見: &quot; + tradingPost.getName());</span>
+                        // UUIDを更新してデータを同期
+<span class="nc" id="L242">                        updateTradingPostNPCId(tradingPost, npcId);</span>
+                    } else {
+<span class="nc" id="L244">                        player.sendMessage(&quot;§c取引所の情報を読み込めませんでした。&quot;);</span>
+<span class="nc" id="L245">                        player.sendMessage(&quot;§e管理者に以下の情報をお伝えください:&quot;);</span>
+<span class="nc" id="L246">                        player.sendMessage(&quot;§7NPC UUID: &quot; + npcId);</span>
+<span class="nc" id="L247">                        player.sendMessage(&quot;§7NPC名: &quot; + npcData.getName());</span>
+<span class="nc" id="L248">                        return false;</span>
+                    }
+                }
+            }
+<span class="nc" id="L252">            plugin.getLogger().info(&quot;Step 3: 取引所データ取得 - 成功 (&quot; + tradingPost.getName() + &quot;)&quot;);</span>
+            
+            // Step 4: 権限チェック（基本的にすべて許可）
+<span class="nc" id="L255">            boolean hasPermission = hasPermissionToUseTradingNPC(player);</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">            plugin.getLogger().info(&quot;Step 4: 権限チェック - &quot; + (hasPermission ? &quot;許可&quot; : &quot;拒否&quot;));</span>
+            
+<span class="nc bnc" id="L258" title="All 2 branches missed.">            if (!hasPermission) {</span>
+<span class="nc" id="L259">                player.sendMessage(&quot;§c取引NPCを利用する権限がありません。&quot;);</span>
+<span class="nc" id="L260">                return true;</span>
+            }
+            
+            // 取引サービスGUIを開く
+<span class="nc" id="L264">            openTradingServiceGUI(player, tradingPost);</span>
+            
+            // 挨拶メッセージ
+<span class="nc" id="L267">            String greetingMessage = configManager.getTradingNPCGreeting(tradingPost.getName(), player.getName());</span>
+<span class="nc" id="L268">            player.sendMessage(greetingMessage);</span>
+            
+<span class="nc" id="L270">            plugin.getLogger().info(&quot;プレイヤー &quot; + player.getName() + &quot; が取引NPC &quot; + tradingPost.getName() + &quot; と取引しました&quot;);</span>
+<span class="nc" id="L271">            return true;</span>
+            
+<span class="nc" id="L273">        } catch (Exception e) {</span>
+<span class="nc" id="L274">            plugin.getLogger().severe(&quot;=== 取引NPC処理中に例外発生 ===&quot;);</span>
+<span class="nc" id="L275">            plugin.getLogger().severe(&quot;プレイヤー: &quot; + player.getName());</span>
+<span class="nc" id="L276">            plugin.getLogger().severe(&quot;NPC ID: &quot; + npcId);</span>
+<span class="nc" id="L277">            plugin.getLogger().severe(&quot;例外メッセージ: &quot; + e.getMessage());</span>
+<span class="nc" id="L278">            plugin.getLogger().severe(&quot;例外クラス: &quot; + e.getClass().getSimpleName());</span>
+<span class="nc" id="L279">            player.sendMessage(&quot;§c処理中にエラーが発生しました。管理者にお知らせください。&quot;);</span>
+<span class="nc" id="L280">            e.printStackTrace();</span>
+<span class="nc" id="L281">            return true;</span>
+        }
+    }
+    
+    private boolean hasPermissionToUseTradingNPC(Player player) {
+<span class="nc" id="L286">        boolean hasNPCUse = player.hasPermission(&quot;tofunomics.npc.trading.use&quot;);</span>
+<span class="nc" id="L287">        boolean hasTradeBasic = player.hasPermission(&quot;tofunomics.trade.basic&quot;);</span>
+        
+<span class="nc" id="L289">        plugin.getLogger().info(&quot;権限詳細チェック - プレイヤー: &quot; + player.getName());</span>
+<span class="nc" id="L290">        plugin.getLogger().info(&quot;  tofunomics.npc.trading.use: &quot; + hasNPCUse);</span>
+<span class="nc" id="L291">        plugin.getLogger().info(&quot;  tofunomics.trade.basic: &quot; + hasTradeBasic);</span>
+<span class="nc" id="L292">        plugin.getLogger().info(&quot;  OP権限: &quot; + player.isOp());</span>
+        
+        // 無職状態でもNPCとの基本相互作用は可能とする（職業チェックメッセージ表示まで）
+        // 権限チェックは実際の取引時に行う
+<span class="nc" id="L296">        boolean result = true; // 基本的にすべてのプレイヤーにNPCアクセスを許可</span>
+<span class="nc" id="L297">        plugin.getLogger().info(&quot;  最終権限判定: &quot; + result + &quot; (基本アクセス許可)&quot;);</span>
+        
+<span class="nc" id="L299">        return result;</span>
+    }
+    
+    private void openTradingServiceGUI(Player player, TradingPost tradingPost) {
+<span class="nc" id="L303">        plugin.getLogger().info(&quot;Step 5: GUI表示処理開始&quot;);</span>
+        
+        try {
+            // まず職業チェックを先に行う（GUIの有無に関係なく）
+<span class="nc" id="L307">            String playerJob = jobManager.getPlayerJob(player.getUniqueId());</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">            plugin.getLogger().info(&quot;職業チェック: &quot; + (playerJob != null ? playerJob : &quot;無職&quot;));</span>
+            
+            // 無職の場合は即座にメッセージ表示
+<span class="nc bnc" id="L311" title="All 2 branches missed.">            if (playerJob == null) {</span>
+<span class="nc" id="L312">                plugin.getLogger().info(&quot;無職のためメッセージ表示&quot;);</span>
+<span class="nc" id="L313">                String npcType = getNPCTypeFromTradingPost(tradingPost);</span>
+<span class="nc" id="L314">                plugin.getLogger().info(&quot;NPCタイプ: &quot; + npcType);</span>
+                
+                // メッセージ送信を確実に実行
+                try {
+                    // まず挨拶メッセージを送信
+<span class="nc" id="L319">                    configManager.sendNPCWelcomeMessage(player, npcType);</span>
+                    // その後、無職者向けメッセージを送信
+<span class="nc" id="L321">                    configManager.sendNPCSpecificMessageList(player, npcType, &quot;no_job&quot;);</span>
+<span class="nc" id="L322">                    plugin.getLogger().info(&quot;挨拶メッセージと無職者向けメッセージ送信完了&quot;);</span>
+<span class="nc" id="L323">                } catch (Exception e) {</span>
+<span class="nc" id="L324">                    plugin.getLogger().severe(&quot;メッセージ送信でエラー: &quot; + e.getMessage());</span>
+                    // 緊急フォールバック
+<span class="nc" id="L326">                    player.sendMessage(&quot;§6「いらっしゃい、お客さん！」&quot;);</span>
+<span class="nc" id="L327">                    player.sendMessage(&quot;§e「まずは何か職業に就いてからお越しください」&quot;);</span>
+<span class="nc" id="L328">                    player.sendMessage(&quot;§7コマンド: §f/jobs join &lt;職業名&gt;&quot;);</span>
+<span class="nc" id="L329">                }</span>
+<span class="nc" id="L330">                return;</span>
+            }
+            
+            // TradingGUIを開く（職業がある場合）
+<span class="nc" id="L334">            org.tofu.tofunomics.npc.gui.TradingGUI tradingGUI = plugin.getTradingGUI();</span>
+            
+<span class="nc bnc" id="L336" title="All 2 branches missed.">            if (tradingGUI != null) {</span>
+<span class="nc" id="L337">                plugin.getLogger().info(&quot;TradingGUIでの処理&quot;);</span>
+<span class="nc" id="L338">                tradingGUI.openTradingGUI(player, tradingPost);</span>
+            } else {
+<span class="nc" id="L340">                plugin.getLogger().info(&quot;TradingGUI null - フォールバック処理で価格表示&quot;);</span>
+                
+                // 取引可能職業のチェック
+<span class="nc bnc" id="L343" title="All 2 branches missed.">                if (!tradingPost.acceptsJob(playerJob)) {</span>
+<span class="nc" id="L344">                    plugin.getLogger().info(&quot;職業不対応: &quot; + playerJob);</span>
+<span class="nc" id="L345">                    String npcType = getNPCTypeFromTradingPost(tradingPost);</span>
+<span class="nc" id="L346">                    String acceptedJobsStr = String.join(&quot;, &quot;, tradingPost.getAcceptedJobTypes());</span>
+<span class="nc" id="L347">                    configManager.sendNPCSpecificMessageList(player, npcType, &quot;job_not_accepted&quot;, </span>
+<span class="nc" id="L348">                        &quot;player&quot;, player.getName(), </span>
+                        &quot;job&quot;, playerJob, 
+                        &quot;accepted_jobs&quot;, acceptedJobsStr);
+<span class="nc" id="L351">                    return;</span>
+                }
+                
+                // 取引可能アイテムと価格を表示
+<span class="nc" id="L355">                player.sendMessage(&quot;§a=== 買取価格表 ===&quot;);</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">                for (Map.Entry&lt;Material, Double&gt; entry : tradingPost.getItemPrices().entrySet()) {</span>
+<span class="nc" id="L357">                    Material material = entry.getKey();</span>
+<span class="nc" id="L358">                    double price = entry.getValue();</span>
+                    
+                    // 職業ボーナスを適用
+<span class="nc" id="L361">                    double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, price);</span>
+<span class="nc" id="L362">                    String formattedPrice = currencyConverter.formatCurrency(finalPrice);</span>
+                    
+<span class="nc" id="L364">                    player.sendMessage(&quot;§f• &quot; + material.toString().toLowerCase() + &quot;: §a&quot; + formattedPrice);</span>
+<span class="nc" id="L365">                }</span>
+                
+<span class="nc" id="L367">                player.sendMessage(&quot;§e手持ちのアイテムを持って再度話しかけると売却できます&quot;);</span>
+            }
+<span class="nc" id="L369">        } catch (Exception e) {</span>
+<span class="nc" id="L370">            plugin.getLogger().severe(&quot;取引GUI開起中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L371">            plugin.getLogger().severe(&quot;エラー発生場所: TradingNPCManager.openTradingServiceGUI&quot;);</span>
+<span class="nc" id="L372">            plugin.getLogger().severe(&quot;プレイヤー: &quot; + player.getName() + &quot;, 取引所: &quot; + tradingPost.getName());</span>
+<span class="nc" id="L373">            player.sendMessage(&quot;§c取引画面の表示でエラーが発生しました。&quot;);</span>
+<span class="nc" id="L374">            player.sendMessage(&quot;§e再度お試しいただくか、管理者にお知らせください。&quot;);</span>
+<span class="nc" id="L375">            e.printStackTrace();</span>
+<span class="nc" id="L376">        }</span>
+<span class="nc" id="L377">    }</span>
+    
+    public TradeResult processItemSale(Player player, UUID npcId, List&lt;ItemStack&gt; items) {
+<span class="nc" id="L380">        TradingPost tradingPost = getTradingPostByNPCId(npcId);</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">        if (tradingPost == null) {</span>
+<span class="nc" id="L382">            return new TradeResult(false, &quot;取引所が見つかりません&quot;, 0.0, new HashMap&lt;&gt;());</span>
+        }
+        
+<span class="nc" id="L385">        String playerJob = jobManager.getPlayerJob(player.getUniqueId());</span>
+<span class="nc bnc" id="L386" title="All 4 branches missed.">        if (playerJob == null || !tradingPost.acceptsJob(playerJob)) {</span>
+<span class="nc" id="L387">            return new TradeResult(false, &quot;この取引所を利用する権限がありません&quot;, 0.0, new HashMap&lt;&gt;());</span>
+        }
+        
+<span class="nc" id="L390">        Map&lt;Material, Integer&gt; soldItems = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L391">        double totalEarnings = 0.0;</span>
+        
+<span class="nc bnc" id="L393" title="All 2 branches missed.">        for (ItemStack item : items) {</span>
+<span class="nc bnc" id="L394" title="All 4 branches missed.">            if (item == null || item.getType() == Material.AIR) continue;</span>
+            
+<span class="nc" id="L396">            Material material = item.getType();</span>
+<span class="nc" id="L397">            double basePrice = tradingPost.getItemPrice(material);</span>
+            
+<span class="nc bnc" id="L399" title="All 2 branches missed.">            if (basePrice &gt; 0) {</span>
+<span class="nc" id="L400">                int amount = item.getAmount();</span>
+<span class="nc" id="L401">                double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, basePrice);</span>
+<span class="nc" id="L402">                double itemTotal = finalPrice * amount;</span>
+                
+<span class="nc" id="L404">                totalEarnings += itemTotal;</span>
+<span class="nc" id="L405">                soldItems.put(material, soldItems.getOrDefault(material, 0) + amount);</span>
+                
+                // アイテムを削除
+<span class="nc" id="L408">                item.setAmount(0);</span>
+            }
+<span class="nc" id="L410">        }</span>
+        
+<span class="nc bnc" id="L412" title="All 2 branches missed.">        if (totalEarnings &gt; 0) {</span>
+            // インベントリに金塊として支払い
+<span class="nc bnc" id="L414" title="All 2 branches missed.">            if (!currencyConverter.receiveCash(player, totalEarnings)) {</span>
+<span class="nc" id="L415">                return new TradeResult(false, &quot;インベントリに空きがありません。金塊を受け取るスペースを確保してください&quot;, 0.0, new HashMap&lt;&gt;());</span>
+            }
+            
+<span class="nc" id="L418">            return new TradeResult(true, &quot;取引が完了しました&quot;, totalEarnings, soldItems);</span>
+        } else {
+<span class="nc" id="L420">            return new TradeResult(false, &quot;売却可能なアイテムがありませんでした&quot;, 0.0, new HashMap&lt;&gt;());</span>
+        }
+    }
+    
+    public static class TradeResult {
+        private final boolean success;
+        private final String message;
+        private final double totalEarnings;
+        private final Map&lt;Material, Integer&gt; soldItems;
+        
+<span class="nc" id="L430">        public TradeResult(boolean success, String message, double totalEarnings, Map&lt;Material, Integer&gt; soldItems) {</span>
+<span class="nc" id="L431">            this.success = success;</span>
+<span class="nc" id="L432">            this.message = message;</span>
+<span class="nc" id="L433">            this.totalEarnings = totalEarnings;</span>
+<span class="nc" id="L434">            this.soldItems = soldItems;</span>
+<span class="nc" id="L435">        }</span>
+        
+<span class="nc" id="L437">        public boolean isSuccess() { return success; }</span>
+<span class="nc" id="L438">        public String getMessage() { return message; }</span>
+<span class="nc" id="L439">        public double getTotalEarnings() { return totalEarnings; }</span>
+<span class="nc" id="L440">        public Map&lt;Material, Integer&gt; getSoldItems() { return soldItems; }</span>
+    }
+    
+    private TradingPost getTradingPostByNPCId(UUID npcId) {
+<span class="nc" id="L444">        return tradingPosts.values().stream()</span>
+<span class="nc" id="L445">            .filter(post -&gt; post.getNpcId().equals(npcId))</span>
+<span class="nc" id="L446">            .findFirst()</span>
+<span class="nc" id="L447">            .orElse(null);</span>
+    }
+    
+    /**
+     * 位置情報から取引所を検索（UUID不一致時のフォールバック）
+     */
+    private TradingPost findTradingPostByLocation(Location npcLocation) {
+<span class="nc" id="L454">        double minDistance = 3.0; // 3ブロック以内を同じ位置とみなす</span>
+        
+<span class="nc bnc" id="L456" title="All 2 branches missed.">        for (TradingPost post : tradingPosts.values()) {</span>
+<span class="nc" id="L457">            Location postLocation = post.getLocation();</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">            if (postLocation.getWorld().equals(npcLocation.getWorld())) {</span>
+<span class="nc" id="L459">                double distance = postLocation.distance(npcLocation);</span>
+<span class="nc bnc" id="L460" title="All 2 branches missed.">                if (distance &lt; minDistance) {</span>
+<span class="nc" id="L461">                    plugin.getLogger().info(&quot;位置情報マッチング: 距離=&quot; + distance + &quot;ブロック&quot;);</span>
+<span class="nc" id="L462">                    return post;</span>
+                }
+            }
+<span class="nc" id="L465">        }</span>
+<span class="nc" id="L466">        return null;</span>
+    }
+    
+    /**
+     * NPC名から取引所を検索（最終フォールバック）
+     */
+    private TradingPost findTradingPostByName(String npcName) {
+<span class="nc bnc" id="L473" title="All 2 branches missed.">        if (npcName == null) return null;</span>
+        
+        // 完全一致を試みる
+<span class="nc bnc" id="L476" title="All 2 branches missed.">        for (TradingPost post : tradingPosts.values()) {</span>
+<span class="nc bnc" id="L477" title="All 2 branches missed.">            if (npcName.equals(post.getName())) {</span>
+<span class="nc" id="L478">                return post;</span>
+            }
+<span class="nc" id="L480">        }</span>
+        
+        // 部分一致を試みる（色コードを除去して比較）
+<span class="nc" id="L483">        String cleanName = npcName.replaceAll(&quot;§[0-9a-fk-or]&quot;, &quot;&quot;);</span>
+<span class="nc bnc" id="L484" title="All 2 branches missed.">        for (TradingPost post : tradingPosts.values()) {</span>
+<span class="nc" id="L485">            String cleanPostName = post.getName().replaceAll(&quot;§[0-9a-fk-or]&quot;, &quot;&quot;);</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">            if (cleanName.equals(cleanPostName)) {</span>
+<span class="nc" id="L487">                return post;</span>
+            }
+<span class="nc" id="L489">        }</span>
+        
+<span class="nc" id="L491">        return null;</span>
+    }
+    
+    public Collection&lt;TradingPost&gt; getAllTradingPosts() {
+<span class="nc" id="L495">        return tradingPosts.values();</span>
+    }
+    
+    public TradingPost getTradingPost(String id) {
+<span class="nc" id="L499">        return tradingPosts.get(id);</span>
+    }
+    
+    public void removeTradingNPCs() {
+<span class="nc" id="L503">        Collection&lt;NPCManager.NPCData&gt; tradingNPCs = npcManager.getNPCsByType(&quot;trader&quot;);</span>
+<span class="nc bnc" id="L504" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : tradingNPCs) {</span>
+<span class="nc" id="L505">            npcManager.removeNPC(npcData.getEntityId());</span>
+<span class="nc" id="L506">        }</span>
+<span class="nc" id="L507">        tradingPosts.clear();</span>
+<span class="nc" id="L508">        plugin.getLogger().info(&quot;全ての取引NPCを削除しました&quot;);</span>
+<span class="nc" id="L509">    }</span>
+    
+    public void reloadTradingNPCs() {
+<span class="nc" id="L512">        plugin.getLogger().info(&quot;取引NPCをリロードしています...&quot;);</span>
+<span class="nc" id="L513">        removeTradingNPCs();</span>
+<span class="nc" id="L514">        spawnTradingNPCs();</span>
+<span class="nc" id="L515">        plugin.getLogger().info(&quot;取引NPCのリロードが完了しました&quot;);</span>
+<span class="nc" id="L516">    }</span>
+    
+    /**
+     * 取引所のNPC UUIDを更新（リカバリー機能）
+     */
+    private void updateTradingPostNPCId(TradingPost tradingPost, UUID newNpcId) {
+<span class="nc" id="L522">        UUID oldNpcId = tradingPost.getNpcId();</span>
+<span class="nc" id="L523">        tradingPost.setNpcId(newNpcId);</span>
+<span class="nc" id="L524">        plugin.getLogger().info(&quot;取引所のNPC UUIDを更新:&quot;);</span>
+<span class="nc" id="L525">        plugin.getLogger().info(&quot;  取引所: &quot; + tradingPost.getName());</span>
+<span class="nc" id="L526">        plugin.getLogger().info(&quot;  旧UUID: &quot; + oldNpcId);</span>
+<span class="nc" id="L527">        plugin.getLogger().info(&quot;  新UUID: &quot; + newNpcId);</span>
+<span class="nc" id="L528">    }</span>
+    
+    /**
+     * 取引所からNPCタイプを取得（個性的なメッセージ用）
+     */
+    private String getNPCTypeFromTradingPost(TradingPost tradingPost) {
+<span class="nc" id="L534">        String tradingPostId = tradingPost.getId();</span>
+        
+        // config.ymlの設定と対応するNPCタイプにマッピング
+<span class="nc bnc" id="L537" title="All 4 branches missed.">        switch (tradingPostId) {</span>
+            case &quot;central_market&quot;:
+<span class="nc" id="L539">                return &quot;central_market&quot;;</span>
+            case &quot;mining_post&quot;:
+<span class="nc" id="L541">                return &quot;mining_post&quot;;</span>
+            case &quot;wood_market&quot;:
+<span class="nc" id="L543">                return &quot;wood_market&quot;;</span>
+            default:
+                // デフォルトは中央市場スタイル
+<span class="nc" id="L546">                return &quot;central_market&quot;;</span>
+        }
+    }
+    
+    /**
+     * 設定変更後に取引所データを再読み込み（NPCスポーン後の即座反映用）
+     */
+    public void reloadTradingPosts() {
+<span class="nc" id="L554">        plugin.getLogger().info(&quot;取引所データを再読み込みしています...&quot;);</span>
+        
+        // 現在の設定ファイルから取引所一覧を取得
+<span class="nc" id="L557">        List&lt;Map&lt;?, ?&gt;&gt; configTradingPosts = configManager.getTradingPostConfigs();</span>
+<span class="nc" id="L558">        Set&lt;String&gt; configNPCNames = new HashSet&lt;&gt;();</span>
+        
+        // 設定ファイルに存在するNPC名を収集
+<span class="nc bnc" id="L561" title="All 2 branches missed.">        for (Map&lt;?, ?&gt; config : configTradingPosts) {</span>
+<span class="nc" id="L562">            String name = (String) config.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">            if (name != null) {</span>
+<span class="nc" id="L564">                configNPCNames.add(name);</span>
+            }
+<span class="nc" id="L566">        }</span>
+        
+        // 既存のNPCの中で、設定ファイルに存在しないものを削除
+<span class="nc" id="L569">        Collection&lt;NPCManager.NPCData&gt; allNPCs = npcManager.getAllNPCs();</span>
+<span class="nc" id="L570">        List&lt;NPCManager.NPCData&gt; npcToRemove = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L572" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : allNPCs) {</span>
+<span class="nc bnc" id="L573" title="All 4 branches missed.">            if (&quot;trader&quot;.equals(npcData.getNpcType()) &amp;&amp; !configNPCNames.contains(npcData.getName())) {</span>
+<span class="nc" id="L574">                npcToRemove.add(npcData);</span>
+<span class="nc" id="L575">                plugin.getLogger().info(&quot;設定ファイルから削除されたNPCを除去: &quot; + npcData.getName());</span>
+            }
+<span class="nc" id="L577">        }</span>
+        
+        // 削除対象のNPCを除去
+<span class="nc bnc" id="L580" title="All 2 branches missed.">        for (NPCManager.NPCData npc : npcToRemove) {</span>
+<span class="nc" id="L581">            npcManager.removeNPC(npc.getEntityId());</span>
+<span class="nc" id="L582">        }</span>
+        
+        // 残りのNPCについて設定を再適用
+<span class="nc" id="L585">        spawnTradingNPCs();</span>
+        
+<span class="nc" id="L587">        plugin.getLogger().info(&quot;取引所データの再読み込みが完了しました&quot;);</span>
+<span class="nc" id="L588">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

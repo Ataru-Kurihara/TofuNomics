@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobStatsCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">JobStatsCommand.java</span></div><h1>JobStatsCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.stats.JobStatsManager;
+
+/**
+ * 職業統計表示コマンド
+ */
+public class JobStatsCommand implements CommandExecutor {
+    
+    private final JobStatsManager jobStatsManager;
+    
+<span class="nc" id="L17">    public JobStatsCommand(JobStatsManager jobStatsManager) {</span>
+<span class="nc" id="L18">        this.jobStatsManager = jobStatsManager;</span>
+<span class="nc" id="L19">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc bnc" id="L23" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L24">            sender.sendMessage(ChatColor.RED + &quot;このコマンドはプレイヤーのみ使用できます。&quot;);</span>
+<span class="nc" id="L25">            return true;</span>
+        }
+        
+<span class="nc" id="L28">        Player player = (Player) sender;</span>
+        
+<span class="nc bnc" id="L30" title="All 2 branches missed.">        if (args.length == 0) {</span>
+            // 全職業の統計を表示
+<span class="nc" id="L32">            jobStatsManager.showAllJobStats(player);</span>
+<span class="nc bnc" id="L33" title="All 2 branches missed.">        } else if (args.length == 1) {</span>
+<span class="nc" id="L34">            String jobName = args[0].toLowerCase();</span>
+            
+            // 特定職業の詳細統計を表示
+<span class="nc" id="L37">            jobStatsManager.showJobStats(player, jobName);</span>
+<span class="nc bnc" id="L38" title="All 4 branches missed.">        } else if (args.length == 2 &amp;&amp; args[0].equalsIgnoreCase(&quot;top&quot;)) {</span>
+<span class="nc" id="L39">            String jobName = args[1].toLowerCase();</span>
+            
+            // 職業別ランキングを表示
+<span class="nc" id="L42">            jobStatsManager.showJobTopRanking(player, jobName, 10);</span>
+<span class="nc" id="L43">        } else {</span>
+<span class="nc" id="L44">            sendHelpMessage(player);</span>
+        }
+        
+<span class="nc" id="L47">        return true;</span>
+    }
+    
+    private void sendHelpMessage(Player player) {
+<span class="nc" id="L51">        player.sendMessage(ChatColor.GOLD + &quot;==================== 職業統計コマンド ====================&quot;);</span>
+<span class="nc" id="L52">        player.sendMessage(ChatColor.YELLOW + &quot;/jobstats - 全職業の統計を表示&quot;);</span>
+<span class="nc" id="L53">        player.sendMessage(ChatColor.YELLOW + &quot;/jobstats &lt;職業名&gt; - 指定職業の詳細統計を表示&quot;);</span>
+<span class="nc" id="L54">        player.sendMessage(ChatColor.YELLOW + &quot;/jobstats top &lt;職業名&gt; - 指定職業のランキングを表示&quot;);</span>
+<span class="nc" id="L55">        player.sendMessage(ChatColor.GOLD + &quot;=======================================================&quot;);</span>
+<span class="nc" id="L56">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

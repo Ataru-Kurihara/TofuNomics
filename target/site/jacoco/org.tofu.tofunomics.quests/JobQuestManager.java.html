@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobQuestManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.quests</a> &gt; <span class="el_source">JobQuestManager.java</span></div><h1>JobQuestManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.quests;
+
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.inventory.ItemStack;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.*;
+
+/**
+ * 職業別クエスト・タスク管理システム
+ */
+public class JobQuestManager implements Listener {
+    
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final JobManager jobManager;
+    
+    // クエストデータ（実際の実装ではデータベース管理）
+    private final Map&lt;String, List&lt;JobQuest&gt;&gt; jobQuests;
+    private final Map&lt;String, List&lt;PlayerQuestProgress&gt;&gt; playerQuests;
+    
+<span class="nc" id="L32">    public JobQuestManager(ConfigManager configManager, PlayerDAO playerDAO, JobManager jobManager) {</span>
+<span class="nc" id="L33">        this.configManager = configManager;</span>
+<span class="nc" id="L34">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L35">        this.jobManager = jobManager;</span>
+<span class="nc" id="L36">        this.jobQuests = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L37">        this.playerQuests = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L39">        initializeJobQuests();</span>
+<span class="nc" id="L40">    }</span>
+    
+    private void initializeJobQuests() {
+        // 鉱夫のクエスト
+<span class="nc" id="L44">        List&lt;JobQuest&gt; minerQuests = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc" id="L46">        JobQuest coalQuest = new JobQuest();</span>
+<span class="nc" id="L47">        coalQuest.setQuestId(1);</span>
+<span class="nc" id="L48">        coalQuest.setJobName(&quot;miner&quot;);</span>
+<span class="nc" id="L49">        coalQuest.setQuestName(&quot;石炭採掘任務&quot;);</span>
+<span class="nc" id="L50">        coalQuest.setDescription(&quot;石炭を32個採掘してください&quot;);</span>
+<span class="nc" id="L51">        coalQuest.setQuestType(JobQuest.QuestType.MINE);</span>
+<span class="nc" id="L52">        coalQuest.setTargetMaterial(Material.COAL_ORE);</span>
+<span class="nc" id="L53">        coalQuest.setTargetAmount(32);</span>
+<span class="nc" id="L54">        coalQuest.setExperienceReward(50.0);</span>
+<span class="nc" id="L55">        coalQuest.setIncomeReward(100.0);</span>
+<span class="nc" id="L56">        coalQuest.setRequiredLevel(1);</span>
+<span class="nc" id="L57">        coalQuest.setCooldownHours(24);</span>
+<span class="nc" id="L58">        coalQuest.setDaily(true);</span>
+<span class="nc" id="L59">        minerQuests.add(coalQuest);</span>
+        
+<span class="nc" id="L61">        JobQuest ironQuest = new JobQuest();</span>
+<span class="nc" id="L62">        ironQuest.setQuestId(2);</span>
+<span class="nc" id="L63">        ironQuest.setJobName(&quot;miner&quot;);</span>
+<span class="nc" id="L64">        ironQuest.setQuestName(&quot;鉄鉱石採掘任務&quot;);</span>
+<span class="nc" id="L65">        ironQuest.setDescription(&quot;鉄鉱石を16個採掘してください&quot;);</span>
+<span class="nc" id="L66">        ironQuest.setQuestType(JobQuest.QuestType.MINE);</span>
+<span class="nc" id="L67">        ironQuest.setTargetMaterial(Material.IRON_ORE);</span>
+<span class="nc" id="L68">        ironQuest.setTargetAmount(16);</span>
+<span class="nc" id="L69">        ironQuest.setExperienceReward(80.0);</span>
+<span class="nc" id="L70">        ironQuest.setIncomeReward(200.0);</span>
+<span class="nc" id="L71">        ironQuest.setRequiredLevel(5);</span>
+<span class="nc" id="L72">        ironQuest.setCooldownHours(24);</span>
+<span class="nc" id="L73">        ironQuest.setDaily(true);</span>
+<span class="nc" id="L74">        minerQuests.add(ironQuest);</span>
+        
+<span class="nc" id="L76">        jobQuests.put(&quot;miner&quot;, minerQuests);</span>
+        
+        // 木こりのクエスト
+<span class="nc" id="L79">        List&lt;JobQuest&gt; woodcutterQuests = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc" id="L81">        JobQuest logQuest = new JobQuest();</span>
+<span class="nc" id="L82">        logQuest.setQuestId(3);</span>
+<span class="nc" id="L83">        logQuest.setJobName(&quot;woodcutter&quot;);</span>
+<span class="nc" id="L84">        logQuest.setQuestName(&quot;原木伐採任務&quot;);</span>
+<span class="nc" id="L85">        logQuest.setDescription(&quot;どの種類でも原木を64個伐採してください&quot;);</span>
+<span class="nc" id="L86">        logQuest.setQuestType(JobQuest.QuestType.MINE);</span>
+<span class="nc" id="L87">        logQuest.setTargetMaterial(Material.OAK_LOG); // 任意の原木</span>
+<span class="nc" id="L88">        logQuest.setTargetAmount(64);</span>
+<span class="nc" id="L89">        logQuest.setExperienceReward(60.0);</span>
+<span class="nc" id="L90">        logQuest.setIncomeReward(120.0);</span>
+<span class="nc" id="L91">        logQuest.setRequiredLevel(1);</span>
+<span class="nc" id="L92">        logQuest.setCooldownHours(24);</span>
+<span class="nc" id="L93">        logQuest.setDaily(true);</span>
+<span class="nc" id="L94">        woodcutterQuests.add(logQuest);</span>
+        
+<span class="nc" id="L96">        jobQuests.put(&quot;woodcutter&quot;, woodcutterQuests);</span>
+        
+        // 農家のクエスト
+<span class="nc" id="L99">        List&lt;JobQuest&gt; farmerQuests = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc" id="L101">        JobQuest wheatQuest = new JobQuest();</span>
+<span class="nc" id="L102">        wheatQuest.setQuestId(4);</span>
+<span class="nc" id="L103">        wheatQuest.setJobName(&quot;farmer&quot;);</span>
+<span class="nc" id="L104">        wheatQuest.setQuestName(&quot;小麦収穫任務&quot;);</span>
+<span class="nc" id="L105">        wheatQuest.setDescription(&quot;小麦を48個収穫してください&quot;);</span>
+<span class="nc" id="L106">        wheatQuest.setQuestType(JobQuest.QuestType.MINE);</span>
+<span class="nc" id="L107">        wheatQuest.setTargetMaterial(Material.WHEAT);</span>
+<span class="nc" id="L108">        wheatQuest.setTargetAmount(48);</span>
+<span class="nc" id="L109">        wheatQuest.setExperienceReward(40.0);</span>
+<span class="nc" id="L110">        wheatQuest.setIncomeReward(80.0);</span>
+<span class="nc" id="L111">        wheatQuest.setRequiredLevel(1);</span>
+<span class="nc" id="L112">        wheatQuest.setCooldownHours(24);</span>
+<span class="nc" id="L113">        wheatQuest.setDaily(true);</span>
+<span class="nc" id="L114">        farmerQuests.add(wheatQuest);</span>
+        
+<span class="nc" id="L116">        jobQuests.put(&quot;farmer&quot;, farmerQuests);</span>
+        
+        // 釣り人のクエスト
+<span class="nc" id="L119">        List&lt;JobQuest&gt; fishermanQuests = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc" id="L121">        JobQuest fishQuest = new JobQuest();</span>
+<span class="nc" id="L122">        fishQuest.setQuestId(5);</span>
+<span class="nc" id="L123">        fishQuest.setJobName(&quot;fisherman&quot;);</span>
+<span class="nc" id="L124">        fishQuest.setQuestName(&quot;魚釣り任務&quot;);</span>
+<span class="nc" id="L125">        fishQuest.setDescription(&quot;魚を20匹釣ってください&quot;);</span>
+<span class="nc" id="L126">        fishQuest.setQuestType(JobQuest.QuestType.FISH);</span>
+<span class="nc" id="L127">        fishQuest.setTargetMaterial(Material.COD);</span>
+<span class="nc" id="L128">        fishQuest.setTargetAmount(20);</span>
+<span class="nc" id="L129">        fishQuest.setExperienceReward(70.0);</span>
+<span class="nc" id="L130">        fishQuest.setIncomeReward(150.0);</span>
+<span class="nc" id="L131">        fishQuest.setRequiredLevel(1);</span>
+<span class="nc" id="L132">        fishQuest.setCooldownHours(24);</span>
+<span class="nc" id="L133">        fishQuest.setDaily(true);</span>
+<span class="nc" id="L134">        fishermanQuests.add(fishQuest);</span>
+        
+<span class="nc" id="L136">        jobQuests.put(&quot;fisherman&quot;, fishermanQuests);</span>
+<span class="nc" id="L137">    }</span>
+    
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+<span class="nc" id="L141">        org.bukkit.entity.Player player = event.getPlayer();</span>
+<span class="nc" id="L142">        Material blockType = event.getBlock().getType();</span>
+        
+<span class="nc" id="L144">        updateQuestProgress(player, JobQuest.QuestType.MINE, blockType, 1);</span>
+<span class="nc" id="L145">    }</span>
+    
+    @EventHandler
+    public void onPlayerFish(PlayerFishEvent event) {
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH) return;</span>
+        
+<span class="nc" id="L151">        org.bukkit.entity.Player player = event.getPlayer();</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (event.getCaught() instanceof org.bukkit.entity.Item) {</span>
+<span class="nc" id="L153">            ItemStack caughtItem = ((org.bukkit.entity.Item) event.getCaught()).getItemStack();</span>
+<span class="nc" id="L154">            updateQuestProgress(player, JobQuest.QuestType.FISH, caughtItem.getType(), caughtItem.getAmount());</span>
+        }
+<span class="nc" id="L156">    }</span>
+    
+    @EventHandler
+    public void onCraftItem(CraftItemEvent event) {
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        if (!(event.getWhoClicked() instanceof org.bukkit.entity.Player)) return;</span>
+        
+<span class="nc" id="L162">        org.bukkit.entity.Player player = (org.bukkit.entity.Player) event.getWhoClicked();</span>
+<span class="nc" id="L163">        Material craftedType = event.getRecipe().getResult().getType();</span>
+<span class="nc" id="L164">        int amount = event.getRecipe().getResult().getAmount();</span>
+        
+<span class="nc" id="L166">        updateQuestProgress(player, JobQuest.QuestType.CRAFT, craftedType, amount);</span>
+<span class="nc" id="L167">    }</span>
+    
+    /**
+     * クエスト進行状況を更新
+     */
+    private void updateQuestProgress(org.bukkit.entity.Player player, JobQuest.QuestType questType, Material material, int amount) {
+<span class="nc" id="L173">        String uuid = player.getUniqueId().toString();</span>
+<span class="nc" id="L174">        List&lt;PlayerQuestProgress&gt; activeQuests = playerQuests.getOrDefault(uuid, new ArrayList&lt;&gt;());</span>
+        
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        for (PlayerQuestProgress progress : activeQuests) {</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            if (!progress.isActive()) continue;</span>
+            
+<span class="nc" id="L179">            JobQuest quest = getQuestById(progress.getQuestId());</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">            if (quest == null) continue;</span>
+            
+            // プレイヤーがその職業に就いているかチェック
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            if (!jobManager.hasJob(player, quest.getJobName())) continue;</span>
+            
+            // クエスト条件にマッチするかチェック
+<span class="nc bnc" id="L186" title="All 2 branches missed.">            if (quest.getQuestType() == questType &amp;&amp; </span>
+<span class="nc bnc" id="L187" title="All 4 branches missed.">                (quest.getTargetMaterial() == material || isAnyLogType(quest, material))) {</span>
+                
+<span class="nc" id="L189">                progress.addProgress(amount);</span>
+                
+                // 進行度メッセージ
+<span class="nc" id="L192">                player.sendMessage(ChatColor.YELLOW + String.format(&quot;クエスト進行: %s (%d/%d)&quot;, </span>
+<span class="nc" id="L193">                    quest.getQuestName(), progress.getCurrentProgress(), quest.getTargetAmount()));</span>
+                
+                // 完了チェック
+<span class="nc bnc" id="L196" title="All 2 branches missed.">                if (progress.getCurrentProgress() &gt;= quest.getTargetAmount()) {</span>
+<span class="nc" id="L197">                    completeQuest(player, quest, progress);</span>
+                }
+            }
+<span class="nc" id="L200">        }</span>
+<span class="nc" id="L201">    }</span>
+    
+    /**
+     * 原木系統の判定（木こりクエスト用）
+     */
+    private boolean isAnyLogType(JobQuest quest, Material material) {
+<span class="nc bnc" id="L207" title="All 4 branches missed.">        if (quest.getJobName().equals(&quot;woodcutter&quot;) &amp;&amp; quest.getTargetMaterial() == Material.OAK_LOG) {</span>
+<span class="nc bnc" id="L208" title="All 12 branches missed.">            return material == Material.OAK_LOG || material == Material.BIRCH_LOG ||</span>
+                   material == Material.SPRUCE_LOG || material == Material.JUNGLE_LOG ||
+                   material == Material.ACACIA_LOG || material == Material.DARK_OAK_LOG;
+        }
+<span class="nc" id="L212">        return false;</span>
+    }
+    
+    /**
+     * クエスト完了処理
+     */
+    private void completeQuest(org.bukkit.entity.Player player, JobQuest quest, PlayerQuestProgress progress) {
+<span class="nc" id="L219">        progress.complete();</span>
+        
+        // 報酬付与
+<span class="nc" id="L222">        giveQuestRewards(player, quest);</span>
+        
+        // 完了メッセージ
+<span class="nc" id="L225">        player.sendMessage(ChatColor.GOLD + &quot;★ クエスト完了: &quot; + quest.getQuestName());</span>
+<span class="nc" id="L226">        player.sendMessage(ChatColor.GREEN + &quot;報酬: &quot; + quest.getExperienceReward() + &quot;経験値, &quot; + </span>
+<span class="nc" id="L227">                          quest.getIncomeReward() + configManager.getCurrencySymbol());</span>
+<span class="nc" id="L228">    }</span>
+    
+    /**
+     * クエスト報酬付与
+     */
+    private void giveQuestRewards(org.bukkit.entity.Player player, JobQuest quest) {
+<span class="nc" id="L234">        String uuid = player.getUniqueId().toString();</span>
+        
+        // 経験値報酬（実装は簡略化）
+        // jobManager.giveJobExperience(player, quest.getJobName(), quest.getExperienceReward());
+        
+        // 金銭報酬
+<span class="nc" id="L240">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">        if (tofuPlayer == null) {</span>
+<span class="nc" id="L242">            tofuPlayer = new org.tofu.tofunomics.models.Player();</span>
+<span class="nc" id="L243">            tofuPlayer.setUuid(uuid);</span>
+<span class="nc" id="L244">            tofuPlayer.setBalance(configManager.getStartingBalance());</span>
+<span class="nc" id="L245">            playerDAO.insertPlayer(tofuPlayer);</span>
+        }
+        
+<span class="nc" id="L248">        tofuPlayer.addBalance(quest.getIncomeReward());</span>
+<span class="nc" id="L249">        playerDAO.updatePlayerData(tofuPlayer);</span>
+<span class="nc" id="L250">    }</span>
+    
+    /**
+     * プレイヤーがクエストを受諾
+     */
+    public boolean acceptQuest(org.bukkit.entity.Player player, int questId) {
+<span class="nc" id="L256">        JobQuest quest = getQuestById(questId);</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        if (quest == null) return false;</span>
+        
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (!jobManager.hasJob(player, quest.getJobName())) {</span>
+<span class="nc" id="L260">            player.sendMessage(ChatColor.RED + &quot;このクエストには &quot; + </span>
+<span class="nc" id="L261">                configManager.getJobDisplayName(quest.getJobName()) + &quot; の職業が必要です。&quot;);</span>
+<span class="nc" id="L262">            return false;</span>
+        }
+        
+<span class="nc" id="L265">        PlayerJob playerJob = jobManager.getPlayerJob(player, quest.getJobName());</span>
+<span class="nc bnc" id="L266" title="All 4 branches missed.">        if (playerJob == null || !quest.canPlayerAccept(playerJob.getLevel())) {</span>
+<span class="nc" id="L267">            player.sendMessage(ChatColor.RED + &quot;職業レベル &quot; + quest.getRequiredLevel() + &quot; 以上が必要です。&quot;);</span>
+<span class="nc" id="L268">            return false;</span>
+        }
+        
+<span class="nc" id="L271">        String uuid = player.getUniqueId().toString();</span>
+<span class="nc" id="L272">        List&lt;PlayerQuestProgress&gt; playerQuestList = playerQuests.computeIfAbsent(uuid, k -&gt; new ArrayList&lt;&gt;());</span>
+        
+        // 既に受諾済みかチェック
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        for (PlayerQuestProgress progress : playerQuestList) {</span>
+<span class="nc bnc" id="L276" title="All 4 branches missed.">            if (progress.getQuestId() == questId &amp;&amp; progress.isActive()) {</span>
+<span class="nc" id="L277">                player.sendMessage(ChatColor.RED + &quot;既に受諾済みのクエストです。&quot;);</span>
+<span class="nc" id="L278">                return false;</span>
+            }
+<span class="nc" id="L280">        }</span>
+        
+<span class="nc" id="L282">        PlayerQuestProgress progress = new PlayerQuestProgress(uuid, questId);</span>
+<span class="nc" id="L283">        playerQuestList.add(progress);</span>
+        
+<span class="nc" id="L285">        player.sendMessage(ChatColor.GREEN + &quot;クエスト受諾: &quot; + quest.getQuestName());</span>
+<span class="nc" id="L286">        player.sendMessage(ChatColor.YELLOW + quest.getDescription());</span>
+        
+<span class="nc" id="L288">        return true;</span>
+    }
+    
+    /**
+     * プレイヤーの利用可能なクエスト一覧を取得
+     */
+    public List&lt;JobQuest&gt; getAvailableQuests(org.bukkit.entity.Player player, String jobName) {
+<span class="nc" id="L295">        List&lt;JobQuest&gt; available = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L296">        List&lt;JobQuest&gt; jobQuestList = jobQuests.get(jobName);</span>
+        
+<span class="nc bnc" id="L298" title="All 2 branches missed.">        if (jobQuestList == null) return available;</span>
+        
+<span class="nc" id="L300">        PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">        if (playerJob == null) return available;</span>
+        
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        for (JobQuest quest : jobQuestList) {</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">            if (quest.canPlayerAccept(playerJob.getLevel())) {</span>
+<span class="nc" id="L305">                available.add(quest);</span>
+            }
+<span class="nc" id="L307">        }</span>
+        
+<span class="nc" id="L309">        return available;</span>
+    }
+    
+    /**
+     * IDからクエストを取得
+     */
+    private JobQuest getQuestById(int questId) {
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        for (List&lt;JobQuest&gt; quests : jobQuests.values()) {</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">            for (JobQuest quest : quests) {</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">                if (quest.getQuestId() == questId) {</span>
+<span class="nc" id="L319">                    return quest;</span>
+                }
+<span class="nc" id="L321">            }</span>
+<span class="nc" id="L322">        }</span>
+<span class="nc" id="L323">        return null;</span>
+    }
+    
+    /**
+     * プレイヤーのアクティブクエスト一覧を取得
+     */
+    public List&lt;PlayerQuestProgress&gt; getActiveQuests(org.bukkit.entity.Player player) {
+<span class="nc" id="L330">        String uuid = player.getUniqueId().toString();</span>
+<span class="nc" id="L331">        List&lt;PlayerQuestProgress&gt; playerQuestList = playerQuests.get(uuid);</span>
+        
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        if (playerQuestList == null) return new ArrayList&lt;&gt;();</span>
+        
+<span class="nc" id="L335">        List&lt;PlayerQuestProgress&gt; active = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">        for (PlayerQuestProgress progress : playerQuestList) {</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">            if (progress.isActive()) {</span>
+<span class="nc" id="L338">                active.add(progress);</span>
+            }
+<span class="nc" id="L340">        }</span>
+        
+<span class="nc" id="L342">        return active;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

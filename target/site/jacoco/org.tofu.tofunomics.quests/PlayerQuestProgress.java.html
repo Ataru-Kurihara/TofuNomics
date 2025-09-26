@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlayerQuestProgress.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.quests</a> &gt; <span class="el_source">PlayerQuestProgress.java</span></div><h1>PlayerQuestProgress.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.quests;
+
+import java.sql.Timestamp;
+
+/**
+ * プレイヤークエスト進行状況データモデル
+ */
+public class PlayerQuestProgress {
+    
+    private String uuid;
+    private int questId;
+    private QuestStatus status;
+    private int currentProgress;
+    private Timestamp acceptedAt;
+    private Timestamp completedAt;
+    private Timestamp lastUpdated;
+    
+<span class="nc" id="L18">    public enum QuestStatus {</span>
+<span class="nc" id="L19">        ACCEPTED(&quot;受諾中&quot;),</span>
+<span class="nc" id="L20">        IN_PROGRESS(&quot;進行中&quot;),</span>
+<span class="nc" id="L21">        COMPLETED(&quot;完了&quot;),</span>
+<span class="nc" id="L22">        ABANDONED(&quot;放棄&quot;),</span>
+<span class="nc" id="L23">        FAILED(&quot;失敗&quot;);</span>
+        
+        private final String displayName;
+        
+<span class="nc" id="L27">        QuestStatus(String displayName) {</span>
+<span class="nc" id="L28">            this.displayName = displayName;</span>
+<span class="nc" id="L29">        }</span>
+        
+        public String getDisplayName() {
+<span class="nc" id="L32">            return displayName;</span>
+        }
+    }
+    
+<span class="nc" id="L36">    public PlayerQuestProgress() {</span>
+<span class="nc" id="L37">        this.status = QuestStatus.ACCEPTED;</span>
+<span class="nc" id="L38">        this.currentProgress = 0;</span>
+<span class="nc" id="L39">        this.acceptedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L40">        this.lastUpdated = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L41">    }</span>
+    
+    public PlayerQuestProgress(String uuid, int questId) {
+<span class="nc" id="L44">        this();</span>
+<span class="nc" id="L45">        this.uuid = uuid;</span>
+<span class="nc" id="L46">        this.questId = questId;</span>
+<span class="nc" id="L47">    }</span>
+    
+    // Getters and Setters
+    public String getUuid() {
+<span class="nc" id="L51">        return uuid;</span>
+    }
+    
+    public void setUuid(String uuid) {
+<span class="nc" id="L55">        this.uuid = uuid;</span>
+<span class="nc" id="L56">    }</span>
+    
+    public int getQuestId() {
+<span class="nc" id="L59">        return questId;</span>
+    }
+    
+    public void setQuestId(int questId) {
+<span class="nc" id="L63">        this.questId = questId;</span>
+<span class="nc" id="L64">    }</span>
+    
+    public QuestStatus getStatus() {
+<span class="nc" id="L67">        return status;</span>
+    }
+    
+    public void setStatus(QuestStatus status) {
+<span class="nc" id="L71">        this.status = status;</span>
+<span class="nc" id="L72">        this.lastUpdated = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L73">    }</span>
+    
+    public int getCurrentProgress() {
+<span class="nc" id="L76">        return currentProgress;</span>
+    }
+    
+    public void setCurrentProgress(int currentProgress) {
+<span class="nc" id="L80">        this.currentProgress = currentProgress;</span>
+<span class="nc" id="L81">        this.lastUpdated = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L82">    }</span>
+    
+    public Timestamp getAcceptedAt() {
+<span class="nc" id="L85">        return acceptedAt;</span>
+    }
+    
+    public void setAcceptedAt(Timestamp acceptedAt) {
+<span class="nc" id="L89">        this.acceptedAt = acceptedAt;</span>
+<span class="nc" id="L90">    }</span>
+    
+    public Timestamp getCompletedAt() {
+<span class="nc" id="L93">        return completedAt;</span>
+    }
+    
+    public void setCompletedAt(Timestamp completedAt) {
+<span class="nc" id="L97">        this.completedAt = completedAt;</span>
+<span class="nc" id="L98">    }</span>
+    
+    public Timestamp getLastUpdated() {
+<span class="nc" id="L101">        return lastUpdated;</span>
+    }
+    
+    public void setLastUpdated(Timestamp lastUpdated) {
+<span class="nc" id="L105">        this.lastUpdated = lastUpdated;</span>
+<span class="nc" id="L106">    }</span>
+    
+    // ユーティリティメソッド
+    public void addProgress(int amount) {
+<span class="nc" id="L110">        this.currentProgress += amount;</span>
+<span class="nc" id="L111">        this.status = QuestStatus.IN_PROGRESS;</span>
+<span class="nc" id="L112">        this.lastUpdated = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L113">    }</span>
+    
+    public void complete() {
+<span class="nc" id="L116">        this.status = QuestStatus.COMPLETED;</span>
+<span class="nc" id="L117">        this.completedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L118">        this.lastUpdated = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L119">    }</span>
+    
+    public void abandon() {
+<span class="nc" id="L122">        this.status = QuestStatus.ABANDONED;</span>
+<span class="nc" id="L123">        this.lastUpdated = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L124">    }</span>
+    
+    public boolean isCompleted() {
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        return status == QuestStatus.COMPLETED;</span>
+    }
+    
+    public boolean isActive() {
+<span class="nc bnc" id="L131" title="All 4 branches missed.">        return status == QuestStatus.ACCEPTED || status == QuestStatus.IN_PROGRESS;</span>
+    }
+    
+    /**
+     * クエスト進行度をパーセンテージで取得
+     */
+    public double getProgressPercentage(int targetAmount) {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        if (targetAmount &lt;= 0) return 100.0;</span>
+<span class="nc" id="L139">        return Math.min(100.0, (double) currentProgress / targetAmount * 100.0);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

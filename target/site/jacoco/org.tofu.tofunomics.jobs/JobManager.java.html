@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.jobs</a> &gt; <span class="el_source">JobManager.java</span></div><h1>JobManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.jobs;
+
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.JobDAO;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.dao.PlayerJobDAO;
+import org.tofu.tofunomics.dao.JobChangeDAO;
+import org.tofu.tofunomics.models.Job;
+import org.tofu.tofunomics.models.PlayerJob;
+import org.tofu.tofunomics.TofuNomics;
+
+import java.util.List;
+import java.util.logging.Logger;
+
+public class JobManager {
+    
+    private final ConfigManager configManager;
+    private final JobDAO jobDAO;
+    private final PlayerDAO playerDAO;
+    private final PlayerJobDAO playerJobDAO;
+    private final JobChangeDAO jobChangeDAO;
+    
+    public JobManager(ConfigManager configManager, JobDAO jobDAO, PlayerDAO playerDAO, 
+<span class="nc" id="L25">                     PlayerJobDAO playerJobDAO, JobChangeDAO jobChangeDAO) {</span>
+<span class="nc" id="L26">        this.configManager = configManager;</span>
+<span class="nc" id="L27">        this.jobDAO = jobDAO;</span>
+<span class="nc" id="L28">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L29">        this.playerJobDAO = playerJobDAO;</span>
+<span class="nc" id="L30">        this.jobChangeDAO = jobChangeDAO;</span>
+<span class="nc" id="L31">    }</span>
+    
+<span class="nc" id="L33">    public enum JobJoinResult {</span>
+<span class="nc" id="L34">        SUCCESS,</span>
+<span class="nc" id="L35">        ALREADY_HAS_JOB,</span>
+<span class="nc" id="L36">        JOB_NOT_FOUND,</span>
+<span class="nc" id="L37">        DAILY_LIMIT_EXCEEDED,</span>
+<span class="nc" id="L38">        MAX_JOBS_REACHED,</span>
+<span class="nc" id="L39">        DATABASE_ERROR</span>
+    }
+    
+    public JobJoinResult joinJob(Player player, String jobName) {
+<span class="nc" id="L43">        String uuid = player.getUniqueId().toString();</span>
+        
+<span class="nc" id="L45">        Job job = jobDAO.getJobByNameSafe(jobName);</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        if (job == null) {</span>
+<span class="nc" id="L47">            return JobJoinResult.JOB_NOT_FOUND;</span>
+        }
+        
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if (configManager.isDailyJobChangeLimitEnabled() &amp;&amp; </span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">            !jobChangeDAO.canPlayerChangeJobToday(uuid)) {</span>
+<span class="nc" id="L52">            return JobJoinResult.DAILY_LIMIT_EXCEEDED;</span>
+        }
+        
+<span class="nc" id="L55">        List&lt;PlayerJob&gt; currentJobs = playerJobDAO.getPlayerJobsByUUID(uuid);</span>
+<span class="nc" id="L56">        int maxJobs = configManager.getMaxJobsPerPlayer();</span>
+        
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        if (currentJobs.size() &gt;= maxJobs) {</span>
+<span class="nc" id="L59">            return JobJoinResult.MAX_JOBS_REACHED;</span>
+        }
+        
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        for (PlayerJob existingJob : currentJobs) {</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">            if (existingJob.getJobId() == job.getId()) {</span>
+<span class="nc" id="L64">                return JobJoinResult.ALREADY_HAS_JOB;</span>
+            }
+<span class="nc" id="L66">        }</span>
+        
+<span class="nc" id="L68">        ensurePlayerExists(player);</span>
+        
+<span class="nc" id="L70">        PlayerJob playerJob = new PlayerJob();</span>
+<span class="nc" id="L71">        playerJob.setUuid(uuid);</span>
+<span class="nc" id="L72">        playerJob.setJobId(job.getId());</span>
+<span class="nc" id="L73">        playerJob.setLevel(1);</span>
+<span class="nc" id="L74">        playerJob.setExperience(0.0);</span>
+        
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        if (!playerJobDAO.insertPlayerJob(playerJob)) {</span>
+<span class="nc" id="L77">            return JobJoinResult.DATABASE_ERROR;</span>
+        }
+        
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if (configManager.isDailyJobChangeLimitEnabled()) {</span>
+<span class="nc" id="L81">            jobChangeDAO.recordJobChangeToday(uuid);</span>
+        }
+        
+<span class="nc" id="L84">        return JobJoinResult.SUCCESS;</span>
+    }
+    
+<span class="nc" id="L87">    public enum JobLeaveResult {</span>
+<span class="nc" id="L88">        SUCCESS,</span>
+<span class="nc" id="L89">        NO_SUCH_JOB,</span>
+<span class="nc" id="L90">        DATABASE_ERROR,</span>
+<span class="nc" id="L91">        DAILY_LIMIT_EXCEEDED</span>
+    }
+    
+    public JobLeaveResult leaveJob(Player player, String jobName) {
+<span class="nc" id="L95">        String uuid = player.getUniqueId().toString();</span>
+        
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (configManager.isDailyJobChangeLimitEnabled() &amp;&amp; </span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            !jobChangeDAO.canPlayerChangeJobToday(uuid)) {</span>
+<span class="nc" id="L99">            return JobLeaveResult.DAILY_LIMIT_EXCEEDED;</span>
+        }
+        
+<span class="nc" id="L102">        Job job = jobDAO.getJobByNameSafe(jobName);</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (job == null) {</span>
+<span class="nc" id="L104">            return JobLeaveResult.NO_SUCH_JOB;</span>
+        }
+        
+<span class="nc" id="L107">        PlayerJob playerJob = playerJobDAO.getPlayerJob(uuid, job.getId());</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L109">            return JobLeaveResult.NO_SUCH_JOB;</span>
+        }
+        
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        if (!playerJobDAO.deletePlayerJob(uuid, job.getId())) {</span>
+<span class="nc" id="L113">            return JobLeaveResult.DATABASE_ERROR;</span>
+        }
+        
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (configManager.isDailyJobChangeLimitEnabled()) {</span>
+<span class="nc" id="L117">            jobChangeDAO.recordJobChangeToday(uuid);</span>
+        }
+        
+<span class="nc" id="L120">        return JobLeaveResult.SUCCESS;</span>
+    }
+    
+    public List&lt;PlayerJob&gt; getPlayerJobs(Player player) {
+<span class="nc" id="L124">        return playerJobDAO.getPlayerJobsByUUID(player.getUniqueId().toString());</span>
+    }
+    
+    public PlayerJob getPlayerJob(Player player, String jobName) {
+<span class="nc" id="L128">        Job job = jobDAO.getJobByNameSafe(jobName);</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (job == null) {</span>
+<span class="nc" id="L130">            return null;</span>
+        }
+        
+<span class="nc" id="L133">        return playerJobDAO.getPlayerJob(player.getUniqueId().toString(), job.getId());</span>
+    }
+    
+    public boolean hasJob(Player player, String jobName) {
+<span class="nc" id="L137">        PlayerJob playerJob = getPlayerJob(player, jobName);</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        return playerJob != null;</span>
+    }
+    
+    public List&lt;Job&gt; getAllJobs() {
+<span class="nc" id="L142">        return jobDAO.getAllJobsSafe();</span>
+    }
+    
+    public Job getJobByName(String jobName) {
+<span class="nc" id="L146">        return jobDAO.getJobByNameSafe(jobName);</span>
+    }
+    
+    public Job getJobById(int jobId) {
+        try {
+<span class="nc" id="L151">            return jobDAO.getJobById(jobId);</span>
+<span class="nc" id="L152">        } catch (java.sql.SQLException e) {</span>
+            // エラーログを出力してnullを返す
+<span class="nc" id="L154">            System.err.println(&quot;Failed to get job by id: &quot; + jobId + &quot; - &quot; + e.getMessage());</span>
+<span class="nc" id="L155">            return null;</span>
+        }
+    }
+    
+    public PlayerJob getCurrentJob(java.util.UUID uuid) {
+<span class="nc" id="L160">        List&lt;PlayerJob&gt; jobs = playerJobDAO.getPlayerJobsByUUID(uuid.toString());</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        if (jobs.isEmpty()) {</span>
+<span class="nc" id="L162">            return null;</span>
+        }
+        // 最初の職業を返す（仕様上は1つの職業のみ）
+<span class="nc" id="L165">        return jobs.get(0);</span>
+    }
+    
+    /**
+     * プレイヤーの現在の職業名を取得
+     */
+    public String getPlayerJob(java.util.UUID uuid) {
+<span class="nc" id="L172">        PlayerJob currentJob = getCurrentJob(uuid);</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if (currentJob == null) {</span>
+<span class="nc" id="L174">            return null;</span>
+        }
+        
+<span class="nc" id="L177">        Job job = jobDAO.getJobByIdSafe(currentJob.getJobId());</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        return job != null ? job.getName() : null;</span>
+    }
+    
+    public boolean canChangeJobToday(Player player) {
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        if (!configManager.isDailyJobChangeLimitEnabled()) {</span>
+<span class="nc" id="L183">            return true;</span>
+        }
+        
+<span class="nc" id="L186">        return jobChangeDAO.canPlayerChangeJobToday(player.getUniqueId().toString());</span>
+    }
+    
+    public String getJobChangeStatusMessage(Player player) {
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (!configManager.isDailyJobChangeLimitEnabled()) {</span>
+<span class="nc" id="L191">            return &quot;&quot;;</span>
+        }
+        
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (canChangeJobToday(player)) {</span>
+<span class="nc" id="L195">            return &quot;今日はまだ職業を変更できます。&quot;;</span>
+        } else {
+<span class="nc" id="L197">            return &quot;職業変更は1日1回までです。明日になったら再度お試しください。&quot;;</span>
+        }
+    }
+    
+    private void ensurePlayerExists(Player player) {
+<span class="nc" id="L202">        String uuid = player.getUniqueId().toString();</span>
+<span class="nc" id="L203">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);</span>
+        
+<span class="nc bnc" id="L205" title="All 2 branches missed.">        if (tofuPlayer == null) {</span>
+<span class="nc" id="L206">            tofuPlayer = new org.tofu.tofunomics.models.Player();</span>
+<span class="nc" id="L207">            tofuPlayer.setUuid(uuid);</span>
+<span class="nc" id="L208">            tofuPlayer.setBalance(configManager.getStartingBalance());</span>
+<span class="nc" id="L209">            playerDAO.insertPlayer(tofuPlayer);</span>
+        }
+<span class="nc" id="L211">    }</span>
+    
+    public boolean isValidJobName(String jobName) {
+<span class="nc bnc" id="L214" title="All 2 branches missed.">        return jobDAO.getJobByNameSafe(jobName) != null;</span>
+    }
+    
+    public String[] getJobNames() {
+<span class="nc" id="L218">        List&lt;Job&gt; jobs = getAllJobs();</span>
+<span class="nc" id="L219">        return jobs.stream()</span>
+<span class="nc" id="L220">                   .map(Job::getName)</span>
+<span class="nc" id="L221">                   .toArray(String[]::new);</span>
+    }
+    
+    public String getJobDisplayName(String jobName) {
+<span class="nc" id="L225">        Job job = getJobByName(jobName);</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (job != null) {</span>
+<span class="nc" id="L227">            return job.getDisplayName();</span>
+        }
+<span class="nc" id="L229">        return configManager.getJobDisplayName(jobName);</span>
+    }
+    
+    /**
+     * 職業IDとレベルに基づいて称号を取得する
+     */
+    public String getJobTitle(int jobId, int level) {
+<span class="nc" id="L236">        Job job = getJobById(jobId);</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        if (job == null) {</span>
+<span class="nc" id="L238">            return &quot;不明&quot;;</span>
+        }
+        
+<span class="nc" id="L241">        String jobName = job.getName().toLowerCase();</span>
+        
+        // レベルに基づく称号を返す
+<span class="nc bnc" id="L244" title="All 2 branches missed.">        if (level &gt;= 75) {</span>
+<span class="nc" id="L245">            return getTitleForLevel75(jobName);</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">        } else if (level &gt;= 50) {</span>
+<span class="nc" id="L247">            return getTitleForLevel50(jobName);</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        } else if (level &gt;= 25) {</span>
+<span class="nc" id="L249">            return getTitleForLevel25(jobName);</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">        } else if (level &gt;= 10) {</span>
+<span class="nc" id="L251">            return getTitleForLevel10(jobName);</span>
+        } else {
+<span class="nc" id="L253">            return getTitleForLevel1(jobName);</span>
+        }
+    }
+    
+    private String getTitleForLevel75(String jobName) {
+<span class="nc bnc" id="L258" title="All 9 branches missed.">        switch (jobName) {</span>
+<span class="nc" id="L259">            case &quot;miner&quot;: return &quot;伝説の岩窟王&quot;;</span>
+<span class="nc" id="L260">            case &quot;woodcutter&quot;: return &quot;生命の樹の守り手&quot;;</span>
+<span class="nc" id="L261">            case &quot;farmer&quot;: return &quot;収穫の神&quot;;</span>
+<span class="nc" id="L262">            case &quot;fisherman&quot;: return &quot;深淵の支配者&quot;;</span>
+<span class="nc" id="L263">            case &quot;blacksmith&quot;: return &quot;神器の創造主&quot;;</span>
+<span class="nc" id="L264">            case &quot;alchemist&quot;: return &quot;真理の探求者&quot;;</span>
+<span class="nc" id="L265">            case &quot;enchanter&quot;: return &quot;大賢者&quot;;</span>
+<span class="nc" id="L266">            case &quot;architect&quot;: return &quot;世界の創造主&quot;;</span>
+<span class="nc" id="L267">            default: return &quot;マスター&quot;;</span>
+        }
+    }
+    
+    private String getTitleForLevel50(String jobName) {
+<span class="nc bnc" id="L272" title="All 9 branches missed.">        switch (jobName) {</span>
+<span class="nc" id="L273">            case &quot;miner&quot;: return &quot;アースワーデン&quot;;</span>
+<span class="nc" id="L274">            case &quot;woodcutter&quot;: return &quot;フォレストキーパー&quot;;</span>
+<span class="nc" id="L275">            case &quot;farmer&quot;: return &quot;大地の恵み&quot;;</span>
+<span class="nc" id="L276">            case &quot;fisherman&quot;: return &quot;海の友&quot;;</span>
+<span class="nc" id="L277">            case &quot;blacksmith&quot;: return &quot;魂を宿す者&quot;;</span>
+<span class="nc" id="L278">            case &quot;alchemist&quot;: return &quot;賢者の石を探す者&quot;;</span>
+<span class="nc" id="L279">            case &quot;enchanter&quot;: return &quot;古代の呪文詠唱者&quot;;</span>
+<span class="nc" id="L280">            case &quot;architect&quot;: return &quot;街の設計者&quot;;</span>
+<span class="nc" id="L281">            default: return &quot;エキスパート&quot;;</span>
+        }
+    }
+    
+    private String getTitleForLevel25(String jobName) {
+<span class="nc bnc" id="L286" title="All 9 branches missed.">        switch (jobName) {</span>
+<span class="nc" id="L287">            case &quot;miner&quot;: return &quot;マスターマイナー&quot;;</span>
+<span class="nc" id="L288">            case &quot;woodcutter&quot;: return &quot;マスターランバージャック&quot;;</span>
+<span class="nc" id="L289">            case &quot;farmer&quot;: return &quot;マスターファーマー&quot;;</span>
+<span class="nc" id="L290">            case &quot;fisherman&quot;: return &quot;マスターアングラー&quot;;</span>
+<span class="nc" id="L291">            case &quot;blacksmith&quot;: return &quot;マスターブラックスミス&quot;;</span>
+<span class="nc" id="L292">            case &quot;alchemist&quot;: return &quot;マスターアルケミスト&quot;;</span>
+<span class="nc" id="L293">            case &quot;enchanter&quot;: return &quot;マスターエンチャンター&quot;;</span>
+<span class="nc" id="L294">            case &quot;architect&quot;: return &quot;マスターアーキテクト&quot;;</span>
+<span class="nc" id="L295">            default: return &quot;マスター&quot;;</span>
+        }
+    }
+    
+    private String getTitleForLevel10(String jobName) {
+<span class="nc bnc" id="L300" title="All 9 branches missed.">        switch (jobName) {</span>
+<span class="nc" id="L301">            case &quot;miner&quot;: return &quot;熟練鉱夫&quot;;</span>
+<span class="nc" id="L302">            case &quot;woodcutter&quot;: return &quot;熟練木こり&quot;;</span>
+<span class="nc" id="L303">            case &quot;farmer&quot;: return &quot;熟練農家&quot;;</span>
+<span class="nc" id="L304">            case &quot;fisherman&quot;: return &quot;熟練釣り人&quot;;</span>
+<span class="nc" id="L305">            case &quot;blacksmith&quot;: return &quot;熟練鍛冶屋&quot;;</span>
+<span class="nc" id="L306">            case &quot;alchemist&quot;: return &quot;熟練錬金術師&quot;;</span>
+<span class="nc" id="L307">            case &quot;enchanter&quot;: return &quot;熟練付与術師&quot;;</span>
+<span class="nc" id="L308">            case &quot;architect&quot;: return &quot;熟練建築家&quot;;</span>
+<span class="nc" id="L309">            default: return &quot;熟練者&quot;;</span>
+        }
+    }
+    
+    private String getTitleForLevel1(String jobName) {
+<span class="nc bnc" id="L314" title="All 9 branches missed.">        switch (jobName) {</span>
+<span class="nc" id="L315">            case &quot;miner&quot;: return &quot;見習い鉱夫&quot;;</span>
+<span class="nc" id="L316">            case &quot;woodcutter&quot;: return &quot;見習い木こり&quot;;</span>
+<span class="nc" id="L317">            case &quot;farmer&quot;: return &quot;見習い農家&quot;;</span>
+<span class="nc" id="L318">            case &quot;fisherman&quot;: return &quot;見習い釣り人&quot;;</span>
+<span class="nc" id="L319">            case &quot;blacksmith&quot;: return &quot;見習い鍛冶屋&quot;;</span>
+<span class="nc" id="L320">            case &quot;alchemist&quot;: return &quot;見習い錬金術師&quot;;</span>
+<span class="nc" id="L321">            case &quot;enchanter&quot;: return &quot;見習い付与術師&quot;;</span>
+<span class="nc" id="L322">            case &quot;architect&quot;: return &quot;見習い建築家&quot;;</span>
+<span class="nc" id="L323">            default: return &quot;見習い&quot;;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

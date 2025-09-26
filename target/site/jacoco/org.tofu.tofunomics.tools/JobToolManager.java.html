@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobToolManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.tools</a> &gt; <span class="el_source">JobToolManager.java</span></div><h1>JobToolManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.tools;
+
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.tofu.tofunomics.config.ConfigManager;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 職業別専用ツール・アイテムの管理
+ */
+public class JobToolManager {
+    
+    private final ConfigManager configManager;
+    private final Map&lt;String, JobToolSet&gt; jobToolSets;
+    
+<span class="nc" id="L24">    public JobToolManager(ConfigManager configManager) {</span>
+<span class="nc" id="L25">        this.configManager = configManager;</span>
+<span class="nc" id="L26">        this.jobToolSets = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L27">        initializeJobToolSets();</span>
+<span class="nc" id="L28">    }</span>
+    
+    private void initializeJobToolSets() {
+        // 鉱夫のツールセット
+<span class="nc" id="L32">        jobToolSets.put(&quot;miner&quot;, new JobToolSet()</span>
+<span class="nc" id="L33">            .addTool(1, createEnchantedTool(Material.IRON_PICKAXE, &quot;見習い鉱夫のツルハシ&quot;, </span>
+<span class="nc" id="L34">                Arrays.asList(ChatColor.GRAY + &quot;鉱夫レベル1で使用可能&quot;, ChatColor.YELLOW + &quot;採掘効率が少し向上&quot;), </span>
+                Enchantment.DIG_SPEED, 1))
+<span class="nc" id="L36">            .addTool(10, createEnchantedTool(Material.DIAMOND_PICKAXE, &quot;熟練鉱夫のツルハシ&quot;,</span>
+<span class="nc" id="L37">                Arrays.asList(ChatColor.GRAY + &quot;鉱夫レベル10で使用可能&quot;, ChatColor.YELLOW + &quot;採掘効率が大幅向上&quot;),</span>
+                Enchantment.DIG_SPEED, 3))
+<span class="nc" id="L39">            .addTool(25, createEnchantedTool(Material.NETHERITE_PICKAXE, &quot;マスター鉱夫のツルハシ&quot;,</span>
+<span class="nc" id="L40">                Arrays.asList(ChatColor.GRAY + &quot;鉱夫レベル25で使用可能&quot;, ChatColor.GOLD + &quot;最高の採掘効率&quot;, ChatColor.LIGHT_PURPLE + &quot;幸運付与&quot;),</span>
+                Enchantment.DIG_SPEED, 5, Enchantment.LOOT_BONUS_BLOCKS, 3)));
+        
+        // 木こりのツールセット
+<span class="nc" id="L44">        jobToolSets.put(&quot;woodcutter&quot;, new JobToolSet()</span>
+<span class="nc" id="L45">            .addTool(1, createEnchantedTool(Material.IRON_AXE, &quot;見習い木こりの斧&quot;,</span>
+<span class="nc" id="L46">                Arrays.asList(ChatColor.GRAY + &quot;木こりレベル1で使用可能&quot;, ChatColor.YELLOW + &quot;伐採効率が少し向上&quot;),</span>
+                Enchantment.DIG_SPEED, 1))
+<span class="nc" id="L48">            .addTool(10, createEnchantedTool(Material.DIAMOND_AXE, &quot;熟練木こりの斧&quot;,</span>
+<span class="nc" id="L49">                Arrays.asList(ChatColor.GRAY + &quot;木こりレベル10で使用可能&quot;, ChatColor.YELLOW + &quot;伐採効率が大幅向上&quot;),</span>
+                Enchantment.DIG_SPEED, 3))
+<span class="nc" id="L51">            .addTool(25, createEnchantedTool(Material.NETHERITE_AXE, &quot;マスター木こりの斧&quot;,</span>
+<span class="nc" id="L52">                Arrays.asList(ChatColor.GRAY + &quot;木こりレベル25で使用可能&quot;, ChatColor.GOLD + &quot;最高の伐採効率&quot;, ChatColor.LIGHT_PURPLE + &quot;幸運付与&quot;),</span>
+                Enchantment.DIG_SPEED, 5, Enchantment.LOOT_BONUS_BLOCKS, 2)));
+        
+        // 農家のツールセット
+<span class="nc" id="L56">        jobToolSets.put(&quot;farmer&quot;, new JobToolSet()</span>
+<span class="nc" id="L57">            .addTool(1, createEnchantedTool(Material.IRON_HOE, &quot;見習い農家のクワ&quot;,</span>
+<span class="nc" id="L58">                Arrays.asList(ChatColor.GRAY + &quot;農家レベル1で使用可能&quot;, ChatColor.GREEN + &quot;作物の成長を促進&quot;),</span>
+                Enchantment.DIG_SPEED, 1))
+<span class="nc" id="L60">            .addTool(5, createSpecialItem(Material.BONE_MEAL, &quot;特製肥料&quot;, 16,</span>
+<span class="nc" id="L61">                Arrays.asList(ChatColor.GRAY + &quot;農家レベル5で使用可能&quot;, ChatColor.GREEN + &quot;作物の成長を大幅促進&quot;)))</span>
+<span class="nc" id="L62">            .addTool(15, createEnchantedTool(Material.DIAMOND_HOE, &quot;熟練農家のクワ&quot;,</span>
+<span class="nc" id="L63">                Arrays.asList(ChatColor.GRAY + &quot;農家レベル15で使用可能&quot;, ChatColor.GREEN + &quot;作物の成長を大幅促進&quot;, ChatColor.YELLOW + &quot;収穫量増加&quot;),</span>
+                Enchantment.LOOT_BONUS_BLOCKS, 2)));
+        
+        // 釣り人のツールセット  
+<span class="nc" id="L67">        jobToolSets.put(&quot;fisherman&quot;, new JobToolSet()</span>
+<span class="nc" id="L68">            .addTool(1, createEnchantedTool(Material.FISHING_ROD, &quot;見習い釣り人の竿&quot;,</span>
+<span class="nc" id="L69">                Arrays.asList(ChatColor.GRAY + &quot;釣り人レベル1で使用可能&quot;, ChatColor.AQUA + &quot;釣り効率が少し向上&quot;),</span>
+                Enchantment.LURE, 1))
+<span class="nc" id="L71">            .addTool(10, createEnchantedTool(Material.FISHING_ROD, &quot;熟練釣り人の竿&quot;,</span>
+<span class="nc" id="L72">                Arrays.asList(ChatColor.GRAY + &quot;釣り人レベル10で使用可能&quot;, ChatColor.AQUA + &quot;釣り効率が大幅向上&quot;, ChatColor.YELLOW + &quot;宝物発見確率UP&quot;),</span>
+                Enchantment.LURE, 3, Enchantment.LUCK, 2))
+<span class="nc" id="L74">            .addTool(20, createEnchantedTool(Material.FISHING_ROD, &quot;マスター釣り人の竿&quot;,</span>
+<span class="nc" id="L75">                Arrays.asList(ChatColor.GRAY + &quot;釣り人レベル20で使用可能&quot;, ChatColor.GOLD + &quot;最高の釣り効率&quot;, ChatColor.LIGHT_PURPLE + &quot;レア宝物確率大幅UP&quot;),</span>
+                Enchantment.LURE, 5, Enchantment.LUCK, 3, Enchantment.MENDING, 1)));
+        
+        // 鍛冶屋のツールセット
+<span class="nc" id="L79">        jobToolSets.put(&quot;blacksmith&quot;, new JobToolSet()</span>
+<span class="nc" id="L80">            .addTool(1, createSpecialItem(Material.IRON_INGOT, &quot;精錬された鉄&quot;, 8,</span>
+<span class="nc" id="L81">                Arrays.asList(ChatColor.GRAY + &quot;鍛冶屋レベル1で使用可能&quot;, ChatColor.YELLOW + &quot;高品質な製作材料&quot;)))</span>
+<span class="nc" id="L82">            .addTool(10, createEnchantedTool(Material.SMITHING_TABLE, &quot;熟練鍛冶台&quot;,</span>
+<span class="nc" id="L83">                Arrays.asList(ChatColor.GRAY + &quot;鍛冶屋レベル10で使用可能&quot;, ChatColor.YELLOW + &quot;製作効率が向上&quot;),</span>
+                Enchantment.DIG_SPEED, 1))
+<span class="nc" id="L85">            .addTool(15, createSpecialItem(Material.DIAMOND, &quot;精錬されたダイヤモンド&quot;, 4,</span>
+<span class="nc" id="L86">                Arrays.asList(ChatColor.GRAY + &quot;鍛冶屋レベル15で使用可能&quot;, ChatColor.LIGHT_PURPLE + &quot;最高品質の製作材料&quot;))));</span>
+        
+        // ポーション屋のツールセット
+<span class="nc" id="L89">        jobToolSets.put(&quot;alchemist&quot;, new JobToolSet()</span>
+<span class="nc" id="L90">            .addTool(1, createSpecialItem(Material.BREWING_STAND, &quot;見習いポーション台&quot;, 1,</span>
+<span class="nc" id="L91">                Arrays.asList(ChatColor.GRAY + &quot;ポーション屋レベル1で使用可能&quot;, ChatColor.LIGHT_PURPLE + &quot;ポーション製作効率向上&quot;)))</span>
+<span class="nc" id="L92">            .addTool(5, createSpecialItem(Material.BLAZE_POWDER, &quot;精製ブレイズパウダー&quot;, 16,</span>
+<span class="nc" id="L93">                Arrays.asList(ChatColor.GRAY + &quot;ポーション屋レベル5で使用可能&quot;, ChatColor.YELLOW + &quot;高品質燃料&quot;)))</span>
+<span class="nc" id="L94">            .addTool(20, createSpecialItem(Material.DRAGON_BREATH, &quot;濃縮ドラゴンブレス&quot;, 8,</span>
+<span class="nc" id="L95">                Arrays.asList(ChatColor.GRAY + &quot;ポーション屋レベル20で使用可能&quot;, ChatColor.LIGHT_PURPLE + &quot;最高級ポーション材料&quot;))));</span>
+        
+        // エンチャンターのツールセット
+<span class="nc" id="L98">        jobToolSets.put(&quot;enchanter&quot;, new JobToolSet()</span>
+<span class="nc" id="L99">            .addTool(1, createSpecialItem(Material.EXPERIENCE_BOTTLE, &quot;凝縮された経験&quot;, 8,</span>
+<span class="nc" id="L100">                Arrays.asList(ChatColor.GRAY + &quot;エンチャンターレベル1で使用可能&quot;, ChatColor.GREEN + &quot;経験値効率向上&quot;)))</span>
+<span class="nc" id="L101">            .addTool(10, createEnchantedTool(Material.ENCHANTING_TABLE, &quot;熟練エンチャント台&quot;,</span>
+<span class="nc" id="L102">                Arrays.asList(ChatColor.GRAY + &quot;エンチャンターレベル10で使用可能&quot;, ChatColor.LIGHT_PURPLE + &quot;エンチャント効率向上&quot;),</span>
+                Enchantment.MENDING, 1))
+<span class="nc" id="L104">            .addTool(25, createSpecialItem(Material.NETHER_STAR, &quot;マスターオーブ&quot;, 1,</span>
+<span class="nc" id="L105">                Arrays.asList(ChatColor.GRAY + &quot;エンチャンターレベル25で使用可能&quot;, ChatColor.GOLD + &quot;最高レベルエンチャント可能&quot;))));</span>
+        
+        // 建築家のツールセット
+<span class="nc" id="L108">        jobToolSets.put(&quot;architect&quot;, new JobToolSet()</span>
+<span class="nc" id="L109">            .addTool(1, createSpecialItem(Material.PAPER, &quot;設計図&quot;, 16,</span>
+<span class="nc" id="L110">                Arrays.asList(ChatColor.GRAY + &quot;建築家レベル1で使用可能&quot;, ChatColor.YELLOW + &quot;建築効率向上&quot;)))</span>
+<span class="nc" id="L111">            .addTool(5, createEnchantedTool(Material.GOLDEN_SHOVEL, &quot;建築家のスコップ&quot;,</span>
+<span class="nc" id="L112">                Arrays.asList(ChatColor.GRAY + &quot;建築家レベル5で使用可能&quot;, ChatColor.YELLOW + &quot;整地効率大幅向上&quot;),</span>
+                Enchantment.DIG_SPEED, 3))
+<span class="nc" id="L114">            .addTool(15, createSpecialItem(Material.STRUCTURE_BLOCK, &quot;マスター設計ブロック&quot;, 4,</span>
+<span class="nc" id="L115">                Arrays.asList(ChatColor.GRAY + &quot;建築家レベル15で使用可能&quot;, ChatColor.GOLD + &quot;高度な建築機能解放&quot;))));</span>
+<span class="nc" id="L116">    }</span>
+    
+    private ItemStack createEnchantedTool(Material material, String name, List&lt;String&gt; lore, 
+                                         Enchantment enchant1, int level1) {
+<span class="nc" id="L120">        ItemStack item = new ItemStack(material);</span>
+<span class="nc" id="L121">        ItemMeta meta = item.getItemMeta();</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L123">            meta.setDisplayName(ChatColor.GOLD + name);</span>
+<span class="nc" id="L124">            meta.setLore(lore);</span>
+<span class="nc" id="L125">            meta.addEnchant(enchant1, level1, true);</span>
+<span class="nc" id="L126">            item.setItemMeta(meta);</span>
+        }
+<span class="nc" id="L128">        return item;</span>
+    }
+    
+    private ItemStack createEnchantedTool(Material material, String name, List&lt;String&gt; lore, 
+                                         Enchantment enchant1, int level1, 
+                                         Enchantment enchant2, int level2) {
+<span class="nc" id="L134">        ItemStack item = createEnchantedTool(material, name, lore, enchant1, level1);</span>
+<span class="nc" id="L135">        ItemMeta meta = item.getItemMeta();</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L137">            meta.addEnchant(enchant2, level2, true);</span>
+<span class="nc" id="L138">            item.setItemMeta(meta);</span>
+        }
+<span class="nc" id="L140">        return item;</span>
+    }
+    
+    private ItemStack createEnchantedTool(Material material, String name, List&lt;String&gt; lore, 
+                                         Enchantment enchant1, int level1, 
+                                         Enchantment enchant2, int level2,
+                                         Enchantment enchant3, int level3) {
+<span class="nc" id="L147">        ItemStack item = createEnchantedTool(material, name, lore, enchant1, level1, enchant2, level2);</span>
+<span class="nc" id="L148">        ItemMeta meta = item.getItemMeta();</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L150">            meta.addEnchant(enchant3, level3, true);</span>
+<span class="nc" id="L151">            item.setItemMeta(meta);</span>
+        }
+<span class="nc" id="L153">        return item;</span>
+    }
+    
+    private ItemStack createSpecialItem(Material material, String name, int amount, List&lt;String&gt; lore) {
+<span class="nc" id="L157">        ItemStack item = new ItemStack(material, amount);</span>
+<span class="nc" id="L158">        ItemMeta meta = item.getItemMeta();</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L160">            meta.setDisplayName(ChatColor.GOLD + name);</span>
+<span class="nc" id="L161">            meta.setLore(lore);</span>
+<span class="nc" id="L162">            item.setItemMeta(meta);</span>
+        }
+<span class="nc" id="L164">        return item;</span>
+    }
+    
+    /**
+     * プレイヤーが指定レベルでアンロックできるツールを付与
+     */
+    public boolean giveJobTool(Player player, String jobName, int playerJobLevel) {
+<span class="nc" id="L171">        JobToolSet toolSet = jobToolSets.get(jobName.toLowerCase());</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        if (toolSet == null) {</span>
+<span class="nc" id="L173">            return false;</span>
+        }
+        
+<span class="nc" id="L176">        ItemStack tool = toolSet.getToolForLevel(playerJobLevel);</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if (tool == null) {</span>
+<span class="nc" id="L178">            return false;</span>
+        }
+        
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        if (player.getInventory().firstEmpty() == -1) {</span>
+<span class="nc" id="L182">            player.getWorld().dropItemNaturally(player.getLocation(), tool);</span>
+<span class="nc" id="L183">            player.sendMessage(ChatColor.YELLOW + &quot;インベントリが満杯のため、ツールを足元に落としました。&quot;);</span>
+        } else {
+<span class="nc" id="L185">            player.getInventory().addItem(tool);</span>
+        }
+        
+<span class="nc" id="L188">        player.sendMessage(ChatColor.GREEN + &quot;職業レベル&quot; + playerJobLevel + &quot;のツールを獲得しました！&quot;);</span>
+<span class="nc" id="L189">        return true;</span>
+    }
+    
+    /**
+     * 指定された職業とレベルで使用可能なツール一覧を取得
+     */
+    public List&lt;ItemStack&gt; getAvailableTools(String jobName, int maxLevel) {
+<span class="nc" id="L196">        JobToolSet toolSet = jobToolSets.get(jobName.toLowerCase());</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        if (toolSet == null) {</span>
+<span class="nc" id="L198">            return Arrays.asList();</span>
+        }
+        
+<span class="nc" id="L201">        return toolSet.getAvailableTools(maxLevel);</span>
+    }
+    
+    /**
+     * プレイヤーが新しいレベルに達した時にツールを自動付与
+     */
+    public void checkAndGiveNewTools(Player player, String jobName, int newLevel) {
+<span class="nc" id="L208">        JobToolSet toolSet = jobToolSets.get(jobName.toLowerCase());</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">        if (toolSet == null) {</span>
+<span class="nc" id="L210">            return;</span>
+        }
+        
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        if (toolSet.hasToolForLevel(newLevel)) {</span>
+<span class="nc" id="L214">            giveJobTool(player, jobName, newLevel);</span>
+        }
+<span class="nc" id="L216">    }</span>
+    
+    /**
+     * ツールが職業専用かチェック
+     */
+    public boolean isJobTool(ItemStack item) {
+<span class="nc bnc" id="L222" title="All 6 branches missed.">        if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) {</span>
+<span class="nc" id="L223">            return false;</span>
+        }
+        
+<span class="nc" id="L226">        String displayName = item.getItemMeta().getDisplayName();</span>
+<span class="nc bnc" id="L227" title="All 6 branches missed.">        return displayName.contains(&quot;見習い&quot;) || displayName.contains(&quot;熟練&quot;) || displayName.contains(&quot;マスター&quot;)</span>
+<span class="nc bnc" id="L228" title="All 6 branches missed.">            || displayName.contains(&quot;特製&quot;) || displayName.contains(&quot;精錬された&quot;) || displayName.contains(&quot;濃縮&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

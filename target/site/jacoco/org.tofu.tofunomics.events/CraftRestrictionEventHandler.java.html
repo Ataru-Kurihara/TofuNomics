@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CraftRestrictionEventHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.events</a> &gt; <span class="el_source">CraftRestrictionEventHandler.java</span></div><h1>CraftRestrictionEventHandler.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.events;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.tofu.tofunomics.TofuNomics;
+
+/**
+ * 専用のクラフト制限イベントハンドラー
+ * UnifiedEventHandlerの問題回避のための緊急対応
+ */
+public class CraftRestrictionEventHandler implements Listener {
+    
+    private final TofuNomics plugin;
+    
+<span class="nc" id="L19">    public CraftRestrictionEventHandler(TofuNomics plugin) {</span>
+<span class="nc" id="L20">        this.plugin = plugin;</span>
+<span class="nc" id="L21">    }</span>
+    
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onCraftItem(CraftItemEvent event) {
+<span class="nc" id="L25">        plugin.getLogger().info(&quot;=== CraftRestrictionEventHandler 開始 ===&quot;);</span>
+        
+<span class="nc bnc" id="L27" title="All 2 branches missed.">        if (!(event.getWhoClicked() instanceof Player)) {</span>
+<span class="nc" id="L28">            plugin.getLogger().info(&quot;プレイヤー以外のクリック - 処理スキップ&quot;);</span>
+<span class="nc" id="L29">            return;</span>
+        }
+        
+<span class="nc" id="L32">        Player player = (Player) event.getWhoClicked();</span>
+<span class="nc" id="L33">        Material craftedItem = event.getRecipe().getResult().getType();</span>
+        
+<span class="nc" id="L35">        plugin.getLogger().info(&quot;プレイヤー: &quot; + player.getName());</span>
+<span class="nc" id="L36">        plugin.getLogger().info(&quot;クラフト対象: &quot; + craftedItem.name());</span>
+        
+        // JobCraftPermissionManagerの取得
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        if (plugin.getJobCraftPermissionManager() == null) {</span>
+<span class="nc" id="L40">            plugin.getLogger().warning(&quot;JobCraftPermissionManager が null - 制限をスキップ&quot;);</span>
+<span class="nc" id="L41">            return;</span>
+        }
+        
+<span class="nc" id="L44">        plugin.getLogger().info(&quot;JobCraftPermissionManager 確認完了&quot;);</span>
+        
+        // クラフト制限チェック
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        if (!plugin.getJobCraftPermissionManager().canPlayerCraftItem(player, craftedItem)) {</span>
+            // クラフトを禁止
+<span class="nc" id="L49">            event.setCancelled(true);</span>
+            
+            // 制限メッセージを送信
+<span class="nc" id="L52">            String message = plugin.getJobCraftPermissionManager().getCraftDeniedMessage(player, craftedItem);</span>
+<span class="nc" id="L53">            player.sendMessage(message);</span>
+            
+<span class="nc" id="L55">            plugin.getLogger().info(&quot;クラフト制限実行: &quot; + player.getName() + &quot; が &quot; + craftedItem.name() + &quot; のクラフトを禁止&quot;);</span>
+<span class="nc" id="L56">            return;</span>
+        }
+        
+<span class="nc" id="L59">        plugin.getLogger().info(&quot;クラフト許可: &quot; + player.getName() + &quot; が &quot; + craftedItem.name() + &quot; のクラフトを許可&quot;);</span>
+<span class="nc" id="L60">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

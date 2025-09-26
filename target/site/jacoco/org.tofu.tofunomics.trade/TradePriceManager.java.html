@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TradePriceManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.trade</a> &gt; <span class="el_source">TradePriceManager.java</span></div><h1>TradePriceManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.trade;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+import org.tofu.tofunomics.models.TradeChest;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 取引価格計算システム
+ */
+public class TradePriceManager {
+    
+    private final ConfigManager configManager;
+    private final JobManager jobManager;
+    
+    // 基本価格テーブル（職業別）
+    private final Map&lt;String, Map&lt;Material, Double&gt;&gt; jobBasePrices;
+    
+    // 職業別価格ボーナス倍率
+    private final Map&lt;String, Map&lt;Material, Double&gt;&gt; jobPriceMultipliers;
+    
+<span class="nc" id="L27">    public TradePriceManager(ConfigManager configManager, JobManager jobManager) {</span>
+<span class="nc" id="L28">        this.configManager = configManager;</span>
+<span class="nc" id="L29">        this.jobManager = jobManager;</span>
+<span class="nc" id="L30">        this.jobBasePrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L31">        this.jobPriceMultipliers = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L33">        initializePriceTables();</span>
+<span class="nc" id="L34">        initializePriceMultipliers();</span>
+<span class="nc" id="L35">    }</span>
+    
+    /**
+     * 基本価格テーブルを初期化
+     */
+    private void initializePriceTables() {
+        // 鉱夫の買取アイテム
+<span class="nc" id="L42">        Map&lt;Material, Double&gt; minerPrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L43">        minerPrices.put(Material.COAL, 2.0);</span>
+<span class="nc" id="L44">        minerPrices.put(Material.IRON_INGOT, 8.0);</span>
+<span class="nc" id="L45">        minerPrices.put(Material.GOLD_INGOT, 15.0);</span>
+<span class="nc" id="L46">        minerPrices.put(Material.DIAMOND, 50.0);</span>
+<span class="nc" id="L47">        minerPrices.put(Material.EMERALD, 40.0);</span>
+<span class="nc" id="L48">        minerPrices.put(Material.LAPIS_LAZULI, 3.0);</span>
+<span class="nc" id="L49">        minerPrices.put(Material.REDSTONE, 2.5);</span>
+<span class="nc" id="L50">        minerPrices.put(Material.QUARTZ, 4.0);</span>
+<span class="nc" id="L51">        minerPrices.put(Material.NETHERITE_INGOT, 200.0);</span>
+<span class="nc" id="L52">        minerPrices.put(Material.STONE, 0.1);</span>
+<span class="nc" id="L53">        minerPrices.put(Material.COBBLESTONE, 0.05);</span>
+<span class="nc" id="L54">        minerPrices.put(Material.OBSIDIAN, 3.0);</span>
+<span class="nc" id="L55">        jobBasePrices.put(&quot;miner&quot;, minerPrices);</span>
+        
+        // 木こりの買取アイテム
+<span class="nc" id="L58">        Map&lt;Material, Double&gt; woodcutterPrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L59">        woodcutterPrices.put(Material.OAK_LOG, 1.5);</span>
+<span class="nc" id="L60">        woodcutterPrices.put(Material.BIRCH_LOG, 1.5);</span>
+<span class="nc" id="L61">        woodcutterPrices.put(Material.SPRUCE_LOG, 1.5);</span>
+<span class="nc" id="L62">        woodcutterPrices.put(Material.JUNGLE_LOG, 2.0);</span>
+<span class="nc" id="L63">        woodcutterPrices.put(Material.ACACIA_LOG, 2.0);</span>
+<span class="nc" id="L64">        woodcutterPrices.put(Material.DARK_OAK_LOG, 2.0);</span>
+<span class="nc" id="L65">        woodcutterPrices.put(Material.WARPED_STEM, 3.0);</span>
+<span class="nc" id="L66">        woodcutterPrices.put(Material.CRIMSON_STEM, 3.0);</span>
+<span class="nc" id="L67">        woodcutterPrices.put(Material.OAK_PLANKS, 0.4);</span>
+<span class="nc" id="L68">        woodcutterPrices.put(Material.STICK, 0.1);</span>
+<span class="nc" id="L69">        jobBasePrices.put(&quot;woodcutter&quot;, woodcutterPrices);</span>
+        
+        // 農家の買取アイテム
+<span class="nc" id="L72">        Map&lt;Material, Double&gt; farmerPrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L73">        farmerPrices.put(Material.WHEAT, 1.0);</span>
+<span class="nc" id="L74">        farmerPrices.put(Material.POTATO, 0.8);</span>
+<span class="nc" id="L75">        farmerPrices.put(Material.CARROT, 0.8);</span>
+<span class="nc" id="L76">        farmerPrices.put(Material.BEETROOT, 1.2);</span>
+<span class="nc" id="L77">        farmerPrices.put(Material.PUMPKIN, 2.5);</span>
+<span class="nc" id="L78">        farmerPrices.put(Material.MELON, 2.0);</span>
+<span class="nc" id="L79">        farmerPrices.put(Material.SUGAR_CANE, 0.8);</span>
+<span class="nc" id="L80">        farmerPrices.put(Material.COCOA_BEANS, 2.0);</span>
+<span class="nc" id="L81">        farmerPrices.put(Material.NETHER_WART, 2.5);</span>
+<span class="nc" id="L82">        farmerPrices.put(Material.APPLE, 1.5);</span>
+<span class="nc" id="L83">        farmerPrices.put(Material.SWEET_BERRIES, 1.0);</span>
+<span class="nc" id="L84">        jobBasePrices.put(&quot;farmer&quot;, farmerPrices);</span>
+        
+        // 漁師の買取アイテム
+<span class="nc" id="L87">        Map&lt;Material, Double&gt; fishermanPrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L88">        fishermanPrices.put(Material.COD, 3.0);</span>
+<span class="nc" id="L89">        fishermanPrices.put(Material.SALMON, 4.0);</span>
+<span class="nc" id="L90">        fishermanPrices.put(Material.TROPICAL_FISH, 6.0);</span>
+<span class="nc" id="L91">        fishermanPrices.put(Material.PUFFERFISH, 8.0);</span>
+<span class="nc" id="L92">        fishermanPrices.put(Material.COOKED_COD, 4.5);</span>
+<span class="nc" id="L93">        fishermanPrices.put(Material.COOKED_SALMON, 6.0);</span>
+<span class="nc" id="L94">        fishermanPrices.put(Material.INK_SAC, 2.0);</span>
+<span class="nc" id="L95">        fishermanPrices.put(Material.PRISMARINE_SHARD, 3.0);</span>
+<span class="nc" id="L96">        fishermanPrices.put(Material.PRISMARINE_CRYSTALS, 5.0);</span>
+<span class="nc" id="L97">        jobBasePrices.put(&quot;fisherman&quot;, fishermanPrices);</span>
+        
+        // 鍛冶屋の買取アイテム
+<span class="nc" id="L100">        Map&lt;Material, Double&gt; blacksmithPrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L101">        blacksmithPrices.put(Material.IRON_SWORD, 12.0);</span>
+<span class="nc" id="L102">        blacksmithPrices.put(Material.IRON_PICKAXE, 15.0);</span>
+<span class="nc" id="L103">        blacksmithPrices.put(Material.IRON_AXE, 15.0);</span>
+<span class="nc" id="L104">        blacksmithPrices.put(Material.IRON_SHOVEL, 8.0);</span>
+<span class="nc" id="L105">        blacksmithPrices.put(Material.IRON_HOE, 10.0);</span>
+<span class="nc" id="L106">        blacksmithPrices.put(Material.DIAMOND_SWORD, 30.0);</span>
+<span class="nc" id="L107">        blacksmithPrices.put(Material.DIAMOND_PICKAXE, 35.0);</span>
+<span class="nc" id="L108">        blacksmithPrices.put(Material.DIAMOND_AXE, 35.0);</span>
+<span class="nc" id="L109">        blacksmithPrices.put(Material.NETHERITE_SWORD, 100.0);</span>
+<span class="nc" id="L110">        blacksmithPrices.put(Material.IRON_HELMET, 20.0);</span>
+<span class="nc" id="L111">        blacksmithPrices.put(Material.IRON_CHESTPLATE, 32.0);</span>
+<span class="nc" id="L112">        blacksmithPrices.put(Material.IRON_LEGGINGS, 28.0);</span>
+<span class="nc" id="L113">        blacksmithPrices.put(Material.IRON_BOOTS, 16.0);</span>
+<span class="nc" id="L114">        jobBasePrices.put(&quot;blacksmith&quot;, blacksmithPrices);</span>
+        
+        // 錬金術師の買取アイテム
+<span class="nc" id="L117">        Map&lt;Material, Double&gt; alchemistPrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L118">        alchemistPrices.put(Material.BLAZE_POWDER, 8.0);</span>
+<span class="nc" id="L119">        alchemistPrices.put(Material.GHAST_TEAR, 20.0);</span>
+<span class="nc" id="L120">        alchemistPrices.put(Material.SPIDER_EYE, 3.0);</span>
+<span class="nc" id="L121">        alchemistPrices.put(Material.FERMENTED_SPIDER_EYE, 5.0);</span>
+<span class="nc" id="L122">        alchemistPrices.put(Material.MAGMA_CREAM, 6.0);</span>
+<span class="nc" id="L123">        alchemistPrices.put(Material.GLISTERING_MELON_SLICE, 4.0);</span>
+<span class="nc" id="L124">        alchemistPrices.put(Material.GOLDEN_CARROT, 3.0);</span>
+<span class="nc" id="L125">        alchemistPrices.put(Material.RABBIT_FOOT, 7.0);</span>
+<span class="nc" id="L126">        alchemistPrices.put(Material.TURTLE_HELMET, 25.0);</span>
+<span class="nc" id="L127">        alchemistPrices.put(Material.PHANTOM_MEMBRANE, 10.0);</span>
+<span class="nc" id="L128">        jobBasePrices.put(&quot;alchemist&quot;, alchemistPrices);</span>
+        
+        // エンチャンターの買取アイテム
+<span class="nc" id="L131">        Map&lt;Material, Double&gt; enchanterPrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L132">        enchanterPrices.put(Material.EXPERIENCE_BOTTLE, 15.0);</span>
+<span class="nc" id="L133">        enchanterPrices.put(Material.ENCHANTED_BOOK, 25.0);</span>
+<span class="nc" id="L134">        enchanterPrices.put(Material.BOOKSHELF, 12.0);</span>
+<span class="nc" id="L135">        enchanterPrices.put(Material.BOOK, 3.0);</span>
+<span class="nc" id="L136">        enchanterPrices.put(Material.PAPER, 0.5);</span>
+<span class="nc" id="L137">        enchanterPrices.put(Material.LEATHER, 2.0);</span>
+<span class="nc" id="L138">        enchanterPrices.put(Material.INK_SAC, 1.5);</span>
+<span class="nc" id="L139">        enchanterPrices.put(Material.LAPIS_LAZULI, 4.0);</span>
+<span class="nc" id="L140">        jobBasePrices.put(&quot;enchanter&quot;, enchanterPrices);</span>
+        
+        // 建築家の買取アイテム
+<span class="nc" id="L143">        Map&lt;Material, Double&gt; architectPrices = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L144">        architectPrices.put(Material.STONE_BRICKS, 0.8);</span>
+<span class="nc" id="L145">        architectPrices.put(Material.QUARTZ_BLOCK, 2.0);</span>
+<span class="nc" id="L146">        architectPrices.put(Material.PRISMARINE, 3.0);</span>
+<span class="nc" id="L147">        architectPrices.put(Material.PURPUR_BLOCK, 4.0);</span>
+<span class="nc" id="L148">        architectPrices.put(Material.END_STONE_BRICKS, 5.0);</span>
+<span class="nc" id="L149">        architectPrices.put(Material.NETHER_BRICKS, 1.5);</span>
+<span class="nc" id="L150">        architectPrices.put(Material.RED_NETHER_BRICKS, 2.0);</span>
+<span class="nc" id="L151">        architectPrices.put(Material.BLACKSTONE, 1.0);</span>
+<span class="nc" id="L152">        architectPrices.put(Material.POLISHED_BLACKSTONE, 1.5);</span>
+<span class="nc" id="L153">        architectPrices.put(Material.GLASS, 0.3);</span>
+<span class="nc" id="L154">        architectPrices.put(Material.WHITE_STAINED_GLASS, 0.5);</span>
+<span class="nc" id="L155">        jobBasePrices.put(&quot;architect&quot;, architectPrices);</span>
+<span class="nc" id="L156">    }</span>
+    
+    /**
+     * 職業別価格倍率を初期化
+     */
+    private void initializePriceMultipliers() {
+        // 各職業が得意とするアイテムの価格倍率
+<span class="nc" id="L163">        Map&lt;String, Double&gt; minerMultipliers = new HashMap&lt;&gt;();</span>
+        // 鉱夫は鉱石系アイテムを高価買取
+<span class="nc" id="L165">        jobPriceMultipliers.put(&quot;miner&quot;, new HashMap&lt;&gt;());</span>
+        
+<span class="nc" id="L167">        Map&lt;String, Double&gt; woodcutterMultipliers = new HashMap&lt;&gt;(); </span>
+        // 木こりは木材系を高価買取
+<span class="nc" id="L169">        jobPriceMultipliers.put(&quot;woodcutter&quot;, new HashMap&lt;&gt;());</span>
+        
+        // 他の職業も同様
+<span class="nc" id="L172">        jobPriceMultipliers.put(&quot;farmer&quot;, new HashMap&lt;&gt;());</span>
+<span class="nc" id="L173">        jobPriceMultipliers.put(&quot;fisherman&quot;, new HashMap&lt;&gt;());</span>
+<span class="nc" id="L174">        jobPriceMultipliers.put(&quot;blacksmith&quot;, new HashMap&lt;&gt;());</span>
+<span class="nc" id="L175">        jobPriceMultipliers.put(&quot;alchemist&quot;, new HashMap&lt;&gt;());</span>
+<span class="nc" id="L176">        jobPriceMultipliers.put(&quot;enchanter&quot;, new HashMap&lt;&gt;());</span>
+<span class="nc" id="L177">        jobPriceMultipliers.put(&quot;architect&quot;, new HashMap&lt;&gt;());</span>
+<span class="nc" id="L178">    }</span>
+    
+    /**
+     * アイテムの販売価格を計算
+     */
+    public TradeResult calculateTradePrice(Player player, TradeChest tradeChest, 
+                                         Material itemType, int amount) {
+<span class="nc" id="L185">        String jobType = tradeChest.getJobType();</span>
+        
+        // 基本価格を取得
+<span class="nc" id="L188">        double basePrice = getBasePrice(jobType, itemType);</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        if (basePrice &lt;= 0) {</span>
+<span class="nc" id="L190">            return new TradeResult(false, &quot;このチェストではそのアイテムは買取できません。&quot;, 0.0, 0.0);</span>
+        }
+        
+        // プレイヤーの職業情報を取得
+<span class="nc" id="L194">        PlayerJob playerJob = jobManager.getPlayerJob(player, jobType);</span>
+        
+        // 職業ボーナス計算
+<span class="nc" id="L197">        double jobBonus = calculateJobBonus(player, jobType, itemType, basePrice, amount);</span>
+        
+        // 合計価格計算
+<span class="nc" id="L200">        double totalBasePrice = basePrice * amount;</span>
+<span class="nc" id="L201">        double totalPrice = totalBasePrice + jobBonus;</span>
+        
+        // 設定ファイルの価格倍率を適用
+<span class="nc" id="L204">        double globalMultiplier = configManager.getTradePriceMultiplier();</span>
+<span class="nc" id="L205">        totalPrice *= globalMultiplier;</span>
+<span class="nc" id="L206">        jobBonus *= globalMultiplier;</span>
+        
+<span class="nc" id="L208">        String message = String.format(&quot;§a%s x%d を %.2f金塊で買取します&quot;, </span>
+<span class="nc" id="L209">                                     getItemDisplayName(itemType), amount, totalPrice);</span>
+        
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (jobBonus &gt; 0) {</span>
+<span class="nc" id="L212">            message += String.format(&quot; §7(職業ボーナス: +%.2f)&quot;, jobBonus);</span>
+        }
+        
+<span class="nc" id="L215">        return new TradeResult(true, message, totalPrice - jobBonus, jobBonus);</span>
+    }
+    
+    /**
+     * 基本価格を取得
+     */
+    private double getBasePrice(String jobType, Material itemType) {
+<span class="nc" id="L222">        Map&lt;Material, Double&gt; jobPrices = jobBasePrices.get(jobType);</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        if (jobPrices == null) {</span>
+<span class="nc" id="L224">            return 0.0;</span>
+        }
+        
+<span class="nc" id="L227">        return jobPrices.getOrDefault(itemType, 0.0);</span>
+    }
+    
+    /**
+     * 職業ボーナスを計算
+     */
+    private double calculateJobBonus(Player player, String jobType, Material itemType, 
+                                   double basePrice, int amount) {
+<span class="nc" id="L235">        PlayerJob playerJob = jobManager.getPlayerJob(player, jobType);</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L237">            return 0.0;</span>
+        }
+        
+        // レベル別ボーナス率（最大20%まで）
+<span class="nc" id="L241">        double levelBonusRate = Math.min(playerJob.getLevel() * 0.005, 0.20);</span>
+        
+        // 職業専門性ボーナス
+<span class="nc" id="L244">        double specialtyBonus = getSpecialtyBonus(jobType, itemType);</span>
+        
+        // 設定ファイルの価格倍率
+<span class="nc" id="L247">        double configMultiplier = configManager.getJobPriceMultiplier(jobType);</span>
+        
+        // 合計ボーナス率
+<span class="nc" id="L250">        double totalBonusRate = (levelBonusRate + specialtyBonus) * configMultiplier;</span>
+        
+<span class="nc" id="L252">        return basePrice * amount * totalBonusRate;</span>
+    }
+    
+    /**
+     * 職業専門性ボーナスを取得
+     */
+    private double getSpecialtyBonus(String jobType, Material itemType) {
+        // 各職業が得意とするアイテムのボーナス率
+<span class="nc bnc" id="L260" title="All 9 branches missed.">        switch (jobType.toLowerCase()) {</span>
+            case &quot;miner&quot;:
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                if (isMiningItem(itemType)) return 0.15;</span>
+                break;
+            case &quot;woodcutter&quot;:
+<span class="nc bnc" id="L265" title="All 2 branches missed.">                if (isWoodItem(itemType)) return 0.15;</span>
+                break;
+            case &quot;farmer&quot;:
+<span class="nc bnc" id="L268" title="All 2 branches missed.">                if (isFarmItem(itemType)) return 0.15;</span>
+                break;
+            case &quot;fisherman&quot;:
+<span class="nc bnc" id="L271" title="All 2 branches missed.">                if (isFishItem(itemType)) return 0.15;</span>
+                break;
+            case &quot;blacksmith&quot;:
+<span class="nc bnc" id="L274" title="All 2 branches missed.">                if (isSmithingItem(itemType)) return 0.15;</span>
+                break;
+            case &quot;alchemist&quot;:
+<span class="nc bnc" id="L277" title="All 2 branches missed.">                if (isAlchemyItem(itemType)) return 0.15;</span>
+                break;
+            case &quot;enchanter&quot;:
+<span class="nc bnc" id="L280" title="All 2 branches missed.">                if (isEnchantingItem(itemType)) return 0.15;</span>
+                break;
+            case &quot;architect&quot;:
+<span class="nc bnc" id="L283" title="All 2 branches missed.">                if (isBuildingItem(itemType)) return 0.15;</span>
+                break;
+        }
+<span class="nc" id="L286">        return 0.0;</span>
+    }
+    
+    /**
+     * アイテム種別判定メソッド群
+     */
+    
+    private boolean isMiningItem(Material material) {
+<span class="nc bnc" id="L294" title="All 18 branches missed.">        return material == Material.COAL || material == Material.IRON_INGOT || </span>
+               material == Material.GOLD_INGOT || material == Material.DIAMOND ||
+               material == Material.EMERALD || material == Material.LAPIS_LAZULI ||
+               material == Material.REDSTONE || material == Material.QUARTZ ||
+               material == Material.NETHERITE_INGOT;
+    }
+    
+    private boolean isWoodItem(Material material) {
+<span class="nc" id="L302">        String name = material.name();</span>
+<span class="nc bnc" id="L303" title="All 4 branches missed.">        return name.contains(&quot;LOG&quot;) || name.contains(&quot;PLANKS&quot;) || </span>
+<span class="nc bnc" id="L304" title="All 4 branches missed.">               name.contains(&quot;WOOD&quot;) || material == Material.STICK;</span>
+    }
+    
+    private boolean isFarmItem(Material material) {
+<span class="nc bnc" id="L308" title="All 18 branches missed.">        return material == Material.WHEAT || material == Material.POTATO ||</span>
+               material == Material.CARROT || material == Material.BEETROOT ||
+               material == Material.PUMPKIN || material == Material.MELON ||
+               material == Material.SUGAR_CANE || material == Material.COCOA_BEANS ||
+               material == Material.NETHER_WART;
+    }
+    
+    private boolean isFishItem(Material material) {
+<span class="nc bnc" id="L316" title="All 12 branches missed.">        return material == Material.COD || material == Material.SALMON ||</span>
+               material == Material.TROPICAL_FISH || material == Material.PUFFERFISH ||
+               material == Material.COOKED_COD || material == Material.COOKED_SALMON;
+    }
+    
+    private boolean isSmithingItem(Material material) {
+<span class="nc" id="L322">        String name = material.name();</span>
+<span class="nc bnc" id="L323" title="All 4 branches missed.">        return name.contains(&quot;SWORD&quot;) || name.contains(&quot;PICKAXE&quot;) || </span>
+<span class="nc bnc" id="L324" title="All 4 branches missed.">               name.contains(&quot;AXE&quot;) || name.contains(&quot;SHOVEL&quot;) || </span>
+<span class="nc bnc" id="L325" title="All 4 branches missed.">               name.contains(&quot;HOE&quot;) || name.contains(&quot;HELMET&quot;) ||</span>
+<span class="nc bnc" id="L326" title="All 4 branches missed.">               name.contains(&quot;CHESTPLATE&quot;) || name.contains(&quot;LEGGINGS&quot;) ||</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">               name.contains(&quot;BOOTS&quot;);</span>
+    }
+    
+    private boolean isAlchemyItem(Material material) {
+<span class="nc bnc" id="L331" title="All 16 branches missed.">        return material == Material.BLAZE_POWDER || material == Material.GHAST_TEAR ||</span>
+               material == Material.SPIDER_EYE || material == Material.FERMENTED_SPIDER_EYE ||
+               material == Material.MAGMA_CREAM || material == Material.GLISTERING_MELON_SLICE ||
+               material == Material.GOLDEN_CARROT || material == Material.RABBIT_FOOT;
+    }
+    
+    private boolean isEnchantingItem(Material material) {
+<span class="nc bnc" id="L338" title="All 10 branches missed.">        return material == Material.EXPERIENCE_BOTTLE || material == Material.ENCHANTED_BOOK ||</span>
+               material == Material.BOOKSHELF || material == Material.BOOK ||
+               material == Material.LAPIS_LAZULI;
+    }
+    
+    private boolean isBuildingItem(Material material) {
+<span class="nc" id="L344">        String name = material.name();</span>
+<span class="nc bnc" id="L345" title="All 12 branches missed.">        return name.contains(&quot;BRICK&quot;) || name.contains(&quot;STONE&quot;) ||</span>
+               material == Material.QUARTZ_BLOCK || material == Material.PRISMARINE ||
+               material == Material.PURPUR_BLOCK || material == Material.GLASS;
+    }
+    
+    /**
+     * アイテム表示名を取得
+     */
+    private String getItemDisplayName(Material material) {
+        // 簡略実装（実際にはローカライズ対応が必要）
+<span class="nc" id="L355">        return material.name().toLowerCase().replace(&quot;_&quot;, &quot; &quot;);</span>
+    }
+    
+    /**
+     * 取引結果クラス
+     */
+    public static class TradeResult {
+        private final boolean success;
+        private final String message;
+        private final double basePrice;
+        private final double jobBonus;
+        
+<span class="nc" id="L367">        public TradeResult(boolean success, String message, double basePrice, double jobBonus) {</span>
+<span class="nc" id="L368">            this.success = success;</span>
+<span class="nc" id="L369">            this.message = message;</span>
+<span class="nc" id="L370">            this.basePrice = basePrice;</span>
+<span class="nc" id="L371">            this.jobBonus = jobBonus;</span>
+<span class="nc" id="L372">        }</span>
+        
+<span class="nc" id="L374">        public boolean isSuccess() { return success; }</span>
+<span class="nc" id="L375">        public String getMessage() { return message; }</span>
+<span class="nc" id="L376">        public double getBasePrice() { return basePrice; }</span>
+<span class="nc" id="L377">        public double getJobBonus() { return jobBonus; }</span>
+<span class="nc" id="L378">        public double getTotalPrice() { return basePrice + jobBonus; }</span>
+    }
+    
+    /**
+     * NPCシステム用の最終価格計算メソッド
+     */
+    public double calculateFinalPrice(String itemName, String jobType, double basePrice) {
+<span class="nc bnc" id="L385" title="All 4 branches missed.">        if (jobType == null || jobType.isEmpty()) {</span>
+<span class="nc" id="L386">            return basePrice;</span>
+        }
+        
+        // 職業倍率を適用
+<span class="nc" id="L390">        double jobMultiplier = configManager.getJobPriceMultiplier(jobType);</span>
+<span class="nc" id="L391">        double finalPrice = basePrice * jobMultiplier;</span>
+        
+        // グローバル倍率を適用
+<span class="nc" id="L394">        double globalMultiplier = configManager.getTradePriceMultiplier();</span>
+<span class="nc" id="L395">        finalPrice *= globalMultiplier;</span>
+        
+<span class="nc" id="L397">        return finalPrice;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

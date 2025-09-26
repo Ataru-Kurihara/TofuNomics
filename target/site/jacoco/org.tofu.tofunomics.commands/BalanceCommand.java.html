@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BalanceCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">BalanceCommand.java</span></div><h1>BalanceCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+
+public class BalanceCommand implements CommandExecutor {
+    
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    
+<span class="nc" id="L17">    public BalanceCommand(ConfigManager configManager, CurrencyConverter currencyConverter) {</span>
+<span class="nc" id="L18">        this.configManager = configManager;</span>
+<span class="nc" id="L19">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L20">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc bnc" id="L24" title="All 2 branches missed.">        if (args.length == 0) {</span>
+<span class="nc" id="L25">            return handleSelfBalance(sender);</span>
+<span class="nc bnc" id="L26" title="All 2 branches missed.">        } else if (args.length == 1) {</span>
+<span class="nc" id="L27">            return handleOtherBalance(sender, args[0]);</span>
+        } else {
+<span class="nc" id="L29">            sender.sendMessage(ChatColor.RED + &quot;使用法: /balance [プレイヤー名]&quot;);</span>
+<span class="nc" id="L30">            return true;</span>
+        }
+    }
+    
+    private boolean handleSelfBalance(CommandSender sender) {
+<span class="nc bnc" id="L35" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L36">            sender.sendMessage(ChatColor.RED + &quot;このコマンドはプレイヤーのみ実行できます。&quot;);</span>
+<span class="nc" id="L37">            return true;</span>
+        }
+        
+<span class="nc" id="L40">        Player player = (Player) sender;</span>
+<span class="nc" id="L41">        double cashBalance = currencyConverter.getCashBalance(player);</span>
+<span class="nc" id="L42">        double bankBalance = currencyConverter.getBankBalance(player);</span>
+<span class="nc" id="L43">        double totalBalance = cashBalance + bankBalance;</span>
+        
+<span class="nc" id="L45">        String currencySymbol = configManager.getCurrencySymbol();</span>
+<span class="nc" id="L46">        String formattedCash = currencyConverter.formatCurrency(cashBalance);</span>
+<span class="nc" id="L47">        String formattedBank = currencyConverter.formatCurrency(bankBalance);</span>
+<span class="nc" id="L48">        String formattedTotal = currencyConverter.formatCurrency(totalBalance);</span>
+        
+<span class="nc" id="L50">        player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L51">            configManager.getMessagePrefix() + &quot;&amp;6==== 残高情報 ====&quot;));</span>
+<span class="nc" id="L52">        player.sendMessage(ChatColor.GREEN + &quot;現金（金塊）: &quot; + ChatColor.WHITE + formattedCash + currencySymbol);</span>
+<span class="nc" id="L53">        player.sendMessage(ChatColor.GOLD + &quot;預金（銀行）: &quot; + ChatColor.WHITE + formattedBank + currencySymbol);</span>
+<span class="nc" id="L54">        player.sendMessage(ChatColor.YELLOW + &quot;総資産: &quot; + ChatColor.WHITE + formattedTotal + currencySymbol);</span>
+        
+<span class="nc" id="L56">        return true;</span>
+    }
+    
+    private boolean handleOtherBalance(CommandSender sender, String targetPlayerName) {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.balance.others&quot;)) {</span>
+<span class="nc" id="L61">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L62">                configManager.getMessagePrefix() + configManager.getMessage(&quot;no_permission&quot;)));</span>
+<span class="nc" id="L63">            return true;</span>
+        }
+        
+<span class="nc" id="L66">        Player targetPlayer = Bukkit.getPlayer(targetPlayerName);</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (targetPlayer == null) {</span>
+<span class="nc" id="L68">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L69">                configManager.getMessagePrefix() + configManager.getMessage(&quot;player_not_found&quot;)));</span>
+<span class="nc" id="L70">            return true;</span>
+        }
+        
+<span class="nc" id="L73">        double cashBalance = currencyConverter.getCashBalance(targetPlayer);</span>
+<span class="nc" id="L74">        double bankBalance = currencyConverter.getBankBalance(targetPlayer);</span>
+<span class="nc" id="L75">        double totalBalance = cashBalance + bankBalance;</span>
+        
+<span class="nc" id="L77">        String currencySymbol = configManager.getCurrencySymbol();</span>
+<span class="nc" id="L78">        String formattedCash = currencyConverter.formatCurrency(cashBalance);</span>
+<span class="nc" id="L79">        String formattedBank = currencyConverter.formatCurrency(bankBalance);</span>
+<span class="nc" id="L80">        String formattedTotal = currencyConverter.formatCurrency(totalBalance);</span>
+        
+<span class="nc" id="L82">        sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L83">            configManager.getMessagePrefix() + &quot;&amp;6==== &quot; + targetPlayer.getName() + &quot;の残高情報 ====&quot;));</span>
+<span class="nc" id="L84">        sender.sendMessage(ChatColor.GREEN + &quot;現金（金塊）: &quot; + ChatColor.WHITE + formattedCash + currencySymbol);</span>
+<span class="nc" id="L85">        sender.sendMessage(ChatColor.GOLD + &quot;預金（銀行）: &quot; + ChatColor.WHITE + formattedBank + currencySymbol);</span>
+<span class="nc" id="L86">        sender.sendMessage(ChatColor.YELLOW + &quot;総資産: &quot; + ChatColor.WHITE + formattedTotal + currencySymbol);</span>
+        
+<span class="nc" id="L88">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

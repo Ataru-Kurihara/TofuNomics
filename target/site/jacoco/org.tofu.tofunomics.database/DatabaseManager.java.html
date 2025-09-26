@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatabaseManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.database</a> &gt; <span class="el_source">DatabaseManager.java</span></div><h1>DatabaseManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.database;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.logging.Logger;
+
+public class DatabaseManager {
+    private final String databasePath;
+    private final Logger logger;
+    private Connection connection;
+
+<span class="nc" id="L15">    public DatabaseManager(String databasePath, Logger logger) {</span>
+<span class="nc" id="L16">        this.databasePath = databasePath;</span>
+<span class="nc" id="L17">        this.logger = logger;</span>
+<span class="nc" id="L18">    }</span>
+
+    public boolean connect() {
+        try {
+<span class="nc" id="L22">            Class.forName(&quot;org.sqlite.JDBC&quot;);</span>
+<span class="nc" id="L23">            connection = DriverManager.getConnection(&quot;jdbc:sqlite:&quot; + databasePath);</span>
+<span class="nc" id="L24">            logger.info(&quot;SQLiteデータベースに接続しました&quot;);</span>
+<span class="nc" id="L25">            return true;</span>
+<span class="nc" id="L26">        } catch (ClassNotFoundException | SQLException e) {</span>
+<span class="nc" id="L27">            logger.severe(&quot;データベース接続に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L28">            return false;</span>
+        }
+    }
+
+    public void disconnect() {
+        try {
+<span class="nc bnc" id="L34" title="All 4 branches missed.">            if (connection != null &amp;&amp; !connection.isClosed()) {</span>
+<span class="nc" id="L35">                connection.close();</span>
+<span class="nc" id="L36">                logger.info(&quot;データベース接続を閉じました&quot;);</span>
+            }
+<span class="nc" id="L38">        } catch (SQLException e) {</span>
+<span class="nc" id="L39">            logger.warning(&quot;データベース接続の切断に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L40">        }</span>
+<span class="nc" id="L41">    }</span>
+
+    public void createTables() {
+<span class="nc" id="L44">        String[] tableCreationQueries = {</span>
+            // プレイヤー基本情報テーブル
+            &quot;CREATE TABLE IF NOT EXISTS players (&quot; +
+            &quot;    uuid TEXT PRIMARY KEY,&quot; +
+            &quot;    balance REAL NOT NULL DEFAULT 0.0,&quot; +
+            &quot;    bank_balance REAL NOT NULL DEFAULT 0.0,&quot; +
+            &quot;    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP&quot; +
+            &quot;);&quot;,
+
+            // 職業情報テーブル
+            &quot;CREATE TABLE IF NOT EXISTS jobs (&quot; +
+            &quot;    id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+            &quot;    name TEXT UNIQUE NOT NULL,&quot; +
+            &quot;    display_name TEXT NOT NULL,&quot; +
+            &quot;    max_level INTEGER NOT NULL DEFAULT 75,&quot; +
+            &quot;    base_income REAL NOT NULL DEFAULT 1.0,&quot; +
+            &quot;    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP&quot; +
+            &quot;);&quot;,
+
+            // プレイヤー職業関連テーブル
+            &quot;CREATE TABLE IF NOT EXISTS player_jobs (&quot; +
+            &quot;    uuid TEXT NOT NULL,&quot; +
+            &quot;    job_id INTEGER NOT NULL,&quot; +
+            &quot;    level INTEGER NOT NULL DEFAULT 1,&quot; +
+            &quot;    experience REAL NOT NULL DEFAULT 0.0,&quot; +
+            &quot;    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    PRIMARY KEY (uuid, job_id),&quot; +
+            &quot;    FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE,&quot; +
+            &quot;    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE&quot; +
+            &quot;);&quot;,
+
+            // 職業スキルテーブル
+            &quot;CREATE TABLE IF NOT EXISTS job_skills (&quot; +
+            &quot;    id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+            &quot;    job_id INTEGER NOT NULL,&quot; +
+            &quot;    skill_name TEXT NOT NULL,&quot; +
+            &quot;    unlock_level INTEGER NOT NULL,&quot; +
+            &quot;    description TEXT,&quot; +
+            &quot;    effect_type TEXT NOT NULL,&quot; +
+            &quot;    effect_value REAL,&quot; +
+            &quot;    cooldown INTEGER DEFAULT 0,&quot; +
+            &quot;    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,&quot; +
+            &quot;    UNIQUE(job_id, skill_name)&quot; +
+            &quot;);&quot;,
+
+            // プレイヤーが持つスキルテーブル
+            &quot;CREATE TABLE IF NOT EXISTS player_skills (&quot; +
+            &quot;    uuid TEXT NOT NULL,&quot; +
+            &quot;    skill_id INTEGER NOT NULL,&quot; +
+            &quot;    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    last_used TIMESTAMP,&quot; +
+            &quot;    PRIMARY KEY (uuid, skill_id),&quot; +
+            &quot;    FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE,&quot; +
+            &quot;    FOREIGN KEY (skill_id) REFERENCES job_skills(id) ON DELETE CASCADE&quot; +
+            &quot;);&quot;,
+
+            // 土地所有テーブル
+            &quot;CREATE TABLE IF NOT EXISTS land_ownership (&quot; +
+            &quot;    id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+            &quot;    owner_uuid TEXT NOT NULL,&quot; +
+            &quot;    land_name TEXT,&quot; +
+            &quot;    world_name TEXT NOT NULL,&quot; +
+            &quot;    x1 INTEGER NOT NULL,&quot; +
+            &quot;    y1 INTEGER NOT NULL,&quot; +
+            &quot;    z1 INTEGER NOT NULL,&quot; +
+            &quot;    x2 INTEGER NOT NULL,&quot; +
+            &quot;    y2 INTEGER NOT NULL,&quot; +
+            &quot;    z2 INTEGER NOT NULL,&quot; +
+            &quot;    purchase_price REAL NOT NULL,&quot; +
+            &quot;    purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    FOREIGN KEY (owner_uuid) REFERENCES players(uuid) ON DELETE CASCADE&quot; +
+            &quot;);&quot;,
+
+            // 職業変更履歴テーブル（1日1回制限管理用）
+            &quot;CREATE TABLE IF NOT EXISTS job_changes (&quot; +
+            &quot;    uuid TEXT PRIMARY KEY,&quot; +
+            &quot;    last_change_date TEXT NOT NULL,&quot; +
+            &quot;    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE&quot; +
+            &quot;);&quot;,
+
+            // 取引チェストテーブル（フェーズ4用）
+            &quot;CREATE TABLE IF NOT EXISTS trade_chests (&quot; +
+            &quot;    id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+            &quot;    world_name TEXT NOT NULL,&quot; +
+            &quot;    x INTEGER NOT NULL,&quot; +
+            &quot;    y INTEGER NOT NULL,&quot; +
+            &quot;    z INTEGER NOT NULL,&quot; +
+            &quot;    job_type TEXT NOT NULL,&quot; +
+            &quot;    active BOOLEAN DEFAULT TRUE,&quot; +
+            &quot;    created_by TEXT NOT NULL,&quot; +
+            &quot;    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    UNIQUE(world_name, x, y, z),&quot; +
+            &quot;    FOREIGN KEY (created_by) REFERENCES players(uuid) ON DELETE SET NULL&quot; +
+            &quot;);&quot;,
+
+            // プレイヤー取引履歴テーブル（フェーズ4用）
+            &quot;CREATE TABLE IF NOT EXISTS player_trade_history (&quot; +
+            &quot;    id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+            &quot;    uuid TEXT NOT NULL,&quot; +
+            &quot;    trade_chest_id INTEGER NOT NULL,&quot; +
+            &quot;    item_type TEXT NOT NULL,&quot; +
+            &quot;    item_amount INTEGER NOT NULL,&quot; +
+            &quot;    sale_price REAL NOT NULL,&quot; +
+            &quot;    job_bonus REAL DEFAULT 0.0,&quot; +
+            &quot;    player_job TEXT,&quot; +
+            &quot;    player_job_level INTEGER DEFAULT 1,&quot; +
+            &quot;    traded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,&quot; +
+            &quot;    FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE,&quot; +
+            &quot;    FOREIGN KEY (trade_chest_id) REFERENCES trade_chests(id) ON DELETE CASCADE&quot; +
+            &quot;);&quot;
+        };
+
+<span class="nc" id="L161">        try (Statement statement = connection.createStatement()) {</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            for (String query : tableCreationQueries) {</span>
+<span class="nc" id="L163">                statement.execute(query);</span>
+            }
+<span class="nc" id="L165">            logger.info(&quot;データベーステーブルを作成しました&quot;);</span>
+            
+            // マイグレーション処理を実行
+<span class="nc" id="L168">            performMigrations();</span>
+            
+<span class="nc" id="L170">            initializeDefaultJobs();</span>
+<span class="nc" id="L171">        } catch (SQLException e) {</span>
+<span class="nc" id="L172">            logger.severe(&quot;テーブル作成に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L173">        }</span>
+<span class="nc" id="L174">    }</span>
+
+    private void performMigrations() {
+<span class="nc" id="L177">        try (Statement statement = connection.createStatement()) {</span>
+            // bank_balanceカラムが存在するかチェック
+            try {
+<span class="nc" id="L180">                statement.executeQuery(&quot;SELECT bank_balance FROM players LIMIT 1&quot;);</span>
+<span class="nc" id="L181">            } catch (SQLException e) {</span>
+                // カラムが存在しない場合、追加する
+<span class="nc" id="L183">                logger.info(&quot;bank_balanceカラムを追加しています...&quot;);</span>
+<span class="nc" id="L184">                statement.executeUpdate(&quot;ALTER TABLE players ADD COLUMN bank_balance REAL NOT NULL DEFAULT 0.0&quot;);</span>
+                
+                // 既存のbalanceをbank_balanceに移行
+<span class="nc" id="L187">                statement.executeUpdate(&quot;UPDATE players SET bank_balance = balance WHERE bank_balance = 0.0&quot;);</span>
+<span class="nc" id="L188">                statement.executeUpdate(&quot;UPDATE players SET balance = 0.0&quot;);</span>
+                
+<span class="nc" id="L190">                logger.info(&quot;既存データをマイグレーションしました: balance → bank_balance&quot;);</span>
+<span class="nc" id="L191">            }</span>
+            
+            // jobs テーブルの created_at カラムが存在するかチェック
+            try {
+<span class="nc" id="L195">                statement.executeQuery(&quot;SELECT created_at FROM jobs LIMIT 1&quot;);</span>
+                
+                // カラムが存在する場合、タイムスタンプ形式を修正
+<span class="nc" id="L198">                logger.info(&quot;jobsテーブルのタイムスタンプ形式を確認・修正しています...&quot;);</span>
+                
+                // SQLiteでミリ秒なしのタイムスタンプをミリ秒付きに変換
+                // まず現在のデータ形式を確認
+                try {
+                    // タイムスタンプ形式を統一（ミリ秒なし -&gt; ミリ秒付き）
+<span class="nc" id="L204">                    statement.executeUpdate(</span>
+                        &quot;UPDATE jobs SET created_at = &quot; +
+                        &quot;CASE &quot; +
+                        &quot;  WHEN created_at LIKE '____-__-__ __:__:__' THEN created_at || '.000' &quot; +
+                        &quot;  WHEN created_at LIKE '____-__-__T__:__:__' THEN REPLACE(created_at, 'T', ' ') || '.000' &quot; +
+                        &quot;  ELSE created_at &quot; +
+                        &quot;END &quot; +
+                        &quot;WHERE created_at NOT LIKE '%.___'&quot;
+                    );
+<span class="nc" id="L213">                    logger.info(&quot;jobsテーブルのタイムスタンプ形式を修正しました&quot;);</span>
+<span class="nc" id="L214">                } catch (SQLException updateEx) {</span>
+                    // 更新に失敗した場合はログに記録のみ
+<span class="nc" id="L216">                    logger.warning(&quot;タイムスタンプ形式の修正に失敗しました（処理は継続）: &quot; + updateEx.getMessage());</span>
+<span class="nc" id="L217">                }</span>
+                
+<span class="nc" id="L219">            } catch (SQLException e) {</span>
+                // カラムが存在しない場合、追加する
+<span class="nc" id="L221">                logger.info(&quot;jobs テーブルに created_at カラムを追加しています...&quot;);</span>
+<span class="nc" id="L222">                statement.executeUpdate(&quot;ALTER TABLE jobs ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP&quot;);</span>
+                
+                // 既存データに created_at を設定
+<span class="nc" id="L225">                statement.executeUpdate(&quot;UPDATE jobs SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL&quot;);</span>
+                
+<span class="nc" id="L227">                logger.info(&quot;jobs テーブルのマイグレーションが完了しました&quot;);</span>
+<span class="nc" id="L228">            }</span>
+<span class="nc" id="L229">        } catch (SQLException e) {</span>
+<span class="nc" id="L230">            logger.warning(&quot;マイグレーション処理に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L231">        }</span>
+<span class="nc" id="L232">    }</span>
+
+    private void initializeDefaultJobs() {
+        // SQLiteで適切なタイムスタンプ形式を使用
+<span class="nc" id="L236">        String timestamp = &quot;strftime('%Y-%m-%d %H:%M:%S.000', 'now')&quot;;</span>
+        
+<span class="nc" id="L238">        String[] jobs = {</span>
+            &quot;('miner', '鉱夫', 75, 1.0, &quot; + timestamp + &quot;)&quot;,
+            &quot;('woodcutter', '木こり', 75, 1.0, &quot; + timestamp + &quot;)&quot;,
+            &quot;('farmer', '農家', 75, 1.0, &quot; + timestamp + &quot;)&quot;,
+            &quot;('fisherman', '釣り人', 75, 1.0, &quot; + timestamp + &quot;)&quot;,
+            &quot;('blacksmith', '鍛冶屋', 75, 1.0, &quot; + timestamp + &quot;)&quot;,
+            &quot;('alchemist', 'ポーション屋', 75, 1.0, &quot; + timestamp + &quot;)&quot;,
+            &quot;('enchanter', 'エンチャンター', 75, 1.0, &quot; + timestamp + &quot;)&quot;,
+            &quot;('architect', '建築家', 75, 1.0, &quot; + timestamp + &quot;)&quot;
+        };
+
+<span class="nc" id="L249">        String insertQuery = &quot;INSERT OR IGNORE INTO jobs (name, display_name, max_level, base_income, created_at) VALUES &quot;;</span>
+        
+<span class="nc" id="L251">        try (PreparedStatement statement = connection.prepareStatement(</span>
+<span class="nc" id="L252">            insertQuery + String.join(&quot;, &quot;, jobs))) {</span>
+<span class="nc" id="L253">            statement.executeUpdate();</span>
+<span class="nc" id="L254">            logger.info(&quot;デフォルト職業データを初期化しました&quot;);</span>
+<span class="nc" id="L255">        } catch (SQLException e) {</span>
+<span class="nc" id="L256">            logger.warning(&quot;職業データの初期化に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L257">        }</span>
+<span class="nc" id="L258">    }</span>
+
+    public Connection getConnection() {
+<span class="nc" id="L261">        return connection;</span>
+    }
+
+    public boolean isConnected() {
+        try {
+<span class="nc bnc" id="L266" title="All 4 branches missed.">            return connection != null &amp;&amp; !connection.isClosed();</span>
+<span class="nc" id="L267">        } catch (SQLException e) {</span>
+<span class="nc" id="L268">            return false;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

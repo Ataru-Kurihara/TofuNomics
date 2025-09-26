@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlayerJoinHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.players</a> &gt; <span class="el_source">PlayerJoinHandler.java</span></div><h1>PlayerJoinHandler.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.players;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.scoreboard.ScoreboardManager;
+
+import java.util.List;
+import java.util.logging.Logger;
+
+/**
+ * プレイヤー参加時の処理を管理するクラス
+ * ワールドに入った時のウェルカムメッセージ、タイトル表示、初回特典などを処理
+ */
+public class PlayerJoinHandler implements Listener {
+    
+    private final JavaPlugin plugin;
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final ScoreboardManager scoreboardManager;
+    private final Logger logger;
+    
+<span class="nc" id="L34">    public PlayerJoinHandler(JavaPlugin plugin, ConfigManager configManager, PlayerDAO playerDAO, ScoreboardManager scoreboardManager) {</span>
+<span class="nc" id="L35">        this.plugin = plugin;</span>
+<span class="nc" id="L36">        this.configManager = configManager;</span>
+<span class="nc" id="L37">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L38">        this.scoreboardManager = scoreboardManager;</span>
+<span class="nc" id="L39">        this.logger = plugin.getLogger();</span>
+<span class="nc" id="L40">    }</span>
+    
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+<span class="nc" id="L44">        Player player = event.getPlayer();</span>
+        
+<span class="nc" id="L46">        logger.info(&quot;プレイヤー参加イベント開始: &quot; + player.getName() + &quot; ワールド: &quot; + player.getWorld().getName());</span>
+        
+        // スコアボード処理（同期処理）
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        if (scoreboardManager != null) {</span>
+<span class="nc" id="L50">            scoreboardManager.onPlayerJoin(player);</span>
+        }
+        
+        // tofuNomicsワールドに最初から参加した場合のテレポート処理
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (player.getWorld().getName().equals(&quot;tofuNomics&quot;)) {</span>
+<span class="nc" id="L55">            logger.info(&quot;プレイヤー &quot; + player.getName() + &quot; はtofuNomicsワールドに直接参加しました - ウェルカム処理を開始します&quot;);</span>
+            // 少し遅延してウェルカムメッセージとテレポートを実行
+<span class="nc" id="L57">            WelcomeDisplayTask welcomeTask = new WelcomeDisplayTask(player);</span>
+<span class="nc" id="L58">            welcomeTask.runTaskLater(plugin, 40L); // 2秒後に実行</span>
+        }
+        
+        // 非同期でプレイヤーデータの初期化のみ実行
+<span class="nc" id="L62">        PlayerDataInitializationTask task = new PlayerDataInitializationTask(player);</span>
+<span class="nc" id="L63">        task.runTaskAsynchronously(plugin);</span>
+<span class="nc" id="L64">    }</span>
+    
+    /**
+     * プレイヤーがワールドを変更した時の処理
+     * TofuNomicsワールドに入った場合、ウェルカムメッセージと職業案内を表示
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+<span class="nc" id="L72">        Player player = event.getPlayer();</span>
+<span class="nc" id="L73">        String currentWorldName = player.getWorld().getName();</span>
+        
+        // デバッグログ: ワールド変更を記録
+<span class="nc" id="L76">        logger.info(&quot;プレイヤー &quot; + player.getName() + &quot; がワールドを変更しました: &quot; + currentWorldName);</span>
+        
+        // ロビーワールドなど、TofuNomics以外のワールドでは処理しない
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (!currentWorldName.equals(&quot;tofuNomics&quot;)) {</span>
+<span class="nc" id="L80">            logger.info(&quot;プレイヤー &quot; + player.getName() + &quot; は TofuNomics 以外のワールド(&quot; + currentWorldName + &quot;)にいるため、処理をスキップします&quot;);</span>
+<span class="nc" id="L81">            return;</span>
+        }
+        
+        // 明示的にロビーワールドなどを除外
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (currentWorldName.toLowerCase().contains(&quot;lobby&quot;) || </span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">            currentWorldName.toLowerCase().contains(&quot;spawn&quot;) ||</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">            currentWorldName.equals(&quot;world&quot;) ||</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            currentWorldName.equals(&quot;world_nether&quot;) ||</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            currentWorldName.equals(&quot;world_the_end&quot;)) {</span>
+<span class="nc" id="L90">            logger.info(&quot;プレイヤー &quot; + player.getName() + &quot; は除外対象のワールド(&quot; + currentWorldName + &quot;)にいるため、処理をスキップします&quot;);</span>
+<span class="nc" id="L91">            return;</span>
+        }
+        
+<span class="nc" id="L94">        logger.info(&quot;プレイヤー &quot; + player.getName() + &quot; がTofuNomicsワールドに入りました - ウェルカムメッセージを表示します&quot;);</span>
+        
+        // TofuNomicsワールドでのウェルカムメッセージとタイトルを表示
+<span class="nc" id="L97">        WelcomeDisplayTask welcomeTask = new WelcomeDisplayTask(player);</span>
+<span class="nc" id="L98">        welcomeTask.runTask(plugin);</span>
+<span class="nc" id="L99">    }</span>
+    
+    /**
+     * プレイヤーデータの初期化と更新処理
+     */
+    private void handlePlayerData(Player player) {
+        try {
+            // 既存プレイヤーかチェック
+<span class="nc" id="L107">            org.tofu.tofunomics.models.Player existingPlayer = playerDAO.getPlayer(player.getUniqueId());</span>
+            
+<span class="nc bnc" id="L109" title="All 2 branches missed.">            if (existingPlayer == null) {</span>
+                // 新規プレイヤーの場合
+<span class="nc" id="L111">                createNewPlayer(player);</span>
+<span class="nc" id="L112">                logger.info(&quot;新規プレイヤーを登録しました: &quot; + player.getName());</span>
+                
+                // 新規プレイヤーメッセージを表示するフラグを設定
+<span class="nc" id="L115">                scheduleNewPlayerMessages(player);</span>
+            } else {
+                // 復帰プレイヤーかチェック
+<span class="nc" id="L118">                boolean isReturning = checkReturningPlayer(player);</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">                if (isReturning) {</span>
+<span class="nc" id="L120">                    scheduleWelcomeBackMessage(player);</span>
+                }
+                
+                // 既存プレイヤーの最終ログイン時間とプレイヤー名を更新
+<span class="nc" id="L124">                updateLastLogin(player);</span>
+<span class="nc" id="L125">                updatePlayerName(player);</span>
+<span class="nc" id="L126">                logger.info(&quot;プレイヤーのログイン時間を更新しました: &quot; + player.getName());</span>
+            }
+<span class="nc" id="L128">        } catch (Exception e) {</span>
+<span class="nc" id="L129">            logger.severe(&quot;プレイヤーデータ処理中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L130">            e.printStackTrace();</span>
+<span class="nc" id="L131">        }</span>
+<span class="nc" id="L132">    }</span>
+    
+    /**
+     * 新規プレイヤーの作成
+     */
+    private void createNewPlayer(Player player) {
+        try {
+            // 設定から初期残高を取得
+<span class="nc" id="L140">            double startingBalance = configManager.getStartingBalance();</span>
+            
+            // 新しいプレイヤーオブジェクトを作成
+<span class="nc" id="L143">            org.tofu.tofunomics.models.Player newPlayer = new org.tofu.tofunomics.models.Player(</span>
+<span class="nc" id="L144">                player.getUniqueId(),</span>
+                startingBalance
+            );
+            
+            // データベースに保存
+<span class="nc" id="L149">            playerDAO.insertPlayer(newPlayer);</span>
+            
+<span class="nc" id="L151">        } catch (Exception e) {</span>
+<span class="nc" id="L152">            logger.severe(&quot;新規プレイヤー作成中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L153">            e.printStackTrace();</span>
+<span class="nc" id="L154">        }</span>
+<span class="nc" id="L155">    }</span>
+    
+    /**
+     * 最終ログイン時間の更新
+     */
+    private void updateLastLogin(Player player) {
+        try {
+<span class="nc" id="L162">            playerDAO.updateLastLogin(player.getUniqueId());</span>
+<span class="nc" id="L163">        } catch (Exception e) {</span>
+<span class="nc" id="L164">            logger.severe(&quot;ログイン時間更新中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L165">            e.printStackTrace();</span>
+<span class="nc" id="L166">        }</span>
+<span class="nc" id="L167">    }</span>
+    
+    /**
+     * プレイヤー名の更新
+     */
+    private void updatePlayerName(Player player) {
+        try {
+<span class="nc" id="L174">            playerDAO.updatePlayerName(player.getUniqueId(), player.getName());</span>
+<span class="nc" id="L175">        } catch (Exception e) {</span>
+<span class="nc" id="L176">            logger.severe(&quot;プレイヤー名更新中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L177">            e.printStackTrace();</span>
+<span class="nc" id="L178">        }</span>
+<span class="nc" id="L179">    }</span>
+    
+    /**
+     * 復帰プレイヤーかチェック
+     */
+    private boolean checkReturningPlayer(Player player) {
+        try {
+<span class="nc bnc" id="L186" title="All 2 branches missed.">            if (!configManager.isWelcomeBackMessageEnabled()) {</span>
+<span class="nc" id="L187">                return false;</span>
+            }
+<span class="nc" id="L189">            int threshold = configManager.getWelcomeBackDays();</span>
+<span class="nc" id="L190">            return playerDAO.isReturningPlayer(player.getUniqueId(), threshold);</span>
+<span class="nc" id="L191">        } catch (Exception e) {</span>
+<span class="nc" id="L192">            logger.warning(&quot;復帰プレイヤーチェック中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L193">            return false;</span>
+        }
+    }
+    
+    /**
+     * 新規プレイヤーメッセージのスケジュール
+     */
+    private void scheduleNewPlayerMessages(Player player) {
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if (!configManager.isNewPlayerBonusEnabled()) {</span>
+<span class="nc" id="L202">            return;</span>
+        }
+        
+<span class="nc" id="L205">        NewPlayerBonusTask bonusTask = new NewPlayerBonusTask(player);</span>
+<span class="nc" id="L206">        bonusTask.runTaskLater(plugin, 120L); // 6秒後に表示（職業案内の後）</span>
+<span class="nc" id="L207">    }</span>
+    
+    /**
+     * 復帰プレイヤーメッセージのスケジュール
+     */
+    private void scheduleWelcomeBackMessage(Player player) {
+<span class="nc" id="L213">        WelcomeBackMessageTask welcomeBackTask = new WelcomeBackMessageTask(player);</span>
+<span class="nc" id="L214">        welcomeBackTask.runTaskLater(plugin, 100L); // 5秒後に表示</span>
+<span class="nc" id="L215">    }</span>
+    
+    /**
+     * ウェルカムメッセージの表示
+     */
+    private void displayWelcomeMessages(Player player) {
+        try {
+            // 設定からメッセージを取得
+<span class="nc" id="L223">            List&lt;String&gt; welcomeMessages = configManager.getWelcomeMessages();</span>
+            
+<span class="nc bnc" id="L225" title="All 4 branches missed.">            if (welcomeMessages != null &amp;&amp; !welcomeMessages.isEmpty()) {</span>
+                // 少し間隔をあけてメッセージを表示
+<span class="nc bnc" id="L227" title="All 2 branches missed.">                for (int i = 0; i &lt; welcomeMessages.size(); i++) {</span>
+<span class="nc" id="L228">                    final String message = welcomeMessages.get(i);</span>
+                    
+<span class="nc" id="L230">                    WelcomeMessageTask messageTask = new WelcomeMessageTask(player, message);</span>
+<span class="nc" id="L231">                    messageTask.runTaskLater(plugin, i * 20L); // 1秒間隔で表示</span>
+                }
+            }
+            
+            // 職業案内メッセージ
+<span class="nc" id="L236">            displayJobGuideMessage(player);</span>
+            
+<span class="nc" id="L238">        } catch (Exception e) {</span>
+<span class="nc" id="L239">            logger.warning(&quot;ウェルカムメッセージ表示中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L240">            e.printStackTrace();</span>
+<span class="nc" id="L241">        }</span>
+<span class="nc" id="L242">    }</span>
+    
+    /**
+     * 職業案内メッセージの表示
+     */
+    private void displayJobGuideMessage(Player player) {
+<span class="nc" id="L248">        JobGuideMessageTask jobGuideTask = new JobGuideMessageTask(player);</span>
+<span class="nc" id="L249">        jobGuideTask.runTaskLater(plugin, 80L); // 4秒後に表示</span>
+<span class="nc" id="L250">    }</span>
+    
+    /**
+     * ウェルカムタイトルの表示
+     */
+    private void displayWelcomeTitle(Player player) {
+        try {
+<span class="nc" id="L257">            String title = configManager.getWelcomeTitle();</span>
+<span class="nc" id="L258">            String subtitle = configManager.getWelcomeSubtitle();</span>
+            
+<span class="nc bnc" id="L260" title="All 4 branches missed.">            if (title != null &amp;&amp; !title.isEmpty()) {</span>
+                // プレースホルダーを置換
+<span class="nc" id="L262">                title = formatMessage(title, player);</span>
+<span class="nc" id="L263">                subtitle = formatMessage(subtitle, player);</span>
+                
+                // タイトルを表示（フェードイン1秒、表示3秒、フェードアウト1秒）
+<span class="nc" id="L266">                player.sendTitle(</span>
+<span class="nc" id="L267">                    ChatColor.translateAlternateColorCodes('&amp;', title),</span>
+<span class="nc" id="L268">                    ChatColor.translateAlternateColorCodes('&amp;', subtitle),</span>
+                    20, 60, 20
+                );
+            }
+<span class="nc" id="L272">        } catch (Exception e) {</span>
+<span class="nc" id="L273">            logger.warning(&quot;タイトル表示中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L274">            e.printStackTrace();</span>
+<span class="nc" id="L275">        }</span>
+<span class="nc" id="L276">    }</span>
+    
+    
+    
+    
+    
+    /**
+     * スポーン座標にテレポート
+     */
+    private void teleportToSpawn(Player player) {
+        try {
+<span class="nc" id="L287">            logger.info(&quot;=== テレポート処理開始 ===&quot;);</span>
+<span class="nc" id="L288">            logger.info(&quot;プレイヤー: &quot; + player.getName());</span>
+<span class="nc" id="L289">            logger.info(&quot;現在のワールド: &quot; + player.getWorld().getName());</span>
+<span class="nc" id="L290">            logger.info(&quot;現在の座標: &quot; + player.getLocation().getBlockX() + &quot;, &quot; + player.getLocation().getBlockY() + &quot;, &quot; + player.getLocation().getBlockZ());</span>
+            
+            // スポーン座標機能が有効でない場合はスキップ
+<span class="nc" id="L293">            boolean isEnabled = configManager.isSpawnLocationEnabled();</span>
+<span class="nc" id="L294">            logger.info(&quot;スポーン座標機能の有効状態: &quot; + isEnabled);</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">            if (!isEnabled) {</span>
+<span class="nc" id="L296">                logger.info(&quot;スポーン座標機能が無効のため、テレポートをスキップします&quot;);</span>
+<span class="nc" id="L297">                return;</span>
+            }
+            
+            // 設定からスポーン座標を取得
+<span class="nc" id="L301">            String worldName = configManager.getSpawnWorldName();</span>
+<span class="nc" id="L302">            int x = configManager.getSpawnX();</span>
+<span class="nc" id="L303">            int y = configManager.getSpawnY();</span>
+<span class="nc" id="L304">            int z = configManager.getSpawnZ();</span>
+<span class="nc" id="L305">            int delay = configManager.getSpawnTeleportDelay();</span>
+            
+<span class="nc" id="L307">            logger.info(&quot;スポーン座標設定 - ワールド: &quot; + worldName + &quot;, 座標: (&quot; + x + &quot;, &quot; + y + &quot;, &quot; + z + &quot;), 遅延: &quot; + delay + &quot; tick&quot;);</span>
+            
+            // ワールドを取得
+<span class="nc" id="L310">            World world = Bukkit.getWorld(worldName);</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">            if (world == null) {</span>
+<span class="nc" id="L312">                logger.warning(&quot;スポーン座標のワールドが見つかりません: &quot; + worldName);</span>
+<span class="nc" id="L313">                return;</span>
+            }
+            
+            // スポーン座標を作成
+<span class="nc" id="L317">            Location spawnLocation = new Location(world, x + 0.5, y, z + 0.5);</span>
+            
+            // 遅延付きでテレポート実行
+<span class="nc" id="L320">            SpawnTeleportTask teleportTask = new SpawnTeleportTask(player, spawnLocation, x, y, z, worldName);</span>
+<span class="nc" id="L321">            teleportTask.runTaskLater(plugin, delay);</span>
+            
+<span class="nc" id="L323">        } catch (Exception e) {</span>
+<span class="nc" id="L324">            logger.warning(&quot;スポーン座標へのテレポート中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L325">            e.printStackTrace();</span>
+<span class="nc" id="L326">        }</span>
+<span class="nc" id="L327">    }</span>
+    
+    /**
+     * メッセージのプレースホルダーを置換
+     */
+    private String formatMessage(String message, Player player) {
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        if (message == null) return &quot;&quot;;</span>
+        
+<span class="nc" id="L335">        return message</span>
+<span class="nc" id="L336">            .replace(&quot;%player%&quot;, player.getName())</span>
+<span class="nc" id="L337">            .replace(&quot;%displayname%&quot;, player.getDisplayName())</span>
+<span class="nc" id="L338">            .replace(&quot;%world%&quot;, player.getWorld().getName())</span>
+<span class="nc" id="L339">            .replace(&quot;%currency%&quot;, configManager.getCurrencyName())</span>
+<span class="nc" id="L340">            .replace(&quot;%starting_balance%&quot;, String.valueOf(configManager.getStartingBalance()));</span>
+    }
+    
+    // 名前付き内部クラス
+    private class PlayerDataInitializationTask extends BukkitRunnable {
+        private final Player player;
+        
+<span class="nc" id="L347">        public PlayerDataInitializationTask(Player player) {</span>
+<span class="nc" id="L348">            this.player = player;</span>
+<span class="nc" id="L349">        }</span>
+        
+        @Override
+        public void run() {
+            try {
+<span class="nc" id="L354">                handlePlayerData(player);</span>
+<span class="nc" id="L355">            } catch (Exception e) {</span>
+<span class="nc" id="L356">                logger.warning(&quot;プレイヤー参加時データ処理中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L357">                e.printStackTrace();</span>
+<span class="nc" id="L358">            }</span>
+<span class="nc" id="L359">        }</span>
+    }
+    
+    private class WelcomeDisplayTask extends BukkitRunnable {
+        private final Player player;
+        
+<span class="nc" id="L365">        public WelcomeDisplayTask(Player player) {</span>
+<span class="nc" id="L366">            this.player = player;</span>
+<span class="nc" id="L367">        }</span>
+        
+        @Override
+        public void run() {
+            try {
+<span class="nc bnc" id="L372" title="All 2 branches missed.">                if (player.isOnline()) {</span>
+<span class="nc" id="L373">                    displayWelcomeMessages(player);</span>
+<span class="nc" id="L374">                    displayWelcomeTitle(player);</span>
+                    // スポーン座標へのテレポート処理を追加
+<span class="nc" id="L376">                    teleportToSpawn(player);</span>
+                }
+<span class="nc" id="L378">            } catch (Exception e) {</span>
+<span class="nc" id="L379">                logger.warning(&quot;TofuNomicsワールド処理中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L380">                e.printStackTrace();</span>
+<span class="nc" id="L381">            }</span>
+<span class="nc" id="L382">        }</span>
+    }
+    
+    private class NewPlayerBonusTask extends BukkitRunnable {
+        private final Player player;
+        
+<span class="nc" id="L388">        public NewPlayerBonusTask(Player player) {</span>
+<span class="nc" id="L389">            this.player = player;</span>
+<span class="nc" id="L390">        }</span>
+        
+        @Override
+        public void run() {
+<span class="nc bnc" id="L394" title="All 2 branches missed.">            if (!player.isOnline()) return;</span>
+            
+            // 新規プレイヤーボーナス付与
+<span class="nc" id="L397">            double bonusAmount = configManager.getNewPlayerBonusAmount();</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">            if (bonusAmount &gt; 0) {</span>
+                try {
+<span class="nc" id="L400">                    org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayer(player.getUniqueId());</span>
+<span class="nc bnc" id="L401" title="All 2 branches missed.">                    if (tofuPlayer != null) {</span>
+<span class="nc" id="L402">                        tofuPlayer.addBalance(bonusAmount);</span>
+<span class="nc" id="L403">                        playerDAO.updatePlayerData(tofuPlayer);</span>
+                    }
+<span class="nc" id="L405">                } catch (Exception e) {</span>
+<span class="nc" id="L406">                    logger.warning(&quot;新規プレイヤーボーナス付与中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L407">                }</span>
+            }
+            
+            // 新規プレイヤーメッセージ表示
+<span class="nc" id="L411">            List&lt;String&gt; newPlayerMessages = configManager.getNewPlayerMessages();</span>
+<span class="nc bnc" id="L412" title="All 4 branches missed.">            if (newPlayerMessages != null &amp;&amp; !newPlayerMessages.isEmpty()) {</span>
+<span class="nc" id="L413">                player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L414">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+                    &quot;&amp;6▬▬▬▬▬▬ 新規プレイヤー特典 ▬▬▬▬▬▬&quot;));
+                
+<span class="nc bnc" id="L417" title="All 2 branches missed.">                for (String message : newPlayerMessages) {</span>
+<span class="nc" id="L418">                    String formattedMessage = formatMessage(message, player);</span>
+<span class="nc" id="L419">                    player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', formattedMessage));</span>
+<span class="nc" id="L420">                }</span>
+                
+<span class="nc bnc" id="L422" title="All 2 branches missed.">                if (bonusAmount &gt; 0) {</span>
+<span class="nc" id="L423">                    player.sendMessage(ChatColor.GREEN + &quot;✦ 新規プレイヤーボーナス: &quot; + </span>
+<span class="nc" id="L424">                                     bonusAmount + configManager.getCurrencyName() + &quot; を獲得しました！&quot;);</span>
+                }
+                
+<span class="nc" id="L427">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+                    &quot;&amp;6▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬&quot;));
+            }
+<span class="nc" id="L430">        }</span>
+    }
+    
+    private class WelcomeBackMessageTask extends BukkitRunnable {
+        private final Player player;
+        
+<span class="nc" id="L436">        public WelcomeBackMessageTask(Player player) {</span>
+<span class="nc" id="L437">            this.player = player;</span>
+<span class="nc" id="L438">        }</span>
+        
+        @Override
+        public void run() {
+<span class="nc bnc" id="L442" title="All 2 branches missed.">            if (!player.isOnline()) return;</span>
+            
+<span class="nc" id="L444">            String welcomeBackMessage = configManager.getWelcomeBackMessage();</span>
+<span class="nc bnc" id="L445" title="All 4 branches missed.">            if (welcomeBackMessage != null &amp;&amp; !welcomeBackMessage.isEmpty()) {</span>
+<span class="nc" id="L446">                String formattedMessage = formatMessage(welcomeBackMessage, player);</span>
+<span class="nc" id="L447">                player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L448">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', formattedMessage));</span>
+<span class="nc" id="L449">                player.sendMessage(ChatColor.YELLOW + &quot;久しぶりですね！何か変化があったかチェックしてみましょう。&quot;);</span>
+            }
+<span class="nc" id="L451">        }</span>
+    }
+    
+    private class WelcomeMessageTask extends BukkitRunnable {
+        private final Player player;
+        private final String message;
+        
+<span class="nc" id="L458">        public WelcomeMessageTask(Player player, String message) {</span>
+<span class="nc" id="L459">            this.player = player;</span>
+<span class="nc" id="L460">            this.message = message;</span>
+<span class="nc" id="L461">        }</span>
+        
+        @Override
+        public void run() {
+<span class="nc bnc" id="L465" title="All 2 branches missed.">            if (player.isOnline()) {</span>
+<span class="nc" id="L466">                String formattedMessage = formatMessage(message, player);</span>
+<span class="nc" id="L467">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', formattedMessage));</span>
+            }
+<span class="nc" id="L469">        }</span>
+    }
+    
+    private class JobGuideMessageTask extends BukkitRunnable {
+        private final Player player;
+        
+<span class="nc" id="L475">        public JobGuideMessageTask(Player player) {</span>
+<span class="nc" id="L476">            this.player = player;</span>
+<span class="nc" id="L477">        }</span>
+        
+        @Override
+        public void run() {
+<span class="nc bnc" id="L481" title="All 2 branches missed.">            if (!player.isOnline()) return;</span>
+            
+<span class="nc" id="L483">            player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L484">            player.sendMessage(ChatColor.GOLD + &quot;▬▬▬▬▬▬ 職業システム案内 ▬▬▬▬▬▬&quot;);</span>
+<span class="nc" id="L485">            player.sendMessage(ChatColor.YELLOW + &quot;• &quot; + ChatColor.WHITE + &quot;/jobs join &lt;職業名&gt; - 職業に就職&quot;);</span>
+<span class="nc" id="L486">            player.sendMessage(ChatColor.YELLOW + &quot;• &quot; + ChatColor.WHITE + &quot;/jobs stats - 現在の職業状況を確認&quot;);</span>
+<span class="nc" id="L487">            player.sendMessage(ChatColor.YELLOW + &quot;• &quot; + ChatColor.WHITE + &quot;/jobstats - 詳細な職業統計を表示&quot;);</span>
+<span class="nc" id="L488">            player.sendMessage(ChatColor.YELLOW + &quot;• &quot; + ChatColor.WHITE + &quot;/quest - 職業クエストを確認&quot;);</span>
+<span class="nc" id="L489">            player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L490">            player.sendMessage(ChatColor.GREEN + &quot;利用可能な職業:&quot;);</span>
+<span class="nc" id="L491">            player.sendMessage(ChatColor.AQUA + &quot;鉱夫 | 木こり | 農家 | 釣り人 | 鍛冶屋 | ポーション屋 | エンチャンター | 建築家&quot;);</span>
+<span class="nc" id="L492">            player.sendMessage(ChatColor.GOLD + &quot;▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬&quot;);</span>
+<span class="nc" id="L493">        }</span>
+    }
+    
+    private class SpawnTeleportTask extends BukkitRunnable {
+        private final Player player;
+        private final Location spawnLocation;
+        private final int x, y, z;
+        private final String worldName;
+        
+<span class="nc" id="L502">        public SpawnTeleportTask(Player player, Location spawnLocation, int x, int y, int z, String worldName) {</span>
+<span class="nc" id="L503">            this.player = player;</span>
+<span class="nc" id="L504">            this.spawnLocation = spawnLocation;</span>
+<span class="nc" id="L505">            this.x = x;</span>
+<span class="nc" id="L506">            this.y = y;</span>
+<span class="nc" id="L507">            this.z = z;</span>
+<span class="nc" id="L508">            this.worldName = worldName;</span>
+<span class="nc" id="L509">        }</span>
+        
+        @Override
+        public void run() {
+<span class="nc bnc" id="L513" title="All 2 branches missed.">            if (player.isOnline()) {</span>
+<span class="nc" id="L514">                player.teleport(spawnLocation);</span>
+<span class="nc" id="L515">                logger.info(&quot;プレイヤー &quot; + player.getName() + &quot; をスポーン座標にテレポートしました: &quot; + </span>
+                          x + &quot;, &quot; + y + &quot;, &quot; + z + &quot; (&quot; + worldName + &quot;)&quot;);
+            }
+<span class="nc" id="L518">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Player.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.models</a> &gt; <span class="el_source">Player.java</span></div><h1>Player.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.models;
+
+import java.sql.Timestamp;
+import java.util.UUID;
+
+public class Player {
+    private UUID uuid;
+    private double balance; // 持ち歩き現金（将来的に削除予定）
+    private double bankBalance; // 銀行預金
+    private Timestamp createdAt;
+    private Timestamp updatedAt;
+
+<span class="fc" id="L13">    public Player() {}</span>
+
+<span class="fc" id="L15">    public Player(UUID uuid, double balance) {</span>
+<span class="fc" id="L16">        this.uuid = uuid;</span>
+<span class="fc" id="L17">        this.balance = balance;</span>
+<span class="fc" id="L18">        this.bankBalance = 0.0;</span>
+<span class="fc" id="L19">        this.createdAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L20">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L21">    }</span>
+    
+<span class="fc" id="L23">    public Player(UUID uuid, double balance, double bankBalance) {</span>
+<span class="fc" id="L24">        this.uuid = uuid;</span>
+<span class="fc" id="L25">        this.balance = balance;</span>
+<span class="fc" id="L26">        this.bankBalance = bankBalance;</span>
+<span class="fc" id="L27">        this.createdAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L28">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L29">    }</span>
+
+    public UUID getUuid() {
+<span class="fc" id="L32">        return uuid;</span>
+    }
+
+    public void setUuid(UUID uuid) {
+<span class="fc" id="L36">        this.uuid = uuid;</span>
+<span class="fc" id="L37">    }</span>
+    
+    public void setUuid(String uuidString) {
+<span class="fc" id="L40">        this.uuid = UUID.fromString(uuidString);</span>
+<span class="fc" id="L41">    }</span>
+
+    public double getBalance() {
+<span class="fc" id="L44">        return balance;</span>
+    }
+
+    public void setBalance(double balance) {
+<span class="fc" id="L48">        this.balance = balance;</span>
+<span class="fc" id="L49">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L50">    }</span>
+
+    public void addBalance(double amount) {
+<span class="fc" id="L53">        this.balance += amount;</span>
+<span class="fc" id="L54">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L55">    }</span>
+
+    public boolean removeBalance(double amount) {
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (this.balance &gt;= amount) {</span>
+<span class="fc" id="L59">            this.balance -= amount;</span>
+<span class="fc" id="L60">            this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L61">            return true;</span>
+        }
+<span class="fc" id="L63">        return false;</span>
+    }
+
+    public double getBankBalance() {
+<span class="fc" id="L67">        return bankBalance;</span>
+    }
+
+    public void setBankBalance(double bankBalance) {
+<span class="fc" id="L71">        this.bankBalance = bankBalance;</span>
+<span class="fc" id="L72">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L73">    }</span>
+
+    public void addBankBalance(double amount) {
+<span class="fc" id="L76">        this.bankBalance += amount;</span>
+<span class="fc" id="L77">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L78">    }</span>
+
+    public boolean removeBankBalance(double amount) {
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        if (this.bankBalance &gt;= amount) {</span>
+<span class="fc" id="L82">            this.bankBalance -= amount;</span>
+<span class="fc" id="L83">            this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="fc" id="L84">            return true;</span>
+        }
+<span class="nc" id="L86">        return false;</span>
+    }
+
+    public Timestamp getCreatedAt() {
+<span class="fc" id="L90">        return createdAt;</span>
+    }
+
+    public void setCreatedAt(Timestamp createdAt) {
+<span class="fc" id="L94">        this.createdAt = createdAt;</span>
+<span class="fc" id="L95">    }</span>
+
+    public Timestamp getUpdatedAt() {
+<span class="fc" id="L98">        return updatedAt;</span>
+    }
+
+    public void setUpdatedAt(Timestamp updatedAt) {
+<span class="fc" id="L102">        this.updatedAt = updatedAt;</span>
+<span class="fc" id="L103">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

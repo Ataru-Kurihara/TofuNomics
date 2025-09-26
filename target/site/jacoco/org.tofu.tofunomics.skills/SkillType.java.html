@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SkillType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.skills</a> &gt; <span class="el_source">SkillType.java</span></div><h1>SkillType.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.skills;
+
+/**
+ * 職業別スキルタイプの定義
+ */
+<span class="nc" id="L6">public enum SkillType {</span>
+    
+    // 採掘系スキル (Miner)
+<span class="nc" id="L9">    MINING_EFFICIENCY(&quot;採掘効率&quot;, &quot;採掘速度が向上&quot;),</span>
+<span class="nc" id="L10">    ORE_FORTUNE(&quot;鉱石幸運&quot;, &quot;レア鉱石の発見確率向上&quot;),</span>
+<span class="nc" id="L11">    MINING_STAMINA(&quot;採掘持久力&quot;, &quot;ツールの耐久値消費軽減&quot;),</span>
+    
+    // 伐採系スキル (Woodcutter) 
+<span class="nc" id="L14">    LOGGING_EFFICIENCY(&quot;伐採効率&quot;, &quot;伐採速度が向上&quot;),</span>
+<span class="nc" id="L15">    TREE_FELLING(&quot;一括伐採&quot;, &quot;木を一度に伐採&quot;),</span>
+<span class="nc" id="L16">    LOG_FORTUNE(&quot;木材幸運&quot;, &quot;ログドロップ量増加&quot;),</span>
+    
+    // 農業系スキル (Farmer)
+<span class="nc" id="L19">    CROP_GROWTH(&quot;作物成長&quot;, &quot;作物の成長速度向上&quot;),</span>
+<span class="nc" id="L20">    HARVEST_FORTUNE(&quot;収穫幸運&quot;, &quot;作物の収穫量増加&quot;),</span>
+<span class="nc" id="L21">    ANIMAL_BREEDING(&quot;畜産効率&quot;, &quot;動物の繁殖効率向上&quot;),</span>
+    
+    // 釣り系スキル (Fisherman)
+<span class="nc" id="L24">    FISHING_LUCK(&quot;釣り幸運&quot;, &quot;レアアイテムの釣り確率向上&quot;),</span>
+<span class="nc" id="L25">    FISHING_SPEED(&quot;釣り速度&quot;, &quot;魚が釣れるまでの時間短縮&quot;),</span>
+<span class="nc" id="L26">    TREASURE_HUNTER(&quot;宝探し&quot;, &quot;宝物の発見確率大幅向上&quot;),</span>
+    
+    // 鍛冶系スキル (Blacksmith)
+<span class="nc" id="L29">    CRAFTING_EFFICIENCY(&quot;製作効率&quot;, &quot;製作時間短縮&quot;),</span>
+<span class="nc" id="L30">    CRAFTING_MATERIAL_EFFICIENCY(&quot;材料効率&quot;, &quot;製作時の材料節約&quot;),</span>
+<span class="nc" id="L31">    QUALITY_CRAFTING(&quot;高品質製作&quot;, &quot;高品質アイテムの製作確率向上&quot;),</span>
+    
+    // 錬金術系スキル (Alchemist)
+<span class="nc" id="L34">    POTION_EFFICIENCY(&quot;ポーション効率&quot;, &quot;ポーション製作時間短縮&quot;),</span>
+<span class="nc" id="L35">    EFFECT_DURATION(&quot;効果延長&quot;, &quot;ポーション効果時間延長&quot;),</span>
+<span class="nc" id="L36">    INGREDIENT_EFFICIENCY(&quot;材料効率&quot;, &quot;ポーション材料の節約&quot;),</span>
+    
+    // エンチャント系スキル (Enchanter)
+<span class="nc" id="L39">    ENCHANT_EFFICIENCY(&quot;エンチャント効率&quot;, &quot;エンチャント成功確率向上&quot;),</span>
+<span class="nc" id="L40">    LEVEL_BOOST(&quot;レベルブースト&quot;, &quot;エンチャントレベル向上&quot;),</span>
+<span class="nc" id="L41">    XP_EFFICIENCY(&quot;経験値効率&quot;, &quot;エンチャント時の経験値消費軽減&quot;),</span>
+    
+    // 建築系スキル (Architect)
+<span class="nc" id="L44">    BUILD_SPEED(&quot;建築速度&quot;, &quot;ブロック設置速度向上&quot;),</span>
+<span class="nc" id="L45">    BUILD_MATERIAL_EFFICIENCY(&quot;材料効率&quot;, &quot;建築時の材料節約&quot;),</span>
+<span class="nc" id="L46">    BLUEPRINT_SYSTEM(&quot;設計図システム&quot;, &quot;建築設計図の作成・使用&quot;);</span>
+    
+    private final String displayName;
+    private final String description;
+    
+<span class="nc" id="L51">    SkillType(String displayName, String description) {</span>
+<span class="nc" id="L52">        this.displayName = displayName;</span>
+<span class="nc" id="L53">        this.description = description;</span>
+<span class="nc" id="L54">    }</span>
+    
+    public String getDisplayName() {
+<span class="nc" id="L57">        return displayName;</span>
+    }
+    
+    public String getDescription() {
+<span class="nc" id="L61">        return description;</span>
+    }
+    
+    /**
+     * 職業名からそのスキル群を取得
+     */
+    public static SkillType[] getSkillsByJob(String jobName) {
+<span class="nc bnc" id="L68" title="All 9 branches missed.">        switch (jobName.toLowerCase()) {</span>
+            case &quot;miner&quot;:
+<span class="nc" id="L70">                return new SkillType[]{MINING_EFFICIENCY, ORE_FORTUNE, MINING_STAMINA};</span>
+            case &quot;woodcutter&quot;:
+<span class="nc" id="L72">                return new SkillType[]{LOGGING_EFFICIENCY, TREE_FELLING, LOG_FORTUNE};</span>
+            case &quot;farmer&quot;:
+<span class="nc" id="L74">                return new SkillType[]{CROP_GROWTH, HARVEST_FORTUNE, ANIMAL_BREEDING};</span>
+            case &quot;fisherman&quot;:
+<span class="nc" id="L76">                return new SkillType[]{FISHING_LUCK, FISHING_SPEED, TREASURE_HUNTER};</span>
+            case &quot;blacksmith&quot;:
+<span class="nc" id="L78">                return new SkillType[]{CRAFTING_EFFICIENCY, CRAFTING_MATERIAL_EFFICIENCY, QUALITY_CRAFTING};</span>
+            case &quot;alchemist&quot;:
+<span class="nc" id="L80">                return new SkillType[]{POTION_EFFICIENCY, EFFECT_DURATION, INGREDIENT_EFFICIENCY};</span>
+            case &quot;enchanter&quot;:
+<span class="nc" id="L82">                return new SkillType[]{ENCHANT_EFFICIENCY, LEVEL_BOOST, XP_EFFICIENCY};</span>
+            case &quot;architect&quot;:
+<span class="nc" id="L84">                return new SkillType[]{BUILD_SPEED, BUILD_MATERIAL_EFFICIENCY, BLUEPRINT_SYSTEM};</span>
+            default:
+<span class="nc" id="L86">                return new SkillType[0];</span>
+        }
+    }
+    
+    /**
+     * スキルが指定された職業に属するかチェック
+     */
+    public boolean belongsToJob(String jobName) {
+<span class="nc" id="L94">        SkillType[] jobSkills = getSkillsByJob(jobName);</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        for (SkillType skill : jobSkills) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            if (skill == this) {</span>
+<span class="nc" id="L97">                return true;</span>
+            }
+        }
+<span class="nc" id="L100">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

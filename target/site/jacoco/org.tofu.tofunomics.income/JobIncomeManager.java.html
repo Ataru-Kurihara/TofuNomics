@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobIncomeManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.income</a> &gt; <span class="el_source">JobIncomeManager.java</span></div><h1>JobIncomeManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.income;
+
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.inventory.ItemStack;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+
+/**
+ * 職業別動的収入システム
+ * 職業活動に応じてリアルタイムで収入を獲得
+ */
+public class JobIncomeManager implements Listener {
+    
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final JobManager jobManager;
+    private final Random random;
+    
+    // 職業別収入テーブル
+    private final Map&lt;String, Map&lt;Material, IncomeData&gt;&gt; jobIncomeMap;
+    
+<span class="nc" id="L36">    public JobIncomeManager(ConfigManager configManager, PlayerDAO playerDAO, JobManager jobManager) {</span>
+<span class="nc" id="L37">        this.configManager = configManager;</span>
+<span class="nc" id="L38">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L39">        this.jobManager = jobManager;</span>
+<span class="nc" id="L40">        this.random = new Random();</span>
+<span class="nc" id="L41">        this.jobIncomeMap = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L43">        initializeIncomeData();</span>
+<span class="nc" id="L44">    }</span>
+    
+    private void initializeIncomeData() {
+        // 鉱夫の収入データ
+<span class="nc" id="L48">        Map&lt;Material, IncomeData&gt; minerIncome = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L49">        minerIncome.put(Material.COAL_ORE, new IncomeData(2.0, 4.0));</span>
+<span class="nc" id="L50">        minerIncome.put(Material.IRON_ORE, new IncomeData(5.0, 8.0));</span>
+<span class="nc" id="L51">        minerIncome.put(Material.GOLD_ORE, new IncomeData(8.0, 12.0));</span>
+<span class="nc" id="L52">        minerIncome.put(Material.DIAMOND_ORE, new IncomeData(25.0, 40.0));</span>
+<span class="nc" id="L53">        minerIncome.put(Material.EMERALD_ORE, new IncomeData(20.0, 35.0));</span>
+<span class="nc" id="L54">        minerIncome.put(Material.ANCIENT_DEBRIS, new IncomeData(100.0, 150.0));</span>
+<span class="nc" id="L55">        minerIncome.put(Material.NETHER_QUARTZ_ORE, new IncomeData(6.0, 10.0));</span>
+<span class="nc" id="L56">        jobIncomeMap.put(&quot;miner&quot;, minerIncome);</span>
+        
+        // 木こりの収入データ
+<span class="nc" id="L59">        Map&lt;Material, IncomeData&gt; woodcutterIncome = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L60">        woodcutterIncome.put(Material.OAK_LOG, new IncomeData(1.5, 3.0));</span>
+<span class="nc" id="L61">        woodcutterIncome.put(Material.BIRCH_LOG, new IncomeData(1.5, 3.0));</span>
+<span class="nc" id="L62">        woodcutterIncome.put(Material.SPRUCE_LOG, new IncomeData(1.5, 3.0));</span>
+<span class="nc" id="L63">        woodcutterIncome.put(Material.JUNGLE_LOG, new IncomeData(2.0, 4.0));</span>
+<span class="nc" id="L64">        woodcutterIncome.put(Material.ACACIA_LOG, new IncomeData(2.0, 4.0));</span>
+<span class="nc" id="L65">        woodcutterIncome.put(Material.DARK_OAK_LOG, new IncomeData(2.0, 4.0));</span>
+<span class="nc" id="L66">        woodcutterIncome.put(Material.WARPED_STEM, new IncomeData(5.0, 8.0));</span>
+<span class="nc" id="L67">        woodcutterIncome.put(Material.CRIMSON_STEM, new IncomeData(5.0, 8.0));</span>
+<span class="nc" id="L68">        jobIncomeMap.put(&quot;woodcutter&quot;, woodcutterIncome);</span>
+        
+        // 農家の収入データ
+<span class="nc" id="L71">        Map&lt;Material, IncomeData&gt; farmerIncome = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L72">        farmerIncome.put(Material.WHEAT, new IncomeData(1.0, 2.0));</span>
+<span class="nc" id="L73">        farmerIncome.put(Material.POTATO, new IncomeData(0.8, 1.5));</span>
+<span class="nc" id="L74">        farmerIncome.put(Material.CARROT, new IncomeData(0.8, 1.5));</span>
+<span class="nc" id="L75">        farmerIncome.put(Material.BEETROOT, new IncomeData(1.2, 2.5));</span>
+<span class="nc" id="L76">        farmerIncome.put(Material.PUMPKIN, new IncomeData(3.0, 5.0));</span>
+<span class="nc" id="L77">        farmerIncome.put(Material.MELON, new IncomeData(2.5, 4.0));</span>
+<span class="nc" id="L78">        farmerIncome.put(Material.SUGAR_CANE, new IncomeData(0.5, 1.0));</span>
+<span class="nc" id="L79">        farmerIncome.put(Material.COCOA_BEANS, new IncomeData(2.0, 3.5));</span>
+<span class="nc" id="L80">        jobIncomeMap.put(&quot;farmer&quot;, farmerIncome);</span>
+        
+        // 釣り人の収入データ  
+<span class="nc" id="L83">        Map&lt;Material, IncomeData&gt; fishermanIncome = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L84">        fishermanIncome.put(Material.COD, new IncomeData(3.0, 5.0));</span>
+<span class="nc" id="L85">        fishermanIncome.put(Material.SALMON, new IncomeData(4.0, 6.0));</span>
+<span class="nc" id="L86">        fishermanIncome.put(Material.TROPICAL_FISH, new IncomeData(6.0, 10.0));</span>
+<span class="nc" id="L87">        fishermanIncome.put(Material.PUFFERFISH, new IncomeData(8.0, 15.0));</span>
+<span class="nc" id="L88">        fishermanIncome.put(Material.NAUTILUS_SHELL, new IncomeData(50.0, 80.0));</span>
+<span class="nc" id="L89">        fishermanIncome.put(Material.PRISMARINE_SHARD, new IncomeData(10.0, 18.0));</span>
+<span class="nc" id="L90">        jobIncomeMap.put(&quot;fisherman&quot;, fishermanIncome);</span>
+        
+        // 鍛冶屋の収入データ
+<span class="nc" id="L93">        Map&lt;Material, IncomeData&gt; blacksmithIncome = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L94">        blacksmithIncome.put(Material.IRON_SWORD, new IncomeData(15.0, 25.0));</span>
+<span class="nc" id="L95">        blacksmithIncome.put(Material.IRON_PICKAXE, new IncomeData(20.0, 30.0));</span>
+<span class="nc" id="L96">        blacksmithIncome.put(Material.IRON_AXE, new IncomeData(20.0, 30.0));</span>
+<span class="nc" id="L97">        blacksmithIncome.put(Material.DIAMOND_SWORD, new IncomeData(50.0, 80.0));</span>
+<span class="nc" id="L98">        blacksmithIncome.put(Material.DIAMOND_PICKAXE, new IncomeData(60.0, 100.0));</span>
+<span class="nc" id="L99">        blacksmithIncome.put(Material.NETHERITE_SWORD, new IncomeData(200.0, 300.0));</span>
+<span class="nc" id="L100">        blacksmithIncome.put(Material.NETHERITE_PICKAXE, new IncomeData(250.0, 400.0));</span>
+<span class="nc" id="L101">        jobIncomeMap.put(&quot;blacksmith&quot;, blacksmithIncome);</span>
+        
+        // ポーション屋の収入データ
+<span class="nc" id="L104">        Map&lt;Material, IncomeData&gt; alchemistIncome = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L105">        alchemistIncome.put(Material.POTION, new IncomeData(10.0, 20.0));</span>
+<span class="nc" id="L106">        alchemistIncome.put(Material.SPLASH_POTION, new IncomeData(15.0, 25.0));</span>
+<span class="nc" id="L107">        alchemistIncome.put(Material.LINGERING_POTION, new IncomeData(25.0, 40.0));</span>
+<span class="nc" id="L108">        jobIncomeMap.put(&quot;alchemist&quot;, alchemistIncome);</span>
+        
+        // エンチャンターの収入データ（エンチャントレベル別）
+<span class="nc" id="L111">        Map&lt;Material, IncomeData&gt; enchanterIncome = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L112">        enchanterIncome.put(Material.ENCHANTED_BOOK, new IncomeData(20.0, 50.0));</span>
+<span class="nc" id="L113">        jobIncomeMap.put(&quot;enchanter&quot;, enchanterIncome);</span>
+        
+        // 建築家の収入データ（建築ブロック設置）
+<span class="nc" id="L116">        Map&lt;Material, IncomeData&gt; architectIncome = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L117">        architectIncome.put(Material.STONE_BRICKS, new IncomeData(0.5, 1.0));</span>
+<span class="nc" id="L118">        architectIncome.put(Material.QUARTZ_BLOCK, new IncomeData(2.0, 4.0));</span>
+<span class="nc" id="L119">        architectIncome.put(Material.PRISMARINE_BRICKS, new IncomeData(3.0, 5.0));</span>
+<span class="nc" id="L120">        architectIncome.put(Material.PURPUR_BLOCK, new IncomeData(4.0, 6.0));</span>
+<span class="nc" id="L121">        jobIncomeMap.put(&quot;architect&quot;, architectIncome);</span>
+<span class="nc" id="L122">    }</span>
+    
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+<span class="nc" id="L126">        org.bukkit.entity.Player player = event.getPlayer();</span>
+<span class="nc" id="L127">        Material blockType = event.getBlock().getType();</span>
+        
+        // 各職業での収入チェック
+<span class="nc" id="L130">        checkAndGiveIncome(player, &quot;miner&quot;, blockType);</span>
+<span class="nc" id="L131">        checkAndGiveIncome(player, &quot;woodcutter&quot;, blockType);</span>
+<span class="nc" id="L132">        checkAndGiveIncome(player, &quot;farmer&quot;, blockType);</span>
+<span class="nc" id="L133">    }</span>
+    
+    @EventHandler
+    public void onPlayerFish(PlayerFishEvent event) {
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH) return;</span>
+        
+<span class="nc" id="L139">        org.bukkit.entity.Player player = event.getPlayer();</span>
+<span class="nc bnc" id="L140" title="All 4 branches missed.">        if (jobManager.hasJob(player, &quot;fisherman&quot;) &amp;&amp; event.getCaught() instanceof org.bukkit.entity.Item) {</span>
+<span class="nc" id="L141">            ItemStack caughtItem = ((org.bukkit.entity.Item) event.getCaught()).getItemStack();</span>
+<span class="nc" id="L142">            checkAndGiveIncome(player, &quot;fisherman&quot;, caughtItem.getType());</span>
+        }
+<span class="nc" id="L144">    }</span>
+    
+    @EventHandler
+    public void onCraftItem(CraftItemEvent event) {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        if (!(event.getWhoClicked() instanceof org.bukkit.entity.Player)) return;</span>
+        
+<span class="nc" id="L150">        org.bukkit.entity.Player player = (org.bukkit.entity.Player) event.getWhoClicked();</span>
+<span class="nc" id="L151">        Material craftedType = event.getRecipe().getResult().getType();</span>
+        
+        // 各職業での収入チェック
+<span class="nc" id="L154">        checkAndGiveIncome(player, &quot;blacksmith&quot;, craftedType);</span>
+<span class="nc" id="L155">        checkAndGiveIncome(player, &quot;alchemist&quot;, craftedType);</span>
+<span class="nc" id="L156">    }</span>
+    
+    /**
+     * 職業別収入の計算と付与
+     */
+    private void checkAndGiveIncome(org.bukkit.entity.Player player, String jobName, Material material) {
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        if (!jobManager.hasJob(player, jobName)) {</span>
+<span class="nc" id="L163">            return;</span>
+        }
+        
+<span class="nc" id="L166">        Map&lt;Material, IncomeData&gt; jobIncome = jobIncomeMap.get(jobName);</span>
+<span class="nc bnc" id="L167" title="All 4 branches missed.">        if (jobIncome == null || !jobIncome.containsKey(material)) {</span>
+<span class="nc" id="L168">            return;</span>
+        }
+        
+<span class="nc" id="L171">        PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L173">            return;</span>
+        }
+        
+<span class="nc" id="L176">        IncomeData incomeData = jobIncome.get(material);</span>
+<span class="nc" id="L177">        double income = calculateJobIncome(playerJob, incomeData);</span>
+        
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        if (income &gt; 0) {</span>
+<span class="nc" id="L180">            givePlayerIncome(player, income, jobName, material);</span>
+        }
+<span class="nc" id="L182">    }</span>
+    
+    /**
+     * 職業レベルとスキルに基づく収入計算
+     */
+    private double calculateJobIncome(PlayerJob playerJob, IncomeData incomeData) {
+        // ベース収入（最小値と最大値の間でランダム）
+<span class="nc" id="L189">        double baseIncome = incomeData.minIncome + </span>
+<span class="nc" id="L190">            (random.nextDouble() * (incomeData.maxIncome - incomeData.minIncome));</span>
+        
+        // レベルボーナス（レベル1で100%、レベル25で150%、レベル50で200%）
+<span class="nc" id="L193">        double levelMultiplier = 1.0 + (playerJob.getLevel() * 0.02);</span>
+        
+        // 職業設定による倍率
+<span class="nc" id="L196">        String jobName = getJobNameByPlayerJob(playerJob);</span>
+<span class="nc" id="L197">        double configMultiplier = configManager.getJobIncomeMultiplier(jobName);</span>
+        
+<span class="nc" id="L199">        return baseIncome * levelMultiplier * configMultiplier;</span>
+    }
+    
+    /**
+     * プレイヤーに収入を付与
+     */
+    private void givePlayerIncome(org.bukkit.entity.Player player, double income, String jobName, Material material) {
+<span class="nc" id="L206">        String uuid = player.getUniqueId().toString();</span>
+<span class="nc" id="L207">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);</span>
+        
+<span class="nc bnc" id="L209" title="All 2 branches missed.">        if (tofuPlayer == null) {</span>
+<span class="nc" id="L210">            tofuPlayer = new org.tofu.tofunomics.models.Player();</span>
+<span class="nc" id="L211">            tofuPlayer.setUuid(uuid);</span>
+<span class="nc" id="L212">            tofuPlayer.setBalance(configManager.getStartingBalance());</span>
+<span class="nc" id="L213">            playerDAO.insertPlayer(tofuPlayer);</span>
+        }
+        
+<span class="nc" id="L216">        tofuPlayer.addBalance(income);</span>
+        
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        if (playerDAO.updatePlayerData(tofuPlayer)) {</span>
+            // 5金塊以上の場合のみ収入メッセージを表示
+<span class="nc bnc" id="L220" title="All 2 branches missed.">            if (income &gt;= 5.0) {</span>
+<span class="nc" id="L221">                String materialName = getMaterialDisplayName(material);</span>
+<span class="nc" id="L222">                player.sendMessage(ChatColor.YELLOW + String.format(&quot;+ %.1f %s (%s - %s)&quot;, </span>
+<span class="nc" id="L223">                    income, configManager.getCurrencySymbol(), </span>
+<span class="nc" id="L224">                    configManager.getJobDisplayName(jobName), materialName));</span>
+            }
+        }
+<span class="nc" id="L227">    }</span>
+    
+    /**
+     * PlayerJobから職業名を取得
+     */
+    private String getJobNameByPlayerJob(PlayerJob playerJob) {
+        // jobIdから職業名を逆引き（実装は簡略化）
+<span class="nc bnc" id="L234" title="All 9 branches missed.">        switch (playerJob.getJobId()) {</span>
+<span class="nc" id="L235">            case 1: return &quot;miner&quot;;</span>
+<span class="nc" id="L236">            case 2: return &quot;woodcutter&quot;;  </span>
+<span class="nc" id="L237">            case 3: return &quot;farmer&quot;;</span>
+<span class="nc" id="L238">            case 4: return &quot;fisherman&quot;;</span>
+<span class="nc" id="L239">            case 5: return &quot;blacksmith&quot;;</span>
+<span class="nc" id="L240">            case 6: return &quot;alchemist&quot;;</span>
+<span class="nc" id="L241">            case 7: return &quot;enchanter&quot;;</span>
+<span class="nc" id="L242">            case 8: return &quot;architect&quot;;</span>
+<span class="nc" id="L243">            default: return &quot;unknown&quot;;</span>
+        }
+    }
+    
+    /**
+     * マテリアルの表示名を取得
+     */
+    private String getMaterialDisplayName(Material material) {
+<span class="nc" id="L251">        return material.name().toLowerCase().replace(&quot;_&quot;, &quot; &quot;);</span>
+    }
+    
+    /**
+     * 手動収入付与（管理者用）
+     */
+    public boolean giveIncomeManual(org.bukkit.entity.Player player, String jobName, double amount) {
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        if (!jobManager.hasJob(player, jobName)) {</span>
+<span class="nc" id="L259">            return false;</span>
+        }
+        
+<span class="nc" id="L262">        String uuid = player.getUniqueId().toString();</span>
+<span class="nc" id="L263">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);</span>
+        
+<span class="nc bnc" id="L265" title="All 2 branches missed.">        if (tofuPlayer == null) {</span>
+<span class="nc" id="L266">            tofuPlayer = new org.tofu.tofunomics.models.Player();</span>
+<span class="nc" id="L267">            tofuPlayer.setUuid(uuid);</span>
+<span class="nc" id="L268">            tofuPlayer.setBalance(configManager.getStartingBalance());</span>
+<span class="nc" id="L269">            playerDAO.insertPlayer(tofuPlayer);</span>
+        }
+        
+<span class="nc" id="L272">        tofuPlayer.addBalance(amount);</span>
+<span class="nc" id="L273">        return playerDAO.updatePlayerData(tofuPlayer);</span>
+    }
+    
+    /**
+     * 収入データクラス
+     */
+    private static class IncomeData {
+        final double minIncome;
+        final double maxIncome;
+        
+<span class="nc" id="L283">        IncomeData(double minIncome, double maxIncome) {</span>
+<span class="nc" id="L284">            this.minIncome = minIncome;</span>
+<span class="nc" id="L285">            this.maxIncome = maxIncome;</span>
+<span class="nc" id="L286">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

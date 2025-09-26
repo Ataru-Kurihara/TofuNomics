@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlayerTradeHistory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.models</a> &gt; <span class="el_source">PlayerTradeHistory.java</span></div><h1>PlayerTradeHistory.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.models;
+
+import java.sql.Timestamp;
+
+/**
+ * プレイヤー取引履歴データモデル
+ */
+public class PlayerTradeHistory {
+    
+    private int id;
+    private String uuid;
+    private int tradeChestId;
+    private String itemType;
+    private int itemAmount;
+    private double salePrice;
+    private double jobBonus;
+    private String playerJob;
+    private int playerJobLevel;
+    private Timestamp tradedAt;
+    
+<span class="nc" id="L21">    public PlayerTradeHistory() {</span>
+<span class="nc" id="L22">        this.jobBonus = 0.0;</span>
+<span class="nc" id="L23">        this.playerJobLevel = 1;</span>
+<span class="nc" id="L24">        this.tradedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L25">    }</span>
+    
+    public PlayerTradeHistory(String uuid, int tradeChestId, String itemType, 
+                             int itemAmount, double salePrice, String playerJob, int playerJobLevel) {
+<span class="nc" id="L29">        this();</span>
+<span class="nc" id="L30">        this.uuid = uuid;</span>
+<span class="nc" id="L31">        this.tradeChestId = tradeChestId;</span>
+<span class="nc" id="L32">        this.itemType = itemType;</span>
+<span class="nc" id="L33">        this.itemAmount = itemAmount;</span>
+<span class="nc" id="L34">        this.salePrice = salePrice;</span>
+<span class="nc" id="L35">        this.playerJob = playerJob;</span>
+<span class="nc" id="L36">        this.playerJobLevel = playerJobLevel;</span>
+<span class="nc" id="L37">    }</span>
+    
+    // Getters
+<span class="nc" id="L40">    public int getId() { return id; }</span>
+<span class="nc" id="L41">    public String getUuid() { return uuid; }</span>
+<span class="nc" id="L42">    public int getTradeChestId() { return tradeChestId; }</span>
+<span class="nc" id="L43">    public String getItemType() { return itemType; }</span>
+<span class="nc" id="L44">    public int getItemAmount() { return itemAmount; }</span>
+<span class="nc" id="L45">    public double getSalePrice() { return salePrice; }</span>
+<span class="nc" id="L46">    public double getJobBonus() { return jobBonus; }</span>
+<span class="nc" id="L47">    public String getPlayerJob() { return playerJob; }</span>
+<span class="nc" id="L48">    public int getPlayerJobLevel() { return playerJobLevel; }</span>
+<span class="nc" id="L49">    public Timestamp getTradedAt() { return tradedAt; }</span>
+    
+    // Setters
+<span class="nc" id="L52">    public void setId(int id) { this.id = id; }</span>
+<span class="nc" id="L53">    public void setUuid(String uuid) { this.uuid = uuid; }</span>
+<span class="nc" id="L54">    public void setTradeChestId(int tradeChestId) { this.tradeChestId = tradeChestId; }</span>
+<span class="nc" id="L55">    public void setItemType(String itemType) { this.itemType = itemType; }</span>
+<span class="nc" id="L56">    public void setItemAmount(int itemAmount) { this.itemAmount = itemAmount; }</span>
+<span class="nc" id="L57">    public void setSalePrice(double salePrice) { this.salePrice = salePrice; }</span>
+<span class="nc" id="L58">    public void setJobBonus(double jobBonus) { this.jobBonus = jobBonus; }</span>
+<span class="nc" id="L59">    public void setPlayerJob(String playerJob) { this.playerJob = playerJob; }</span>
+<span class="nc" id="L60">    public void setPlayerJobLevel(int playerJobLevel) { this.playerJobLevel = playerJobLevel; }</span>
+<span class="nc" id="L61">    public void setTradedAt(Timestamp tradedAt) { this.tradedAt = tradedAt; }</span>
+    
+    /**
+     * 合計売却価格を取得（基本価格＋職業ボーナス）
+     */
+    public double getTotalPrice() {
+<span class="nc" id="L67">        return salePrice + jobBonus;</span>
+    }
+    
+    /**
+     * 単価を計算
+     */
+    public double getUnitPrice() {
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (itemAmount &lt;= 0) return 0.0;</span>
+<span class="nc" id="L75">        return getTotalPrice() / itemAmount;</span>
+    }
+    
+    /**
+     * 職業ボーナス率を計算
+     */
+    public double getBonusRate() {
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        if (salePrice &lt;= 0) return 0.0;</span>
+<span class="nc" id="L83">        return (jobBonus / salePrice) * 100.0;</span>
+    }
+    
+    @Override
+    public String toString() {
+<span class="nc" id="L88">        return String.format(&quot;PlayerTradeHistory{id=%d, uuid=%s, item=%s x%d, price=%.2f (bonus=%.2f), job=%s Lv%d}&quot;, </span>
+<span class="nc" id="L89">                           id, uuid, itemType, itemAmount, salePrice, jobBonus, playerJob, playerJobLevel);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

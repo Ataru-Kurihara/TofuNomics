@@ -1,0 +1,10 @@
+org/tofu/tofunomics/dao/PlayerJobDAOTest.class
+org/tofu/tofunomics/jobs/JobManagerTest.class
+org/tofu/tofunomics/dao/JobDAOTest.class
+org/tofu/tofunomics/models/JobTest.class
+org/tofu/tofunomics/commands/EcoCommandTest.class
+org/tofu/tofunomics/dao/PlayerDAOTest.class
+org/tofu/tofunomics/commands/PayCommandTest.class
+org/tofu/tofunomics/models/PlayerJobTest.class
+org/tofu/tofunomics/models/PlayerTest.class
+org/tofu/tofunomics/dao/JobChangeDAOTest.class

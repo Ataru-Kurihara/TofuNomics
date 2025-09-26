@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BreedingEventHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.events.handlers</a> &gt; <span class="el_source">BreedingEventHandler.java</span></div><h1>BreedingEventHandler.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.events.handlers;
+
+import org.bukkit.ChatColor;
+import org.bukkit.entity.Animals;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityBreedEvent;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.events.AsyncEventUpdater;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 繁殖イベントハンドラ
+ * 農家の動物繁殖処理を管理
+ */
+public class BreedingEventHandler {
+    
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final JobManager jobManager;
+    private final AsyncEventUpdater asyncUpdater;
+    
+    // 動物種別による経験値と収入
+    private final Map&lt;EntityType, BreedingReward&gt; breedingRewards;
+    
+    public BreedingEventHandler(ConfigManager configManager, PlayerDAO playerDAO,
+<span class="nc" id="L32">                               JobManager jobManager, AsyncEventUpdater asyncUpdater) {</span>
+<span class="nc" id="L33">        this.configManager = configManager;</span>
+<span class="nc" id="L34">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L35">        this.jobManager = jobManager;</span>
+<span class="nc" id="L36">        this.asyncUpdater = asyncUpdater;</span>
+<span class="nc" id="L37">        this.breedingRewards = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L39">        initializeBreedingRewards();</span>
+<span class="nc" id="L40">    }</span>
+    
+    /**
+     * 繁殖報酬テーブルの初期化
+     */
+    private void initializeBreedingRewards() {
+        // 基本的な家畜
+<span class="nc" id="L47">        breedingRewards.put(EntityType.COW, new BreedingReward(5.0, 8.0, &quot;牛&quot;));</span>
+<span class="nc" id="L48">        breedingRewards.put(EntityType.PIG, new BreedingReward(4.0, 6.0, &quot;豚&quot;));</span>
+<span class="nc" id="L49">        breedingRewards.put(EntityType.SHEEP, new BreedingReward(4.0, 6.0, &quot;羊&quot;));</span>
+<span class="nc" id="L50">        breedingRewards.put(EntityType.CHICKEN, new BreedingReward(3.0, 4.0, &quot;鶏&quot;));</span>
+        
+        // より価値の高い動物
+<span class="nc" id="L53">        breedingRewards.put(EntityType.HORSE, new BreedingReward(15.0, 25.0, &quot;馬&quot;));</span>
+<span class="nc" id="L54">        breedingRewards.put(EntityType.DONKEY, new BreedingReward(12.0, 20.0, &quot;ロバ&quot;));</span>
+<span class="nc" id="L55">        breedingRewards.put(EntityType.MULE, new BreedingReward(18.0, 30.0, &quot;ラバ&quot;));</span>
+<span class="nc" id="L56">        breedingRewards.put(EntityType.LLAMA, new BreedingReward(10.0, 15.0, &quot;ラマ&quot;));</span>
+        
+        // 特殊な動物
+<span class="nc" id="L59">        breedingRewards.put(EntityType.RABBIT, new BreedingReward(2.0, 3.0, &quot;ウサギ&quot;));</span>
+<span class="nc" id="L60">        breedingRewards.put(EntityType.OCELOT, new BreedingReward(8.0, 12.0, &quot;ヤマネコ&quot;));</span>
+<span class="nc" id="L61">        breedingRewards.put(EntityType.WOLF, new BreedingReward(10.0, 15.0, &quot;オオカミ&quot;));</span>
+        
+        // 1.16以降の動物
+<span class="nc" id="L64">        breedingRewards.put(EntityType.HOGLIN, new BreedingReward(20.0, 35.0, &quot;ホグリン&quot;));</span>
+<span class="nc" id="L65">        breedingRewards.put(EntityType.STRIDER, new BreedingReward(25.0, 40.0, &quot;ストライダー&quot;));</span>
+        
+        // 水生動物（1.16.5では利用不可）
+        // breedingRewards.put(EntityType.AXOLOTL, new BreedingReward(30.0, 50.0, &quot;ウーパールーパー&quot;));
+<span class="nc" id="L69">    }</span>
+    
+    /**
+     * 繁殖イベントの処理
+     */
+    public void handleBreeding(EntityBreedEvent event) {
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (!(event.getBreeder() instanceof Player)) {</span>
+<span class="nc" id="L76">            return;</span>
+        }
+        
+<span class="nc" id="L79">        Player player = (Player) event.getBreeder();</span>
+<span class="nc" id="L80">        Animals child = (Animals) event.getEntity();</span>
+<span class="nc" id="L81">        EntityType entityType = child.getType();</span>
+        
+        // 農家の職業チェック
+<span class="nc" id="L84">        PlayerJob farmerJob = jobManager.getPlayerJob(player, &quot;farmer&quot;);</span>
+<span class="nc bnc" id="L85" title="All 4 branches missed.">        if (farmerJob == null || !farmerJob.isActive()) {</span>
+            // 農家でない場合は報酬なし（通常の繁殖は許可）
+<span class="nc" id="L87">            return;</span>
+        }
+        
+        // 繁殖報酬をチェック
+<span class="nc" id="L91">        BreedingReward reward = breedingRewards.get(entityType);</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (reward == null) {</span>
+            // 未対応の動物の場合は基本報酬
+<span class="nc" id="L94">            reward = new BreedingReward(2.0, 3.0, entityType.name().toLowerCase());</span>
+        }
+        
+        // 報酬を処理
+<span class="nc" id="L98">        processBreedingReward(player, farmerJob, reward, child);</span>
+<span class="nc" id="L99">    }</span>
+    
+    /**
+     * 繁殖報酬の処理
+     */
+    private void processBreedingReward(Player player, PlayerJob farmerJob, 
+                                      BreedingReward reward, Animals child) {
+        // レベルボーナスを適用
+<span class="nc" id="L107">        double levelMultiplier = 1.0 + (farmerJob.getLevel() * 0.025); // レベル毎に2.5%ボーナス</span>
+        
+<span class="nc" id="L109">        double finalExperience = reward.getExperience() * levelMultiplier;</span>
+<span class="nc" id="L110">        double finalIncome = reward.getIncome() * levelMultiplier;</span>
+        
+        // 特殊ボーナスをチェック
+<span class="nc" id="L113">        double bonusMultiplier = checkSpecialBonuses(player, farmerJob, child.getType());</span>
+<span class="nc" id="L114">        finalExperience *= bonusMultiplier;</span>
+<span class="nc" id="L115">        finalIncome *= bonusMultiplier;</span>
+        
+        // 非同期で報酬を付与
+<span class="nc" id="L118">        String playerUUID = player.getUniqueId().toString();</span>
+<span class="nc" id="L119">        asyncUpdater.updateJobExperience(playerUUID, &quot;farmer&quot;, finalExperience);</span>
+<span class="nc" id="L120">        asyncUpdater.updatePlayerBalance(playerUUID, finalIncome, &quot;動物繁殖報酬&quot;);</span>
+        
+        // メッセージ表示
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        displayBreedingResult(player, reward, finalExperience, finalIncome, bonusMultiplier &gt; 1.0);</span>
+        
+        // 農家スキル発動チェック
+<span class="nc" id="L126">        checkFarmerSkills(player, farmerJob, child);</span>
+<span class="nc" id="L127">    }</span>
+    
+    /**
+     * 特殊ボーナスをチェック
+     */
+    private double checkSpecialBonuses(Player player, PlayerJob job, EntityType entityType) {
+<span class="nc" id="L133">        double bonusMultiplier = 1.0;</span>
+        
+        // 夜間繁殖ボーナス
+<span class="nc" id="L136">        long time = player.getWorld().getTime();</span>
+<span class="nc bnc" id="L137" title="All 4 branches missed.">        if (time &gt; 12000 &amp;&amp; time &lt; 24000) { // 夜間</span>
+<span class="nc" id="L138">            bonusMultiplier *= 1.2;</span>
+<span class="nc" id="L139">            player.sendMessage(ChatColor.DARK_BLUE + &quot;✦ 夜間繁殖ボーナス！(+20%)&quot;);</span>
+        }
+        
+        // 雨天ボーナス
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (player.getWorld().hasStorm()) {</span>
+<span class="nc" id="L144">            bonusMultiplier *= 1.15;</span>
+<span class="nc" id="L145">            player.sendMessage(ChatColor.AQUA + &quot;✦ 雨天繁殖ボーナス！(+15%)&quot;);</span>
+        }
+        
+        // 希少動物ボーナス
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (isRareAnimal(entityType)) {</span>
+<span class="nc" id="L150">            bonusMultiplier *= 1.5;</span>
+<span class="nc" id="L151">            player.sendMessage(ChatColor.GOLD + &quot;✦ 希少動物繁殖ボーナス！(+50%)&quot;);</span>
+        }
+        
+        // 連続繁殖ボーナス（プレイヤーのメタデータで管理）
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        if (player.hasMetadata(&quot;breeding_streak&quot;)) {</span>
+<span class="nc" id="L156">            int streak = player.getMetadata(&quot;breeding_streak&quot;).get(0).asInt();</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">            if (streak &gt;= 5) {</span>
+<span class="nc" id="L158">                double streakBonus = Math.min(streak * 0.05, 0.5); // 最大50%</span>
+<span class="nc" id="L159">                bonusMultiplier *= (1.0 + streakBonus);</span>
+<span class="nc" id="L160">                player.sendMessage(ChatColor.YELLOW + &quot;✦ 連続繁殖ボーナス！(+&quot; + </span>
+<span class="nc" id="L161">                                 String.format(&quot;%.0f&quot;, streakBonus * 100) + &quot;%)&quot;);</span>
+            }
+        }
+        
+<span class="nc" id="L165">        return bonusMultiplier;</span>
+    }
+    
+    /**
+     * 希少動物かチェック
+     */
+    private boolean isRareAnimal(EntityType entityType) {
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        switch (entityType) {</span>
+            case HORSE:
+            case MULE:
+            case HOGLIN:
+            case STRIDER:
+            // case AXOLOTL: // 1.16.5では利用不可
+<span class="nc" id="L178">                return true;</span>
+            default:
+<span class="nc" id="L180">                return false;</span>
+        }
+    }
+    
+    /**
+     * 農家スキルの発動チェック
+     */
+    private void checkFarmerSkills(Player player, PlayerJob job, Animals child) {
+<span class="nc" id="L188">        int level = job.getLevel();</span>
+        
+        // レベル15以上：双子の奇跡
+<span class="nc bnc" id="L191" title="All 4 branches missed.">        if (level &gt;= 15 &amp;&amp; Math.random() &lt; 0.1) { // 10%の確率</span>
+<span class="nc" id="L192">            spawnTwin(player, child);</span>
+<span class="nc" id="L193">            player.sendMessage(ChatColor.GOLD + &quot;✦ 双子の奇跡！もう1匹生まれました！&quot;);</span>
+        }
+        
+        // レベル30以上：成長促進
+<span class="nc bnc" id="L197" title="All 4 branches missed.">        if (level &gt;= 30 &amp;&amp; Math.random() &lt; 0.2) { // 20%の確率</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">            if (child.isAdult()) {</span>
+<span class="nc" id="L199">                child.setAge(0); // 即座に成体にする</span>
+            } else {
+<span class="nc" id="L201">                child.setAge(child.getAge() + 1200); // 成長を早める</span>
+            }
+<span class="nc" id="L203">            player.sendMessage(ChatColor.GREEN + &quot;✦ 成長促進！動物の成長が早まりました！&quot;);</span>
+        }
+        
+        // レベル50以上：品種改良
+<span class="nc bnc" id="L207" title="All 4 branches missed.">        if (level &gt;= 50 &amp;&amp; Math.random() &lt; 0.05) { // 5%の確率</span>
+            // 動物に特殊なメタデータを付与（改良品種）
+<span class="nc" id="L209">            child.setCustomName(ChatColor.GOLD + &quot;改良品種の&quot; + child.getType().name().toLowerCase());</span>
+<span class="nc" id="L210">            child.setCustomNameVisible(true);</span>
+<span class="nc" id="L211">            player.sendMessage(ChatColor.GOLD + &quot;✦ 品種改良成功！品質の高い動物が生まれました！&quot;);</span>
+        }
+<span class="nc" id="L213">    }</span>
+    
+    /**
+     * 双子を生成
+     */
+    private void spawnTwin(Player player, Animals originalChild) {
+        // 同じ場所に同じタイプの動物を生成
+<span class="nc" id="L220">        Animals twin = (Animals) player.getWorld().spawnEntity(</span>
+<span class="nc" id="L221">            originalChild.getLocation(), </span>
+<span class="nc" id="L222">            originalChild.getType()</span>
+        );
+        
+        // 双子の設定
+<span class="nc" id="L226">        twin.setBaby();</span>
+<span class="nc" id="L227">        twin.setAgeLock(false);</span>
+        
+        // 双子であることを示すカスタム名
+<span class="nc" id="L230">        twin.setCustomName(ChatColor.AQUA + &quot;双子の&quot; + originalChild.getType().name().toLowerCase());</span>
+<span class="nc" id="L231">        twin.setCustomNameVisible(true);</span>
+<span class="nc" id="L232">    }</span>
+    
+    /**
+     * 繁殖結果を表示
+     */
+    private void displayBreedingResult(Player player, BreedingReward reward,
+                                      double experience, double income, boolean hasBonus) {
+<span class="nc" id="L239">        String message = String.format(</span>
+            &quot;%s%sの繁殖成功！ §a+%.1f経験値 §6+%.1f金塊&quot;,
+            ChatColor.GREEN,
+<span class="nc" id="L242">            reward.getDisplayName(),</span>
+<span class="nc" id="L243">            experience,</span>
+<span class="nc" id="L244">            income</span>
+        );
+        
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if (hasBonus) {</span>
+<span class="nc" id="L248">            message += ChatColor.YELLOW + &quot; (ボーナス適用)&quot;;</span>
+        }
+        
+<span class="nc" id="L251">        player.sendMessage(message);</span>
+<span class="nc" id="L252">    }</span>
+    
+    /**
+     * 繁殖報酬クラス
+     */
+    private static class BreedingReward {
+        private final double experience;
+        private final double income;
+        private final String displayName;
+        
+<span class="nc" id="L262">        public BreedingReward(double experience, double income, String displayName) {</span>
+<span class="nc" id="L263">            this.experience = experience;</span>
+<span class="nc" id="L264">            this.income = income;</span>
+<span class="nc" id="L265">            this.displayName = displayName;</span>
+<span class="nc" id="L266">        }</span>
+        
+<span class="nc" id="L268">        public double getExperience() { return experience; }</span>
+<span class="nc" id="L269">        public double getIncome() { return income; }</span>
+<span class="nc" id="L270">        public String getDisplayName() { return displayName; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

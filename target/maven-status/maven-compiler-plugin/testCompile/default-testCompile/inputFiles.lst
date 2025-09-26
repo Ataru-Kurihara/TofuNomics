@@ -1,0 +1,10 @@
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/jobs/JobManagerTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/commands/PayCommandTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/dao/JobDAOTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/models/JobTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/dao/PlayerDAOTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/models/PlayerJobTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/dao/JobChangeDAOTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/commands/EcoCommandTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/dao/PlayerJobDAOTest.java
+/Users/kuriharaataru/dev/github.com/codoor-app/TofuNomics/src/test/java/org/tofu/tofunomics/models/PlayerTest.java

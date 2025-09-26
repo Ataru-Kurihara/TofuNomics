@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlayerJobDAO.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.dao</a> &gt; <span class="el_source">PlayerJobDAO.java</span></div><h1>PlayerJobDAO.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.dao;
+
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+public class PlayerJobDAO {
+    private final Connection connection;
+
+<span class="fc" id="L17">    public PlayerJobDAO(Connection connection) {</span>
+<span class="fc" id="L18">        this.connection = connection;</span>
+<span class="fc" id="L19">    }</span>
+
+    public void createPlayerJob(PlayerJob playerJob) throws SQLException {
+<span class="fc" id="L22">        String query = &quot;INSERT INTO player_jobs (uuid, job_id, level, experience, joined_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)&quot;;</span>
+<span class="fc" id="L23">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L24">            statement.setString(1, playerJob.getUuid().toString());</span>
+<span class="fc" id="L25">            statement.setInt(2, playerJob.getJobId());</span>
+<span class="fc" id="L26">            statement.setInt(3, playerJob.getLevel());</span>
+<span class="fc" id="L27">            statement.setDouble(4, playerJob.getExperience());</span>
+<span class="fc" id="L28">            statement.setTimestamp(5, playerJob.getJoinedAt());</span>
+<span class="fc" id="L29">            statement.setTimestamp(6, playerJob.getUpdatedAt());</span>
+<span class="fc" id="L30">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L32">    }</span>
+
+    public PlayerJob getPlayerJob(UUID uuid, int jobId) throws SQLException {
+<span class="fc" id="L35">        String query = &quot;SELECT * FROM player_jobs WHERE uuid = ? AND job_id = ?&quot;;</span>
+<span class="fc" id="L36">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L37">            statement.setString(1, uuid.toString());</span>
+<span class="fc" id="L38">            statement.setInt(2, jobId);</span>
+<span class="fc" id="L39">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L41" title="All 2 branches covered.">            if (resultSet.next()) {</span>
+<span class="fc" id="L42">                return mapResultSetToPlayerJob(resultSet);</span>
+            }
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">        }</span>
+<span class="fc" id="L45">        return null;</span>
+    }
+
+    public PlayerJob getCurrentPlayerJob(UUID uuid) throws SQLException {
+<span class="fc" id="L49">        String query = &quot;SELECT * FROM player_jobs WHERE uuid = ? ORDER BY updated_at DESC LIMIT 1&quot;;</span>
+<span class="fc" id="L50">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L51">            statement.setString(1, uuid.toString());</span>
+<span class="fc" id="L52">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L54" title="All 2 branches covered.">            if (resultSet.next()) {</span>
+<span class="fc" id="L55">                return mapResultSetToPlayerJob(resultSet);</span>
+            }
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">        }</span>
+<span class="fc" id="L58">        return null;</span>
+    }
+
+    public List&lt;PlayerJob&gt; getPlayerJobs(UUID uuid) throws SQLException {
+<span class="fc" id="L62">        String query = &quot;SELECT * FROM player_jobs WHERE uuid = ? ORDER BY joined_at&quot;;</span>
+<span class="fc" id="L63">        List&lt;PlayerJob&gt; playerJobs = new ArrayList&lt;&gt;();</span>
+        
+<span class="fc" id="L65">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L66">            statement.setString(1, uuid.toString());</span>
+<span class="fc" id="L67">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            while (resultSet.next()) {</span>
+<span class="fc" id="L70">                playerJobs.add(mapResultSetToPlayerJob(resultSet));</span>
+            }
+        }
+<span class="fc" id="L73">        return playerJobs;</span>
+    }
+
+    public void updatePlayerJob(PlayerJob playerJob) throws SQLException {
+<span class="fc" id="L77">        String query = &quot;UPDATE player_jobs SET level = ?, experience = ?, updated_at = ? WHERE uuid = ? AND job_id = ?&quot;;</span>
+<span class="fc" id="L78">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L79">            statement.setInt(1, playerJob.getLevel());</span>
+<span class="fc" id="L80">            statement.setDouble(2, playerJob.getExperience());</span>
+<span class="fc" id="L81">            statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));</span>
+<span class="fc" id="L82">            statement.setString(4, playerJob.getUuid().toString());</span>
+<span class="fc" id="L83">            statement.setInt(5, playerJob.getJobId());</span>
+<span class="fc" id="L84">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L86">    }</span>
+
+    public void addExperience(UUID uuid, int jobId, double experience) throws SQLException {
+<span class="fc" id="L89">        String query = &quot;UPDATE player_jobs SET experience = experience + ?, updated_at = ? WHERE uuid = ? AND job_id = ?&quot;;</span>
+<span class="fc" id="L90">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L91">            statement.setDouble(1, experience);</span>
+<span class="fc" id="L92">            statement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));</span>
+<span class="fc" id="L93">            statement.setString(3, uuid.toString());</span>
+<span class="fc" id="L94">            statement.setInt(4, jobId);</span>
+<span class="fc" id="L95">            int rowsAffected = statement.executeUpdate();</span>
+            
+<span class="fc bfc" id="L97" title="All 2 branches covered.">            if (rowsAffected == 0) {</span>
+<span class="fc" id="L98">                PlayerJob newPlayerJob = new PlayerJob(uuid, jobId);</span>
+<span class="fc" id="L99">                newPlayerJob.addExperience(experience);</span>
+<span class="fc" id="L100">                createPlayerJob(newPlayerJob);</span>
+            }
+        }
+<span class="fc" id="L103">    }</span>
+
+    public void levelUp(UUID uuid, int jobId, int newLevel) throws SQLException {
+<span class="fc" id="L106">        String query = &quot;UPDATE player_jobs SET level = ?, updated_at = ? WHERE uuid = ? AND job_id = ?&quot;;</span>
+<span class="fc" id="L107">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L108">            statement.setInt(1, newLevel);</span>
+<span class="fc" id="L109">            statement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));</span>
+<span class="fc" id="L110">            statement.setString(3, uuid.toString());</span>
+<span class="fc" id="L111">            statement.setInt(4, jobId);</span>
+<span class="fc" id="L112">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L114">    }</span>
+
+    public void deletePlayerJob(UUID uuid, int jobId) throws SQLException {
+<span class="fc" id="L117">        String query = &quot;DELETE FROM player_jobs WHERE uuid = ? AND job_id = ?&quot;;</span>
+<span class="fc" id="L118">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L119">            statement.setString(1, uuid.toString());</span>
+<span class="fc" id="L120">            statement.setInt(2, jobId);</span>
+<span class="fc" id="L121">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L123">    }</span>
+
+    public void deleteAllPlayerJobs(UUID uuid) throws SQLException {
+<span class="fc" id="L126">        String query = &quot;DELETE FROM player_jobs WHERE uuid = ?&quot;;</span>
+<span class="fc" id="L127">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L128">            statement.setString(1, uuid.toString());</span>
+<span class="fc" id="L129">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L131">    }</span>
+
+    public boolean hasPlayerJob(UUID uuid, int jobId) throws SQLException {
+<span class="fc" id="L134">        String query = &quot;SELECT COUNT(*) FROM player_jobs WHERE uuid = ? AND job_id = ?&quot;;</span>
+<span class="fc" id="L135">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L136">            statement.setString(1, uuid.toString());</span>
+<span class="fc" id="L137">            statement.setInt(2, jobId);</span>
+<span class="fc" id="L138">            ResultSet resultSet = statement.executeQuery();</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">            if (resultSet.next()) {</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">                return resultSet.getInt(1) &gt; 0;</span>
+            }
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        }</span>
+<span class="nc" id="L143">        return false;</span>
+    }
+
+    public List&lt;PlayerJob&gt; getTopPlayersByJobLevel(int jobId, int limit) throws SQLException {
+<span class="fc" id="L147">        String query = &quot;SELECT * FROM player_jobs WHERE job_id = ? ORDER BY level DESC, experience DESC LIMIT ?&quot;;</span>
+<span class="fc" id="L148">        List&lt;PlayerJob&gt; topPlayers = new ArrayList&lt;&gt;();</span>
+        
+<span class="fc" id="L150">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L151">            statement.setInt(1, jobId);</span>
+<span class="fc" id="L152">            statement.setInt(2, limit);</span>
+<span class="fc" id="L153">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L155" title="All 2 branches covered.">            while (resultSet.next()) {</span>
+<span class="fc" id="L156">                topPlayers.add(mapResultSetToPlayerJob(resultSet));</span>
+            }
+        }
+<span class="fc" id="L159">        return topPlayers;</span>
+    }
+
+    private PlayerJob mapResultSetToPlayerJob(ResultSet resultSet) throws SQLException {
+<span class="fc" id="L163">        PlayerJob playerJob = new PlayerJob();</span>
+<span class="fc" id="L164">        playerJob.setUuid(UUID.fromString(resultSet.getString(&quot;uuid&quot;)));</span>
+<span class="fc" id="L165">        playerJob.setJobId(resultSet.getInt(&quot;job_id&quot;));</span>
+<span class="fc" id="L166">        playerJob.setLevel(resultSet.getInt(&quot;level&quot;));</span>
+<span class="fc" id="L167">        playerJob.setExperience(resultSet.getDouble(&quot;experience&quot;));</span>
+<span class="fc" id="L168">        playerJob.setJoinedAt(resultSet.getTimestamp(&quot;joined_at&quot;));</span>
+<span class="fc" id="L169">        playerJob.setUpdatedAt(resultSet.getTimestamp(&quot;updated_at&quot;));</span>
+<span class="fc" id="L170">        return playerJob;</span>
+    }
+    
+    // StringのUUIDを受け取るメソッド（互換性のため）
+    public List&lt;PlayerJob&gt; getPlayerJobsByUUID(String uuidString) {
+        try {
+<span class="fc" id="L176">            return getPlayerJobs(UUID.fromString(uuidString));</span>
+<span class="fc" id="L177">        } catch (SQLException | IllegalArgumentException e) {</span>
+<span class="fc" id="L178">            return new ArrayList&lt;&gt;();</span>
+        }
+    }
+    
+    // 戻り値がbooleanのinsertPlayerJobメソッド
+    public boolean insertPlayerJob(PlayerJob playerJob) {
+        try {
+<span class="fc" id="L185">            createPlayerJob(playerJob);</span>
+<span class="fc" id="L186">            return true;</span>
+<span class="nc" id="L187">        } catch (SQLException e) {</span>
+<span class="nc" id="L188">            return false;</span>
+        }
+    }
+    
+    // 戻り値がbooleanのupdatePlayerJobメソッド
+    public boolean updatePlayerJobData(PlayerJob playerJob) {
+        try {
+<span class="fc" id="L195">            String query = &quot;UPDATE player_jobs SET level = ?, experience = ?, updated_at = ? WHERE uuid = ? AND job_id = ?&quot;;</span>
+<span class="fc" id="L196">            try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L197">                statement.setInt(1, playerJob.getLevel());</span>
+<span class="fc" id="L198">                statement.setDouble(2, playerJob.getExperience());</span>
+<span class="fc" id="L199">                statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));</span>
+<span class="fc" id="L200">                statement.setString(4, playerJob.getUuid().toString());</span>
+<span class="fc" id="L201">                statement.setInt(5, playerJob.getJobId());</span>
+<span class="fc" id="L202">                statement.executeUpdate();</span>
+<span class="fc" id="L203">                return true;</span>
+            }
+<span class="nc" id="L205">        } catch (SQLException e) {</span>
+<span class="nc" id="L206">            return false;</span>
+        }
+    }
+    
+    // StringのUUIDとjobIdを受け取るdeletePlayerJobメソッド
+    public boolean deletePlayerJob(String uuidString, int jobId) {
+        try {
+<span class="fc" id="L213">            deletePlayerJob(UUID.fromString(uuidString), jobId);</span>
+<span class="fc" id="L214">            return true;</span>
+<span class="fc" id="L215">        } catch (SQLException | IllegalArgumentException e) {</span>
+<span class="fc" id="L216">            return false;</span>
+        }
+    }
+    
+    // StringのUUIDを受け取るgetPlayerJobメソッド
+    public PlayerJob getPlayerJob(String uuidString, int jobId) {
+        try {
+<span class="fc" id="L223">            return getPlayerJob(UUID.fromString(uuidString), jobId);</span>
+<span class="fc" id="L224">        } catch (SQLException | IllegalArgumentException e) {</span>
+<span class="fc" id="L225">            return null;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

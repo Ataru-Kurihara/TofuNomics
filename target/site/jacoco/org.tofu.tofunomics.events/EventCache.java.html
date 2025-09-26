@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EventCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.events</a> &gt; <span class="el_source">EventCache.java</span></div><h1>EventCache.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.events;
+
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * イベントキャッシュシステム
+ * 重複イベント処理を防ぎ、パフォーマンスを最適化
+ */
+public class EventCache {
+    
+    private final JavaPlugin plugin;
+    
+    // プレイヤーごとの最終イベント処理時刻を記録
+    private final Map&lt;String, Map&lt;String, Long&gt;&gt; playerEventTimestamps;
+    
+    // 統計情報
+    private final AtomicLong totalProcessedEvents;
+    private final AtomicLong cacheHits;
+    private final AtomicLong cacheMisses;
+    
+    // キャッシュクリーンアップタスク
+    private BukkitRunnable cleanupTask;
+    
+    // キャッシュ有効期限（ミリ秒）
+    private static final long CACHE_CLEANUP_INTERVAL = 60000; // 1分
+    private static final long CACHE_EXPIRY_TIME = 300000; // 5分
+    
+<span class="nc" id="L34">    public EventCache(JavaPlugin plugin) {</span>
+<span class="nc" id="L35">        this.plugin = plugin;</span>
+<span class="nc" id="L36">        this.playerEventTimestamps = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="nc" id="L37">        this.totalProcessedEvents = new AtomicLong(0);</span>
+<span class="nc" id="L38">        this.cacheHits = new AtomicLong(0);</span>
+<span class="nc" id="L39">        this.cacheMisses = new AtomicLong(0);</span>
+        
+<span class="nc" id="L41">        startCleanupTask();</span>
+<span class="nc" id="L42">    }</span>
+    
+    /**
+     * 最近処理されたイベントかチェック
+     * @param player プレイヤー
+     * @param eventType イベントタイプ
+     * @param cooldownMs クールダウン時間（ミリ秒）
+     * @return 最近処理された場合true
+     */
+    public boolean isRecentlyProcessed(Player player, String eventType, long cooldownMs) {
+<span class="nc" id="L52">        String playerUUID = player.getUniqueId().toString();</span>
+<span class="nc" id="L53">        Map&lt;String, Long&gt; eventTimes = playerEventTimestamps.get(playerUUID);</span>
+        
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (eventTimes == null) {</span>
+<span class="nc" id="L56">            cacheMisses.incrementAndGet();</span>
+<span class="nc" id="L57">            return false;</span>
+        }
+        
+<span class="nc" id="L60">        Long lastProcessedTime = eventTimes.get(eventType);</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (lastProcessedTime == null) {</span>
+<span class="nc" id="L62">            cacheMisses.incrementAndGet();</span>
+<span class="nc" id="L63">            return false;</span>
+        }
+        
+<span class="nc" id="L66">        long currentTime = System.currentTimeMillis();</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (currentTime - lastProcessedTime &lt; cooldownMs) {</span>
+<span class="nc" id="L68">            cacheHits.incrementAndGet();</span>
+<span class="nc" id="L69">            return true;</span>
+        }
+        
+<span class="nc" id="L72">        cacheMisses.incrementAndGet();</span>
+<span class="nc" id="L73">        return false;</span>
+    }
+    
+    /**
+     * イベントを処理済みとして記録
+     * @param player プレイヤー
+     * @param eventType イベントタイプ
+     */
+    public void markAsProcessed(Player player, String eventType) {
+<span class="nc" id="L82">        String playerUUID = player.getUniqueId().toString();</span>
+<span class="nc" id="L83">        long currentTime = System.currentTimeMillis();</span>
+        
+<span class="nc" id="L85">        playerEventTimestamps.computeIfAbsent(playerUUID, k -&gt; new ConcurrentHashMap&lt;&gt;())</span>
+<span class="nc" id="L86">                            .put(eventType, currentTime);</span>
+        
+<span class="nc" id="L88">        totalProcessedEvents.incrementAndGet();</span>
+<span class="nc" id="L89">    }</span>
+    
+    /**
+     * 特定のプレイヤーのキャッシュをクリア
+     * @param player プレイヤー
+     */
+    public void clearPlayerCache(Player player) {
+<span class="nc" id="L96">        String playerUUID = player.getUniqueId().toString();</span>
+<span class="nc" id="L97">        playerEventTimestamps.remove(playerUUID);</span>
+<span class="nc" id="L98">    }</span>
+    
+    /**
+     * 特定のイベントタイプのキャッシュをクリア
+     * @param eventType イベントタイプ
+     */
+    public void clearEventTypeCache(String eventType) {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        for (Map&lt;String, Long&gt; eventTimes : playerEventTimestamps.values()) {</span>
+<span class="nc" id="L106">            eventTimes.remove(eventType);</span>
+<span class="nc" id="L107">        }</span>
+<span class="nc" id="L108">    }</span>
+    
+    /**
+     * 全てのキャッシュをクリア
+     */
+    public void clearAllCache() {
+<span class="nc" id="L114">        playerEventTimestamps.clear();</span>
+<span class="nc" id="L115">    }</span>
+    
+    /**
+     * キャッシュクリーンアップタスクを開始
+     */
+    private void startCleanupTask() {
+<span class="nc" id="L121">        cleanupTask = new BukkitRunnable() {</span>
+            @Override
+            public void run() {
+<span class="nc" id="L124">                cleanupExpiredCache();</span>
+<span class="nc" id="L125">            }</span>
+        };
+        
+        // 1分ごとにクリーンアップを実行
+<span class="nc" id="L129">        cleanupTask.runTaskTimerAsynchronously(plugin, </span>
+            CACHE_CLEANUP_INTERVAL / 50, // 初回実行までの遅延（tick）
+            CACHE_CLEANUP_INTERVAL / 50  // 実行間隔（tick）
+        );
+<span class="nc" id="L133">    }</span>
+    
+    /**
+     * 期限切れのキャッシュエントリを削除
+     */
+    private void cleanupExpiredCache() {
+<span class="nc" id="L139">        long currentTime = System.currentTimeMillis();</span>
+<span class="nc" id="L140">        int removedEntries = 0;</span>
+        
+        // 各プレイヤーのキャッシュをチェック
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        for (Map.Entry&lt;String, Map&lt;String, Long&gt;&gt; playerEntry : playerEventTimestamps.entrySet()) {</span>
+<span class="nc" id="L144">            Map&lt;String, Long&gt; eventTimes = playerEntry.getValue();</span>
+            
+            // 期限切れのイベントエントリを削除
+<span class="nc" id="L147">            eventTimes.entrySet().removeIf(entry -&gt; {</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">                boolean expired = currentTime - entry.getValue() &gt; CACHE_EXPIRY_TIME;</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                if (expired) {</span>
+<span class="nc" id="L150">                    return true;</span>
+                }
+<span class="nc" id="L152">                return false;</span>
+            });
+            
+            // イベントエントリが空になったプレイヤーエントリを削除
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (eventTimes.isEmpty()) {</span>
+<span class="nc" id="L157">                playerEventTimestamps.remove(playerEntry.getKey());</span>
+<span class="nc" id="L158">                removedEntries++;</span>
+            }
+<span class="nc" id="L160">        }</span>
+        
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        if (removedEntries &gt; 0) {</span>
+<span class="nc" id="L163">            plugin.getLogger().fine(&quot;EventCache cleanup: removed &quot; + removedEntries + &quot; expired entries&quot;);</span>
+        }
+<span class="nc" id="L165">    }</span>
+    
+    /**
+     * クリーンアップ処理
+     */
+    public void cleanup() {
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (cleanupTask != null) {</span>
+<span class="nc" id="L172">            cleanupTask.cancel();</span>
+        }
+<span class="nc" id="L174">        clearAllCache();</span>
+<span class="nc" id="L175">    }</span>
+    
+    // ========== 統計情報メソッド ==========
+    
+    /**
+     * 処理されたイベントの総数を取得
+     */
+    public long getTotalProcessedEvents() {
+<span class="nc" id="L183">        return totalProcessedEvents.get();</span>
+    }
+    
+    /**
+     * キャッシュヒット数を取得
+     */
+    public long getCacheHits() {
+<span class="nc" id="L190">        return cacheHits.get();</span>
+    }
+    
+    /**
+     * キャッシュミス数を取得
+     */
+    public long getCacheMisses() {
+<span class="nc" id="L197">        return cacheMisses.get();</span>
+    }
+    
+    /**
+     * キャッシュヒット率を取得
+     */
+    public double getCacheHitRate() {
+<span class="nc" id="L204">        long hits = cacheHits.get();</span>
+<span class="nc" id="L205">        long misses = cacheMisses.get();</span>
+<span class="nc" id="L206">        long total = hits + misses;</span>
+        
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        if (total == 0) {</span>
+<span class="nc" id="L209">            return 0.0;</span>
+        }
+        
+<span class="nc" id="L212">        return (double) hits / total;</span>
+    }
+    
+    /**
+     * 現在のキャッシュエントリ数を取得
+     */
+    public int getCacheSize() {
+<span class="nc" id="L219">        int totalEntries = 0;</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        for (Map&lt;String, Long&gt; eventTimes : playerEventTimestamps.values()) {</span>
+<span class="nc" id="L221">            totalEntries += eventTimes.size();</span>
+<span class="nc" id="L222">        }</span>
+<span class="nc" id="L223">        return totalEntries;</span>
+    }
+    
+    /**
+     * アクティブなプレイヤー数を取得
+     */
+    public int getActivePlayerCount() {
+<span class="nc" id="L230">        return playerEventTimestamps.size();</span>
+    }
+    
+    /**
+     * キャッシュ統計を文字列で取得
+     */
+    public String getCacheStatistics() {
+<span class="nc" id="L237">        return String.format(</span>
+            &quot;EventCache Statistics: &quot; +
+            &quot;Processed=%d, Hits=%d (%.2f%%), Misses=%d, &quot; +
+            &quot;CacheSize=%d, ActivePlayers=%d&quot;,
+<span class="nc" id="L241">            getTotalProcessedEvents(),</span>
+<span class="nc" id="L242">            getCacheHits(),</span>
+<span class="nc" id="L243">            getCacheHitRate() * 100,</span>
+<span class="nc" id="L244">            getCacheMisses(),</span>
+<span class="nc" id="L245">            getCacheSize(),</span>
+<span class="nc" id="L246">            getActivePlayerCount()</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.config</a> &gt; <span class="el_source">ConfigValidator.java</span></div><h1>ConfigValidator.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.config;
+
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.logging.Level;
+
+/**
+ * 設定ファイル検証システム
+ * 設定値の妥当性をチェックし、不正な値をデフォルト値で修正
+ */
+public class ConfigValidator {
+    
+    private final JavaPlugin plugin;
+    private final ConfigManager configManager;
+    private final List&lt;ValidationError&gt; validationErrors;
+    
+<span class="nc" id="L20">    public ConfigValidator(JavaPlugin plugin, ConfigManager configManager) {</span>
+<span class="nc" id="L21">        this.plugin = plugin;</span>
+<span class="nc" id="L22">        this.configManager = configManager;</span>
+<span class="nc" id="L23">        this.validationErrors = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L24">    }</span>
+    
+    /**
+     * 設定ファイル全体の検証を実行
+     */
+    public boolean validateConfiguration() {
+<span class="nc" id="L30">        validationErrors.clear();</span>
+        
+<span class="nc" id="L32">        boolean isValid = true;</span>
+        
+        // 基本設定の検証
+<span class="nc" id="L35">        isValid &amp;= validateBasicSettings();</span>
+        
+        // 職業設定の検証
+<span class="nc" id="L38">        isValid &amp;= validateJobSettings();</span>
+        
+        // 職業別スキル設定の検証
+<span class="nc" id="L41">        isValid &amp;= validateJobSkillSettings();</span>
+        
+        // レベリング設定の検証
+<span class="nc" id="L44">        isValid &amp;= validateLevelingSettings();</span>
+        
+        // イベント報酬設定の検証
+<span class="nc" id="L47">        isValid &amp;= validateEventRewardSettings();</span>
+        
+        // パフォーマンス設定の検証
+<span class="nc" id="L50">        isValid &amp;= validatePerformanceSettings();</span>
+        
+        // エラーレポートの出力
+<span class="nc" id="L53">        reportValidationErrors();</span>
+        
+<span class="nc" id="L55">        return isValid;</span>
+    }
+    
+    /**
+     * 基本設定の検証
+     */
+    private boolean validateBasicSettings() {
+<span class="nc" id="L62">        boolean isValid = true;</span>
+        
+        // 通貨設定の検証
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (configManager.getStartingBalance() &lt; 0) {</span>
+<span class="nc" id="L66">            addError(&quot;economy.starting_balance&quot;, &quot;初期残高は0以上である必要があります&quot;, &quot;100.0&quot;);</span>
+<span class="nc" id="L67">            isValid = false;</span>
+        }
+        
+        // 送金設定の検証
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        if (configManager.getMinimumPayAmount() &lt;= 0) {</span>
+<span class="nc" id="L72">            addError(&quot;economy.pay.minimum_amount&quot;, &quot;最低送金額は0より大きい必要があります&quot;, &quot;1.0&quot;);</span>
+<span class="nc" id="L73">            isValid = false;</span>
+        }
+        
+<span class="nc bnc" id="L76" title="All 4 branches missed.">        if (configManager.getPayFeePercentage() &lt; 0 || configManager.getPayFeePercentage() &gt; 1) {</span>
+<span class="nc" id="L77">            addError(&quot;economy.pay.fee_percentage&quot;, &quot;送金手数料は0-1の範囲である必要があります&quot;, &quot;0.0&quot;);</span>
+<span class="nc" id="L78">            isValid = false;</span>
+        }
+        
+<span class="nc" id="L81">        return isValid;</span>
+    }
+    
+    /**
+     * 職業設定の検証
+     */
+    private boolean validateJobSettings() {
+<span class="nc" id="L88">        boolean isValid = true;</span>
+        
+<span class="nc" id="L90">        String[] jobNames = {&quot;miner&quot;, &quot;woodcutter&quot;, &quot;farmer&quot;, &quot;fisherman&quot;, </span>
+                           &quot;blacksmith&quot;, &quot;alchemist&quot;, &quot;enchanter&quot;, &quot;architect&quot;};
+        
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        for (String jobName : jobNames) {</span>
+            // 最大レベルの検証
+<span class="nc" id="L95">            int maxLevel = configManager.getJobMaxLevel(jobName);</span>
+<span class="nc bnc" id="L96" title="All 4 branches missed.">            if (maxLevel &lt;= 0 || maxLevel &gt; 100) {</span>
+<span class="nc" id="L97">                addError(&quot;jobs.job_settings.&quot; + jobName + &quot;.max_level&quot;, </span>
+                        &quot;最大レベルは1-100の範囲である必要があります&quot;, &quot;75&quot;);
+<span class="nc" id="L99">                isValid = false;</span>
+            }
+            
+            // 収入倍率の検証
+<span class="nc" id="L103">            double incomeMultiplier = configManager.getJobIncomeMultiplier(jobName);</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            if (incomeMultiplier &lt;= 0) {</span>
+<span class="nc" id="L105">                addError(&quot;jobs.job_settings.&quot; + jobName + &quot;.base_income_multiplier&quot;, </span>
+                        &quot;収入倍率は0より大きい必要があります&quot;, &quot;1.0&quot;);
+<span class="nc" id="L107">                isValid = false;</span>
+            }
+            
+            // 経験値倍率の検証
+<span class="nc" id="L111">            double expMultiplier = configManager.getJobExpMultiplier(jobName);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            if (expMultiplier &lt;= 0) {</span>
+<span class="nc" id="L113">                addError(&quot;jobs.job_settings.&quot; + jobName + &quot;.exp_multiplier&quot;, </span>
+                        &quot;経験値倍率は0より大きい必要があります&quot;, &quot;1.0&quot;);
+<span class="nc" id="L115">                isValid = false;</span>
+            }
+        }
+        
+<span class="nc" id="L119">        return isValid;</span>
+    }
+    
+    /**
+     * 職業別スキル設定の検証
+     */
+    private boolean validateJobSkillSettings() {
+<span class="nc" id="L126">        boolean isValid = true;</span>
+        
+<span class="nc" id="L128">        String[] jobNames = {&quot;miner&quot;, &quot;woodcutter&quot;, &quot;farmer&quot;, &quot;fisherman&quot;, </span>
+                           &quot;blacksmith&quot;, &quot;alchemist&quot;, &quot;enchanter&quot;, &quot;architect&quot;};
+        
+        // 職業別スキル名の定義
+<span class="nc" id="L132">        String[][] skillNames = {</span>
+            {&quot;fortune_strike&quot;, &quot;vein_discovery&quot;, &quot;mining_mastery&quot;}, // miner
+            {&quot;tree_feller&quot;, &quot;sapling_blessing&quot;, &quot;forest_guardian&quot;}, // woodcutter
+            {&quot;harvest_blessing&quot;, &quot;twin_miracle&quot;, &quot;growth_acceleration&quot;, &quot;selective_breeding&quot;}, // farmer
+            {&quot;big_catch&quot;, &quot;treasure_hunter&quot;, &quot;sea_blessing&quot;}, // fisherman
+            {&quot;perfect_repair&quot;, &quot;master_craftsmanship&quot;, &quot;artifact_creation&quot;}, // blacksmith
+            {&quot;ingredient_conservation&quot;, &quot;double_brewing&quot;, &quot;alchemy_mastery&quot;}, // alchemist
+            {&quot;experience_conservation&quot;, &quot;bonus_enchantment&quot;, &quot;mystical_arts&quot;}, // enchanter
+            {&quot;material_efficiency&quot;, &quot;architectural_aesthetics&quot;, &quot;master_architect&quot;} // architect
+        };
+        
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        for (int i = 0; i &lt; jobNames.length; i++) {</span>
+<span class="nc" id="L144">            String jobName = jobNames[i];</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            for (String skillName : skillNames[i]) {</span>
+<span class="nc" id="L146">                String skillPath = &quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName;</span>
+                
+                // 基本発動確率の検証
+<span class="nc" id="L149">                double baseProbability = configManager.getJobSkillBaseProbability(jobName, skillName);</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">                if (!configManager.isValidProbability(baseProbability)) {</span>
+<span class="nc" id="L151">                    addError(skillPath + &quot;.base_probability&quot;, </span>
+                            &quot;基本発動確率は0.0-1.0の範囲である必要があります&quot;, &quot;0.05&quot;);
+<span class="nc" id="L153">                    isValid = false;</span>
+                }
+                
+                // レベルボーナスの検証
+<span class="nc" id="L157">                double levelBonus = configManager.getJobSkillLevelBonus(jobName, skillName);</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">                if (levelBonus &lt; 0) {</span>
+<span class="nc" id="L159">                    addError(skillPath + &quot;.level_bonus&quot;, </span>
+                            &quot;レベルボーナスは0以上である必要があります&quot;, &quot;0.002&quot;);
+<span class="nc" id="L161">                    isValid = false;</span>
+                }
+                
+                // 最大発動確率の検証
+<span class="nc" id="L165">                double maxProbability = configManager.getJobSkillMaxProbability(jobName, skillName);</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">                if (!configManager.isValidProbability(maxProbability)) {</span>
+<span class="nc" id="L167">                    addError(skillPath + &quot;.max_probability&quot;, </span>
+                            &quot;最大発動確率は0.0-1.0の範囲である必要があります&quot;, &quot;0.25&quot;);
+<span class="nc" id="L169">                    isValid = false;</span>
+                }
+                
+                // クールダウンの検証
+<span class="nc" id="L173">                int cooldown = configManager.getJobSkillCooldown(jobName, skillName);</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">                if (cooldown &lt; 0) {</span>
+<span class="nc" id="L175">                    addError(skillPath + &quot;.cooldown_seconds&quot;, </span>
+                            &quot;クールダウンは0以上である必要があります&quot;, &quot;0&quot;);
+<span class="nc" id="L177">                    isValid = false;</span>
+                }
+            }
+        }
+        
+<span class="nc" id="L182">        return isValid;</span>
+    }
+    
+    /**
+     * レベリング設定の検証
+     */
+    private boolean validateLevelingSettings() {
+<span class="nc" id="L189">        boolean isValid = true;</span>
+        
+        // 基本経験値倍率の検証
+<span class="nc" id="L192">        int baseMultiplier = configManager.getExperienceBaseMultiplier();</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (baseMultiplier &lt;= 0) {</span>
+<span class="nc" id="L194">            addError(&quot;leveling.experience.base_multiplier&quot;, </span>
+                    &quot;基本経験値倍率は0より大きい必要があります&quot;, &quot;100&quot;);
+<span class="nc" id="L196">            isValid = false;</span>
+        }
+        
+        // 経験値計算指数の検証
+<span class="nc" id="L200">        double exponent = configManager.getExperienceExponent();</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if (exponent &lt;= 0) {</span>
+<span class="nc" id="L202">            addError(&quot;leveling.experience.exponent&quot;, </span>
+                    &quot;経験値計算指数は0より大きい必要があります&quot;, &quot;2.0&quot;);
+<span class="nc" id="L204">            isValid = false;</span>
+        }
+        
+        // レベル報酬の検証
+<span class="nc" id="L208">        double baseAmount = configManager.getLevelRewardBaseAmount();</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">        if (baseAmount &lt; 0) {</span>
+<span class="nc" id="L210">            addError(&quot;leveling.rewards.base_rewards.money.base_amount&quot;, </span>
+                    &quot;基本報酬額は0以上である必要があります&quot;, &quot;50.0&quot;);
+<span class="nc" id="L212">            isValid = false;</span>
+        }
+        
+<span class="nc" id="L215">        double maxAmount = configManager.getLevelRewardMaxAmount();</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        if (maxAmount &lt; baseAmount) {</span>
+<span class="nc" id="L217">            addError(&quot;leveling.rewards.base_rewards.money.max_amount&quot;, </span>
+                    &quot;最大報酬額は基本報酬額以上である必要があります&quot;, &quot;500.0&quot;);
+<span class="nc" id="L219">            isValid = false;</span>
+        }
+        
+<span class="nc" id="L222">        return isValid;</span>
+    }
+    
+    /**
+     * イベント報酬設定の検証
+     */
+    private boolean validateEventRewardSettings() {
+<span class="nc" id="L229">        boolean isValid = true;</span>
+        
+        // 全体倍率の検証
+<span class="nc" id="L232">        double expMultiplier = configManager.getGlobalExperienceMultiplier();</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        if (expMultiplier &lt;= 0) {</span>
+<span class="nc" id="L234">            addError(&quot;event_rewards.global_multipliers.experience_multiplier&quot;, </span>
+                    &quot;経験値倍率は0より大きい必要があります&quot;, &quot;1.0&quot;);
+<span class="nc" id="L236">            isValid = false;</span>
+        }
+        
+<span class="nc" id="L239">        double incomeMultiplier = configManager.getGlobalIncomeMultiplier();</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">        if (incomeMultiplier &lt;= 0) {</span>
+<span class="nc" id="L241">            addError(&quot;event_rewards.global_multipliers.income_multiplier&quot;, </span>
+                    &quot;収入倍率は0より大きい必要があります&quot;, &quot;1.0&quot;);
+<span class="nc" id="L243">            isValid = false;</span>
+        }
+        
+        // 時間帯ボーナスの検証
+<span class="nc" id="L247">        String[] timeTypes = {&quot;morning&quot;, &quot;day&quot;, &quot;evening&quot;, &quot;night&quot;};</span>
+<span class="nc" id="L248">        String[] bonusTypes = {&quot;experience_bonus&quot;, &quot;income_bonus&quot;};</span>
+        
+<span class="nc bnc" id="L250" title="All 2 branches missed.">        for (String timeType : timeTypes) {</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">            for (String bonusType : bonusTypes) {</span>
+<span class="nc" id="L252">                double bonus = configManager.getTimeBonus(timeType, bonusType);</span>
+<span class="nc bnc" id="L253" title="All 4 branches missed.">                if (bonus &lt; 0 || bonus &gt; 1) {</span>
+<span class="nc" id="L254">                    addError(&quot;event_rewards.global_multipliers.time_bonuses.&quot; + timeType + &quot;.&quot; + bonusType, </span>
+                            &quot;時間帯ボーナスは0-1の範囲である必要があります&quot;, &quot;0.0&quot;);
+<span class="nc" id="L256">                    isValid = false;</span>
+                }
+            }
+        }
+        
+<span class="nc" id="L261">        return isValid;</span>
+    }
+    
+    /**
+     * パフォーマンス設定の検証
+     */
+    private boolean validatePerformanceSettings() {
+<span class="nc" id="L268">        boolean isValid = true;</span>
+        
+        // コネクションプール設定の検証
+<span class="nc" id="L271">        int maxPoolSize = configManager.getMaximumPoolSize();</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">        if (maxPoolSize &lt;= 0) {</span>
+<span class="nc" id="L273">            addError(&quot;performance.database.connection_pool.maximum_pool_size&quot;, </span>
+                    &quot;最大プールサイズは0より大きい必要があります&quot;, &quot;15&quot;);
+<span class="nc" id="L275">            isValid = false;</span>
+        }
+        
+<span class="nc" id="L278">        int minIdle = configManager.getMinimumIdle();</span>
+<span class="nc bnc" id="L279" title="All 4 branches missed.">        if (minIdle &lt; 0 || minIdle &gt; maxPoolSize) {</span>
+<span class="nc" id="L280">            addError(&quot;performance.database.connection_pool.minimum_idle&quot;, </span>
+                    &quot;最小アイドル数は0以上かつ最大プールサイズ以下である必要があります&quot;, &quot;3&quot;);
+<span class="nc" id="L282">            isValid = false;</span>
+        }
+        
+        // キャッシュ設定の検証
+<span class="nc" id="L286">        int playerCacheSize = configManager.getPlayerCacheMaxSize();</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">        if (playerCacheSize &lt;= 0) {</span>
+<span class="nc" id="L288">            addError(&quot;performance.caching.player_cache.max_size&quot;, </span>
+                    &quot;プレイヤーキャッシュサイズは0より大きい必要があります&quot;, &quot;1000&quot;);
+<span class="nc" id="L290">            isValid = false;</span>
+        }
+        
+        // バッチサイズの検証
+<span class="nc" id="L294">        int batchSize = configManager.getBatchSize();</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">        if (batchSize &lt;= 0) {</span>
+<span class="nc" id="L296">            addError(&quot;performance.database.batch_processing.batch_size&quot;, </span>
+                    &quot;バッチサイズは0より大きい必要があります&quot;, &quot;100&quot;);
+<span class="nc" id="L298">            isValid = false;</span>
+        }
+        
+        // メモリ監視閾値の検証
+<span class="nc" id="L302">        double memoryThreshold = configManager.getMemoryWarningThreshold();</span>
+<span class="nc bnc" id="L303" title="All 4 branches missed.">        if (memoryThreshold &lt;= 0 || memoryThreshold &gt;= 1) {</span>
+<span class="nc" id="L304">            addError(&quot;performance.memory_management.memory_monitoring.warning_threshold&quot;, </span>
+                    &quot;メモリ警告閾値は0より大きく1より小さい必要があります&quot;, &quot;0.8&quot;);
+<span class="nc" id="L306">            isValid = false;</span>
+        }
+        
+        // TPS閾値の検証
+<span class="nc" id="L310">        double tpsThreshold = configManager.getTpsWarningThreshold();</span>
+<span class="nc bnc" id="L311" title="All 4 branches missed.">        if (tpsThreshold &lt;= 0 || tpsThreshold &gt; 20) {</span>
+<span class="nc" id="L312">            addError(&quot;performance.monitoring.realtime_monitoring.tps_threshold&quot;, </span>
+                    &quot;TPS警告閾値は0より大きく20以下である必要があります&quot;, &quot;18.0&quot;);
+<span class="nc" id="L314">            isValid = false;</span>
+        }
+        
+<span class="nc" id="L317">        return isValid;</span>
+    }
+    
+    /**
+     * エラーを追加
+     */
+    private void addError(String configPath, String message, String suggestedValue) {
+<span class="nc" id="L324">        validationErrors.add(new ValidationError(configPath, message, suggestedValue));</span>
+<span class="nc" id="L325">    }</span>
+    
+    /**
+     * 検証エラーレポートを出力
+     */
+    private void reportValidationErrors() {
+<span class="nc bnc" id="L331" title="All 2 branches missed.">        if (validationErrors.isEmpty()) {</span>
+<span class="nc" id="L332">            plugin.getLogger().info(&quot;設定ファイルの検証が完了しました。エラーはありませんでした。&quot;);</span>
+<span class="nc" id="L333">            return;</span>
+        }
+        
+<span class="nc" id="L336">        plugin.getLogger().warning(&quot;設定ファイルに &quot; + validationErrors.size() + &quot; 個の問題が見つかりました:&quot;);</span>
+        
+<span class="nc bnc" id="L338" title="All 2 branches missed.">        for (ValidationError error : validationErrors) {</span>
+<span class="nc" id="L339">            plugin.getLogger().log(Level.WARNING, String.format(</span>
+                &quot;設定項目: %s | エラー: %s | 推奨値: %s&quot;,
+<span class="nc" id="L341">                error.getConfigPath(),</span>
+<span class="nc" id="L342">                error.getMessage(),</span>
+<span class="nc" id="L343">                error.getSuggestedValue()</span>
+            ));
+<span class="nc" id="L345">        }</span>
+        
+<span class="nc" id="L347">        plugin.getLogger().warning(&quot;上記の設定を修正してサーバーを再起動することを推奨します。&quot;);</span>
+<span class="nc" id="L348">    }</span>
+    
+    /**
+     * 特定の設定パスの値をデフォルト値で修正
+     */
+    public void fixConfigValue(String configPath, Object defaultValue) {
+<span class="nc" id="L354">        plugin.getConfig().set(configPath, defaultValue);</span>
+<span class="nc" id="L355">        plugin.saveConfig();</span>
+<span class="nc" id="L356">        configManager.reloadConfig();</span>
+        
+<span class="nc" id="L358">        plugin.getLogger().info(&quot;設定項目 '&quot; + configPath + &quot;' をデフォルト値 '&quot; + defaultValue + &quot;' で修正しました。&quot;);</span>
+<span class="nc" id="L359">    }</span>
+    
+    /**
+     * 全ての検証エラーを自動修正
+     */
+    public void autoFixAllErrors() {
+<span class="nc bnc" id="L365" title="All 2 branches missed.">        if (validationErrors.isEmpty()) {</span>
+<span class="nc" id="L366">            plugin.getLogger().info(&quot;修正すべきエラーはありません。&quot;);</span>
+<span class="nc" id="L367">            return;</span>
+        }
+        
+<span class="nc" id="L370">        int fixedCount = 0;</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">        for (ValidationError error : validationErrors) {</span>
+            try {
+                // 推奨値の型を判定して適切な型で設定
+<span class="nc" id="L374">                String suggestedValue = error.getSuggestedValue();</span>
+<span class="nc" id="L375">                Object value = parseValue(suggestedValue);</span>
+                
+<span class="nc" id="L377">                fixConfigValue(error.getConfigPath(), value);</span>
+<span class="nc" id="L378">                fixedCount++;</span>
+<span class="nc" id="L379">            } catch (Exception e) {</span>
+<span class="nc" id="L380">                plugin.getLogger().log(Level.WARNING, </span>
+<span class="nc" id="L381">                    &quot;設定項目 '&quot; + error.getConfigPath() + &quot;' の自動修正に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L382">            }</span>
+<span class="nc" id="L383">        }</span>
+        
+<span class="nc" id="L385">        plugin.getLogger().info(fixedCount + &quot; 個の設定項目を自動修正しました。&quot;);</span>
+        
+        // 修正後に再検証
+<span class="nc" id="L388">        validationErrors.clear();</span>
+<span class="nc" id="L389">        validateConfiguration();</span>
+<span class="nc" id="L390">    }</span>
+    
+    /**
+     * 文字列値を適切な型に変換
+     */
+    private Object parseValue(String value) {
+        // Boolean型の判定
+<span class="nc bnc" id="L397" title="All 4 branches missed.">        if (&quot;true&quot;.equalsIgnoreCase(value) || &quot;false&quot;.equalsIgnoreCase(value)) {</span>
+<span class="nc" id="L398">            return Boolean.parseBoolean(value);</span>
+        }
+        
+        // Integer型の判定
+        try {
+<span class="nc bnc" id="L403" title="All 2 branches missed.">            if (!value.contains(&quot;.&quot;)) {</span>
+<span class="nc" id="L404">                return Integer.parseInt(value);</span>
+            }
+<span class="nc" id="L406">        } catch (NumberFormatException ignored) {}</span>
+        
+        // Double型の判定
+        try {
+<span class="nc" id="L410">            return Double.parseDouble(value);</span>
+<span class="nc" id="L411">        } catch (NumberFormatException ignored) {}</span>
+        
+        // 文字列として返す
+<span class="nc" id="L414">        return value;</span>
+    }
+    
+    /**
+     * 検証エラー情報クラス
+     */
+    public static class ValidationError {
+        private final String configPath;
+        private final String message;
+        private final String suggestedValue;
+        
+<span class="nc" id="L425">        public ValidationError(String configPath, String message, String suggestedValue) {</span>
+<span class="nc" id="L426">            this.configPath = configPath;</span>
+<span class="nc" id="L427">            this.message = message;</span>
+<span class="nc" id="L428">            this.suggestedValue = suggestedValue;</span>
+<span class="nc" id="L429">        }</span>
+        
+<span class="nc" id="L431">        public String getConfigPath() { return configPath; }</span>
+<span class="nc" id="L432">        public String getMessage() { return message; }</span>
+<span class="nc" id="L433">        public String getSuggestedValue() { return suggestedValue; }</span>
+    }
+    
+    /**
+     * 検証エラー一覧を取得
+     */
+    public List&lt;ValidationError&gt; getValidationErrors() {
+<span class="nc" id="L440">        return new ArrayList&lt;&gt;(validationErrors);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

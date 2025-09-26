@@ -1,0 +1,736 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HikariDatabaseManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.database</a> &gt; <span class="el_source">HikariDatabaseManager.java</span></div><h1>HikariDatabaseManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.database;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.tofu.tofunomics.config.ConfigManager;
+
+import java.io.File;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * HikariCP を使用した高性能データベース管理システム
+ * コネクションプールによる最適化とパフォーマンス監視機能
+ */
+public class HikariDatabaseManager {
+    
+    private final JavaPlugin plugin;
+    private final ConfigManager configManager;
+    private final Logger logger;
+    
+    private HikariDataSource dataSource;
+<span class="nc" id="L29">    private boolean isInitialized = false;</span>
+    
+    // パフォーマンス統計
+<span class="nc" id="L32">    private final AtomicInteger activeConnections = new AtomicInteger(0);</span>
+<span class="nc" id="L33">    private final AtomicInteger totalConnections = new AtomicInteger(0);</span>
+<span class="nc" id="L34">    private final AtomicLong totalQueries = new AtomicLong(0);</span>
+<span class="nc" id="L35">    private final AtomicLong failedQueries = new AtomicLong(0);</span>
+<span class="nc" id="L36">    private final AtomicLong totalQueryTime = new AtomicLong(0);</span>
+    
+<span class="nc" id="L38">    public HikariDatabaseManager(JavaPlugin plugin, ConfigManager configManager) {</span>
+<span class="nc" id="L39">        this.plugin = plugin;</span>
+<span class="nc" id="L40">        this.configManager = configManager;</span>
+<span class="nc" id="L41">        this.logger = plugin.getLogger();</span>
+<span class="nc" id="L42">    }</span>
+    
+    /**
+     * データベース接続とテーブルの初期化
+     */
+    public boolean initialize() {
+        try {
+            // データフォルダの作成
+<span class="nc bnc" id="L50" title="All 2 branches missed.">            if (!plugin.getDataFolder().exists()) {</span>
+<span class="nc" id="L51">                plugin.getDataFolder().mkdirs();</span>
+            }
+            
+            // データベースファイルパスの決定
+<span class="nc" id="L55">            File databaseFile = new File(plugin.getDataFolder(), configManager.getDatabaseFilename());</span>
+<span class="nc" id="L56">            String jdbcUrl = &quot;jdbc:sqlite:&quot; + databaseFile.getAbsolutePath();</span>
+            
+            // HikariCP設定
+<span class="nc" id="L59">            setupHikariConfig(jdbcUrl);</span>
+            
+            // テーブル作成
+<span class="nc" id="L62">            createTables();</span>
+            
+            // デフォルトデータの挿入
+<span class="nc" id="L65">            insertDefaultData();</span>
+            
+<span class="nc" id="L67">            isInitialized = true;</span>
+<span class="nc" id="L68">            logger.info(&quot;HikariCP データベース接続を初期化しました。&quot;);</span>
+<span class="nc" id="L69">            logger.info(&quot;データベースファイル: &quot; + databaseFile.getAbsolutePath());</span>
+<span class="nc" id="L70">            logger.info(&quot;コネクションプール設定: 最大&quot; + dataSource.getMaximumPoolSize() + </span>
+<span class="nc" id="L71">                       &quot;接続, 最小アイドル&quot; + dataSource.getMinimumIdle() + &quot;接続&quot;);</span>
+            
+<span class="nc" id="L73">            return true;</span>
+            
+<span class="nc" id="L75">        } catch (Exception e) {</span>
+<span class="nc" id="L76">            logger.log(Level.SEVERE, &quot;データベース初期化に失敗しました&quot;, e);</span>
+<span class="nc" id="L77">            return false;</span>
+        }
+    }
+    
+    /**
+     * HikariCP設定のセットアップ
+     */
+    private void setupHikariConfig(String jdbcUrl) {
+<span class="nc" id="L85">        HikariConfig config = new HikariConfig();</span>
+        
+        // 基本設定
+<span class="nc" id="L88">        config.setJdbcUrl(jdbcUrl);</span>
+<span class="nc" id="L89">        config.setDriverClassName(&quot;org.sqlite.JDBC&quot;);</span>
+        
+        // コネクションプール設定
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (configManager.isConnectionPoolEnabled()) {</span>
+<span class="nc" id="L93">            config.setMaximumPoolSize(configManager.getMaximumPoolSize());</span>
+<span class="nc" id="L94">            config.setMinimumIdle(configManager.getMinimumIdle());</span>
+<span class="nc" id="L95">            config.setConnectionTimeout(configManager.getConnectionTimeout());</span>
+<span class="nc" id="L96">            config.setIdleTimeout(600000); // 10分</span>
+<span class="nc" id="L97">            config.setMaxLifetime(1800000); // 30分</span>
+<span class="nc" id="L98">            config.setLeakDetectionThreshold(60000); // 1分</span>
+        } else {
+            // 基本設定（非プール使用時）
+<span class="nc" id="L101">            config.setMaximumPoolSize(5);</span>
+<span class="nc" id="L102">            config.setMinimumIdle(1);</span>
+<span class="nc" id="L103">            config.setConnectionTimeout(30000);</span>
+        }
+        
+        // SQLite固有の設定
+<span class="nc" id="L107">        config.addDataSourceProperty(&quot;cachePrepStmts&quot;, &quot;true&quot;);</span>
+<span class="nc" id="L108">        config.addDataSourceProperty(&quot;prepStmtCacheSize&quot;, &quot;250&quot;);</span>
+<span class="nc" id="L109">        config.addDataSourceProperty(&quot;prepStmtCacheSqlLimit&quot;, &quot;2048&quot;);</span>
+<span class="nc" id="L110">        config.addDataSourceProperty(&quot;useServerPrepStmts&quot;, &quot;true&quot;);</span>
+        
+        // 接続プール名
+<span class="nc" id="L113">        config.setPoolName(&quot;TofuNomics-HikariCP&quot;);</span>
+        
+        // データソースの作成
+<span class="nc" id="L116">        dataSource = new HikariDataSource(config);</span>
+        
+<span class="nc" id="L118">        logger.info(&quot;HikariCP設定を完了しました。&quot;);</span>
+<span class="nc" id="L119">    }</span>
+    
+    /**
+     * データベーステーブルの作成
+     */
+    private void createTables() throws SQLException {
+<span class="nc" id="L125">        try (Connection conn = getConnection()) {</span>
+            // プレイヤーテーブル
+<span class="nc" id="L127">            String createPlayersTable = &quot;CREATE TABLE IF NOT EXISTS players (&quot; +</span>
+                &quot;uuid TEXT PRIMARY KEY,&quot; +
+                &quot;balance REAL DEFAULT 100.0,&quot; +
+                &quot;created_at DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;updated_at DATETIME DEFAULT CURRENT_TIMESTAMP&quot; +
+                &quot;)&quot;;
+            
+            // 職業テーブル
+<span class="nc" id="L135">            String createJobsTable = &quot;CREATE TABLE IF NOT EXISTS jobs (&quot; +</span>
+                &quot;job_id TEXT PRIMARY KEY,&quot; +
+                &quot;job_name TEXT NOT NULL,&quot; +
+                &quot;max_level INTEGER DEFAULT 75,&quot; +
+                &quot;base_income REAL DEFAULT 1.0,&quot; +
+                &quot;description TEXT&quot; +
+                &quot;)&quot;;
+            
+            // プレイヤー職業テーブル
+<span class="nc" id="L144">            String createPlayerJobsTable = &quot;CREATE TABLE IF NOT EXISTS player_jobs (&quot; +</span>
+                &quot;id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+                &quot;uuid TEXT NOT NULL,&quot; +
+                &quot;job_id TEXT NOT NULL,&quot; +
+                &quot;level INTEGER DEFAULT 1,&quot; +
+                &quot;experience REAL DEFAULT 0.0,&quot; +
+                &quot;is_active BOOLEAN DEFAULT 1,&quot; +
+                &quot;joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;last_used DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;FOREIGN KEY (uuid) REFERENCES players(uuid),&quot; +
+                &quot;FOREIGN KEY (job_id) REFERENCES jobs(job_id)&quot; +
+                &quot;)&quot;;
+            
+            // 職業スキルテーブル
+<span class="nc" id="L158">            String createJobSkillsTable = &quot;CREATE TABLE IF NOT EXISTS job_skills (&quot; +</span>
+                &quot;skill_id TEXT PRIMARY KEY,&quot; +
+                &quot;job_id TEXT NOT NULL,&quot; +
+                &quot;skill_name TEXT NOT NULL,&quot; +
+                &quot;unlock_level INTEGER DEFAULT 1,&quot; +
+                &quot;skill_type TEXT NOT NULL,&quot; +
+                &quot;effect_description TEXT,&quot; +
+                &quot;FOREIGN KEY (job_id) REFERENCES jobs(job_id)&quot; +
+                &quot;)&quot;;
+            
+            // プレイヤースキルテーブル
+<span class="nc" id="L169">            String createPlayerSkillsTable = &quot;CREATE TABLE IF NOT EXISTS player_skills (&quot; +</span>
+                &quot;id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+                &quot;uuid TEXT NOT NULL,&quot; +
+                &quot;skill_id TEXT NOT NULL,&quot; +
+                &quot;acquired_at DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;skill_level INTEGER DEFAULT 1,&quot; +
+                &quot;usage_count INTEGER DEFAULT 0,&quot; +
+                &quot;last_used DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;FOREIGN KEY (uuid) REFERENCES players(uuid),&quot; +
+                &quot;FOREIGN KEY (skill_id) REFERENCES job_skills(skill_id)&quot; +
+                &quot;)&quot;;
+            
+            // 土地所有テーブル
+<span class="nc" id="L182">            String createLandOwnershipTable = &quot;CREATE TABLE IF NOT EXISTS land_ownership (&quot; +</span>
+                &quot;land_id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+                &quot;owner_uuid TEXT NOT NULL,&quot; +
+                &quot;world_name TEXT NOT NULL,&quot; +
+                &quot;x INTEGER NOT NULL,&quot; +
+                &quot;z INTEGER NOT NULL,&quot; +
+                &quot;size INTEGER DEFAULT 16,&quot; +
+                &quot;purchase_price REAL NOT NULL,&quot; +
+                &quot;purchased_at DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;FOREIGN KEY (owner_uuid) REFERENCES players(uuid)&quot; +
+                &quot;)&quot;;
+            
+            // 取引チェストテーブル（フェーズ4）
+<span class="nc" id="L195">            String createTradeChestsTable = &quot;CREATE TABLE IF NOT EXISTS trade_chests (&quot; +</span>
+                &quot;id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+                &quot;owner_uuid TEXT NOT NULL,&quot; +
+                &quot;job_type TEXT NOT NULL,&quot; +
+                &quot;world_name TEXT NOT NULL,&quot; +
+                &quot;x INTEGER NOT NULL,&quot; +
+                &quot;y INTEGER NOT NULL,&quot; +
+                &quot;z INTEGER NOT NULL,&quot; +
+                &quot;created_at DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;last_used DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;FOREIGN KEY (owner_uuid) REFERENCES players(uuid)&quot; +
+                &quot;)&quot;;
+            
+            // プレイヤー取引履歴テーブル（フェーズ4）
+<span class="nc" id="L209">            String createPlayerTradeHistoryTable = &quot;CREATE TABLE IF NOT EXISTS player_trade_history (&quot; +</span>
+                &quot;id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+                &quot;player_uuid TEXT NOT NULL,&quot; +
+                &quot;item_type TEXT NOT NULL,&quot; +
+                &quot;quantity INTEGER NOT NULL,&quot; +
+                &quot;unit_price REAL NOT NULL,&quot; +
+                &quot;total_amount REAL NOT NULL,&quot; +
+                &quot;job_type TEXT NOT NULL,&quot; +
+                &quot;job_level INTEGER NOT NULL,&quot; +
+                &quot;price_bonus REAL DEFAULT 0.0,&quot; +
+                &quot;trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,&quot; +
+                &quot;FOREIGN KEY (player_uuid) REFERENCES players(uuid)&quot; +
+                &quot;)&quot;;
+            
+            // パフォーマンス統計テーブル（フェーズ6）
+<span class="nc" id="L224">            String createPerformanceStatsTable = &quot;CREATE TABLE IF NOT EXISTS performance_stats (&quot; +</span>
+                &quot;id INTEGER PRIMARY KEY AUTOINCREMENT,&quot; +
+                &quot;stat_type TEXT NOT NULL,&quot; +
+                &quot;stat_value REAL NOT NULL,&quot; +
+                &quot;recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP&quot; +
+                &quot;)&quot;;
+            
+            // インデックスの作成
+<span class="nc" id="L232">            String[] indexes = {</span>
+                &quot;CREATE INDEX IF NOT EXISTS idx_player_jobs_uuid ON player_jobs(uuid)&quot;,
+                &quot;CREATE INDEX IF NOT EXISTS idx_player_jobs_job_id ON player_jobs(job_id)&quot;,
+                &quot;CREATE INDEX IF NOT EXISTS idx_player_skills_uuid ON player_skills(uuid)&quot;,
+                &quot;CREATE INDEX IF NOT EXISTS idx_trade_chests_location ON trade_chests(world_name, x, y, z)&quot;,
+                &quot;CREATE INDEX IF NOT EXISTS idx_trade_history_player ON player_trade_history(player_uuid)&quot;,
+                &quot;CREATE INDEX IF NOT EXISTS idx_trade_history_date ON player_trade_history(trade_date)&quot;,
+                &quot;CREATE INDEX IF NOT EXISTS idx_performance_stats_type ON performance_stats(stat_type, recorded_at)&quot;
+            };
+            
+            // テーブル作成実行
+<span class="nc" id="L243">            try (Statement stmt = conn.createStatement()) {</span>
+<span class="nc" id="L244">                stmt.execute(createPlayersTable);</span>
+<span class="nc" id="L245">                stmt.execute(createJobsTable);</span>
+<span class="nc" id="L246">                stmt.execute(createPlayerJobsTable);</span>
+<span class="nc" id="L247">                stmt.execute(createJobSkillsTable);</span>
+<span class="nc" id="L248">                stmt.execute(createPlayerSkillsTable);</span>
+<span class="nc" id="L249">                stmt.execute(createLandOwnershipTable);</span>
+<span class="nc" id="L250">                stmt.execute(createTradeChestsTable);</span>
+<span class="nc" id="L251">                stmt.execute(createPlayerTradeHistoryTable);</span>
+<span class="nc" id="L252">                stmt.execute(createPerformanceStatsTable);</span>
+                
+                // インデックス作成
+<span class="nc bnc" id="L255" title="All 2 branches missed.">                for (String indexSql : indexes) {</span>
+<span class="nc" id="L256">                    stmt.execute(indexSql);</span>
+                }
+                
+<span class="nc" id="L259">                logger.info(&quot;データベーステーブルとインデックスを作成しました。&quot;);</span>
+            }
+        }
+<span class="nc" id="L262">    }</span>
+    
+    /**
+     * デフォルトデータの挿入
+     */
+    private void insertDefaultData() throws SQLException {
+<span class="nc" id="L268">        insertDefaultJobs();</span>
+<span class="nc" id="L269">        insertDefaultJobSkills();</span>
+<span class="nc" id="L270">    }</span>
+    
+    /**
+     * デフォルト職業データの挿入
+     */
+    private void insertDefaultJobs() throws SQLException {
+<span class="nc" id="L276">        String insertJobQuery = &quot;INSERT OR IGNORE INTO jobs (job_id, job_name, max_level, base_income, description) &quot; +</span>
+            &quot;VALUES (?, ?, ?, ?, ?)&quot;;
+        
+<span class="nc" id="L279">        Object[][] jobData = {</span>
+<span class="nc" id="L280">            {&quot;miner&quot;, &quot;鉱夫&quot;, 75, 1.0, &quot;鉱物資源と石材の供給を担当&quot;},</span>
+<span class="nc" id="L281">            {&quot;woodcutter&quot;, &quot;木こり&quot;, 75, 1.0, &quot;木材の供給を担当&quot;},</span>
+<span class="nc" id="L282">            {&quot;farmer&quot;, &quot;農家&quot;, 75, 1.0, &quot;農作物・畜産物の供給を担当&quot;},</span>
+<span class="nc" id="L283">            {&quot;fisherman&quot;, &quot;釣り人&quot;, 75, 1.0, &quot;魚と宝の供給を担当&quot;},</span>
+<span class="nc" id="L284">            {&quot;blacksmith&quot;, &quot;鍛冶屋&quot;, 75, 1.0, &quot;ツール、武器、防具の生産と修理を担当&quot;},</span>
+<span class="nc" id="L285">            {&quot;alchemist&quot;, &quot;ポーション屋&quot;, 75, 1.0, &quot;ポーションの生産を担当&quot;},</span>
+<span class="nc" id="L286">            {&quot;enchanter&quot;, &quot;エンチャンター&quot;, 75, 1.0, &quot;エンチャントサービスを担当&quot;},</span>
+<span class="nc" id="L287">            {&quot;architect&quot;, &quot;建築家&quot;, 75, 1.0, &quot;建築と装飾を担当&quot;}</span>
+        };
+        
+<span class="nc" id="L290">        try (Connection conn = getConnection();</span>
+<span class="nc" id="L291">             PreparedStatement pstmt = conn.prepareStatement(insertJobQuery)) {</span>
+            
+<span class="nc bnc" id="L293" title="All 2 branches missed.">            for (Object[] job : jobData) {</span>
+<span class="nc" id="L294">                pstmt.setString(1, (String) job[0]);</span>
+<span class="nc" id="L295">                pstmt.setString(2, (String) job[1]);</span>
+<span class="nc" id="L296">                pstmt.setInt(3, (Integer) job[2]);</span>
+<span class="nc" id="L297">                pstmt.setDouble(4, (Double) job[3]);</span>
+<span class="nc" id="L298">                pstmt.setString(5, (String) job[4]);</span>
+<span class="nc" id="L299">                pstmt.executeUpdate();</span>
+            }
+            
+<span class="nc" id="L302">            logger.info(&quot;デフォルト職業データを挿入しました。&quot;);</span>
+        }
+<span class="nc" id="L304">    }</span>
+    
+    /**
+     * デフォルト職業スキルデータの挿入
+     */
+    private void insertDefaultJobSkills() throws SQLException {
+<span class="nc" id="L310">        String insertSkillQuery = &quot;INSERT OR IGNORE INTO job_skills (skill_id, job_id, skill_name, unlock_level, skill_type, effect_description) &quot; +</span>
+            &quot;VALUES (?, ?, ?, ?, ?, ?)&quot;;
+        
+<span class="nc" id="L313">        Object[][] skillData = {</span>
+            // 鉱夫スキル
+<span class="nc" id="L315">            {&quot;miner_fortune_strike&quot;, &quot;miner&quot;, &quot;幸運の一撃&quot;, 10, &quot;passive&quot;, &quot;追加ドロップ確率向上&quot;},</span>
+<span class="nc" id="L316">            {&quot;miner_vein_discovery&quot;, &quot;miner&quot;, &quot;鉱脈発見&quot;, 25, &quot;active&quot;, &quot;連続採掘ボーナス&quot;},</span>
+<span class="nc" id="L317">            {&quot;miner_mining_mastery&quot;, &quot;miner&quot;, &quot;採掘の極意&quot;, 50, &quot;passive&quot;, &quot;ツール耐久度節約&quot;},</span>
+            
+            // 木こりスキル
+<span class="nc" id="L320">            {&quot;woodcutter_tree_feller&quot;, &quot;woodcutter&quot;, &quot;一斉伐採&quot;, 15, &quot;active&quot;, &quot;木全体を一度に伐採&quot;},</span>
+<span class="nc" id="L321">            {&quot;woodcutter_sapling_blessing&quot;, &quot;woodcutter&quot;, &quot;苗木の恵み&quot;, 30, &quot;passive&quot;, &quot;苗木ドロップボーナス&quot;},</span>
+<span class="nc" id="L322">            {&quot;woodcutter_forest_guardian&quot;, &quot;woodcutter&quot;, &quot;森の番人&quot;, 45, &quot;passive&quot;, &quot;木材品質向上&quot;},</span>
+            
+            // 農家スキル
+<span class="nc" id="L325">            {&quot;farmer_harvest_blessing&quot;, &quot;farmer&quot;, &quot;豊穣の恵み&quot;, 10, &quot;passive&quot;, &quot;作物追加ドロップ&quot;},</span>
+<span class="nc" id="L326">            {&quot;farmer_twin_miracle&quot;, &quot;farmer&quot;, &quot;双子の奇跡&quot;, 15, &quot;passive&quot;, &quot;動物繁殖時双子確率&quot;},</span>
+<span class="nc" id="L327">            {&quot;farmer_growth_acceleration&quot;, &quot;farmer&quot;, &quot;成長促進&quot;, 30, &quot;passive&quot;, &quot;作物・動物成長加速&quot;},</span>
+<span class="nc" id="L328">            {&quot;farmer_selective_breeding&quot;, &quot;farmer&quot;, &quot;品種改良&quot;, 50, &quot;passive&quot;, &quot;高品質作物・動物&quot;},</span>
+            
+            // 漁師スキル
+<span class="nc" id="L331">            {&quot;fisherman_big_catch&quot;, &quot;fisherman&quot;, &quot;大物釣り&quot;, 20, &quot;passive&quot;, &quot;大型魚釣り確率向上&quot;},</span>
+<span class="nc" id="L332">            {&quot;fisherman_treasure_hunter&quot;, &quot;fisherman&quot;, &quot;宝探し&quot;, 35, &quot;passive&quot;, &quot;宝物釣り確率向上&quot;},</span>
+<span class="nc" id="L333">            {&quot;fisherman_sea_blessing&quot;, &quot;fisherman&quot;, &quot;海の加護&quot;, 50, &quot;passive&quot;, &quot;天候無視釣り&quot;},</span>
+            
+            // 鍛冶屋スキル
+<span class="nc" id="L336">            {&quot;blacksmith_perfect_repair&quot;, &quot;blacksmith&quot;, &quot;完璧な修理&quot;, 10, &quot;active&quot;, &quot;修理時耐久度ボーナス&quot;},</span>
+<span class="nc" id="L337">            {&quot;blacksmith_master_craftsmanship&quot;, &quot;blacksmith&quot;, &quot;名工の技&quot;, 25, &quot;passive&quot;, &quot;製作時品質向上&quot;},</span>
+<span class="nc" id="L338">            {&quot;blacksmith_artifact_creation&quot;, &quot;blacksmith&quot;, &quot;神器創造&quot;, 60, &quot;active&quot;, &quot;特別エンチャント付与&quot;},</span>
+            
+            // 錬金術師スキル
+<span class="nc" id="L341">            {&quot;alchemist_ingredient_conservation&quot;, &quot;alchemist&quot;, &quot;材料節約&quot;, 15, &quot;passive&quot;, &quot;醸造材料消費削減&quot;},</span>
+<span class="nc" id="L342">            {&quot;alchemist_double_brewing&quot;, &quot;alchemist&quot;, &quot;二重醸造&quot;, 30, &quot;passive&quot;, &quot;ポーション2個作成&quot;},</span>
+<span class="nc" id="L343">            {&quot;alchemist_alchemy_mastery&quot;, &quot;alchemist&quot;, &quot;錬金の極意&quot;, 50, &quot;passive&quot;, &quot;効果時間延長&quot;},</span>
+            
+            // 魔術師スキル
+<span class="nc" id="L346">            {&quot;enchanter_experience_conservation&quot;, &quot;enchanter&quot;, &quot;経験値節約&quot;, 10, &quot;passive&quot;, &quot;エンチャント経験値コスト削減&quot;},</span>
+<span class="nc" id="L347">            {&quot;enchanter_bonus_enchantment&quot;, &quot;enchanter&quot;, &quot;ボーナスエンチャント&quot;, 25, &quot;passive&quot;, &quot;追加エンチャント付与&quot;},</span>
+<span class="nc" id="L348">            {&quot;enchanter_mystical_arts&quot;, &quot;enchanter&quot;, &quot;魔術の神秘&quot;, 45, &quot;passive&quot;, &quot;希少エンチャント確率向上&quot;},</span>
+            
+            // 建築家スキル
+<span class="nc" id="L351">            {&quot;architect_material_efficiency&quot;, &quot;architect&quot;, &quot;材料節約&quot;, 10, &quot;passive&quot;, &quot;建築材料消費削減&quot;},</span>
+<span class="nc" id="L352">            {&quot;architect_architectural_aesthetics&quot;, &quot;architect&quot;, &quot;建築の美学&quot;, 30, &quot;passive&quot;, &quot;装飾ブロックボーナス&quot;},</span>
+<span class="nc" id="L353">            {&quot;architect_master_architect&quot;, &quot;architect&quot;, &quot;巨匠の設計&quot;, 50, &quot;passive&quot;, &quot;大規模建築ボーナス&quot;}</span>
+        };
+        
+<span class="nc" id="L356">        try (Connection conn = getConnection();</span>
+<span class="nc" id="L357">             PreparedStatement pstmt = conn.prepareStatement(insertSkillQuery)) {</span>
+            
+<span class="nc bnc" id="L359" title="All 2 branches missed.">            for (Object[] skill : skillData) {</span>
+<span class="nc" id="L360">                pstmt.setString(1, (String) skill[0]);</span>
+<span class="nc" id="L361">                pstmt.setString(2, (String) skill[1]);</span>
+<span class="nc" id="L362">                pstmt.setString(3, (String) skill[2]);</span>
+<span class="nc" id="L363">                pstmt.setInt(4, (Integer) skill[3]);</span>
+<span class="nc" id="L364">                pstmt.setString(5, (String) skill[4]);</span>
+<span class="nc" id="L365">                pstmt.setString(6, (String) skill[5]);</span>
+<span class="nc" id="L366">                pstmt.executeUpdate();</span>
+            }
+            
+<span class="nc" id="L369">            logger.info(&quot;デフォルト職業スキルデータを挿入しました。&quot;);</span>
+        }
+<span class="nc" id="L371">    }</span>
+    
+    /**
+     * データベース接続の取得（統計情報付き）
+     */
+    public Connection getConnection() throws SQLException {
+<span class="nc bnc" id="L377" title="All 4 branches missed.">        if (!isInitialized || dataSource.isClosed()) {</span>
+<span class="nc" id="L378">            throw new SQLException(&quot;データベースが初期化されていないか、既に閉じられています。&quot;);</span>
+        }
+        
+<span class="nc" id="L381">        long startTime = System.currentTimeMillis();</span>
+        
+        try {
+<span class="nc" id="L384">            Connection connection = dataSource.getConnection();</span>
+<span class="nc" id="L385">            activeConnections.incrementAndGet();</span>
+<span class="nc" id="L386">            totalConnections.incrementAndGet();</span>
+            
+<span class="nc" id="L388">            long queryTime = System.currentTimeMillis() - startTime;</span>
+<span class="nc" id="L389">            totalQueryTime.addAndGet(queryTime);</span>
+<span class="nc" id="L390">            totalQueries.incrementAndGet();</span>
+            
+<span class="nc" id="L392">            return new ConnectionWrapper(connection, this);</span>
+            
+<span class="nc" id="L394">        } catch (SQLException e) {</span>
+<span class="nc" id="L395">            failedQueries.incrementAndGet();</span>
+<span class="nc" id="L396">            throw e;</span>
+        }
+    }
+    
+    /**
+     * 接続がクローズされた際に呼び出される内部メソッド
+     */
+    void onConnectionClosed() {
+<span class="nc" id="L404">        activeConnections.decrementAndGet();</span>
+<span class="nc" id="L405">    }</span>
+    
+    /**
+     * データベース統計情報の取得
+     */
+    public DatabaseStatistics getStatistics() {
+<span class="nc" id="L411">        return new DatabaseStatistics(</span>
+<span class="nc" id="L412">            activeConnections.get(),</span>
+<span class="nc" id="L413">            totalConnections.get(),</span>
+<span class="nc" id="L414">            totalQueries.get(),</span>
+<span class="nc" id="L415">            failedQueries.get(),</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">            totalQueries.get() == 0 ? 0.0 : (double) totalQueryTime.get() / totalQueries.get(),</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">            dataSource != null ? dataSource.getMaximumPoolSize() : 0,</span>
+<span class="nc bnc" id="L418" title="All 2 branches missed.">            dataSource != null ? dataSource.getMinimumIdle() : 0</span>
+        );
+    }
+    
+    /**
+     * パフォーマンス統計をデータベースに記録
+     */
+    public void recordPerformanceStats() {
+<span class="nc" id="L426">        try (Connection conn = getConnection()) {</span>
+<span class="nc" id="L427">            String insertStatQuery = &quot;INSERT INTO performance_stats (stat_type, stat_value) &quot; +</span>
+                                     &quot;VALUES (?, ?)&quot;;
+            
+<span class="nc" id="L430">            try (PreparedStatement pstmt = conn.prepareStatement(insertStatQuery)) {</span>
+<span class="nc" id="L431">                DatabaseStatistics stats = getStatistics();</span>
+                
+                // 各統計をレコードとして挿入
+<span class="nc" id="L434">                pstmt.setString(1, &quot;active_connections&quot;);</span>
+<span class="nc" id="L435">                pstmt.setDouble(2, stats.getActiveConnections());</span>
+<span class="nc" id="L436">                pstmt.executeUpdate();</span>
+                
+<span class="nc" id="L438">                pstmt.setString(1, &quot;total_queries&quot;);</span>
+<span class="nc" id="L439">                pstmt.setDouble(2, stats.getTotalQueries());</span>
+<span class="nc" id="L440">                pstmt.executeUpdate();</span>
+                
+<span class="nc" id="L442">                pstmt.setString(1, &quot;average_query_time&quot;);</span>
+<span class="nc" id="L443">                pstmt.setDouble(2, stats.getAverageQueryTime());</span>
+<span class="nc" id="L444">                pstmt.executeUpdate();</span>
+                
+<span class="nc" id="L446">                pstmt.setString(1, &quot;failed_queries&quot;);</span>
+<span class="nc" id="L447">                pstmt.setDouble(2, stats.getFailedQueries());</span>
+<span class="nc" id="L448">                pstmt.executeUpdate();</span>
+            }
+<span class="nc" id="L450">        } catch (SQLException e) {</span>
+<span class="nc" id="L451">            logger.warning(&quot;パフォーマンス統計の記録に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L452">        }</span>
+<span class="nc" id="L453">    }</span>
+    
+    /**
+     * データベース接続のクローズとリソースの解放
+     */
+    public void close() {
+<span class="nc bnc" id="L459" title="All 4 branches missed.">        if (dataSource != null &amp;&amp; !dataSource.isClosed()) {</span>
+<span class="nc" id="L460">            dataSource.close();</span>
+<span class="nc" id="L461">            logger.info(&quot;HikariCP データソースをクローズしました。&quot;);</span>
+        }
+        
+<span class="nc" id="L464">        DatabaseStatistics finalStats = getStatistics();</span>
+<span class="nc" id="L465">        logger.info(String.format(&quot;データベース最終統計: アクティブ接続%d, 総クエリ%d, 失敗%d, 平均時間%.2fms&quot;,</span>
+<span class="nc" id="L466">                finalStats.getActiveConnections(),</span>
+<span class="nc" id="L467">                finalStats.getTotalQueries(),</span>
+<span class="nc" id="L468">                finalStats.getFailedQueries(),</span>
+<span class="nc" id="L469">                finalStats.getAverageQueryTime()));</span>
+        
+<span class="nc" id="L471">        isInitialized = false;</span>
+<span class="nc" id="L472">    }</span>
+    
+    /**
+     * 初期化状態のチェック
+     */
+    public boolean isInitialized() {
+<span class="nc bnc" id="L478" title="All 6 branches missed.">        return isInitialized &amp;&amp; dataSource != null &amp;&amp; !dataSource.isClosed();</span>
+    }
+    
+    /**
+     * データベース統計情報クラス
+     */
+    public static class DatabaseStatistics {
+        private final int activeConnections;
+        private final long totalConnections;
+        private final long totalQueries;
+        private final long failedQueries;
+        private final double averageQueryTime;
+        private final int maxPoolSize;
+        private final int minPoolSize;
+        
+        public DatabaseStatistics(int activeConnections, long totalConnections, long totalQueries,
+<span class="nc" id="L494">                                long failedQueries, double averageQueryTime, int maxPoolSize, int minPoolSize) {</span>
+<span class="nc" id="L495">            this.activeConnections = activeConnections;</span>
+<span class="nc" id="L496">            this.totalConnections = totalConnections;</span>
+<span class="nc" id="L497">            this.totalQueries = totalQueries;</span>
+<span class="nc" id="L498">            this.failedQueries = failedQueries;</span>
+<span class="nc" id="L499">            this.averageQueryTime = averageQueryTime;</span>
+<span class="nc" id="L500">            this.maxPoolSize = maxPoolSize;</span>
+<span class="nc" id="L501">            this.minPoolSize = minPoolSize;</span>
+<span class="nc" id="L502">        }</span>
+        
+        public double getSuccessRate() {
+<span class="nc bnc" id="L505" title="All 2 branches missed.">            return totalQueries == 0 ? 1.0 : 1.0 - ((double) failedQueries / totalQueries);</span>
+        }
+        
+        // Getters
+<span class="nc" id="L509">        public int getActiveConnections() { return activeConnections; }</span>
+<span class="nc" id="L510">        public long getTotalConnections() { return totalConnections; }</span>
+<span class="nc" id="L511">        public long getTotalQueries() { return totalQueries; }</span>
+<span class="nc" id="L512">        public long getFailedQueries() { return failedQueries; }</span>
+<span class="nc" id="L513">        public double getAverageQueryTime() { return averageQueryTime; }</span>
+<span class="nc" id="L514">        public int getMaxPoolSize() { return maxPoolSize; }</span>
+<span class="nc" id="L515">        public int getMinPoolSize() { return minPoolSize; }</span>
+    }
+    
+    /**
+     * 接続ラッパークラス（統計追跡用）
+     */
+    private static class ConnectionWrapper implements Connection {
+        private final Connection delegate;
+        private final HikariDatabaseManager manager;
+<span class="nc" id="L524">        private boolean closed = false;</span>
+        
+<span class="nc" id="L526">        public ConnectionWrapper(Connection delegate, HikariDatabaseManager manager) {</span>
+<span class="nc" id="L527">            this.delegate = delegate;</span>
+<span class="nc" id="L528">            this.manager = manager;</span>
+<span class="nc" id="L529">        }</span>
+        
+        @Override
+        public void close() throws SQLException {
+<span class="nc bnc" id="L533" title="All 2 branches missed.">            if (!closed) {</span>
+<span class="nc" id="L534">                delegate.close();</span>
+<span class="nc" id="L535">                manager.onConnectionClosed();</span>
+<span class="nc" id="L536">                closed = true;</span>
+            }
+<span class="nc" id="L538">        }</span>
+        
+        // 以下、Connection インターフェースの全メソッドをdelegateに委譲
+        @Override
+<span class="nc" id="L542">        public Statement createStatement() throws SQLException { return delegate.createStatement(); }</span>
+        
+        @Override
+<span class="nc" id="L545">        public PreparedStatement prepareStatement(String sql) throws SQLException { return delegate.prepareStatement(sql); }</span>
+        
+        @Override
+<span class="nc" id="L548">        public void setAutoCommit(boolean autoCommit) throws SQLException { delegate.setAutoCommit(autoCommit); }</span>
+        
+        @Override
+<span class="nc" id="L551">        public boolean getAutoCommit() throws SQLException { return delegate.getAutoCommit(); }</span>
+        
+        @Override
+<span class="nc" id="L554">        public void commit() throws SQLException { delegate.commit(); }</span>
+        
+        @Override
+<span class="nc" id="L557">        public void rollback() throws SQLException { delegate.rollback(); }</span>
+        
+        @Override
+<span class="nc bnc" id="L560" title="All 4 branches missed.">        public boolean isClosed() throws SQLException { return closed || delegate.isClosed(); }</span>
+        
+        // その他のメソッドは必要に応じて実装
+        // 簡潔性のため一部のみ記載
+        
+        // 以下のメソッドは基本的にサポートされていないか、使用されないため簡略実装
+        @Override
+        public java.sql.CallableStatement prepareCall(String sql) throws SQLException { 
+<span class="nc" id="L568">            return delegate.prepareCall(sql); </span>
+        }
+        
+        @Override
+<span class="nc" id="L572">        public String nativeSQL(String sql) throws SQLException { return delegate.nativeSQL(sql); }</span>
+        
+        @Override
+<span class="nc" id="L575">        public java.sql.DatabaseMetaData getMetaData() throws SQLException { return delegate.getMetaData(); }</span>
+        
+        @Override
+<span class="nc" id="L578">        public void setReadOnly(boolean readOnly) throws SQLException { delegate.setReadOnly(readOnly); }</span>
+        
+        @Override
+<span class="nc" id="L581">        public boolean isReadOnly() throws SQLException { return delegate.isReadOnly(); }</span>
+        
+        @Override
+<span class="nc" id="L584">        public void setCatalog(String catalog) throws SQLException { delegate.setCatalog(catalog); }</span>
+        
+        @Override
+<span class="nc" id="L587">        public String getCatalog() throws SQLException { return delegate.getCatalog(); }</span>
+        
+        @Override
+<span class="nc" id="L590">        public void setTransactionIsolation(int level) throws SQLException { delegate.setTransactionIsolation(level); }</span>
+        
+        @Override
+<span class="nc" id="L593">        public int getTransactionIsolation() throws SQLException { return delegate.getTransactionIsolation(); }</span>
+        
+        @Override
+<span class="nc" id="L596">        public java.sql.SQLWarning getWarnings() throws SQLException { return delegate.getWarnings(); }</span>
+        
+        @Override
+<span class="nc" id="L599">        public void clearWarnings() throws SQLException { delegate.clearWarnings(); }</span>
+        
+        // Java 8で必要な他のメソッドも同様に委譲実装
+        @Override
+        public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
+<span class="nc" id="L604">            return delegate.createStatement(resultSetType, resultSetConcurrency);</span>
+        }
+        
+        @Override
+        public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+<span class="nc" id="L609">            return delegate.prepareStatement(sql, resultSetType, resultSetConcurrency);</span>
+        }
+        
+        @Override
+        public java.sql.CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+<span class="nc" id="L614">            return delegate.prepareCall(sql, resultSetType, resultSetConcurrency);</span>
+        }
+        
+        @Override
+<span class="nc" id="L618">        public java.util.Map&lt;String,Class&lt;?&gt;&gt; getTypeMap() throws SQLException { return delegate.getTypeMap(); }</span>
+        
+        @Override
+<span class="nc" id="L621">        public void setTypeMap(java.util.Map&lt;String,Class&lt;?&gt;&gt; map) throws SQLException { delegate.setTypeMap(map); }</span>
+        
+        @Override
+<span class="nc" id="L624">        public void setHoldability(int holdability) throws SQLException { delegate.setHoldability(holdability); }</span>
+        
+        @Override
+<span class="nc" id="L627">        public int getHoldability() throws SQLException { return delegate.getHoldability(); }</span>
+        
+        @Override
+<span class="nc" id="L630">        public java.sql.Savepoint setSavepoint() throws SQLException { return delegate.setSavepoint(); }</span>
+        
+        @Override
+<span class="nc" id="L633">        public java.sql.Savepoint setSavepoint(String name) throws SQLException { return delegate.setSavepoint(name); }</span>
+        
+        @Override
+<span class="nc" id="L636">        public void rollback(java.sql.Savepoint savepoint) throws SQLException { delegate.rollback(savepoint); }</span>
+        
+        @Override
+<span class="nc" id="L639">        public void releaseSavepoint(java.sql.Savepoint savepoint) throws SQLException { delegate.releaseSavepoint(savepoint); }</span>
+        
+        @Override
+        public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+<span class="nc" id="L643">            return delegate.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability);</span>
+        }
+        
+        @Override
+        public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+<span class="nc" id="L648">            return delegate.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability);</span>
+        }
+        
+        @Override
+        public java.sql.CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+<span class="nc" id="L653">            return delegate.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability);</span>
+        }
+        
+        @Override
+        public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
+<span class="nc" id="L658">            return delegate.prepareStatement(sql, autoGeneratedKeys);</span>
+        }
+        
+        @Override
+        public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
+<span class="nc" id="L663">            return delegate.prepareStatement(sql, columnIndexes);</span>
+        }
+        
+        @Override
+        public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
+<span class="nc" id="L668">            return delegate.prepareStatement(sql, columnNames);</span>
+        }
+        
+        @Override
+<span class="nc" id="L672">        public java.sql.Clob createClob() throws SQLException { return delegate.createClob(); }</span>
+        
+        @Override
+<span class="nc" id="L675">        public java.sql.Blob createBlob() throws SQLException { return delegate.createBlob(); }</span>
+        
+        @Override
+<span class="nc" id="L678">        public java.sql.NClob createNClob() throws SQLException { return delegate.createNClob(); }</span>
+        
+        @Override
+<span class="nc" id="L681">        public java.sql.SQLXML createSQLXML() throws SQLException { return delegate.createSQLXML(); }</span>
+        
+        @Override
+<span class="nc" id="L684">        public boolean isValid(int timeout) throws SQLException { return delegate.isValid(timeout); }</span>
+        
+        @Override
+        public void setClientInfo(String name, String value) throws java.sql.SQLClientInfoException { 
+<span class="nc" id="L688">            delegate.setClientInfo(name, value); </span>
+<span class="nc" id="L689">        }</span>
+        
+        @Override
+        public void setClientInfo(java.util.Properties properties) throws java.sql.SQLClientInfoException { 
+<span class="nc" id="L693">            delegate.setClientInfo(properties); </span>
+<span class="nc" id="L694">        }</span>
+        
+        @Override
+<span class="nc" id="L697">        public String getClientInfo(String name) throws SQLException { return delegate.getClientInfo(name); }</span>
+        
+        @Override
+<span class="nc" id="L700">        public java.util.Properties getClientInfo() throws SQLException { return delegate.getClientInfo(); }</span>
+        
+        @Override
+        public java.sql.Array createArrayOf(String typeName, Object[] elements) throws SQLException { 
+<span class="nc" id="L704">            return delegate.createArrayOf(typeName, elements); </span>
+        }
+        
+        @Override
+        public java.sql.Struct createStruct(String typeName, Object[] attributes) throws SQLException { 
+<span class="nc" id="L709">            return delegate.createStruct(typeName, attributes); </span>
+        }
+        
+        @Override
+<span class="nc" id="L713">        public void setSchema(String schema) throws SQLException { delegate.setSchema(schema); }</span>
+        
+        @Override
+<span class="nc" id="L716">        public String getSchema() throws SQLException { return delegate.getSchema(); }</span>
+        
+        @Override
+<span class="nc" id="L719">        public void abort(java.util.concurrent.Executor executor) throws SQLException { delegate.abort(executor); }</span>
+        
+        @Override
+        public void setNetworkTimeout(java.util.concurrent.Executor executor, int milliseconds) throws SQLException { 
+<span class="nc" id="L723">            delegate.setNetworkTimeout(executor, milliseconds); </span>
+<span class="nc" id="L724">        }</span>
+        
+        @Override
+<span class="nc" id="L727">        public int getNetworkTimeout() throws SQLException { return delegate.getNetworkTimeout(); }</span>
+        
+        @Override
+<span class="nc" id="L730">        public &lt;T&gt; T unwrap(Class&lt;T&gt; iface) throws SQLException { return delegate.unwrap(iface); }</span>
+        
+        @Override
+<span class="nc" id="L733">        public boolean isWrapperFor(Class&lt;?&gt; iface) throws SQLException { return delegate.isWrapperFor(iface); }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

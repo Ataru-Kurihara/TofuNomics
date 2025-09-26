@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlayerDAO.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.dao</a> &gt; <span class="el_source">PlayerDAO.java</span></div><h1>PlayerDAO.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.dao;
+
+import org.tofu.tofunomics.models.Player;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+public class PlayerDAO {
+    private final Connection connection;
+
+<span class="fc" id="L17">    public PlayerDAO(Connection connection) {</span>
+<span class="fc" id="L18">        this.connection = connection;</span>
+<span class="fc" id="L19">    }</span>
+
+    public void createPlayer(Player player) throws SQLException {
+<span class="fc" id="L22">        String query = &quot;INSERT INTO players (uuid, balance, bank_balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)&quot;;</span>
+<span class="fc" id="L23">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L24">            statement.setString(1, player.getUuid().toString());</span>
+<span class="fc" id="L25">            statement.setDouble(2, player.getBalance());</span>
+<span class="fc" id="L26">            statement.setDouble(3, player.getBankBalance());</span>
+<span class="fc" id="L27">            statement.setTimestamp(4, player.getCreatedAt());</span>
+<span class="fc" id="L28">            statement.setTimestamp(5, player.getUpdatedAt());</span>
+<span class="fc" id="L29">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L31">    }</span>
+
+    public Player getPlayer(UUID uuid) throws SQLException {
+<span class="fc" id="L34">        String query = &quot;SELECT * FROM players WHERE uuid = ?&quot;;</span>
+<span class="fc" id="L35">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L36">            statement.setString(1, uuid.toString());</span>
+<span class="fc" id="L37">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L39" title="All 2 branches covered.">            if (resultSet.next()) {</span>
+<span class="fc" id="L40">                Player player = new Player();</span>
+<span class="fc" id="L41">                player.setUuid(UUID.fromString(resultSet.getString(&quot;uuid&quot;)));</span>
+<span class="fc" id="L42">                player.setBalance(resultSet.getDouble(&quot;balance&quot;));</span>
+                // bank_balanceカラムの存在チェック（マイグレーション対応）
+                try {
+<span class="fc" id="L45">                    player.setBankBalance(resultSet.getDouble(&quot;bank_balance&quot;));</span>
+<span class="nc" id="L46">                } catch (SQLException e) {</span>
+<span class="nc" id="L47">                    player.setBankBalance(0.0);</span>
+<span class="fc" id="L48">                }</span>
+<span class="fc" id="L49">                player.setCreatedAt(resultSet.getTimestamp(&quot;created_at&quot;));</span>
+<span class="fc" id="L50">                player.setUpdatedAt(resultSet.getTimestamp(&quot;updated_at&quot;));</span>
+<span class="fc" id="L51">                return player;</span>
+            }
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">        }</span>
+<span class="fc" id="L54">        return null;</span>
+    }
+
+    public Player getOrCreatePlayer(UUID uuid) throws SQLException {
+<span class="fc" id="L58">        Player player = getPlayer(uuid);</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (player == null) {</span>
+<span class="fc" id="L60">            player = new Player(uuid, 0.0);</span>
+<span class="fc" id="L61">            createPlayer(player);</span>
+        }
+<span class="fc" id="L63">        return player;</span>
+    }
+
+    public void updatePlayer(Player player) throws SQLException {
+<span class="fc" id="L67">        String query = &quot;UPDATE players SET balance = ?, bank_balance = ?, updated_at = ? WHERE uuid = ?&quot;;</span>
+<span class="fc" id="L68">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L69">            statement.setDouble(1, player.getBalance());</span>
+<span class="fc" id="L70">            statement.setDouble(2, player.getBankBalance());</span>
+<span class="fc" id="L71">            statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));</span>
+<span class="fc" id="L72">            statement.setString(4, player.getUuid().toString());</span>
+<span class="fc" id="L73">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L75">    }</span>
+
+    public void updateBalance(UUID uuid, double newBalance) throws SQLException {
+<span class="fc" id="L78">        String query = &quot;UPDATE players SET balance = ?, updated_at = ? WHERE uuid = ?&quot;;</span>
+<span class="fc" id="L79">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L80">            statement.setDouble(1, newBalance);</span>
+<span class="fc" id="L81">            statement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));</span>
+<span class="fc" id="L82">            statement.setString(3, uuid.toString());</span>
+<span class="fc" id="L83">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L85">    }</span>
+
+    public void updateBankBalance(UUID uuid, double newBankBalance) throws SQLException {
+<span class="fc" id="L88">        String query = &quot;UPDATE players SET bank_balance = ?, updated_at = ? WHERE uuid = ?&quot;;</span>
+<span class="fc" id="L89">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L90">            statement.setDouble(1, newBankBalance);</span>
+<span class="fc" id="L91">            statement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));</span>
+<span class="fc" id="L92">            statement.setString(3, uuid.toString());</span>
+<span class="fc" id="L93">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L95">    }</span>
+
+    public void deletePlayer(UUID uuid) throws SQLException {
+<span class="fc" id="L98">        String query = &quot;DELETE FROM players WHERE uuid = ?&quot;;</span>
+<span class="fc" id="L99">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L100">            statement.setString(1, uuid.toString());</span>
+<span class="fc" id="L101">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L103">    }</span>
+
+    public List&lt;Player&gt; getTopPlayers(int limit) throws SQLException {
+<span class="fc" id="L106">        String query = &quot;SELECT * FROM players ORDER BY (balance + bank_balance) DESC LIMIT ?&quot;;</span>
+<span class="fc" id="L107">        List&lt;Player&gt; players = new ArrayList&lt;&gt;();</span>
+        
+<span class="fc" id="L109">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L110">            statement.setInt(1, limit);</span>
+<span class="fc" id="L111">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L113" title="All 2 branches covered.">            while (resultSet.next()) {</span>
+<span class="fc" id="L114">                Player player = new Player();</span>
+<span class="fc" id="L115">                player.setUuid(UUID.fromString(resultSet.getString(&quot;uuid&quot;)));</span>
+<span class="fc" id="L116">                player.setBalance(resultSet.getDouble(&quot;balance&quot;));</span>
+                // bank_balanceカラムの存在チェック（マイグレーション対応）
+                try {
+<span class="fc" id="L119">                    player.setBankBalance(resultSet.getDouble(&quot;bank_balance&quot;));</span>
+<span class="nc" id="L120">                } catch (SQLException e) {</span>
+<span class="nc" id="L121">                    player.setBankBalance(0.0);</span>
+<span class="fc" id="L122">                }</span>
+<span class="fc" id="L123">                player.setCreatedAt(resultSet.getTimestamp(&quot;created_at&quot;));</span>
+<span class="fc" id="L124">                player.setUpdatedAt(resultSet.getTimestamp(&quot;updated_at&quot;));</span>
+<span class="fc" id="L125">                players.add(player);</span>
+<span class="fc" id="L126">            }</span>
+        }
+<span class="fc" id="L128">        return players;</span>
+    }
+
+    public boolean transferBalance(UUID fromUuid, UUID toUuid, double amount) throws SQLException {
+<span class="fc" id="L132">        connection.setAutoCommit(false);</span>
+        try {
+<span class="fc" id="L134">            Player fromPlayer = getPlayer(fromUuid);</span>
+<span class="fc" id="L135">            Player toPlayer = getOrCreatePlayer(toUuid);</span>
+
+<span class="pc bpc" id="L137" title="1 of 4 branches missed.">            if (fromPlayer == null || fromPlayer.getBankBalance() &lt; amount) {</span>
+<span class="fc" id="L138">                connection.rollback();</span>
+<span class="fc" id="L139">                return false;</span>
+            }
+
+<span class="fc" id="L142">            fromPlayer.removeBankBalance(amount);</span>
+<span class="fc" id="L143">            toPlayer.addBankBalance(amount);</span>
+
+<span class="fc" id="L145">            updatePlayer(fromPlayer);</span>
+<span class="fc" id="L146">            updatePlayer(toPlayer);</span>
+
+<span class="fc" id="L148">            connection.commit();</span>
+<span class="fc" id="L149">            return true;</span>
+<span class="nc" id="L150">        } catch (SQLException e) {</span>
+<span class="nc" id="L151">            connection.rollback();</span>
+<span class="nc" id="L152">            throw e;</span>
+        } finally {
+<span class="fc" id="L154">            connection.setAutoCommit(true);</span>
+        }
+    }
+
+    public int getTotalPlayerCount() throws SQLException {
+<span class="fc" id="L159">        String query = &quot;SELECT COUNT(*) FROM players&quot;;</span>
+<span class="fc" id="L160">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L161">            ResultSet resultSet = statement.executeQuery();</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">            if (resultSet.next()) {</span>
+<span class="fc" id="L163">                return resultSet.getInt(1);</span>
+            }
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        }</span>
+<span class="nc" id="L166">        return 0;</span>
+    }
+    
+    // StringのUUIDを受け取るメソッド（互換性のため）
+    public Player getPlayerByUUID(String uuidString) {
+        try {
+<span class="fc" id="L172">            return getPlayer(UUID.fromString(uuidString));</span>
+<span class="fc" id="L173">        } catch (SQLException | IllegalArgumentException e) {</span>
+<span class="fc" id="L174">            return null;</span>
+        }
+    }
+    
+    // 戻り値がbooleanのinsertPlayerメソッド
+    public boolean insertPlayer(Player player) {
+        try {
+<span class="fc" id="L181">            createPlayer(player);</span>
+<span class="fc" id="L182">            return true;</span>
+<span class="fc" id="L183">        } catch (SQLException e) {</span>
+<span class="fc" id="L184">            return false;</span>
+        }
+    }
+    
+    // 戻り値がbooleanのupdatePlayerメソッド
+    public boolean updatePlayerData(Player player) {
+        try {
+<span class="fc" id="L191">            String query = &quot;UPDATE players SET balance = ?, bank_balance = ?, updated_at = ? WHERE uuid = ?&quot;;</span>
+<span class="fc" id="L192">            try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L193">                statement.setDouble(1, player.getBalance());</span>
+<span class="fc" id="L194">                statement.setDouble(2, player.getBankBalance());</span>
+<span class="fc" id="L195">                statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));</span>
+<span class="fc" id="L196">                statement.setString(4, player.getUuid().toString());</span>
+<span class="fc" id="L197">                statement.executeUpdate();</span>
+<span class="fc" id="L198">                return true;</span>
+            }
+<span class="nc" id="L200">        } catch (SQLException e) {</span>
+<span class="nc" id="L201">            return false;</span>
+        }
+    }
+    
+    
+    // transferBalanceメソッドのStringバージョン
+    public boolean transferBalance(String fromUuidString, String toUuidString, double amount) {
+        try {
+<span class="fc" id="L209">            UUID fromUuid = UUID.fromString(fromUuidString);</span>
+<span class="fc" id="L210">            UUID toUuid = UUID.fromString(toUuidString);</span>
+<span class="fc" id="L211">            return transferBalance(fromUuid, toUuid, amount);</span>
+<span class="fc" id="L212">        } catch (SQLException | IllegalArgumentException e) {</span>
+<span class="fc" id="L213">            return false;</span>
+        }
+    }
+    
+    // getTopPlayersByBalanceメソッド（BalanceTopCommand用）
+    public List&lt;Player&gt; getTopPlayersByBalance(int limit) {
+        try {
+<span class="fc" id="L220">            return getTopPlayers(limit);</span>
+<span class="nc" id="L221">        } catch (SQLException e) {</span>
+<span class="nc" id="L222">            return new ArrayList&lt;&gt;();</span>
+        }
+    }
+    
+    /**
+     * プレイヤーの最終ログイン時間を更新
+     */
+    public void updateLastLogin(UUID uuid) throws SQLException {
+<span class="nc" id="L230">        String query = &quot;UPDATE players SET updated_at = ? WHERE uuid = ?&quot;;</span>
+<span class="nc" id="L231">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="nc" id="L232">            statement.setTimestamp(1, new Timestamp(System.currentTimeMillis()));</span>
+<span class="nc" id="L233">            statement.setString(2, uuid.toString());</span>
+<span class="nc" id="L234">            statement.executeUpdate();</span>
+        }
+<span class="nc" id="L236">    }</span>
+    
+    /**
+     * プレイヤーの最終ログイン時間をチェック（復帰プレイヤー判定用）
+     */
+    public boolean isReturningPlayer(UUID uuid, int daysThreshold) throws SQLException {
+<span class="nc" id="L242">        String query = &quot;SELECT updated_at FROM players WHERE uuid = ?&quot;;</span>
+<span class="nc" id="L243">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="nc" id="L244">            statement.setString(1, uuid.toString());</span>
+<span class="nc" id="L245">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="nc bnc" id="L247" title="All 2 branches missed.">            if (resultSet.next()) {</span>
+<span class="nc" id="L248">                Timestamp lastLogin = resultSet.getTimestamp(&quot;updated_at&quot;);</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">                if (lastLogin != null) {</span>
+<span class="nc" id="L250">                    long daysBetween = (System.currentTimeMillis() - lastLogin.getTime()) / (24 * 60 * 60 * 1000);</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">                    return daysBetween &gt;= daysThreshold;</span>
+                }
+            }
+<span class="nc bnc" id="L254" title="All 2 branches missed.">        }</span>
+<span class="nc" id="L255">        return false;</span>
+    }
+    
+    /**
+     * プレイヤー名の取得と更新
+     * プレイヤーのテーブルにnameカラムがあることを前提とする
+     */
+    public void updatePlayerName(UUID uuid, String name) throws SQLException {
+<span class="nc" id="L263">        String query = &quot;UPDATE players SET name = ?, updated_at = ? WHERE uuid = ?&quot;;</span>
+<span class="nc" id="L264">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="nc" id="L265">            statement.setString(1, name);</span>
+<span class="nc" id="L266">            statement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));</span>
+<span class="nc" id="L267">            statement.setString(3, uuid.toString());</span>
+<span class="nc" id="L268">            statement.executeUpdate();</span>
+        }
+<span class="nc" id="L270">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

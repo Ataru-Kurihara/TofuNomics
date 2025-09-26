@@ -1,0 +1,203 @@
+name: TofuNomics
+version: '${project.version}'
+main: org.tofu.tofunomics.TofuNomics
+api-version: '1.16'
+description: tofunomicsワールド専用経済プラグイン
+author: TofuNomics Team
+website: https://github.com/tofu-server/TofuNomics
+
+commands:
+  balance:
+    description: 銀行残高を確認する
+    usage: /balance [player]
+    aliases: [bal]
+    permission: tofunomics.balance.self
+  pay:
+    description: 他プレイヤーに送金する
+    usage: /pay <player> <amount>
+    permission: tofunomics.pay
+  balancetop:
+    description: 残高ランキングを表示する
+    usage: /balancetop
+    aliases: [baltop]
+    permission: tofunomics.balancetop
+  withdraw:
+    description: 銀行から金塊を引き出す
+    usage: /withdraw <amount>
+    permission: tofunomics.withdraw
+  deposit:
+    description: 金塊を銀行に預ける
+    usage: /deposit <amount|all>
+    permission: tofunomics.deposit
+  jobs:
+    description: 職業関連コマンド
+    usage: /jobs <join|leave|stats> [jobname]
+    permission: tofunomics.jobs.basic
+  jobstats:
+    description: 職業統計・進捗表示
+    usage: /jobstats [jobname|top jobname]
+    permission: tofunomics.jobs.basic
+  quest:
+    description: 職業クエスト管理
+    usage: /quest [list|accept|progress] [args]
+    permission: tofunomics.jobs.basic
+  trade:
+    description: 取引チェスト管理
+    usage: /trade <setup|remove|list|history|reload> [args]
+    permission: tofunomics.trade.basic
+  eco:
+    description: 管理者用経済コマンド
+    usage: /eco <give|take|set|reload> [args]
+    permission: tofunomics.admin
+  tofunomics:
+    description: TofuNomicsメインコマンド（フェーズ6）
+    usage: /tofunomics <reload|status|performance> [args]
+    aliases: [tn, tfn]
+    permission: tofunomics.admin
+  scoreboard:
+    description: スコアボード表示の切り替え
+    usage: /scoreboard [toggle|on|off]
+    aliases: [sb]
+    permission: tofunomics.scoreboard.toggle
+
+permissions:
+  tofunomics.*:
+    description: 全ての権限
+    children:
+      tofunomics.balance.*: true
+      tofunomics.pay: true
+      tofunomics.balancetop: true
+      tofunomics.withdraw: true
+      tofunomics.deposit: true
+      tofunomics.jobs.*: true
+      tofunomics.trade.*: true
+      tofunomics.scoreboard.*: true
+      tofunomics.admin: false
+    default: op
+  
+  tofunomics.balance.*:
+    description: 残高確認権限（全て）
+    children:
+      tofunomics.balance.self: true
+      tofunomics.balance.others: true
+    default: true
+  
+  tofunomics.balance.self:
+    description: 自分の残高を確認
+    default: true
+  
+  tofunomics.balance.others:
+    description: 他人の残高を確認
+    default: op
+  
+  tofunomics.pay:
+    description: 送金権限
+    default: true
+  
+  tofunomics.balancetop:
+    description: 残高ランキング表示
+    default: true
+  
+  tofunomics.withdraw:
+    description: 金塊引き出し権限
+    default: true
+  
+  tofunomics.deposit:
+    description: 金塊預け入れ権限
+    default: true
+  
+  tofunomics.jobs.*:
+    description: 職業関連権限（全て）
+    children:
+      tofunomics.jobs.basic: true
+      tofunomics.jobs.admin: false
+    default: true
+  
+  tofunomics.jobs.basic:
+    description: 基本職業コマンド
+    default: true
+  
+  tofunomics.jobs.admin:
+    description: 職業管理コマンド
+    default: op
+  
+  tofunomics.trade.*:
+    description: 取引関連権限（全て）
+    children:
+      tofunomics.trade.basic: true
+      tofunomics.trade.setup: false
+      tofunomics.trade.remove: false
+      tofunomics.trade.list: true
+      tofunomics.trade.history.self: true
+      tofunomics.trade.history.others: false
+      tofunomics.trade.reload: false
+    default: true
+  
+  tofunomics.trade.basic:
+    description: 基本取引機能（チェストでの売却）
+    default: true
+  
+  tofunomics.trade.setup:
+    description: 取引チェスト設置権限
+    default: op
+  
+  tofunomics.trade.remove:
+    description: 取引チェスト削除権限
+    default: op
+  
+  tofunomics.trade.list:
+    description: 取引チェスト一覧表示権限
+    default: true
+  
+  tofunomics.trade.history.self:
+    description: 自分の取引履歴表示権限
+    default: true
+  
+  tofunomics.trade.history.others:
+    description: 他人の取引履歴表示権限
+    default: op
+  
+  tofunomics.trade.reload:
+    description: 取引システムリロード権限
+    default: op
+  
+  tofunomics.admin:
+    description: 管理者権限
+    default: op
+  
+  tofunomics.admin.reload:
+    description: 設定リロード権限（フェーズ6）
+    default: op
+  
+  tofunomics.admin.alerts:
+    description: パフォーマンスアラート受信権限（フェーズ6）
+    default: op
+  
+  tofunomics.admin.performance:
+    description: パフォーマンス統計表示権限（フェーズ6）
+    default: op
+  
+  tofunomics.scoreboard.*:
+    description: スコアボード関連権限（全て）
+    children:
+      tofunomics.scoreboard.view: true
+      tofunomics.scoreboard.toggle: true
+    default: true
+  
+  tofunomics.scoreboard.view:
+    description: スコアボード表示権限
+    default: true
+  
+  tofunomics.scoreboard.toggle:
+    description: スコアボード切り替え権限
+    default: true
+  
+  tofunomics.npc.*:
+    description: NPC管理関連権限（全て）
+    children:
+      tofunomics.npc.admin: false
+    default: op
+  
+  tofunomics.npc.admin:
+    description: NPC管理コマンド使用権限
+    default: op

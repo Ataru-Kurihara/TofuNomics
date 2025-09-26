@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NPCListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.npc</a> &gt; <span class="el_source">NPCListener.java</span></div><h1>NPCListener.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.npc;
+
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class NPCListener implements Listener {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final NPCManager npcManager;
+    private final BankNPCManager bankNPCManager;
+    private final TradingNPCManager tradingNPCManager;
+    private final FoodNPCManager foodNPCManager;
+    
+    // プレイヤーの取引状態を管理
+<span class="nc" id="L30">    private final Map&lt;UUID, TradingSession&gt; activeTradingSessions = new ConcurrentHashMap&lt;&gt;();</span>
+    
+    public NPCListener(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
+                     BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager, 
+<span class="nc" id="L34">                     FoodNPCManager foodNPCManager) {</span>
+<span class="nc" id="L35">        this.plugin = plugin;</span>
+<span class="nc" id="L36">        this.configManager = configManager;</span>
+<span class="nc" id="L37">        this.npcManager = npcManager;</span>
+<span class="nc" id="L38">        this.bankNPCManager = bankNPCManager;</span>
+<span class="nc" id="L39">        this.tradingNPCManager = tradingNPCManager;</span>
+<span class="nc" id="L40">        this.foodNPCManager = foodNPCManager;</span>
+<span class="nc" id="L41">    }</span>
+    
+    private static class TradingSession {
+        private final UUID npcId;
+        private final long lastInteractionTime;
+        private final String sessionType;
+        
+<span class="nc" id="L48">        public TradingSession(UUID npcId, String sessionType) {</span>
+<span class="nc" id="L49">            this.npcId = npcId;</span>
+<span class="nc" id="L50">            this.sessionType = sessionType;</span>
+<span class="nc" id="L51">            this.lastInteractionTime = System.currentTimeMillis();</span>
+<span class="nc" id="L52">        }</span>
+        
+<span class="nc" id="L54">        public UUID getNpcId() { return npcId; }</span>
+<span class="nc" id="L55">        public String getSessionType() { return sessionType; }</span>
+<span class="nc" id="L56">        public long getLastInteractionTime() { return lastInteractionTime; }</span>
+        
+        public boolean isExpired(long timeoutMs) {
+<span class="nc bnc" id="L59" title="All 2 branches missed.">            return System.currentTimeMillis() - lastInteractionTime &gt; timeoutMs;</span>
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (event.getRightClicked().getType() != EntityType.VILLAGER) {</span>
+<span class="nc" id="L66">            return;</span>
+        }
+        
+<span class="nc" id="L69">        Villager villager = (Villager) event.getRightClicked();</span>
+<span class="nc" id="L70">        Player player = event.getPlayer();</span>
+<span class="nc" id="L71">        UUID npcId = villager.getUniqueId();</span>
+        
+        // システムのNPCかチェック
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (!npcManager.isNPCEntity(npcId)) {</span>
+<span class="nc" id="L75">            plugin.getLogger().info(&quot;非NPCエンティティがクリックされました: &quot; + npcId);</span>
+<span class="nc" id="L76">            return;</span>
+        }
+        
+<span class="nc" id="L79">        plugin.getLogger().info(&quot;NPCがクリックされました: &quot; + npcId + &quot; by プレイヤー: &quot; + player.getName());</span>
+        
+<span class="nc" id="L81">        event.setCancelled(true); // デフォルトの村人取引を無効化</span>
+        
+        try {
+<span class="nc" id="L84">            NPCManager.NPCData npcData = npcManager.getNPCData(npcId);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (npcData == null) {</span>
+<span class="nc" id="L86">                plugin.getLogger().warning(&quot;NPCデータが見つかりません: &quot; + npcId);</span>
+<span class="nc" id="L87">                return;</span>
+            }
+            
+<span class="nc" id="L90">            plugin.getLogger().info(&quot;NPCタイプを確認: &quot; + npcData.getNpcType() + &quot; (名前: &quot; + npcData.getName() + &quot;)&quot;);</span>
+            
+<span class="nc bnc" id="L92" title="All 4 branches missed.">            switch (npcData.getNpcType()) {</span>
+                case &quot;banker&quot;:
+<span class="nc" id="L94">                    plugin.getLogger().info(&quot;銀行NPCとの相互作用を開始: &quot; + npcData.getName());</span>
+<span class="nc" id="L95">                    handleBankNPCInteraction(player, npcId);</span>
+<span class="nc" id="L96">                    break;</span>
+                    
+                case &quot;trader&quot;:
+<span class="nc" id="L99">                    plugin.getLogger().info(&quot;取引NPCとの相互作用を開始: &quot; + npcData.getName());</span>
+<span class="nc" id="L100">                    handleTradingNPCInteraction(player, npcId);</span>
+<span class="nc" id="L101">                    break;</span>
+                    
+                case &quot;food_merchant&quot;:
+<span class="nc" id="L104">                    plugin.getLogger().info(&quot;食料NPCとの相互作用を開始: &quot; + npcData.getName());</span>
+<span class="nc" id="L105">                    handleFoodNPCInteraction(player, npcId);</span>
+<span class="nc" id="L106">                    break;</span>
+                    
+                default:
+<span class="nc" id="L109">                    plugin.getLogger().warning(&quot;不明なNPCタイプ: &quot; + npcData.getNpcType());</span>
+<span class="nc" id="L110">                    player.sendMessage(configManager.getMessage(&quot;npc.unknown_type&quot;));</span>
+                    break;
+            }
+            
+<span class="nc" id="L114">        } catch (Exception e) {</span>
+<span class="nc" id="L115">            plugin.getLogger().severe(&quot;NPC取引処理中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L116">            player.sendMessage(configManager.getMessage(&quot;npc.service_error&quot;));</span>
+<span class="nc" id="L117">            e.printStackTrace();</span>
+<span class="nc" id="L118">        }</span>
+<span class="nc" id="L119">    }</span>
+    
+    private void handleBankNPCInteraction(Player player, UUID npcId) {
+        // 取引時間制限チェック
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        if (!isWithinTradingHours()) {</span>
+<span class="nc" id="L124">            player.sendMessage(configManager.getMessage(&quot;npc.bank.outside_hours&quot;));</span>
+<span class="nc" id="L125">            return;</span>
+        }
+        
+        // クールダウンチェック
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (hasRecentInteraction(player.getUniqueId(), &quot;banker&quot;)) {</span>
+<span class="nc" id="L130">            player.sendMessage(configManager.getMessage(&quot;npc.bank.cooldown_active&quot;));</span>
+<span class="nc" id="L131">            return;</span>
+        }
+        
+<span class="nc" id="L134">        boolean handled = bankNPCManager.handleBankNPCInteraction(player, npcId);</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">        if (handled) {</span>
+            // 取引セッションを記録
+<span class="nc" id="L137">            activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, &quot;banker&quot;));</span>
+        }
+<span class="nc" id="L139">    }</span>
+    
+    private void handleTradingNPCInteraction(Player player, UUID npcId) {
+        // 取引時間制限チェック
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (!isWithinTradingHours()) {</span>
+<span class="nc" id="L144">            player.sendMessage(configManager.getMessage(&quot;npc.trading.outside_hours&quot;));</span>
+<span class="nc" id="L145">            return;</span>
+        }
+        
+        // クールダウンチェック
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        if (hasRecentInteraction(player.getUniqueId(), &quot;trader&quot;)) {</span>
+<span class="nc" id="L150">            player.sendMessage(configManager.getMessage(&quot;npc.trading.cooldown_active&quot;));</span>
+<span class="nc" id="L151">            return;</span>
+        }
+        
+        // アクティブな取引セッションがあるかチェック
+<span class="nc" id="L155">        TradingSession activeSession = activeTradingSessions.get(player.getUniqueId());</span>
+<span class="nc bnc" id="L156" title="All 4 branches missed.">        if (activeSession != null &amp;&amp; activeSession.getNpcId().equals(npcId) &amp;&amp; </span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">            activeSession.getSessionType().equals(&quot;trader&quot;)) {</span>
+            
+            // 継続取引：手持ちアイテムを売却処理
+<span class="nc" id="L160">            processItemSaleFromInventory(player, npcId);</span>
+        } else {
+            // 新規取引：取引NPCインターフェースを表示
+<span class="nc" id="L163">            boolean handled = tradingNPCManager.handleTradingNPCInteraction(player, npcId);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">            if (handled) {</span>
+<span class="nc" id="L165">                activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, &quot;trader&quot;));</span>
+            }
+        }
+<span class="nc" id="L168">    }</span>
+    
+    /**
+     * 食料NPC相互作用の処理
+     */
+    private void handleFoodNPCInteraction(Player player, UUID npcId) {
+        try {
+<span class="nc" id="L175">            plugin.getLogger().info(&quot;食料NPC相互作用処理開始: &quot; + player.getName() + &quot;, NPC ID: &quot; + npcId);</span>
+            
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            if (foodNPCManager != null) {</span>
+<span class="nc" id="L178">                boolean handled = foodNPCManager.handleFoodNPCInteraction(player, npcId);</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">                if (!handled) {</span>
+<span class="nc" id="L180">                    plugin.getLogger().warning(&quot;食料NPC相互作用の処理に失敗: &quot; + npcId);</span>
+<span class="nc" id="L181">                    plugin.getLogger().warning(&quot;NPCがFoodNPCManagerに登録されていない可能性があります&quot;);</span>
+<span class="nc" id="L182">                    player.sendMessage(&quot;§c食料NPCとの取引中にエラーが発生しました。&quot;);</span>
+<span class="nc" id="L183">                    player.sendMessage(&quot;§7管理者に報告してください。NPC ID: &quot; + npcId);</span>
+                }
+<span class="nc" id="L185">            } else {</span>
+<span class="nc" id="L186">                plugin.getLogger().severe(&quot;FoodNPCManagerが初期化されていません&quot;);</span>
+<span class="nc" id="L187">                player.sendMessage(&quot;§c食料NPCシステムが利用できません。管理者にお知らせください。&quot;);</span>
+            }
+            
+<span class="nc" id="L190">        } catch (Exception e) {</span>
+<span class="nc" id="L191">            plugin.getLogger().severe(&quot;食料NPC相互作用処理中に例外が発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L192">            player.sendMessage(&quot;§c処理中にエラーが発生しました。管理者にお知らせください。&quot;);</span>
+<span class="nc" id="L193">            e.printStackTrace();</span>
+<span class="nc" id="L194">        }</span>
+<span class="nc" id="L195">    }</span>
+    
+    private void processItemSaleFromInventory(Player player, UUID npcId) {
+<span class="nc" id="L198">        List&lt;ItemStack&gt; sellableItems = new ArrayList&lt;&gt;();</span>
+        
+        // プレイヤーのインベントリから売却可能アイテムを収集
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        for (ItemStack item : player.getInventory().getContents()) {</span>
+<span class="nc bnc" id="L202" title="All 4 branches missed.">            if (item != null &amp;&amp; item.getAmount() &gt; 0) {</span>
+<span class="nc" id="L203">                sellableItems.add(item.clone());</span>
+            }
+        }
+        
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        if (sellableItems.isEmpty()) {</span>
+<span class="nc" id="L208">            player.sendMessage(configManager.getMessage(&quot;npc.trading.no_items_to_sell&quot;));</span>
+<span class="nc" id="L209">            return;</span>
+        }
+        
+        // 売却処理
+<span class="nc" id="L213">        TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(player, npcId, sellableItems);</span>
+        
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        if (result.isSuccess()) {</span>
+            // 成功メッセージ
+<span class="nc" id="L217">            String totalEarnings = String.format(&quot;%.2f&quot;, result.getTotalEarnings());</span>
+<span class="nc" id="L218">            player.sendMessage(configManager.getMessage(&quot;npc.trading.sale_success&quot;, </span>
+                &quot;total&quot;, totalEarnings));
+            
+            // 売却したアイテムの詳細を表示
+<span class="nc bnc" id="L222" title="All 2 branches missed.">            if (configManager.showDetailedTradeInfo()) {</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">                for (Map.Entry&lt;org.bukkit.Material, Integer&gt; entry : result.getSoldItems().entrySet()) {</span>
+<span class="nc" id="L224">                    player.sendMessage(&quot;§f• &quot; + entry.getKey().toString().toLowerCase() + &quot; x&quot; + entry.getValue());</span>
+<span class="nc" id="L225">                }</span>
+            }
+            
+            // インベントリから売却されたアイテムを削除
+<span class="nc" id="L229">            removeSoldItemsFromInventory(player, result.getSoldItems());</span>
+            
+<span class="nc" id="L231">        } else {</span>
+<span class="nc" id="L232">            player.sendMessage(result.getMessage());</span>
+        }
+<span class="nc" id="L234">    }</span>
+    
+    private void removeSoldItemsFromInventory(Player player, Map&lt;org.bukkit.Material, Integer&gt; soldItems) {
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        for (Map.Entry&lt;org.bukkit.Material, Integer&gt; entry : soldItems.entrySet()) {</span>
+<span class="nc" id="L238">            org.bukkit.Material material = entry.getKey();</span>
+<span class="nc" id="L239">            int amountToRemove = entry.getValue();</span>
+            
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            for (ItemStack item : player.getInventory().getContents()) {</span>
+<span class="nc bnc" id="L242" title="All 4 branches missed.">                if (item != null &amp;&amp; item.getType() == material) {</span>
+<span class="nc" id="L243">                    int currentAmount = item.getAmount();</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">                    if (currentAmount &lt;= amountToRemove) {</span>
+<span class="nc" id="L245">                        amountToRemove -= currentAmount;</span>
+<span class="nc" id="L246">                        item.setAmount(0);</span>
+                    } else {
+<span class="nc" id="L248">                        item.setAmount(currentAmount - amountToRemove);</span>
+<span class="nc" id="L249">                        amountToRemove = 0;</span>
+                    }
+                    
+<span class="nc bnc" id="L252" title="All 2 branches missed.">                    if (amountToRemove &lt;= 0) break;</span>
+                }
+            }
+<span class="nc" id="L255">        }</span>
+<span class="nc" id="L256">    }</span>
+    
+    private boolean isWithinTradingHours() {
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (!configManager.isTradingHoursEnabled()) {</span>
+<span class="nc" id="L260">            return true;</span>
+        }
+        
+        // 現在の時間を取得（Minecraft時間）
+<span class="nc" id="L264">        long worldTime = plugin.getServer().getWorlds().get(0).getTime();</span>
+<span class="nc" id="L265">        int currentHour = (int) ((worldTime / 1000 + 6) % 24); // 6:00を基準とした24時間制</span>
+        
+<span class="nc" id="L267">        int startHour = configManager.getTradingStartHour();</span>
+<span class="nc" id="L268">        int endHour = configManager.getTradingEndHour();</span>
+        
+<span class="nc bnc" id="L270" title="All 2 branches missed.">        if (startHour &lt;= endHour) {</span>
+<span class="nc bnc" id="L271" title="All 4 branches missed.">            return currentHour &gt;= startHour &amp;&amp; currentHour &lt; endHour;</span>
+        } else {
+            // 日をまたぐ場合
+<span class="nc bnc" id="L274" title="All 4 branches missed.">            return currentHour &gt;= startHour || currentHour &lt; endHour;</span>
+        }
+    }
+    
+    private boolean hasRecentInteraction(UUID playerId, String npcType) {
+<span class="nc" id="L279">        TradingSession session = activeTradingSessions.get(playerId);</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">        if (session == null) {</span>
+<span class="nc" id="L281">            return false;</span>
+        }
+        
+<span class="nc" id="L284">        long cooldownMs = configManager.getNPCInteractionCooldownMs();</span>
+<span class="nc bnc" id="L285" title="All 4 branches missed.">        return session.getSessionType().equals(npcType) &amp;&amp; !session.isExpired(cooldownMs);</span>
+    }
+    
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onEntityDamage(EntityDamageEvent event) {
+<span class="nc bnc" id="L290" title="All 2 branches missed.">        if (event.getEntity().getType() != EntityType.VILLAGER) {</span>
+<span class="nc" id="L291">            return;</span>
+        }
+        
+<span class="nc" id="L294">        UUID entityId = event.getEntity().getUniqueId();</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">        if (npcManager.isNPCEntity(entityId)) {</span>
+<span class="nc" id="L296">            event.setCancelled(true); // システムNPCへのダメージを無効化</span>
+        }
+<span class="nc" id="L298">    }</span>
+    
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+<span class="nc bnc" id="L302" title="All 2 branches missed.">        if (event.getEntity().getType() != EntityType.VILLAGER) {</span>
+<span class="nc" id="L303">            return;</span>
+        }
+        
+<span class="nc" id="L306">        UUID entityId = event.getEntity().getUniqueId();</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        if (npcManager.isNPCEntity(entityId)) {</span>
+<span class="nc" id="L308">            event.setCancelled(true); // システムNPCへの攻撃を無効化</span>
+            
+<span class="nc bnc" id="L310" title="All 2 branches missed.">            if (event.getDamager() instanceof Player) {</span>
+<span class="nc" id="L311">                Player player = (Player) event.getDamager();</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">                if (player.isOp()) {</span>
+                    // 管理者にはNPC情報を表示
+<span class="nc" id="L314">                    NPCManager.NPCData npcData = npcManager.getNPCData(entityId);</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">                    if (npcData != null) {</span>
+<span class="nc" id="L316">                        player.sendMessage(&quot;§6[管理者] NPC情報: &quot; + npcData.getName() + </span>
+<span class="nc" id="L317">                                         &quot; (&quot; + npcData.getNpcType() + &quot;)&quot;);</span>
+                    }
+                }
+            }
+        }
+<span class="nc" id="L322">    }</span>
+    
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        // プレイヤーがログアウトしたら取引セッションを削除
+<span class="nc" id="L327">        UUID playerId = event.getPlayer().getUniqueId();</span>
+<span class="nc" id="L328">        activeTradingSessions.remove(playerId);</span>
+<span class="nc" id="L329">    }</span>
+    
+    // 定期的にタイムアウトしたセッションをクリーンアップ
+    public void cleanupExpiredSessions() {
+<span class="nc" id="L333">        long currentTime = System.currentTimeMillis();</span>
+<span class="nc" id="L334">        long timeoutMs = configManager.getNPCInteractionTimeoutMs();</span>
+        
+<span class="nc" id="L336">        activeTradingSessions.entrySet().removeIf(entry -&gt; </span>
+<span class="nc" id="L337">            entry.getValue().isExpired(timeoutMs));</span>
+<span class="nc" id="L338">    }</span>
+    
+    public int getActiveSessionsCount() {
+<span class="nc" id="L341">        return activeTradingSessions.size();</span>
+    }
+    
+    public Collection&lt;UUID&gt; getActiveSessionPlayerIds() {
+<span class="nc" id="L345">        return activeTradingSessions.keySet();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

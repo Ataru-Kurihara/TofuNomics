@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReloadCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">ReloadCommand.java</span></div><h1>ReloadCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.config.ConfigValidator;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * フェーズ6 - 設定リロード・検証コマンド
+ * リアルタイム設定更新機能を提供
+ */
+public class ReloadCommand implements CommandExecutor, TabCompleter {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final ConfigValidator configValidator;
+    
+<span class="nc" id="L26">    public ReloadCommand(TofuNomics plugin, ConfigManager configManager, ConfigValidator configValidator) {</span>
+<span class="nc" id="L27">        this.plugin = plugin;</span>
+<span class="nc" id="L28">        this.configManager = configManager;</span>
+<span class="nc" id="L29">        this.configValidator = configValidator;</span>
+<span class="nc" id="L30">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.admin.reload&quot;)) {</span>
+<span class="nc" id="L35">            sender.sendMessage(ChatColor.RED + &quot;このコマンドを実行する権限がありません。&quot;);</span>
+<span class="nc" id="L36">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        if (args.length == 0) {</span>
+            // デフォルト: 基本的な設定リロード
+<span class="nc" id="L41">            performBasicReload(sender);</span>
+<span class="nc" id="L42">            return true;</span>
+        }
+        
+<span class="nc" id="L45">        String subCommand = args[0].toLowerCase();</span>
+        
+<span class="nc bnc" id="L47" title="All 6 branches missed.">        switch (subCommand) {</span>
+            case &quot;config&quot;:
+<span class="nc" id="L49">                performConfigReload(sender);</span>
+<span class="nc" id="L50">                break;</span>
+            case &quot;validate&quot;:
+<span class="nc" id="L52">                performValidation(sender);</span>
+<span class="nc" id="L53">                break;</span>
+            case &quot;fix&quot;:
+<span class="nc" id="L55">                performAutoFix(sender);</span>
+<span class="nc" id="L56">                break;</span>
+            case &quot;full&quot;:
+<span class="nc" id="L58">                performFullReload(sender);</span>
+<span class="nc" id="L59">                break;</span>
+            case &quot;help&quot;:
+<span class="nc" id="L61">                showHelp(sender);</span>
+<span class="nc" id="L62">                break;</span>
+            default:
+<span class="nc" id="L64">                sender.sendMessage(ChatColor.RED + &quot;不明なサブコマンド: &quot; + subCommand);</span>
+<span class="nc" id="L65">                sender.sendMessage(ChatColor.YELLOW + &quot;使用方法: /tofunomics reload [config|validate|fix|full|help]&quot;);</span>
+                break;
+        }
+        
+<span class="nc" id="L69">        return true;</span>
+    }
+    
+    /**
+     * 基本的な設定リロードを実行
+     */
+    private void performBasicReload(CommandSender sender) {
+<span class="nc" id="L76">        long startTime = System.currentTimeMillis();</span>
+        
+<span class="nc" id="L78">        sender.sendMessage(ChatColor.YELLOW + &quot;設定をリロード中...&quot;);</span>
+        
+        try {
+<span class="nc" id="L81">            configManager.reloadConfig();</span>
+            
+<span class="nc" id="L83">            long endTime = System.currentTimeMillis();</span>
+            
+<span class="nc" id="L85">            sender.sendMessage(ChatColor.GREEN + &quot;設定のリロードが完了しました。&quot;);</span>
+<span class="nc" id="L86">            sender.sendMessage(ChatColor.GRAY + &quot;処理時間: &quot; + (endTime - startTime) + &quot;ms&quot;);</span>
+            
+<span class="nc" id="L88">            plugin.getLogger().info(&quot;設定が &quot; + sender.getName() + &quot; によってリロードされました。&quot;);</span>
+            
+<span class="nc" id="L90">        } catch (Exception e) {</span>
+<span class="nc" id="L91">            sender.sendMessage(ChatColor.RED + &quot;設定のリロードに失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L92">            plugin.getLogger().severe(&quot;設定リロード中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L93">            e.printStackTrace();</span>
+<span class="nc" id="L94">        }</span>
+<span class="nc" id="L95">    }</span>
+    
+    /**
+     * 設定ファイルのみのリロードを実行
+     */
+    private void performConfigReload(CommandSender sender) {
+<span class="nc" id="L101">        long startTime = System.currentTimeMillis();</span>
+        
+<span class="nc" id="L103">        sender.sendMessage(ChatColor.YELLOW + &quot;設定ファイルをリロード中...&quot;);</span>
+        
+        try {
+<span class="nc" id="L106">            plugin.reloadConfig();</span>
+<span class="nc" id="L107">            configManager.reloadConfig();</span>
+            
+<span class="nc" id="L109">            long endTime = System.currentTimeMillis();</span>
+            
+<span class="nc" id="L111">            sender.sendMessage(ChatColor.GREEN + &quot;設定ファイルのリロードが完了しました。&quot;);</span>
+<span class="nc" id="L112">            sender.sendMessage(ChatColor.GRAY + &quot;処理時間: &quot; + (endTime - startTime) + &quot;ms&quot;);</span>
+            
+<span class="nc" id="L114">        } catch (Exception e) {</span>
+<span class="nc" id="L115">            sender.sendMessage(ChatColor.RED + &quot;設定ファイルのリロードに失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L116">            plugin.getLogger().severe(&quot;設定ファイルリロード中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L117">            e.printStackTrace();</span>
+<span class="nc" id="L118">        }</span>
+<span class="nc" id="L119">    }</span>
+    
+    /**
+     * 設定値の検証のみを実行
+     */
+    private void performValidation(CommandSender sender) {
+<span class="nc" id="L125">        long startTime = System.currentTimeMillis();</span>
+        
+<span class="nc" id="L127">        sender.sendMessage(ChatColor.YELLOW + &quot;設定ファイルを検証中...&quot;);</span>
+        
+        try {
+<span class="nc" id="L130">            boolean isValid = configValidator.validateConfiguration();</span>
+<span class="nc" id="L131">            List&lt;ConfigValidator.ValidationError&gt; errors = configValidator.getValidationErrors();</span>
+            
+<span class="nc" id="L133">            long endTime = System.currentTimeMillis();</span>
+            
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            if (isValid) {</span>
+<span class="nc" id="L136">                sender.sendMessage(ChatColor.GREEN + &quot;設定ファイルの検証が完了しました。問題は見つかりませんでした。&quot;);</span>
+            } else {
+<span class="nc" id="L138">                sender.sendMessage(ChatColor.YELLOW + &quot;設定ファイルに &quot; + String.valueOf(errors.size()) + &quot; 個の問題が見つかりました:&quot;);</span>
+                
+                // エラー詳細の表示（最初の5つまで）
+<span class="nc" id="L141">                int displayCount = Math.min(errors.size(), 5);</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">                for (int i = 0; i &lt; displayCount; i++) {</span>
+<span class="nc" id="L143">                    ConfigValidator.ValidationError error = errors.get(i);</span>
+<span class="nc" id="L144">                    sender.sendMessage(ChatColor.RED + &quot;  &quot; + (i + 1) + &quot;. &quot; + error.getConfigPath());</span>
+<span class="nc" id="L145">                    sender.sendMessage(ChatColor.GRAY + &quot;     &quot; + error.getMessage());</span>
+<span class="nc" id="L146">                    sender.sendMessage(ChatColor.GRAY + &quot;     推奨値: &quot; + error.getSuggestedValue());</span>
+                }
+                
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                if (errors.size() &gt; 5) {</span>
+<span class="nc" id="L150">                    sender.sendMessage(ChatColor.GRAY + &quot;  ... 他 &quot; + String.valueOf(errors.size() - 5) + &quot; 個のエラー&quot;);</span>
+                }
+                
+<span class="nc" id="L153">                sender.sendMessage(ChatColor.YELLOW + &quot;修正するには '/tofunomics reload fix' を実行してください。&quot;);</span>
+            }
+            
+<span class="nc" id="L156">            sender.sendMessage(ChatColor.GRAY + &quot;処理時間: &quot; + (endTime - startTime) + &quot;ms&quot;);</span>
+            
+<span class="nc" id="L158">        } catch (Exception e) {</span>
+<span class="nc" id="L159">            sender.sendMessage(ChatColor.RED + &quot;設定ファイルの検証に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L160">            plugin.getLogger().severe(&quot;設定検証中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L161">            e.printStackTrace();</span>
+<span class="nc" id="L162">        }</span>
+<span class="nc" id="L163">    }</span>
+    
+    /**
+     * 設定エラーの自動修正を実行
+     */
+    private void performAutoFix(CommandSender sender) {
+<span class="nc" id="L169">        long startTime = System.currentTimeMillis();</span>
+        
+<span class="nc" id="L171">        sender.sendMessage(ChatColor.YELLOW + &quot;設定エラーの自動修正中...&quot;);</span>
+        
+        try {
+            // まず検証を実行
+<span class="nc" id="L175">            configValidator.validateConfiguration();</span>
+<span class="nc" id="L176">            List&lt;ConfigValidator.ValidationError&gt; errors = configValidator.getValidationErrors();</span>
+            
+<span class="nc bnc" id="L178" title="All 2 branches missed.">            if (errors.isEmpty()) {</span>
+<span class="nc" id="L179">                sender.sendMessage(ChatColor.GREEN + &quot;修正すべきエラーはありません。&quot;);</span>
+<span class="nc" id="L180">                return;</span>
+            }
+            
+<span class="nc" id="L183">            sender.sendMessage(ChatColor.YELLOW + String.valueOf(errors.size()) + &quot; 個のエラーを修正中...&quot;);</span>
+            
+            // 自動修正を実行
+<span class="nc" id="L186">            configValidator.autoFixAllErrors();</span>
+            
+<span class="nc" id="L188">            long endTime = System.currentTimeMillis();</span>
+            
+<span class="nc" id="L190">            sender.sendMessage(ChatColor.GREEN + &quot;設定エラーの自動修正が完了しました。&quot;);</span>
+<span class="nc" id="L191">            sender.sendMessage(ChatColor.GRAY + &quot;処理時間: &quot; + (endTime - startTime) + &quot;ms&quot;);</span>
+            
+<span class="nc" id="L193">            plugin.getLogger().info(&quot;設定エラーが &quot; + sender.getName() + &quot; によって自動修正されました。&quot;);</span>
+            
+<span class="nc" id="L195">        } catch (Exception e) {</span>
+<span class="nc" id="L196">            sender.sendMessage(ChatColor.RED + &quot;設定エラーの自動修正に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L197">            plugin.getLogger().severe(&quot;設定自動修正中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L198">            e.printStackTrace();</span>
+<span class="nc" id="L199">        }</span>
+<span class="nc" id="L200">    }</span>
+    
+    /**
+     * 完全なリロード（検証 + 修正 + リロード）を実行
+     */
+    private void performFullReload(CommandSender sender) {
+<span class="nc" id="L206">        long startTime = System.currentTimeMillis();</span>
+        
+<span class="nc" id="L208">        sender.sendMessage(ChatColor.YELLOW + &quot;完全なリロード処理を開始中...&quot;);</span>
+        
+        try {
+            // ステップ1: 設定検証
+<span class="nc" id="L212">            sender.sendMessage(ChatColor.YELLOW + &quot;[1/3] 設定ファイルを検証中...&quot;);</span>
+<span class="nc" id="L213">            configValidator.validateConfiguration();</span>
+            
+            // ステップ2: エラー修正
+<span class="nc" id="L216">            List&lt;ConfigValidator.ValidationError&gt; errors = configValidator.getValidationErrors();</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">            if (!errors.isEmpty()) {</span>
+<span class="nc" id="L218">                sender.sendMessage(ChatColor.YELLOW + &quot;[2/3] &quot; + String.valueOf(errors.size()) + &quot; 個のエラーを修正中...&quot;);</span>
+<span class="nc" id="L219">                configValidator.autoFixAllErrors();</span>
+            } else {
+<span class="nc" id="L221">                sender.sendMessage(ChatColor.GREEN + &quot;[2/3] 修正すべきエラーはありません。&quot;);</span>
+            }
+            
+            // ステップ3: 設定リロード
+<span class="nc" id="L225">            sender.sendMessage(ChatColor.YELLOW + &quot;[3/3] 設定をリロード中...&quot;);</span>
+<span class="nc" id="L226">            configManager.reloadConfig();</span>
+            
+<span class="nc" id="L228">            long endTime = System.currentTimeMillis();</span>
+            
+<span class="nc" id="L230">            sender.sendMessage(ChatColor.GREEN + &quot;完全なリロード処理が完了しました。&quot;);</span>
+<span class="nc" id="L231">            sender.sendMessage(ChatColor.GRAY + &quot;処理時間: &quot; + (endTime - startTime) + &quot;ms&quot;);</span>
+            
+<span class="nc" id="L233">            plugin.getLogger().info(&quot;完全な設定リロードが &quot; + sender.getName() + &quot; によって実行されました。&quot;);</span>
+            
+<span class="nc" id="L235">        } catch (Exception e) {</span>
+<span class="nc" id="L236">            sender.sendMessage(ChatColor.RED + &quot;完全リロード処理に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L237">            plugin.getLogger().severe(&quot;完全リロード中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L238">            e.printStackTrace();</span>
+<span class="nc" id="L239">        }</span>
+<span class="nc" id="L240">    }</span>
+    
+    /**
+     * ヘルプメッセージを表示
+     */
+    private void showHelp(CommandSender sender) {
+<span class="nc" id="L246">        sender.sendMessage(ChatColor.GOLD + &quot;=== TofuNomics リロードコマンド ===&quot;);</span>
+<span class="nc" id="L247">        sender.sendMessage(ChatColor.YELLOW + &quot;/tofunomics reload &quot; + ChatColor.WHITE + &quot;- 基本的な設定リロード&quot;);</span>
+<span class="nc" id="L248">        sender.sendMessage(ChatColor.YELLOW + &quot;/tofunomics reload config &quot; + ChatColor.WHITE + &quot;- 設定ファイルのみリロード&quot;);</span>
+<span class="nc" id="L249">        sender.sendMessage(ChatColor.YELLOW + &quot;/tofunomics reload validate &quot; + ChatColor.WHITE + &quot;- 設定値の検証のみ実行&quot;);</span>
+<span class="nc" id="L250">        sender.sendMessage(ChatColor.YELLOW + &quot;/tofunomics reload fix &quot; + ChatColor.WHITE + &quot;- 設定エラーの自動修正&quot;);</span>
+<span class="nc" id="L251">        sender.sendMessage(ChatColor.YELLOW + &quot;/tofunomics reload full &quot; + ChatColor.WHITE + &quot;- 完全リロード（検証+修正+リロード）&quot;);</span>
+<span class="nc" id="L252">        sender.sendMessage(ChatColor.YELLOW + &quot;/tofunomics reload help &quot; + ChatColor.WHITE + &quot;- このヘルプを表示&quot;);</span>
+<span class="nc" id="L253">        sender.sendMessage(ChatColor.GRAY + &quot;権限: tofunomics.admin.reload&quot;);</span>
+<span class="nc" id="L254">    }</span>
+    
+    @Override
+    public List&lt;String&gt; onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.admin.reload&quot;)) {</span>
+<span class="nc" id="L259">            return Arrays.asList();</span>
+        }
+        
+<span class="nc bnc" id="L262" title="All 2 branches missed.">        if (args.length == 1) {</span>
+<span class="nc" id="L263">            List&lt;String&gt; subCommands = Arrays.asList(</span>
+                &quot;config&quot;, &quot;validate&quot;, &quot;fix&quot;, &quot;full&quot;, &quot;help&quot;
+            );
+            
+<span class="nc" id="L267">            return subCommands.stream()</span>
+<span class="nc" id="L268">                    .filter(cmd -&gt; cmd.toLowerCase().startsWith(args[0].toLowerCase()))</span>
+<span class="nc" id="L269">                    .collect(Collectors.toList());</span>
+        }
+        
+<span class="nc" id="L272">        return Arrays.asList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlayerSkill.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.models</a> &gt; <span class="el_source">PlayerSkill.java</span></div><h1>PlayerSkill.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.models;
+
+import org.tofu.tofunomics.skills.SkillType;
+
+import java.sql.Timestamp;
+import java.util.UUID;
+
+public class PlayerSkill {
+    private UUID uuid;
+    private int skillId;
+    private SkillType skillType;
+    private int level;
+    private double experience;
+    private boolean unlocked;
+    private Timestamp unlockedAt;
+    private Timestamp lastUsed;
+    private Timestamp createdAt;
+    private Timestamp updatedAt;
+
+<span class="nc" id="L20">    public PlayerSkill() {</span>
+<span class="nc" id="L21">        this.level = 0;</span>
+<span class="nc" id="L22">        this.experience = 0.0;</span>
+<span class="nc" id="L23">        this.unlocked = false;</span>
+<span class="nc" id="L24">        this.createdAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L25">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L26">    }</span>
+
+    public PlayerSkill(UUID uuid, int skillId) {
+<span class="nc" id="L29">        this();</span>
+<span class="nc" id="L30">        this.uuid = uuid;</span>
+<span class="nc" id="L31">        this.skillId = skillId;</span>
+<span class="nc" id="L32">        this.unlockedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L33">    }</span>
+    
+    public PlayerSkill(String uuidString, SkillType skillType) {
+<span class="nc" id="L36">        this();</span>
+<span class="nc" id="L37">        this.uuid = UUID.fromString(uuidString);</span>
+<span class="nc" id="L38">        this.skillType = skillType;</span>
+<span class="nc" id="L39">    }</span>
+
+    public UUID getUuid() {
+<span class="nc" id="L42">        return uuid;</span>
+    }
+
+    public void setUuid(UUID uuid) {
+<span class="nc" id="L46">        this.uuid = uuid;</span>
+<span class="nc" id="L47">    }</span>
+
+    public int getSkillId() {
+<span class="nc" id="L50">        return skillId;</span>
+    }
+
+    public void setSkillId(int skillId) {
+<span class="nc" id="L54">        this.skillId = skillId;</span>
+<span class="nc" id="L55">    }</span>
+    
+    public SkillType getSkillType() {
+<span class="nc" id="L58">        return skillType;</span>
+    }
+    
+    public void setSkillType(SkillType skillType) {
+<span class="nc" id="L62">        this.skillType = skillType;</span>
+<span class="nc" id="L63">    }</span>
+    
+    public int getLevel() {
+<span class="nc" id="L66">        return level;</span>
+    }
+    
+    public void setLevel(int level) {
+<span class="nc" id="L70">        this.level = level;</span>
+<span class="nc" id="L71">    }</span>
+    
+    public double getExperience() {
+<span class="nc" id="L74">        return experience;</span>
+    }
+    
+    public void setExperience(double experience) {
+<span class="nc" id="L78">        this.experience = experience;</span>
+<span class="nc" id="L79">    }</span>
+    
+    public boolean isUnlocked() {
+<span class="nc" id="L82">        return unlocked;</span>
+    }
+    
+    public void setUnlocked(boolean unlocked) {
+<span class="nc" id="L86">        this.unlocked = unlocked;</span>
+<span class="nc" id="L87">    }</span>
+
+    public Timestamp getUnlockedAt() {
+<span class="nc" id="L90">        return unlockedAt;</span>
+    }
+
+    public void setUnlockedAt(Timestamp unlockedAt) {
+<span class="nc" id="L94">        this.unlockedAt = unlockedAt;</span>
+<span class="nc" id="L95">    }</span>
+
+    public Timestamp getLastUsed() {
+<span class="nc" id="L98">        return lastUsed;</span>
+    }
+
+    public void setLastUsed(Timestamp lastUsed) {
+<span class="nc" id="L102">        this.lastUsed = lastUsed;</span>
+<span class="nc" id="L103">    }</span>
+    
+    public Timestamp getCreatedAt() {
+<span class="nc" id="L106">        return createdAt;</span>
+    }
+    
+    public void setCreatedAt(Timestamp createdAt) {
+<span class="nc" id="L110">        this.createdAt = createdAt;</span>
+<span class="nc" id="L111">    }</span>
+    
+    public Timestamp getUpdatedAt() {
+<span class="nc" id="L114">        return updatedAt;</span>
+    }
+    
+    public void setUpdatedAt(Timestamp updatedAt) {
+<span class="nc" id="L118">        this.updatedAt = updatedAt;</span>
+<span class="nc" id="L119">    }</span>
+
+    // ユーティリティメソッド
+    public void addExperience(double exp) {
+<span class="nc" id="L123">        this.experience += exp;</span>
+<span class="nc" id="L124">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L125">    }</span>
+    
+    public void levelUp() {
+<span class="nc" id="L128">        this.level++;</span>
+<span class="nc" id="L129">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L130">    }</span>
+    
+    public void unlock() {
+<span class="nc" id="L133">        this.unlocked = true;</span>
+<span class="nc" id="L134">        this.unlockedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L135">        this.updatedAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L136">    }</span>
+
+    public void markAsUsed() {
+<span class="nc" id="L139">        this.lastUsed = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L140">    }</span>
+
+    public boolean isOnCooldown(int cooldownSeconds) {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (lastUsed == null) return false;</span>
+<span class="nc" id="L144">        long currentTime = System.currentTimeMillis();</span>
+<span class="nc" id="L145">        long cooldownTime = lastUsed.getTime() + (cooldownSeconds * 1000L);</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        return currentTime &lt; cooldownTime;</span>
+    }
+
+    public long getRemainingCooldown(int cooldownSeconds) {
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (lastUsed == null) return 0;</span>
+<span class="nc" id="L151">        long currentTime = System.currentTimeMillis();</span>
+<span class="nc" id="L152">        long cooldownTime = lastUsed.getTime() + (cooldownSeconds * 1000L);</span>
+<span class="nc" id="L153">        return Math.max(0, (cooldownTime - currentTime) / 1000);</span>
+    }
+    
+    /**
+     * レベルアップに必要な経験値を計算
+     */
+    public double getRequiredExperienceForNextLevel() {
+<span class="nc" id="L160">        return Math.pow(level + 1, 2.0) * 50.0;</span>
+    }
+    
+    /**
+     * レベルアップ可能かチェック
+     */
+    public boolean canLevelUp() {
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        return experience &gt;= getRequiredExperienceForNextLevel();</span>
+    }
+    
+    /**
+     * スキル効果の強度を計算（レベルベース）
+     * @return 0.0〜1.0の効果強度
+     */
+    public double getEffectivenessPower() {
+<span class="nc bnc" id="L175" title="All 4 branches missed.">        if (!unlocked || level == 0) {</span>
+<span class="nc" id="L176">            return 0.0;</span>
+        }
+        
+        // レベル50で最大効果（100%）になる計算
+<span class="nc" id="L180">        double maxLevel = 50.0;</span>
+<span class="nc" id="L181">        return Math.min(level / maxLevel, 1.0);</span>
+    }
+    
+    /**
+     * スキルのパーセンテージ効果を取得
+     * @param basePercentage 基本効果パーセンテージ
+     * @return 実際の効果パーセンテージ
+     */
+    public double getSkillEffectPercentage(double basePercentage) {
+<span class="nc" id="L190">        return basePercentage * getEffectivenessPower();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

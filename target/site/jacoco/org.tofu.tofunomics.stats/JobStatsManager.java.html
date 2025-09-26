@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobStatsManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.stats</a> &gt; <span class="el_source">JobStatsManager.java</span></div><h1>JobStatsManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.stats;
+
+import org.bukkit.ChatColor;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerJobDAO;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+import org.tofu.tofunomics.rewards.JobLevelRewardManager;
+
+import java.text.DecimalFormat;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * 職業別統計・進捗表示システム
+ */
+public class JobStatsManager {
+    
+    private final ConfigManager configManager;
+    private final PlayerJobDAO playerJobDAO;
+    private final JobManager jobManager;
+    private final JobLevelRewardManager rewardManager;
+    private final DecimalFormat decimalFormat;
+    
+    public JobStatsManager(ConfigManager configManager, PlayerJobDAO playerJobDAO, 
+<span class="nc" id="L27">                          JobManager jobManager, JobLevelRewardManager rewardManager) {</span>
+<span class="nc" id="L28">        this.configManager = configManager;</span>
+<span class="nc" id="L29">        this.playerJobDAO = playerJobDAO;</span>
+<span class="nc" id="L30">        this.jobManager = jobManager;</span>
+<span class="nc" id="L31">        this.rewardManager = rewardManager;</span>
+<span class="nc" id="L32">        this.decimalFormat = new DecimalFormat(&quot;#,##0.0&quot;);</span>
+<span class="nc" id="L33">    }</span>
+    
+    /**
+     * プレイヤーの全職業統計を表示
+     */
+    public void showAllJobStats(Player player) {
+<span class="nc" id="L39">        List&lt;PlayerJob&gt; playerJobs = jobManager.getPlayerJobs(player);</span>
+        
+<span class="nc bnc" id="L41" title="All 2 branches missed.">        if (playerJobs.isEmpty()) {</span>
+<span class="nc" id="L42">            player.sendMessage(ChatColor.YELLOW + &quot;現在就職していません。&quot;);</span>
+<span class="nc" id="L43">            return;</span>
+        }
+        
+<span class="nc" id="L46">        player.sendMessage(ChatColor.GOLD + &quot;▬▬▬▬▬▬▬▬▬▬▬ 職業統計 ▬▬▬▬▬▬▬▬▬▬▬&quot;);</span>
+        
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        for (PlayerJob playerJob : playerJobs) {</span>
+<span class="nc" id="L49">            String jobName = getJobNameById(playerJob.getJobId());</span>
+<span class="nc" id="L50">            showSingleJobStats(player, playerJob, jobName, false);</span>
+<span class="nc" id="L51">        }</span>
+        
+<span class="nc" id="L53">        player.sendMessage(ChatColor.GOLD + &quot;▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬&quot;);</span>
+<span class="nc" id="L54">    }</span>
+    
+    /**
+     * 特定職業の詳細統計を表示
+     */
+    public void showJobStats(Player player, String jobName) {
+<span class="nc" id="L60">        PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);</span>
+        
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L63">            player.sendMessage(ChatColor.RED + &quot;職業「&quot; + </span>
+<span class="nc" id="L64">                configManager.getJobDisplayName(jobName) + &quot;」に就職していません。&quot;);</span>
+<span class="nc" id="L65">            return;</span>
+        }
+        
+<span class="nc" id="L68">        player.sendMessage(ChatColor.GOLD + &quot;▬▬▬▬▬▬ &quot; + </span>
+<span class="nc" id="L69">            configManager.getJobDisplayName(jobName) + &quot; 統計 ▬▬▬▬▬▬&quot;);</span>
+        
+<span class="nc" id="L71">        showSingleJobStats(player, playerJob, jobName, true);</span>
+        
+<span class="nc" id="L73">        player.sendMessage(ChatColor.GOLD + &quot;▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬&quot;);</span>
+<span class="nc" id="L74">    }</span>
+    
+    /**
+     * 単一職業の統計表示（内部メソッド）
+     */
+    private void showSingleJobStats(Player player, PlayerJob playerJob, String jobName, boolean detailed) {
+<span class="nc" id="L80">        String displayName = configManager.getJobDisplayName(jobName);</span>
+<span class="nc" id="L81">        int currentLevel = playerJob.getLevel();</span>
+<span class="nc" id="L82">        double currentExp = playerJob.getExperience();</span>
+        
+        // レベル情報
+<span class="nc" id="L85">        String levelInfo = String.format(&quot;%s%s: %sレベル %d&quot;, </span>
+<span class="nc" id="L86">            ChatColor.AQUA, displayName, ChatColor.WHITE, currentLevel);</span>
+<span class="nc" id="L87">        player.sendMessage(levelInfo);</span>
+        
+        // 経験値情報
+<span class="nc" id="L90">        double requiredExp = calculateRequiredExperience(currentLevel + 1);</span>
+<span class="nc" id="L91">        double progressPercent = (currentExp / requiredExp) * 100.0;</span>
+        
+<span class="nc" id="L93">        String expInfo = String.format(&quot;  %s経験値: %s%s / %s (%.1f%%)&quot;, </span>
+            ChatColor.GREEN, 
+<span class="nc" id="L95">            ChatColor.YELLOW, decimalFormat.format(currentExp),</span>
+<span class="nc" id="L96">            decimalFormat.format(requiredExp), progressPercent);</span>
+<span class="nc" id="L97">        player.sendMessage(expInfo);</span>
+        
+        // 経験値バー表示
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (detailed) {</span>
+<span class="nc" id="L101">            player.sendMessage(&quot;  &quot; + createProgressBar(progressPercent));</span>
+        }
+        
+        // 次のレベルまでの必要経験値
+<span class="nc" id="L105">        double remainingExp = requiredExp - currentExp;</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        if (remainingExp &gt; 0) {</span>
+<span class="nc" id="L107">            player.sendMessage(String.format(&quot;  %s次のレベルまで: %s%s経験値&quot;, </span>
+<span class="nc" id="L108">                ChatColor.GRAY, ChatColor.WHITE, decimalFormat.format(remainingExp)));</span>
+        }
+        
+        // 次の報酬レベル情報
+<span class="nc" id="L112">        int nextRewardLevel = rewardManager.getNextRewardLevel(jobName, currentLevel);</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (nextRewardLevel != -1) {</span>
+<span class="nc" id="L114">            player.sendMessage(String.format(&quot;  %s次の報酬: %sレベル %d&quot;, </span>
+<span class="nc" id="L115">                ChatColor.LIGHT_PURPLE, ChatColor.GOLD, nextRewardLevel));</span>
+        }
+        
+        // 詳細統計（詳細表示時のみ）
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (detailed) {</span>
+<span class="nc" id="L120">            showDetailedJobStats(player, playerJob, jobName);</span>
+        }
+<span class="nc" id="L122">    }</span>
+    
+    /**
+     * 詳細職業統計表示
+     */
+    private void showDetailedJobStats(Player player, PlayerJob playerJob, String jobName) {
+        // 職業転職制限情報
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (configManager.isDailyJobChangeLimitEnabled()) {</span>
+<span class="nc" id="L130">            boolean canChange = jobManager.canChangeJobToday(player);</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            String changeStatus = canChange ? </span>
+<span class="nc" id="L132">                ChatColor.GREEN + &quot;転職可能&quot; : ChatColor.RED + &quot;転職不可（24時間制限中）&quot;;</span>
+<span class="nc" id="L133">            player.sendMessage(&quot;  &quot; + ChatColor.GRAY + &quot;転職状況: &quot; + changeStatus);</span>
+        }
+        
+        // 職業固有統計
+<span class="nc" id="L137">        showJobSpecificStats(player, playerJob, jobName);</span>
+        
+        // 到達済み報酬レベル
+<span class="nc" id="L140">        List&lt;Integer&gt; allRewardLevels = rewardManager.getAllRewardLevels(jobName);</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        if (!allRewardLevels.isEmpty()) {</span>
+<span class="nc" id="L142">            StringBuilder achievedRewards = new StringBuilder();</span>
+<span class="nc" id="L143">            achievedRewards.append(&quot;  &quot;).append(ChatColor.YELLOW).append(&quot;取得済み報酬: &quot;);</span>
+            
+<span class="nc" id="L145">            boolean hasAchieved = false;</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">            for (int rewardLevel : allRewardLevels) {</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">                if (playerJob.getLevel() &gt;= rewardLevel) {</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">                    if (hasAchieved) achievedRewards.append(&quot;, &quot;);</span>
+<span class="nc" id="L149">                    achievedRewards.append(ChatColor.GOLD).append(&quot;Lv&quot;).append(rewardLevel);</span>
+<span class="nc" id="L150">                    hasAchieved = true;</span>
+                }
+<span class="nc" id="L152">            }</span>
+            
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (!hasAchieved) {</span>
+<span class="nc" id="L155">                achievedRewards.append(ChatColor.GRAY).append(&quot;なし&quot;);</span>
+            }
+            
+<span class="nc" id="L158">            player.sendMessage(achievedRewards.toString());</span>
+        }
+        
+        // 職業ランキング情報
+<span class="nc" id="L162">        showJobRanking(player, playerJob, jobName);</span>
+<span class="nc" id="L163">    }</span>
+    
+    /**
+     * 職業固有の統計情報表示
+     */
+    private void showJobSpecificStats(Player player, PlayerJob playerJob, String jobName) {
+<span class="nc bnc" id="L169" title="All 9 branches missed.">        switch (jobName.toLowerCase()) {</span>
+            case &quot;miner&quot;:
+<span class="nc" id="L171">                player.sendMessage(String.format(&quot;  %s採掘効率: %s+%.1f%%&quot;, </span>
+<span class="nc" id="L172">                    ChatColor.DARK_GRAY, ChatColor.GREEN, playerJob.getLevel() * 2.0));</span>
+<span class="nc" id="L173">                break;</span>
+            case &quot;woodcutter&quot;:
+<span class="nc" id="L175">                player.sendMessage(String.format(&quot;  %s伐採効率: %s+%.1f%%&quot;, </span>
+<span class="nc" id="L176">                    ChatColor.GREEN, ChatColor.GREEN, playerJob.getLevel() * 1.5));</span>
+<span class="nc" id="L177">                break;</span>
+            case &quot;farmer&quot;:
+<span class="nc" id="L179">                player.sendMessage(String.format(&quot;  %s作物成長: %s+%.1f%%&quot;, </span>
+<span class="nc" id="L180">                    ChatColor.YELLOW, ChatColor.GREEN, playerJob.getLevel() * 1.2));</span>
+<span class="nc" id="L181">                break;</span>
+            case &quot;fisherman&quot;:
+<span class="nc" id="L183">                player.sendMessage(String.format(&quot;  %s釣り運: %s+%.1f%%&quot;, </span>
+<span class="nc" id="L184">                    ChatColor.AQUA, ChatColor.GREEN, playerJob.getLevel() * 1.8));</span>
+<span class="nc" id="L185">                break;</span>
+            case &quot;blacksmith&quot;:
+<span class="nc" id="L187">                player.sendMessage(String.format(&quot;  %s製作効率: %s+%.1f%%&quot;, </span>
+<span class="nc" id="L188">                    ChatColor.GRAY, ChatColor.GREEN, playerJob.getLevel() * 2.5));</span>
+<span class="nc" id="L189">                break;</span>
+            case &quot;alchemist&quot;:
+<span class="nc" id="L191">                player.sendMessage(String.format(&quot;  %sポーション効果: %s+%.1f%%&quot;, </span>
+<span class="nc" id="L192">                    ChatColor.LIGHT_PURPLE, ChatColor.GREEN, playerJob.getLevel() * 1.3));</span>
+<span class="nc" id="L193">                break;</span>
+            case &quot;enchanter&quot;:
+<span class="nc" id="L195">                player.sendMessage(String.format(&quot;  %sエンチャント成功率: %s+%.1f%%&quot;, </span>
+<span class="nc" id="L196">                    ChatColor.BLUE, ChatColor.GREEN, playerJob.getLevel() * 1.0));</span>
+<span class="nc" id="L197">                break;</span>
+            case &quot;architect&quot;:
+<span class="nc" id="L199">                player.sendMessage(String.format(&quot;  %s建築速度: %s+%.1f%%&quot;, </span>
+<span class="nc" id="L200">                    ChatColor.WHITE, ChatColor.GREEN, playerJob.getLevel() * 2.2));</span>
+                break;
+        }
+<span class="nc" id="L203">    }</span>
+    
+    /**
+     * 職業別ランキング情報表示
+     */
+    private void showJobRanking(Player player, PlayerJob playerJob, String jobName) {
+        // 実装は簡略化（実際にはデータベースから他プレイヤーとの比較）
+        List&lt;PlayerJob&gt; topPlayers;
+        try {
+<span class="nc" id="L212">            topPlayers = playerJobDAO.getTopPlayersByJobLevel(playerJob.getJobId(), 10);</span>
+<span class="nc" id="L213">        } catch (Exception e) {</span>
+<span class="nc" id="L214">            topPlayers = Arrays.asList();</span>
+<span class="nc" id="L215">        }</span>
+        
+<span class="nc" id="L217">        int playerRank = 1;</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        for (int i = 0; i &lt; topPlayers.size(); i++) {</span>
+<span class="nc" id="L219">            PlayerJob topPlayer = topPlayers.get(i);</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">            if (topPlayer.getUuid().toString().equals(player.getUniqueId().toString())) {</span>
+<span class="nc" id="L221">                playerRank = i + 1;</span>
+<span class="nc" id="L222">                break;</span>
+            }
+        }
+        
+<span class="nc" id="L226">        player.sendMessage(String.format(&quot;  %s%sランキング: %s%d位 / %d人&quot;, </span>
+<span class="nc" id="L227">            ChatColor.GOLD, configManager.getJobDisplayName(jobName),</span>
+<span class="nc" id="L228">            ChatColor.WHITE, playerRank, topPlayers.size()));</span>
+<span class="nc" id="L229">    }</span>
+    
+    /**
+     * 経験値プログレスバーの生成
+     */
+    private String createProgressBar(double percentage) {
+<span class="nc" id="L235">        int totalBars = 20;</span>
+<span class="nc" id="L236">        int filledBars = (int) Math.round(percentage / 100.0 * totalBars);</span>
+        
+<span class="nc" id="L238">        StringBuilder progressBar = new StringBuilder();</span>
+<span class="nc" id="L239">        progressBar.append(ChatColor.GREEN);</span>
+        
+<span class="nc bnc" id="L241" title="All 2 branches missed.">        for (int i = 0; i &lt; totalBars; i++) {</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">            if (i &lt; filledBars) {</span>
+<span class="nc" id="L243">                progressBar.append(&quot;█&quot;);</span>
+            } else {
+<span class="nc" id="L245">                progressBar.append(ChatColor.GRAY).append(&quot;░&quot;);</span>
+            }
+        }
+        
+<span class="nc" id="L249">        progressBar.append(ChatColor.WHITE).append(&quot; &quot;).append(String.format(&quot;%.1f%%&quot;, percentage));</span>
+        
+<span class="nc" id="L251">        return progressBar.toString();</span>
+    }
+    
+    /**
+     * 職業別トップランキングを表示
+     */
+    public void showJobTopRanking(Player player, String jobName, int limit) {
+<span class="nc" id="L258">        int jobId = getJobIdByName(jobName);</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (jobId == -1) {</span>
+<span class="nc" id="L260">            player.sendMessage(ChatColor.RED + &quot;存在しない職業名です。&quot;);</span>
+<span class="nc" id="L261">            return;</span>
+        }
+        
+        List&lt;PlayerJob&gt; topPlayers;
+        try {
+<span class="nc" id="L266">            topPlayers = playerJobDAO.getTopPlayersByJobLevel(jobId, limit);</span>
+<span class="nc" id="L267">        } catch (Exception e) {</span>
+<span class="nc" id="L268">            topPlayers = Arrays.asList();</span>
+<span class="nc" id="L269">        }</span>
+        
+<span class="nc bnc" id="L271" title="All 2 branches missed.">        if (topPlayers.isEmpty()) {</span>
+<span class="nc" id="L272">            player.sendMessage(ChatColor.YELLOW + &quot;ランキングデータがありません。&quot;);</span>
+<span class="nc" id="L273">            return;</span>
+        }
+        
+<span class="nc" id="L276">        String displayName = configManager.getJobDisplayName(jobName);</span>
+<span class="nc" id="L277">        player.sendMessage(ChatColor.GOLD + &quot;▬▬▬▬▬ &quot; + displayName + &quot; ランキング TOP &quot; + limit + &quot; ▬▬▬▬▬&quot;);</span>
+        
+<span class="nc bnc" id="L279" title="All 2 branches missed.">        for (int i = 0; i &lt; topPlayers.size(); i++) {</span>
+<span class="nc" id="L280">            PlayerJob playerJob = topPlayers.get(i);</span>
+<span class="nc" id="L281">            int rank = i + 1;</span>
+            
+<span class="nc" id="L283">            String playerName = getPlayerNameByUUID(playerJob.getUuid().toString());</span>
+<span class="nc" id="L284">            ChatColor rankColor = getRankColor(rank);</span>
+            
+<span class="nc" id="L286">            player.sendMessage(String.format(&quot;%s%d位 %s%s %sLv.%d (%s経験値)&quot;, </span>
+<span class="nc" id="L287">                rankColor, rank, ChatColor.WHITE, playerName,</span>
+<span class="nc" id="L288">                ChatColor.YELLOW, playerJob.getLevel(),</span>
+<span class="nc" id="L289">                decimalFormat.format(playerJob.getExperience())));</span>
+        }
+        
+<span class="nc" id="L292">        player.sendMessage(ChatColor.GOLD + &quot;▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬&quot;);</span>
+<span class="nc" id="L293">    }</span>
+    
+    /**
+     * レベルアップに必要な経験値を計算
+     */
+    private double calculateRequiredExperience(int level) {
+<span class="nc" id="L299">        return Math.pow(level, 2.2) * 100.0;</span>
+    }
+    
+    /**
+     * ランクの色を取得
+     */
+    private ChatColor getRankColor(int rank) {
+<span class="nc bnc" id="L306" title="All 4 branches missed.">        switch (rank) {</span>
+<span class="nc" id="L307">            case 1: return ChatColor.GOLD;</span>
+<span class="nc" id="L308">            case 2: return ChatColor.GRAY;</span>
+<span class="nc" id="L309">            case 3: return ChatColor.DARK_RED;</span>
+<span class="nc" id="L310">            default: return ChatColor.YELLOW;</span>
+        }
+    }
+    
+    /**
+     * jobIdから職業名を取得（簡略実装）
+     */
+    private String getJobNameById(int jobId) {
+<span class="nc bnc" id="L318" title="All 9 branches missed.">        switch (jobId) {</span>
+<span class="nc" id="L319">            case 1: return &quot;miner&quot;;</span>
+<span class="nc" id="L320">            case 2: return &quot;woodcutter&quot;;</span>
+<span class="nc" id="L321">            case 3: return &quot;farmer&quot;;</span>
+<span class="nc" id="L322">            case 4: return &quot;fisherman&quot;;</span>
+<span class="nc" id="L323">            case 5: return &quot;blacksmith&quot;;</span>
+<span class="nc" id="L324">            case 6: return &quot;alchemist&quot;;</span>
+<span class="nc" id="L325">            case 7: return &quot;enchanter&quot;;</span>
+<span class="nc" id="L326">            case 8: return &quot;architect&quot;;</span>
+<span class="nc" id="L327">            default: return &quot;unknown&quot;;</span>
+        }
+    }
+    
+    /**
+     * 職業名からjobIdを取得（簡略実装）
+     */
+    private int getJobIdByName(String jobName) {
+<span class="nc bnc" id="L335" title="All 9 branches missed.">        switch (jobName.toLowerCase()) {</span>
+<span class="nc" id="L336">            case &quot;miner&quot;: return 1;</span>
+<span class="nc" id="L337">            case &quot;woodcutter&quot;: return 2;</span>
+<span class="nc" id="L338">            case &quot;farmer&quot;: return 3;</span>
+<span class="nc" id="L339">            case &quot;fisherman&quot;: return 4;</span>
+<span class="nc" id="L340">            case &quot;blacksmith&quot;: return 5;</span>
+<span class="nc" id="L341">            case &quot;alchemist&quot;: return 6;</span>
+<span class="nc" id="L342">            case &quot;enchanter&quot;: return 7;</span>
+<span class="nc" id="L343">            case &quot;architect&quot;: return 8;</span>
+<span class="nc" id="L344">            default: return -1;</span>
+        }
+    }
+    
+    /**
+     * UUIDからプレイヤー名を取得（簡略実装）
+     */
+    private String getPlayerNameByUUID(String uuid) {
+        // 実際の実装では Bukkit.getOfflinePlayer() を使用
+<span class="nc" id="L353">        return &quot;Player&quot;; // プレースホルダー</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

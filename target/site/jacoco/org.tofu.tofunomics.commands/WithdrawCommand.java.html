@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WithdrawCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">WithdrawCommand.java</span></div><h1>WithdrawCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.BankLocationManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+
+public class WithdrawCommand implements CommandExecutor {
+    
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    private final BankLocationManager bankLocationManager;
+    
+<span class="nc" id="L19">    public WithdrawCommand(ConfigManager configManager, CurrencyConverter currencyConverter, BankLocationManager bankLocationManager) {</span>
+<span class="nc" id="L20">        this.configManager = configManager;</span>
+<span class="nc" id="L21">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L22">        this.bankLocationManager = bankLocationManager;</span>
+<span class="nc" id="L23">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc bnc" id="L27" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L28">            sender.sendMessage(ChatColor.RED + &quot;このコマンドはプレイヤーのみ実行できます。&quot;);</span>
+<span class="nc" id="L29">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L32" title="All 2 branches missed.">        if (args.length != 1) {</span>
+<span class="nc" id="L33">            sender.sendMessage(ChatColor.RED + &quot;使用法: /withdraw &lt;金額&gt;&quot;);</span>
+<span class="nc" id="L34">            return true;</span>
+        }
+        
+<span class="nc" id="L37">        Player player = (Player) sender;</span>
+        
+        // 場所制限チェック
+<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (!bankLocationManager.isPlayerNearBankOrAtm(player)) {</span>
+<span class="nc" id="L41">            String deniedMessage = bankLocationManager.getLocationDeniedMessage(player);</span>
+<span class="nc" id="L42">            player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L43">                configManager.getMessagePrefix() + deniedMessage));</span>
+<span class="nc" id="L44">            return true;</span>
+        }
+        
+<span class="nc" id="L47">        String amountString = args[0];</span>
+        
+        double amount;
+        try {
+<span class="nc" id="L51">            amount = Double.parseDouble(amountString);</span>
+<span class="nc" id="L52">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L53">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L54">                configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L55">            return true;</span>
+<span class="nc" id="L56">        }</span>
+        
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L59">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L60">                configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L61">            return true;</span>
+        }
+        
+<span class="nc" id="L64">        double maxWithdraw = configManager.getMaxWithdraw();</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (amount &gt; maxWithdraw) {</span>
+<span class="nc" id="L66">            sender.sendMessage(ChatColor.RED + &quot;一度に引き出し可能な最大金額は &quot; + </span>
+<span class="nc" id="L67">                currencyConverter.formatCurrency(maxWithdraw) + &quot; &quot; + </span>
+<span class="nc" id="L68">                configManager.getCurrencySymbol() + &quot; です。&quot;);</span>
+<span class="nc" id="L69">            return true;</span>
+        }
+        
+<span class="nc" id="L72">        CurrencyConverter.WithdrawResult result = currencyConverter.withdrawToGoldNuggets(player, amount);</span>
+        
+<span class="nc bnc" id="L74" title="All 6 branches missed.">        switch (result) {</span>
+            case SUCCESS:
+<span class="nc" id="L76">                String formattedAmount = currencyConverter.formatCurrency(amount);</span>
+<span class="nc" id="L77">                String currencySymbol = configManager.getCurrencySymbol();</span>
+                
+<span class="nc" id="L79">                String message = configManager.getMessage(&quot;economy.withdraw_success&quot;,</span>
+                    &quot;amount&quot;, formattedAmount,
+                    &quot;currency&quot;, currencySymbol);
+                
+<span class="nc" id="L83">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L84">                    configManager.getMessagePrefix() + message));</span>
+                
+                // スコアボードを即座に更新
+<span class="nc" id="L87">                TofuNomics plugin = TofuNomics.getInstance();</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">                if (plugin.getScoreboardManager() != null) {</span>
+<span class="nc" id="L89">                    plugin.getScoreboardManager().updatePlayerScoreboard(player);</span>
+                }
+                break;
+                
+            case INSUFFICIENT_BALANCE:
+<span class="nc" id="L94">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L95">                    configManager.getMessagePrefix() + configManager.getMessage(&quot;insufficient_balance&quot;)));</span>
+<span class="nc" id="L96">                break;</span>
+                
+            case INSUFFICIENT_INVENTORY_SPACE:
+<span class="nc" id="L99">                player.sendMessage(ChatColor.RED + &quot;インベントリに十分な空きスペースがありません。&quot;);</span>
+<span class="nc" id="L100">                break;</span>
+                
+            case INVALID_AMOUNT:
+<span class="nc" id="L103">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L104">                    configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L105">                break;</span>
+                
+            case DATABASE_ERROR:
+<span class="nc" id="L108">                player.sendMessage(ChatColor.RED + &quot;引き出し処理中にエラーが発生しました。しばらくしてから再度お試しください。&quot;);</span>
+                break;
+        }
+        
+<span class="nc" id="L112">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OptimizedBatchProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.batch</a> &gt; <span class="el_source">OptimizedBatchProcessor.java</span></div><h1>OptimizedBatchProcessor.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.batch;
+
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.database.HikariDatabaseManager;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * 最適化されたバッチ処理システム
+ * より効率的なバッチ処理とメモリ使用量削減を実現
+ */
+public class OptimizedBatchProcessor {
+    
+    private final JavaPlugin plugin;
+    private final ConfigManager configManager;
+    private final HikariDatabaseManager databaseManager;
+    private final Logger logger;
+    
+    // バッチ処理キュー（操作タイプ別）
+    private final Map&lt;BatchOperationType, BlockingQueue&lt;BatchOperation&gt;&gt; batchQueues;
+    
+    // バッチ処理スケジューラ
+    private final ScheduledExecutorService batchScheduler;
+    private final ExecutorService batchExecutor;
+    
+    // オブジェクトプール
+    private final ObjectPool&lt;StringBuilder&gt; stringBuilderPool;
+    private final ObjectPool&lt;HashMap&lt;String, Object&gt;&gt; mapPool;
+    
+    // 統計情報
+<span class="nc" id="L42">    private final AtomicInteger totalBatchesProcessed = new AtomicInteger(0);</span>
+<span class="nc" id="L43">    private final AtomicInteger totalOperationsProcessed = new AtomicInteger(0);</span>
+<span class="nc" id="L44">    private final AtomicLong totalBatchTime = new AtomicLong(0);</span>
+<span class="nc" id="L45">    private final AtomicInteger failedBatches = new AtomicInteger(0);</span>
+    
+    // 設定値
+    private volatile int batchSize;
+    private volatile int batchTimeout;
+    private volatile boolean batchProcessingEnabled;
+    
+    public OptimizedBatchProcessor(JavaPlugin plugin, ConfigManager configManager, 
+<span class="nc" id="L53">                                 HikariDatabaseManager databaseManager) {</span>
+<span class="nc" id="L54">        this.plugin = plugin;</span>
+<span class="nc" id="L55">        this.configManager = configManager;</span>
+<span class="nc" id="L56">        this.databaseManager = databaseManager;</span>
+<span class="nc" id="L57">        this.logger = plugin.getLogger();</span>
+        
+        // 設定値の初期化
+<span class="nc" id="L60">        loadConfiguration();</span>
+        
+        // バッチキューの初期化
+<span class="nc" id="L63">        this.batchQueues = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        for (BatchOperationType type : BatchOperationType.values()) {</span>
+<span class="nc" id="L65">            this.batchQueues.put(type, new ArrayBlockingQueue&lt;&gt;(1000));</span>
+        }
+        
+        // スレッドプールの初期化
+<span class="nc" id="L69">        this.batchScheduler = Executors.newScheduledThreadPool(2, r -&gt; {</span>
+<span class="nc" id="L70">            Thread thread = new Thread(r, &quot;TofuNomics-BatchScheduler&quot;);</span>
+<span class="nc" id="L71">            thread.setDaemon(true);</span>
+<span class="nc" id="L72">            return thread;</span>
+        });
+        
+<span class="nc" id="L75">        this.batchExecutor = Executors.newFixedThreadPool(3, r -&gt; {</span>
+<span class="nc" id="L76">            Thread thread = new Thread(r, &quot;TofuNomics-BatchExecutor&quot;);</span>
+<span class="nc" id="L77">            thread.setDaemon(true);</span>
+<span class="nc" id="L78">            return thread;</span>
+        });
+        
+        // オブジェクトプールの初期化
+<span class="nc" id="L82">        this.stringBuilderPool = new ObjectPool&lt;&gt;(StringBuilder::new, 50);</span>
+<span class="nc" id="L83">        this.mapPool = new ObjectPool&lt;&gt;(HashMap::new, 100);</span>
+        
+        // バッチ処理タスクの開始
+<span class="nc" id="L86">        startBatchProcessing();</span>
+<span class="nc" id="L87">    }</span>
+    
+    /**
+     * 設定値の読み込み
+     */
+    private void loadConfiguration() {
+<span class="nc" id="L93">        this.batchProcessingEnabled = configManager.isBatchProcessingEnabled();</span>
+<span class="nc" id="L94">        this.batchSize = configManager.getBatchSize();</span>
+<span class="nc" id="L95">        this.batchTimeout = configManager.getBatchTimeout();</span>
+<span class="nc" id="L96">    }</span>
+    
+    /**
+     * バッチ処理タスクの開始
+     */
+    private void startBatchProcessing() {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (!batchProcessingEnabled) {</span>
+<span class="nc" id="L103">            logger.info(&quot;バッチ処理が無効化されています。&quot;);</span>
+<span class="nc" id="L104">            return;</span>
+        }
+        
+        // 各操作タイプに対してバッチ処理タスクを開始
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        for (BatchOperationType type : BatchOperationType.values()) {</span>
+<span class="nc" id="L109">            batchScheduler.scheduleAtFixedRate(() -&gt; {</span>
+                try {
+<span class="nc" id="L111">                    processBatch(type);</span>
+<span class="nc" id="L112">                } catch (Exception e) {</span>
+<span class="nc" id="L113">                    logger.log(Level.WARNING, &quot;バッチ処理中にエラーが発生しました: &quot; + type, e);</span>
+<span class="nc" id="L114">                }</span>
+<span class="nc" id="L115">            }, 1000, batchTimeout, TimeUnit.MILLISECONDS);</span>
+        }
+        
+<span class="nc" id="L118">        logger.info(&quot;最適化バッチ処理システムを開始しました。&quot;);</span>
+<span class="nc" id="L119">    }</span>
+    
+    /**
+     * バッチ操作をキューに追加
+     */
+    public void queueOperation(BatchOperationType type, String playerUUID, Object... parameters) {
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (!batchProcessingEnabled) {</span>
+            // バッチ処理が無効の場合は即座に実行
+<span class="nc" id="L127">            executeImmediately(type, playerUUID, parameters);</span>
+<span class="nc" id="L128">            return;</span>
+        }
+        
+<span class="nc" id="L131">        BlockingQueue&lt;BatchOperation&gt; queue = batchQueues.get(type);</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (queue != null) {</span>
+<span class="nc" id="L133">            BatchOperation operation = new BatchOperation(playerUUID, parameters);</span>
+            
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            if (!queue.offer(operation)) {</span>
+<span class="nc" id="L136">                logger.warning(&quot;バッチキューが満杯です。操作を即座に実行します: &quot; + type);</span>
+<span class="nc" id="L137">                executeImmediately(type, playerUUID, parameters);</span>
+            }
+        }
+<span class="nc" id="L140">    }</span>
+    
+    /**
+     * 特定タイプのバッチ処理を実行
+     */
+    private void processBatch(BatchOperationType type) {
+<span class="nc" id="L146">        BlockingQueue&lt;BatchOperation&gt; queue = batchQueues.get(type);</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (queue.isEmpty()) {</span>
+<span class="nc" id="L148">            return;</span>
+        }
+        
+<span class="nc" id="L151">        List&lt;BatchOperation&gt; operations = new ArrayList&lt;&gt;();</span>
+        
+        // バッチサイズ分の操作を収集
+<span class="nc" id="L154">        queue.drainTo(operations, batchSize);</span>
+        
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (operations.isEmpty()) {</span>
+<span class="nc" id="L157">            return;</span>
+        }
+        
+        // 非同期でバッチを実行
+<span class="nc" id="L161">        batchExecutor.submit(() -&gt; executeBatch(type, operations));</span>
+<span class="nc" id="L162">    }</span>
+    
+    /**
+     * バッチの実行
+     */
+    private void executeBatch(BatchOperationType type, List&lt;BatchOperation&gt; operations) {
+<span class="nc" id="L168">        long startTime = System.currentTimeMillis();</span>
+        
+        try {
+<span class="nc bnc" id="L171" title="All 5 branches missed.">            switch (type) {</span>
+                case BALANCE_UPDATE:
+<span class="nc" id="L173">                    executeBatchBalanceUpdate(operations);</span>
+<span class="nc" id="L174">                    break;</span>
+                case EXPERIENCE_UPDATE:
+<span class="nc" id="L176">                    executeBatchExperienceUpdate(operations);</span>
+<span class="nc" id="L177">                    break;</span>
+                case TRADE_HISTORY:
+<span class="nc" id="L179">                    executeBatchTradeHistory(operations);</span>
+<span class="nc" id="L180">                    break;</span>
+                case PERFORMANCE_STATS:
+<span class="nc" id="L182">                    executeBatchPerformanceStats(operations);</span>
+<span class="nc" id="L183">                    break;</span>
+                default:
+<span class="nc" id="L185">                    logger.warning(&quot;未知のバッチ操作タイプ: &quot; + type);</span>
+                    break;
+            }
+            
+            // 統計更新
+<span class="nc" id="L190">            totalBatchesProcessed.incrementAndGet();</span>
+<span class="nc" id="L191">            totalOperationsProcessed.addAndGet(operations.size());</span>
+<span class="nc" id="L192">            totalBatchTime.addAndGet(System.currentTimeMillis() - startTime);</span>
+            
+<span class="nc" id="L194">        } catch (Exception e) {</span>
+<span class="nc" id="L195">            failedBatches.incrementAndGet();</span>
+<span class="nc" id="L196">            logger.log(Level.SEVERE, &quot;バッチ実行に失敗しました: &quot; + type, e);</span>
+            
+            // 失敗した操作を個別に再試行
+<span class="nc bnc" id="L199" title="All 2 branches missed.">            for (BatchOperation operation : operations) {</span>
+                try {
+<span class="nc" id="L201">                    executeImmediately(type, operation.getPlayerUUID(), operation.getParameters());</span>
+<span class="nc" id="L202">                } catch (Exception retryException) {</span>
+<span class="nc" id="L203">                    logger.log(Level.SEVERE, &quot;個別実行でも失敗しました&quot;, retryException);</span>
+<span class="nc" id="L204">                }</span>
+<span class="nc" id="L205">            }</span>
+<span class="nc" id="L206">        }</span>
+<span class="nc" id="L207">    }</span>
+    
+    /**
+     * バッチ残高更新の実行
+     */
+    private void executeBatchBalanceUpdate(List&lt;BatchOperation&gt; operations) throws SQLException {
+<span class="nc" id="L213">        try (Connection conn = databaseManager.getConnection()) {</span>
+<span class="nc" id="L214">            conn.setAutoCommit(false);</span>
+            
+<span class="nc" id="L216">            String updateQuery = &quot;UPDATE players SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE uuid = ?&quot;;</span>
+            
+<span class="nc" id="L218">            try (PreparedStatement pstmt = conn.prepareStatement(updateQuery)) {</span>
+                
+<span class="nc bnc" id="L220" title="All 2 branches missed.">                for (BatchOperation operation : operations) {</span>
+<span class="nc" id="L221">                    Object[] params = operation.getParameters();</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">                    if (params.length &gt;= 1) {</span>
+<span class="nc" id="L223">                        pstmt.setDouble(1, (Double) params[0]);</span>
+<span class="nc" id="L224">                        pstmt.setString(2, operation.getPlayerUUID());</span>
+<span class="nc" id="L225">                        pstmt.addBatch();</span>
+                    }
+<span class="nc" id="L227">                }</span>
+                
+<span class="nc" id="L229">                int[] results = pstmt.executeBatch();</span>
+<span class="nc" id="L230">                conn.commit();</span>
+                
+<span class="nc" id="L232">                logger.fine(String.format(&quot;バッチ残高更新完了: %d操作&quot;, results.length));</span>
+            }
+        }
+<span class="nc" id="L235">    }</span>
+    
+    /**
+     * バッチ経験値更新の実行
+     */
+    private void executeBatchExperienceUpdate(List&lt;BatchOperation&gt; operations) throws SQLException {
+<span class="nc" id="L241">        try (Connection conn = databaseManager.getConnection()) {</span>
+<span class="nc" id="L242">            conn.setAutoCommit(false);</span>
+            
+<span class="nc" id="L244">            String updateQuery = &quot;UPDATE player_jobs &quot; +</span>
+                                 &quot;SET experience = experience + ?, last_used = CURRENT_TIMESTAMP &quot; +
+                                 &quot;WHERE uuid = ? AND job_id = ?&quot;;
+            
+<span class="nc" id="L248">            try (PreparedStatement pstmt = conn.prepareStatement(updateQuery)) {</span>
+                
+<span class="nc bnc" id="L250" title="All 2 branches missed.">                for (BatchOperation operation : operations) {</span>
+<span class="nc" id="L251">                    Object[] params = operation.getParameters();</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">                    if (params.length &gt;= 2) {</span>
+<span class="nc" id="L253">                        pstmt.setDouble(1, (Double) params[1]); // 経験値</span>
+<span class="nc" id="L254">                        pstmt.setString(2, operation.getPlayerUUID());</span>
+<span class="nc" id="L255">                        pstmt.setString(3, (String) params[0]); // 職業タイプ</span>
+<span class="nc" id="L256">                        pstmt.addBatch();</span>
+                    }
+<span class="nc" id="L258">                }</span>
+                
+<span class="nc" id="L260">                int[] results = pstmt.executeBatch();</span>
+<span class="nc" id="L261">                conn.commit();</span>
+                
+<span class="nc" id="L263">                logger.fine(String.format(&quot;バッチ経験値更新完了: %d操作&quot;, results.length));</span>
+            }
+        }
+<span class="nc" id="L266">    }</span>
+    
+    /**
+     * バッチ取引履歴記録の実行
+     */
+    private void executeBatchTradeHistory(List&lt;BatchOperation&gt; operations) throws SQLException {
+<span class="nc" id="L272">        try (Connection conn = databaseManager.getConnection()) {</span>
+<span class="nc" id="L273">            conn.setAutoCommit(false);</span>
+            
+<span class="nc" id="L275">            String insertQuery = &quot;INSERT INTO player_trade_history &quot; +</span>
+                                 &quot;(player_uuid, item_type, quantity, unit_price, total_amount, job_type, job_level, price_bonus) &quot; +
+                                 &quot;VALUES (?, ?, ?, ?, ?, ?, ?, ?)&quot;;
+            
+<span class="nc" id="L279">            try (PreparedStatement pstmt = conn.prepareStatement(insertQuery)) {</span>
+                
+<span class="nc bnc" id="L281" title="All 2 branches missed.">                for (BatchOperation operation : operations) {</span>
+<span class="nc" id="L282">                    Object[] params = operation.getParameters();</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">                    if (params.length &gt;= 7) {</span>
+<span class="nc" id="L284">                        pstmt.setString(1, operation.getPlayerUUID());</span>
+<span class="nc" id="L285">                        pstmt.setString(2, (String) params[0]);   // item_type</span>
+<span class="nc" id="L286">                        pstmt.setInt(3, (Integer) params[1]);     // quantity</span>
+<span class="nc" id="L287">                        pstmt.setDouble(4, (Double) params[2]);   // unit_price</span>
+<span class="nc" id="L288">                        pstmt.setDouble(5, (Double) params[3]);   // total_amount</span>
+<span class="nc" id="L289">                        pstmt.setString(6, (String) params[4]);   // job_type</span>
+<span class="nc" id="L290">                        pstmt.setInt(7, (Integer) params[5]);     // job_level</span>
+<span class="nc" id="L291">                        pstmt.setDouble(8, (Double) params[6]);   // price_bonus</span>
+<span class="nc" id="L292">                        pstmt.addBatch();</span>
+                    }
+<span class="nc" id="L294">                }</span>
+                
+<span class="nc" id="L296">                int[] results = pstmt.executeBatch();</span>
+<span class="nc" id="L297">                conn.commit();</span>
+                
+<span class="nc" id="L299">                logger.fine(String.format(&quot;バッチ取引履歴記録完了: %d操作&quot;, results.length));</span>
+            }
+        }
+<span class="nc" id="L302">    }</span>
+    
+    /**
+     * バッチパフォーマンス統計記録の実行
+     */
+    private void executeBatchPerformanceStats(List&lt;BatchOperation&gt; operations) throws SQLException {
+<span class="nc" id="L308">        try (Connection conn = databaseManager.getConnection()) {</span>
+<span class="nc" id="L309">            conn.setAutoCommit(false);</span>
+            
+<span class="nc" id="L311">            String insertQuery = &quot;INSERT INTO performance_stats (stat_type, stat_value) VALUES (?, ?)&quot;;</span>
+            
+<span class="nc" id="L313">            try (PreparedStatement pstmt = conn.prepareStatement(insertQuery)) {</span>
+                
+<span class="nc bnc" id="L315" title="All 2 branches missed.">                for (BatchOperation operation : operations) {</span>
+<span class="nc" id="L316">                    Object[] params = operation.getParameters();</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">                    if (params.length &gt;= 2) {</span>
+<span class="nc" id="L318">                        pstmt.setString(1, (String) params[0]);   // stat_type</span>
+<span class="nc" id="L319">                        pstmt.setDouble(2, (Double) params[1]);   // stat_value</span>
+<span class="nc" id="L320">                        pstmt.addBatch();</span>
+                    }
+<span class="nc" id="L322">                }</span>
+                
+<span class="nc" id="L324">                int[] results = pstmt.executeBatch();</span>
+<span class="nc" id="L325">                conn.commit();</span>
+                
+<span class="nc" id="L327">                logger.fine(String.format(&quot;バッチ統計記録完了: %d操作&quot;, results.length));</span>
+            }
+        }
+<span class="nc" id="L330">    }</span>
+    
+    /**
+     * 即座に操作を実行（バッチ処理無効時またはキューフル時）
+     */
+    private void executeImmediately(BatchOperationType type, String playerUUID, Object... parameters) {
+<span class="nc" id="L336">        List&lt;BatchOperation&gt; singleOperation = Arrays.asList(new BatchOperation(playerUUID, parameters));</span>
+<span class="nc" id="L337">        executeBatch(type, singleOperation);</span>
+<span class="nc" id="L338">    }</span>
+    
+    /**
+     * 統計情報の取得
+     */
+    public BatchStatistics getStatistics() {
+        // 各キューのサイズを取得
+<span class="nc" id="L345">        int totalQueuedOperations = batchQueues.values().stream()</span>
+<span class="nc" id="L346">            .mapToInt(Queue::size)</span>
+<span class="nc" id="L347">            .sum();</span>
+        
+<span class="nc" id="L349">        return new BatchStatistics(</span>
+<span class="nc" id="L350">            totalBatchesProcessed.get(),</span>
+<span class="nc" id="L351">            totalOperationsProcessed.get(),</span>
+            totalQueuedOperations,
+<span class="nc" id="L353">            failedBatches.get(),</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">            totalBatchesProcessed.get() == 0 ? 0.0 : (double) totalBatchTime.get() / totalBatchesProcessed.get()</span>
+        );
+    }
+    
+    /**
+     * 設定の再読み込み
+     */
+    public void reloadConfiguration() {
+<span class="nc" id="L362">        loadConfiguration();</span>
+<span class="nc" id="L363">        logger.info(&quot;バッチ処理設定を再読み込みしました。&quot;);</span>
+<span class="nc" id="L364">    }</span>
+    
+    /**
+     * 未処理の操作を強制処理してシャットダウン
+     */
+    public void shutdown() {
+<span class="nc" id="L370">        logger.info(&quot;バッチ処理システムをシャットダウン中...&quot;);</span>
+        
+        // 全ての未処理操作をフラッシュ
+<span class="nc bnc" id="L373" title="All 2 branches missed.">        for (BatchOperationType type : BatchOperationType.values()) {</span>
+<span class="nc" id="L374">            processBatch(type);</span>
+        }
+        
+        // スレッドプールのシャットダウン
+<span class="nc" id="L378">        batchScheduler.shutdown();</span>
+<span class="nc" id="L379">        batchExecutor.shutdown();</span>
+        
+        try {
+<span class="nc bnc" id="L382" title="All 2 branches missed.">            if (!batchScheduler.awaitTermination(10, TimeUnit.SECONDS)) {</span>
+<span class="nc" id="L383">                batchScheduler.shutdownNow();</span>
+            }
+<span class="nc bnc" id="L385" title="All 2 branches missed.">            if (!batchExecutor.awaitTermination(10, TimeUnit.SECONDS)) {</span>
+<span class="nc" id="L386">                batchExecutor.shutdownNow();</span>
+            }
+<span class="nc" id="L388">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L389">            batchScheduler.shutdownNow();</span>
+<span class="nc" id="L390">            batchExecutor.shutdownNow();</span>
+<span class="nc" id="L391">        }</span>
+        
+        // 最終統計を出力
+<span class="nc" id="L394">        BatchStatistics finalStats = getStatistics();</span>
+<span class="nc" id="L395">        logger.info(String.format(&quot;バッチ処理最終統計: 処理済みバッチ%d, 総操作%d, 失敗%d, 平均時間%.2fms&quot;,</span>
+<span class="nc" id="L396">                finalStats.getTotalBatchesProcessed(),</span>
+<span class="nc" id="L397">                finalStats.getTotalOperationsProcessed(),</span>
+<span class="nc" id="L398">                finalStats.getFailedBatches(),</span>
+<span class="nc" id="L399">                finalStats.getAverageBatchTime()));</span>
+<span class="nc" id="L400">    }</span>
+    
+    // ========== 内部クラス ==========
+    
+    /**
+     * バッチ操作の種類
+     */
+<span class="nc" id="L407">    public enum BatchOperationType {</span>
+<span class="nc" id="L408">        BALANCE_UPDATE,      // 残高更新</span>
+<span class="nc" id="L409">        EXPERIENCE_UPDATE,   // 経験値更新</span>
+<span class="nc" id="L410">        TRADE_HISTORY,      // 取引履歴</span>
+<span class="nc" id="L411">        PERFORMANCE_STATS   // パフォーマンス統計</span>
+    }
+    
+    /**
+     * バッチ操作データ
+     */
+    private static class BatchOperation {
+        private final String playerUUID;
+        private final Object[] parameters;
+        
+<span class="nc" id="L421">        public BatchOperation(String playerUUID, Object[] parameters) {</span>
+<span class="nc" id="L422">            this.playerUUID = playerUUID;</span>
+<span class="nc bnc" id="L423" title="All 2 branches missed.">            this.parameters = parameters != null ? parameters : new Object[0];</span>
+<span class="nc" id="L424">        }</span>
+        
+<span class="nc" id="L426">        public String getPlayerUUID() { return playerUUID; }</span>
+<span class="nc" id="L427">        public Object[] getParameters() { return parameters; }</span>
+    }
+    
+    /**
+     * オブジェクトプール実装
+     */
+    private static class ObjectPool&lt;T&gt; {
+        private final Queue&lt;T&gt; pool;
+        private final java.util.function.Supplier&lt;T&gt; factory;
+        private final int maxSize;
+        
+<span class="nc" id="L438">        public ObjectPool(java.util.function.Supplier&lt;T&gt; factory, int maxSize) {</span>
+<span class="nc" id="L439">            this.factory = factory;</span>
+<span class="nc" id="L440">            this.maxSize = maxSize;</span>
+<span class="nc" id="L441">            this.pool = new ConcurrentLinkedQueue&lt;&gt;();</span>
+            
+            // 初期オブジェクトを生成
+<span class="nc bnc" id="L444" title="All 2 branches missed.">            for (int i = 0; i &lt; Math.min(10, maxSize); i++) {</span>
+<span class="nc" id="L445">                pool.offer(factory.get());</span>
+            }
+<span class="nc" id="L447">        }</span>
+        
+        public T borrow() {
+<span class="nc" id="L450">            T object = pool.poll();</span>
+<span class="nc bnc" id="L451" title="All 2 branches missed.">            return object != null ? object : factory.get();</span>
+        }
+        
+        public void returnObject(T object) {
+<span class="nc bnc" id="L455" title="All 2 branches missed.">            if (pool.size() &lt; maxSize) {</span>
+                // オブジェクトのリセット
+<span class="nc bnc" id="L457" title="All 2 branches missed.">                if (object instanceof StringBuilder) {</span>
+<span class="nc" id="L458">                    ((StringBuilder) object).setLength(0);</span>
+<span class="nc bnc" id="L459" title="All 2 branches missed.">                } else if (object instanceof Map) {</span>
+<span class="nc" id="L460">                    ((Map&lt;?, ?&gt;) object).clear();</span>
+                }
+<span class="nc" id="L462">                pool.offer(object);</span>
+            }
+<span class="nc" id="L464">        }</span>
+    }
+    
+    /**
+     * バッチ処理統計情報
+     */
+    public static class BatchStatistics {
+        private final int totalBatchesProcessed;
+        private final int totalOperationsProcessed;
+        private final int currentQueuedOperations;
+        private final int failedBatches;
+        private final double averageBatchTime;
+        
+        public BatchStatistics(int totalBatchesProcessed, int totalOperationsProcessed,
+<span class="nc" id="L478">                             int currentQueuedOperations, int failedBatches, double averageBatchTime) {</span>
+<span class="nc" id="L479">            this.totalBatchesProcessed = totalBatchesProcessed;</span>
+<span class="nc" id="L480">            this.totalOperationsProcessed = totalOperationsProcessed;</span>
+<span class="nc" id="L481">            this.currentQueuedOperations = currentQueuedOperations;</span>
+<span class="nc" id="L482">            this.failedBatches = failedBatches;</span>
+<span class="nc" id="L483">            this.averageBatchTime = averageBatchTime;</span>
+<span class="nc" id="L484">        }</span>
+        
+        public double getBatchSuccessRate() {
+<span class="nc bnc" id="L487" title="All 2 branches missed.">            return totalBatchesProcessed == 0 ? 1.0 : 1.0 - ((double) failedBatches / totalBatchesProcessed);</span>
+        }
+        
+        public double getAverageOperationsPerBatch() {
+<span class="nc bnc" id="L491" title="All 2 branches missed.">            return totalBatchesProcessed == 0 ? 0.0 : (double) totalOperationsProcessed / totalBatchesProcessed;</span>
+        }
+        
+        // Getters
+<span class="nc" id="L495">        public int getTotalBatchesProcessed() { return totalBatchesProcessed; }</span>
+<span class="nc" id="L496">        public int getTotalOperationsProcessed() { return totalOperationsProcessed; }</span>
+<span class="nc" id="L497">        public int getCurrentQueuedOperations() { return currentQueuedOperations; }</span>
+<span class="nc" id="L498">        public int getFailedBatches() { return failedBatches; }</span>
+<span class="nc" id="L499">        public double getAverageBatchTime() { return averageBatchTime; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

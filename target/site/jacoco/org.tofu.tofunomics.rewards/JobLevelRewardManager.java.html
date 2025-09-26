@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobLevelRewardManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.rewards</a> &gt; <span class="el_source">JobLevelRewardManager.java</span></div><h1>JobLevelRewardManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.rewards;
+
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 職業レベルアップ報酬システム
+ */
+public class JobLevelRewardManager {
+    
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    
+    // 職業別レベル報酬設定
+    private final Map&lt;String, Map&lt;Integer, LevelReward&gt;&gt; jobRewards;
+    
+<span class="nc" id="L27">    public JobLevelRewardManager(ConfigManager configManager, PlayerDAO playerDAO) {</span>
+<span class="nc" id="L28">        this.configManager = configManager;</span>
+<span class="nc" id="L29">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L30">        this.jobRewards = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L32">        initializeLevelRewards();</span>
+<span class="nc" id="L33">    }</span>
+    
+    private void initializeLevelRewards() {
+        // 鉱夫の報酬設定
+<span class="nc" id="L37">        Map&lt;Integer, LevelReward&gt; minerRewards = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L38">        minerRewards.put(5, new LevelReward(50.0, </span>
+<span class="nc" id="L39">            Arrays.asList(createRewardItem(Material.IRON_PICKAXE, &quot;見習い鉱夫の証&quot;, 1)),</span>
+            &quot;鉱石探知能力開放&quot;));
+<span class="nc" id="L41">        minerRewards.put(10, new LevelReward(100.0,</span>
+<span class="nc" id="L42">            Arrays.asList(createRewardItem(Material.DIAMOND, &quot;品質証明書&quot;, 3)),</span>
+            &quot;採掘効率向上&quot;));
+<span class="nc" id="L44">        minerRewards.put(20, new LevelReward(200.0,</span>
+<span class="nc" id="L45">            Arrays.asList(createRewardItem(Material.NETHERITE_INGOT, &quot;マスター鉱夫の証&quot;, 1)),</span>
+            &quot;レア鉱石発見確率大幅向上&quot;));
+<span class="nc" id="L47">        minerRewards.put(35, new LevelReward(500.0,</span>
+<span class="nc" id="L48">            Arrays.asList(createRewardItem(Material.BEACON, &quot;鉱夫の栄光&quot;, 1)),</span>
+            &quot;伝説的採掘能力獲得&quot;));
+<span class="nc" id="L50">        jobRewards.put(&quot;miner&quot;, minerRewards);</span>
+        
+        // 木こりの報酬設定
+<span class="nc" id="L53">        Map&lt;Integer, LevelReward&gt; woodcutterRewards = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L54">        woodcutterRewards.put(5, new LevelReward(50.0,</span>
+<span class="nc" id="L55">            Arrays.asList(createRewardItem(Material.IRON_AXE, &quot;見習い木こりの証&quot;, 1)),</span>
+            &quot;一括伐採能力開放&quot;));
+<span class="nc" id="L57">        woodcutterRewards.put(15, new LevelReward(150.0,</span>
+<span class="nc" id="L58">            Arrays.asList(createRewardItem(Material.DIAMOND_AXE, &quot;熟練木こりの証&quot;, 1)),</span>
+            &quot;伐採速度大幅向上&quot;));
+<span class="nc" id="L60">        woodcutterRewards.put(30, new LevelReward(300.0,</span>
+<span class="nc" id="L61">            Arrays.asList(createRewardItem(Material.TOTEM_OF_UNDYING, &quot;森の守護者&quot;, 1)),</span>
+            &quot;自然回復能力獲得&quot;));
+<span class="nc" id="L63">        jobRewards.put(&quot;woodcutter&quot;, woodcutterRewards);</span>
+        
+        // 農家の報酬設定
+<span class="nc" id="L66">        Map&lt;Integer, LevelReward&gt; farmerRewards = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L67">        farmerRewards.put(5, new LevelReward(50.0,</span>
+<span class="nc" id="L68">            Arrays.asList(createRewardItem(Material.GOLDEN_HOE, &quot;見習い農家の証&quot;, 1)),</span>
+            &quot;作物成長加速能力開放&quot;));
+<span class="nc" id="L70">        farmerRewards.put(12, new LevelReward(120.0,</span>
+<span class="nc" id="L71">            Arrays.asList(createRewardItem(Material.BONE_MEAL, &quot;特製肥料&quot;, 32)),</span>
+            &quot;収穫量向上&quot;));
+<span class="nc" id="L73">        farmerRewards.put(25, new LevelReward(250.0,</span>
+<span class="nc" id="L74">            Arrays.asList(createRewardItem(Material.ENCHANTED_GOLDEN_APPLE, &quot;豊穣の果実&quot;, 3)),</span>
+            &quot;動物繁殖効率大幅向上&quot;));
+<span class="nc" id="L76">        jobRewards.put(&quot;farmer&quot;, farmerRewards);</span>
+        
+        // 釣り人の報酬設定
+<span class="nc" id="L79">        Map&lt;Integer, LevelReward&gt; fishermanRewards = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L80">        fishermanRewards.put(8, new LevelReward(80.0,</span>
+<span class="nc" id="L81">            Arrays.asList(createRewardItem(Material.FISHING_ROD, &quot;見習い釣り師の証&quot;, 1)),</span>
+            &quot;宝物発見能力開放&quot;));
+<span class="nc" id="L83">        fishermanRewards.put(18, new LevelReward(180.0,</span>
+<span class="nc" id="L84">            Arrays.asList(createRewardItem(Material.TRIDENT, &quot;海の守護者&quot;, 1)),</span>
+            &quot;レア魚獲得確率向上&quot;));
+<span class="nc" id="L86">        fishermanRewards.put(40, new LevelReward(400.0,</span>
+<span class="nc" id="L87">            Arrays.asList(createRewardItem(Material.HEART_OF_THE_SEA, &quot;海の心&quot;, 1)),</span>
+            &quot;伝説の釣り能力獲得&quot;));
+<span class="nc" id="L89">        jobRewards.put(&quot;fisherman&quot;, fishermanRewards);</span>
+        
+        // 鍛冶屋の報酬設定
+<span class="nc" id="L92">        Map&lt;Integer, LevelReward&gt; blacksmithRewards = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L93">        blacksmithRewards.put(6, new LevelReward(60.0,</span>
+<span class="nc" id="L94">            Arrays.asList(createRewardItem(Material.ANVIL, &quot;見習い鍛冶台&quot;, 1)),</span>
+            &quot;製作効率向上&quot;));
+<span class="nc" id="L96">        blacksmithRewards.put(16, new LevelReward(160.0,</span>
+<span class="nc" id="L97">            Arrays.asList(createRewardItem(Material.SMITHING_TABLE, &quot;熟練鍛冶台&quot;, 1)),</span>
+            &quot;高品質製作能力開放&quot;));
+<span class="nc" id="L99">        blacksmithRewards.put(28, new LevelReward(280.0,</span>
+<span class="nc" id="L100">            Arrays.asList(createRewardItem(Material.PAPER, &quot;マスター設計図&quot;, 1)),</span>
+            &quot;伝説装備製作能力獲得&quot;));
+<span class="nc" id="L102">        jobRewards.put(&quot;blacksmith&quot;, blacksmithRewards);</span>
+        
+        // ポーション屋の報酬設定
+<span class="nc" id="L105">        Map&lt;Integer, LevelReward&gt; alchemistRewards = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L106">        alchemistRewards.put(7, new LevelReward(70.0,</span>
+<span class="nc" id="L107">            Arrays.asList(createRewardItem(Material.BREWING_STAND, &quot;見習い錬金台&quot;, 1)),</span>
+            &quot;ポーション効果延長&quot;));
+<span class="nc" id="L109">        alchemistRewards.put(14, new LevelReward(140.0,</span>
+<span class="nc" id="L110">            Arrays.asList(createRewardItem(Material.CAULDRON, &quot;魔法の大釜&quot;, 1)),</span>
+            &quot;特殊ポーション製作開放&quot;));
+<span class="nc" id="L112">        alchemistRewards.put(35, new LevelReward(350.0,</span>
+<span class="nc" id="L113">            Arrays.asList(createRewardItem(Material.DRAGON_BREATH, &quot;ドラゴンの息&quot;, 8)),</span>
+            &quot;最上級ポーション製作能力&quot;));
+<span class="nc" id="L115">        jobRewards.put(&quot;alchemist&quot;, alchemistRewards);</span>
+        
+        // エンチャンターの報酬設定  
+<span class="nc" id="L118">        Map&lt;Integer, LevelReward&gt; enchanterRewards = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L119">        enchanterRewards.put(9, new LevelReward(90.0,</span>
+<span class="nc" id="L120">            Arrays.asList(createRewardItem(Material.ENCHANTING_TABLE, &quot;見習いエンチャント台&quot;, 1)),</span>
+            &quot;エンチャント成功確率向上&quot;));
+<span class="nc" id="L122">        enchanterRewards.put(22, new LevelReward(220.0,</span>
+<span class="nc" id="L123">            Arrays.asList(createRewardItem(Material.BOOKSHELF, &quot;魔法書棚&quot;, 15)),</span>
+            &quot;高レベルエンチャント開放&quot;));
+<span class="nc" id="L125">        enchanterRewards.put(45, new LevelReward(450.0,</span>
+<span class="nc" id="L126">            Arrays.asList(createRewardItem(Material.NETHER_STAR, &quot;魔導師の星&quot;, 1)),</span>
+            &quot;最高レベルエンチャント能力&quot;));
+<span class="nc" id="L128">        jobRewards.put(&quot;enchanter&quot;, enchanterRewards);</span>
+        
+        // 建築家の報酬設定
+<span class="nc" id="L131">        Map&lt;Integer, LevelReward&gt; architectRewards = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L132">        architectRewards.put(4, new LevelReward(40.0,</span>
+<span class="nc" id="L133">            Arrays.asList(createRewardItem(Material.STRUCTURE_BLOCK, &quot;設計ブロック&quot;, 4)),</span>
+            &quot;建築効率向上&quot;));
+<span class="nc" id="L135">        architectRewards.put(13, new LevelReward(130.0,</span>
+<span class="nc" id="L136">            Arrays.asList(createRewardItem(Material.BARRIER, &quot;保護ブロック&quot;, 16)),</span>
+            &quot;材料節約能力開放&quot;));
+<span class="nc" id="L138">        architectRewards.put(27, new LevelReward(270.0,</span>
+<span class="nc" id="L139">            Arrays.asList(createRewardItem(Material.COMMAND_BLOCK, &quot;マスター設計ブロック&quot;, 1)),</span>
+            &quot;高速建築能力獲得&quot;));
+<span class="nc" id="L141">        jobRewards.put(&quot;architect&quot;, architectRewards);</span>
+<span class="nc" id="L142">    }</span>
+    
+    private ItemStack createRewardItem(Material material, String name, int amount) {
+<span class="nc" id="L145">        ItemStack item = new ItemStack(material, amount);</span>
+<span class="nc" id="L146">        ItemMeta meta = item.getItemMeta();</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L148">            meta.setDisplayName(ChatColor.GOLD + name);</span>
+<span class="nc" id="L149">            meta.setLore(Arrays.asList(</span>
+                ChatColor.GRAY + &quot;職業レベルアップ報酬&quot;,
+                ChatColor.YELLOW + &quot;TofuNomics特別アイテム&quot;
+            ));
+<span class="nc" id="L153">            item.setItemMeta(meta);</span>
+        }
+<span class="nc" id="L155">        return item;</span>
+    }
+    
+    /**
+     * レベルアップ報酬をプレイヤーに付与
+     */
+    public boolean giveJobLevelReward(org.bukkit.entity.Player player, String jobName, int level) {
+<span class="nc" id="L162">        Map&lt;Integer, LevelReward&gt; jobRewardMap = jobRewards.get(jobName.toLowerCase());</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        if (jobRewardMap == null) {</span>
+<span class="nc" id="L164">            return false;</span>
+        }
+        
+<span class="nc" id="L167">        LevelReward reward = jobRewardMap.get(level);</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        if (reward == null) {</span>
+<span class="nc" id="L169">            return false;</span>
+        }
+        
+        // 金銭報酬
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if (reward.moneyReward &gt; 0) {</span>
+<span class="nc" id="L174">            giveMoney(player, reward.moneyReward);</span>
+        }
+        
+        // アイテム報酬
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        if (reward.itemRewards != null) {</span>
+<span class="nc" id="L179">            giveItems(player, reward.itemRewards);</span>
+        }
+        
+        // レベルアップメッセージ
+<span class="nc" id="L183">        sendLevelUpRewardMessage(player, jobName, level, reward);</span>
+        
+<span class="nc" id="L185">        return true;</span>
+    }
+    
+    private void giveMoney(org.bukkit.entity.Player player, double amount) {
+<span class="nc" id="L189">        String uuid = player.getUniqueId().toString();</span>
+<span class="nc" id="L190">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);</span>
+        
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (tofuPlayer == null) {</span>
+<span class="nc" id="L193">            tofuPlayer = new org.tofu.tofunomics.models.Player();</span>
+<span class="nc" id="L194">            tofuPlayer.setUuid(uuid);</span>
+<span class="nc" id="L195">            tofuPlayer.setBalance(configManager.getStartingBalance());</span>
+<span class="nc" id="L196">            playerDAO.insertPlayer(tofuPlayer);</span>
+        }
+        
+<span class="nc" id="L199">        tofuPlayer.addBalance(amount);</span>
+<span class="nc" id="L200">        playerDAO.updatePlayerData(tofuPlayer);</span>
+<span class="nc" id="L201">    }</span>
+    
+    private void giveItems(org.bukkit.entity.Player player, List&lt;ItemStack&gt; items) {
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        for (ItemStack item : items) {</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">            if (player.getInventory().firstEmpty() == -1) {</span>
+<span class="nc" id="L206">                player.getWorld().dropItemNaturally(player.getLocation(), item);</span>
+<span class="nc" id="L207">                player.sendMessage(ChatColor.YELLOW + &quot;インベントリが満杯のため、&quot; + </span>
+<span class="nc" id="L208">                    item.getItemMeta().getDisplayName() + &quot; を足元に落としました。&quot;);</span>
+            } else {
+<span class="nc" id="L210">                player.getInventory().addItem(item);</span>
+            }
+<span class="nc" id="L212">        }</span>
+<span class="nc" id="L213">    }</span>
+    
+    private void sendLevelUpRewardMessage(org.bukkit.entity.Player player, String jobName, int level, LevelReward reward) {
+<span class="nc" id="L216">        player.sendMessage(ChatColor.LIGHT_PURPLE + &quot;▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬&quot;);</span>
+<span class="nc" id="L217">        player.sendMessage(ChatColor.GOLD + &quot;★ &quot; + configManager.getJobDisplayName(jobName) + </span>
+                          &quot; レベル &quot; + level + &quot; 達成報酬 ★&quot;);
+        
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        if (reward.moneyReward &gt; 0) {</span>
+<span class="nc" id="L221">            player.sendMessage(ChatColor.GREEN + &quot;金銭報酬: &quot; + reward.moneyReward + &quot; &quot; + </span>
+<span class="nc" id="L222">                              configManager.getCurrencySymbol());</span>
+        }
+        
+<span class="nc bnc" id="L225" title="All 4 branches missed.">        if (reward.itemRewards != null &amp;&amp; !reward.itemRewards.isEmpty()) {</span>
+<span class="nc" id="L226">            player.sendMessage(ChatColor.AQUA + &quot;アイテム報酬: &quot; + reward.itemRewards.size() + &quot;種類&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L229" title="All 4 branches missed.">        if (reward.specialAbility != null &amp;&amp; !reward.specialAbility.isEmpty()) {</span>
+<span class="nc" id="L230">            player.sendMessage(ChatColor.LIGHT_PURPLE + &quot;特殊能力: &quot; + reward.specialAbility);</span>
+        }
+        
+<span class="nc" id="L233">        player.sendMessage(ChatColor.LIGHT_PURPLE + &quot;▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬&quot;);</span>
+<span class="nc" id="L234">    }</span>
+    
+    /**
+     * 指定された職業の次の報酬レベルを取得
+     */
+    public int getNextRewardLevel(String jobName, int currentLevel) {
+<span class="nc" id="L240">        Map&lt;Integer, LevelReward&gt; jobRewardMap = jobRewards.get(jobName.toLowerCase());</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">        if (jobRewardMap == null) {</span>
+<span class="nc" id="L242">            return -1;</span>
+        }
+        
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        for (int level : jobRewardMap.keySet()) {</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">            if (level &gt; currentLevel) {</span>
+<span class="nc" id="L247">                return level;</span>
+            }
+<span class="nc" id="L249">        }</span>
+        
+<span class="nc" id="L251">        return -1; // 次の報酬レベルなし</span>
+    }
+    
+    /**
+     * 指定された職業の全報酬レベル一覧を取得
+     */
+    public List&lt;Integer&gt; getAllRewardLevels(String jobName) {
+<span class="nc" id="L258">        Map&lt;Integer, LevelReward&gt; jobRewardMap = jobRewards.get(jobName.toLowerCase());</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (jobRewardMap == null) {</span>
+<span class="nc" id="L260">            return Arrays.asList();</span>
+        }
+        
+<span class="nc" id="L263">        return Arrays.asList(jobRewardMap.keySet().toArray(new Integer[0]));</span>
+    }
+    
+    /**
+     * 指定レベルに報酬があるかチェック
+     */
+    public boolean hasRewardAtLevel(String jobName, int level) {
+<span class="nc" id="L270">        Map&lt;Integer, LevelReward&gt; jobRewardMap = jobRewards.get(jobName.toLowerCase());</span>
+<span class="nc bnc" id="L271" title="All 4 branches missed.">        return jobRewardMap != null &amp;&amp; jobRewardMap.containsKey(level);</span>
+    }
+    
+    /**
+     * レベル報酬データクラス
+     */
+    private static class LevelReward {
+        final double moneyReward;
+        final List&lt;ItemStack&gt; itemRewards;
+        final String specialAbility;
+        
+<span class="nc" id="L282">        LevelReward(double moneyReward, List&lt;ItemStack&gt; itemRewards, String specialAbility) {</span>
+<span class="nc" id="L283">            this.moneyReward = moneyReward;</span>
+<span class="nc" id="L284">            this.itemRewards = itemRewards;</span>
+<span class="nc" id="L285">            this.specialAbility = specialAbility;</span>
+<span class="nc" id="L286">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

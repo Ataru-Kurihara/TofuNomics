@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BankLocationManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.economy</a> &gt; <span class="el_source">BankLocationManager.java</span></div><h1>BankLocationManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.economy;
+
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class BankLocationManager {
+    
+    private final ConfigManager configManager;
+    
+<span class="nc" id="L16">    public BankLocationManager(ConfigManager configManager) {</span>
+<span class="nc" id="L17">        this.configManager = configManager;</span>
+<span class="nc" id="L18">    }</span>
+    
+    public static class BankLocation {
+        private final String world;
+        private final int x;
+        private final int y;
+        private final int z;
+        private final String name;
+        
+<span class="nc" id="L27">        public BankLocation(String world, int x, int y, int z, String name) {</span>
+<span class="nc" id="L28">            this.world = world;</span>
+<span class="nc" id="L29">            this.x = x;</span>
+<span class="nc" id="L30">            this.y = y;</span>
+<span class="nc" id="L31">            this.z = z;</span>
+<span class="nc" id="L32">            this.name = name;</span>
+<span class="nc" id="L33">        }</span>
+        
+        public String getWorld() {
+<span class="nc" id="L36">            return world;</span>
+        }
+        
+        public int getX() {
+<span class="nc" id="L40">            return x;</span>
+        }
+        
+        public int getY() {
+<span class="nc" id="L44">            return y;</span>
+        }
+        
+        public int getZ() {
+<span class="nc" id="L48">            return z;</span>
+        }
+        
+        public String getName() {
+<span class="nc" id="L52">            return name;</span>
+        }
+        
+        public double getDistance(Location playerLocation) {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">            if (!playerLocation.getWorld().getName().equals(world)) {</span>
+<span class="nc" id="L57">                return Double.MAX_VALUE;</span>
+            }
+            
+<span class="nc" id="L60">            return Math.sqrt(</span>
+<span class="nc" id="L61">                Math.pow(playerLocation.getX() - x, 2) +</span>
+<span class="nc" id="L62">                Math.pow(playerLocation.getY() - y, 2) +</span>
+<span class="nc" id="L63">                Math.pow(playerLocation.getZ() - z, 2)</span>
+            );
+        }
+        
+        public boolean isWithinRange(Location playerLocation, double range) {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            return getDistance(playerLocation) &lt;= range;</span>
+        }
+    }
+    
+    public boolean isLocationRestrictionsEnabled() {
+<span class="nc" id="L73">        return configManager.isLocationRestrictionsEnabled();</span>
+    }
+    
+    public int getAccessRange() {
+<span class="nc" id="L77">        return configManager.getBankAccessRange();</span>
+    }
+    
+    public List&lt;BankLocation&gt; getBankLocations() {
+<span class="nc" id="L81">        List&lt;Map&lt;?, ?&gt;&gt; bankList = configManager.getBankLocations();</span>
+        
+<span class="nc" id="L83">        return bankList.stream()</span>
+<span class="nc" id="L84">            .map(this::parseBankLocation)</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            .filter(location -&gt; location != null)</span>
+<span class="nc" id="L86">            .collect(Collectors.toList());</span>
+    }
+    
+    public List&lt;BankLocation&gt; getAtmLocations() {
+<span class="nc" id="L90">        List&lt;Map&lt;?, ?&gt;&gt; atmList = configManager.getAtmLocations();</span>
+        
+<span class="nc" id="L92">        return atmList.stream()</span>
+<span class="nc" id="L93">            .map(this::parseBankLocation)</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            .filter(location -&gt; location != null)</span>
+<span class="nc" id="L95">            .collect(Collectors.toList());</span>
+    }
+    
+    private BankLocation parseBankLocation(Map&lt;?, ?&gt; map) {
+        try {
+<span class="nc" id="L100">            String world = (String) map.get(&quot;world&quot;);</span>
+<span class="nc" id="L101">            int x = (Integer) map.get(&quot;x&quot;);</span>
+<span class="nc" id="L102">            int y = (Integer) map.get(&quot;y&quot;);</span>
+<span class="nc" id="L103">            int z = (Integer) map.get(&quot;z&quot;);</span>
+<span class="nc" id="L104">            String name = (String) map.get(&quot;name&quot;);</span>
+            
+<span class="nc bnc" id="L106" title="All 4 branches missed.">            if (world == null || name == null) {</span>
+<span class="nc" id="L107">                return null;</span>
+            }
+            
+<span class="nc" id="L110">            return new BankLocation(world, x, y, z, name);</span>
+<span class="nc" id="L111">        } catch (Exception e) {</span>
+<span class="nc" id="L112">            return null;</span>
+        }
+    }
+    
+    public boolean isPlayerNearBankOrAtm(Player player) {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        if (!isLocationRestrictionsEnabled()) {</span>
+<span class="nc" id="L118">            return true;</span>
+        }
+        
+<span class="nc" id="L121">        Location playerLocation = player.getLocation();</span>
+<span class="nc" id="L122">        int range = getAccessRange();</span>
+        
+        // 銀行をチェック
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        for (BankLocation bank : getBankLocations()) {</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            if (bank.isWithinRange(playerLocation, range)) {</span>
+<span class="nc" id="L127">                return true;</span>
+            }
+<span class="nc" id="L129">        }</span>
+        
+        // ATMをチェック
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        for (BankLocation atm : getAtmLocations()) {</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            if (atm.isWithinRange(playerLocation, range)) {</span>
+<span class="nc" id="L134">                return true;</span>
+            }
+<span class="nc" id="L136">        }</span>
+        
+<span class="nc" id="L138">        return false;</span>
+    }
+    
+    public BankLocation getNearestLocation(Player player) {
+<span class="nc" id="L142">        Location playerLocation = player.getLocation();</span>
+<span class="nc" id="L143">        BankLocation nearest = null;</span>
+<span class="nc" id="L144">        double nearestDistance = Double.MAX_VALUE;</span>
+        
+        // 銀行から最寄りを検索
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        for (BankLocation bank : getBankLocations()) {</span>
+<span class="nc" id="L148">            double distance = bank.getDistance(playerLocation);</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            if (distance &lt; nearestDistance) {</span>
+<span class="nc" id="L150">                nearest = bank;</span>
+<span class="nc" id="L151">                nearestDistance = distance;</span>
+            }
+<span class="nc" id="L153">        }</span>
+        
+        // ATMから最寄りを検索
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        for (BankLocation atm : getAtmLocations()) {</span>
+<span class="nc" id="L157">            double distance = atm.getDistance(playerLocation);</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">            if (distance &lt; nearestDistance) {</span>
+<span class="nc" id="L159">                nearest = atm;</span>
+<span class="nc" id="L160">                nearestDistance = distance;</span>
+            }
+<span class="nc" id="L162">        }</span>
+        
+<span class="nc" id="L164">        return nearest;</span>
+    }
+    
+    public String getLocationDeniedMessage(Player player) {
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        if (!isLocationRestrictionsEnabled()) {</span>
+<span class="nc" id="L169">            return configManager.getMessage(&quot;economy.location_restrictions_disabled&quot;);</span>
+        }
+        
+<span class="nc" id="L172">        String baseMessage = configManager.getMessage(&quot;economy.bank_access_required&quot;);</span>
+        
+<span class="nc" id="L174">        BankLocation nearest = getNearestLocation(player);</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        if (nearest != null) {</span>
+<span class="nc" id="L176">            double distance = Math.round(nearest.getDistance(player.getLocation()));</span>
+<span class="nc" id="L177">            String locationInfo = configManager.getMessage(&quot;economy.nearest_location_info&quot;,</span>
+<span class="nc" id="L178">                &quot;location_name&quot;, nearest.getName(),</span>
+<span class="nc" id="L179">                &quot;distance&quot;, String.valueOf((int) distance));</span>
+<span class="nc" id="L180">            return baseMessage + &quot;\n&quot; + locationInfo;</span>
+        }
+        
+<span class="nc" id="L183">        return baseMessage;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

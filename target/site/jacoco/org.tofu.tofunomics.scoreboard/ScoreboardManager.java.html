@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ScoreboardManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.scoreboard</a> &gt; <span class="el_source">ScoreboardManager.java</span></div><h1>ScoreboardManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.scoreboard;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scoreboard.*;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.Job;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * プレイヤーのスコアボード表示・更新を管理するクラス
+ */
+public class ScoreboardManager implements Listener {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final CurrencyConverter currencyConverter;
+    private final JobManager jobManager;
+    
+    // プレイヤーのスコアボード表示設定を保存
+<span class="nc" id="L37">    private final Map&lt;UUID, Boolean&gt; scoreboardEnabled = new HashMap&lt;&gt;();</span>
+    
+    // 定期更新タスク
+    private BukkitTask updateTask;
+    
+    public ScoreboardManager(TofuNomics plugin, ConfigManager configManager, 
+                           PlayerDAO playerDAO, CurrencyConverter currencyConverter, 
+<span class="nc" id="L44">                           JobManager jobManager) {</span>
+<span class="nc" id="L45">        this.plugin = plugin;</span>
+<span class="nc" id="L46">        this.configManager = configManager;</span>
+<span class="nc" id="L47">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L48">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L49">        this.jobManager = jobManager;</span>
+        
+<span class="nc" id="L51">        startUpdateTask();</span>
+<span class="nc" id="L52">    }</span>
+    
+    /**
+     * プレイヤーのスコアボード表示を有効にする
+     */
+    public void enableScoreboard(Player player) {
+        // ワールド制限チェックを追加
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (!isScoreboardEnabledInCurrentWorld(player)) {</span>
+<span class="nc" id="L60">            return;</span>
+        }
+<span class="nc" id="L62">        scoreboardEnabled.put(player.getUniqueId(), true);</span>
+<span class="nc" id="L63">        updatePlayerScoreboard(player);</span>
+<span class="nc" id="L64">    }</span>
+    
+    /**
+     * プレイヤーのスコアボード表示を無効にする
+     */
+    public void disableScoreboard(Player player) {
+<span class="nc" id="L70">        scoreboardEnabled.put(player.getUniqueId(), false);</span>
+<span class="nc" id="L71">        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());</span>
+<span class="nc" id="L72">    }</span>
+    
+    /**
+     * プレイヤーのスコアボード表示設定を切り替える
+     */
+    public boolean toggleScoreboard(Player player) {
+<span class="nc" id="L78">        boolean currentState = isScoreboardEnabled(player);</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (currentState) {</span>
+<span class="nc" id="L80">            disableScoreboard(player);</span>
+        } else {
+<span class="nc" id="L82">            enableScoreboard(player);</span>
+        }
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        return !currentState;</span>
+    }
+    
+    /**
+     * プレイヤーのスコアボード表示設定を確認
+     */
+    public boolean isScoreboardEnabled(Player player) {
+<span class="nc" id="L91">        return scoreboardEnabled.getOrDefault(player.getUniqueId(), </span>
+<span class="nc" id="L92">                configManager.isScoreboardDefaultEnabled());</span>
+    }
+    
+    /**
+     * プレイヤーのスコアボードを更新
+     */
+    public void updatePlayerScoreboard(Player player) {
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (!isScoreboardEnabled(player)) {</span>
+<span class="nc" id="L100">            return;</span>
+        }
+        
+        // ワールド制限チェックを追加
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (!isScoreboardEnabledInCurrentWorld(player)) {</span>
+            // 対象ワールド外の場合はスコアボードを無効にする
+<span class="nc" id="L106">            disableScoreboard(player);</span>
+<span class="nc" id="L107">            return;</span>
+        }
+        
+        try {
+<span class="nc" id="L111">            Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();</span>
+<span class="nc" id="L112">            Objective objective = scoreboard.registerNewObjective(&quot;tofunomics&quot;, &quot;dummy&quot;, </span>
+<span class="nc" id="L113">                    ChatColor.translateAlternateColorCodes('&amp;', configManager.getScoreboardTitle()));</span>
+<span class="nc" id="L114">            objective.setDisplaySlot(DisplaySlot.SIDEBAR);</span>
+        
+            // プレイヤーデータを取得
+        org.tofu.tofunomics.models.Player playerData;
+        try {
+<span class="nc" id="L119">            playerData = playerDAO.getPlayer(player.getUniqueId());</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            if (playerData == null) {</span>
+                // プレイヤーデータが存在しない場合はスキップ（警告レベルを下げる）
+<span class="nc" id="L122">                plugin.getLogger().fine(&quot;Player data not found for scoreboard: &quot; + player.getName());</span>
+<span class="nc" id="L123">                return;</span>
+            }
+<span class="nc" id="L125">        } catch (java.sql.SQLException e) {</span>
+            // エラーログを出力してメソッドを終了（頻繁すぎるログを防ぐ）
+<span class="nc" id="L127">            plugin.getLogger().warning(&quot;Failed to get player data for scoreboard (&quot; + player.getName() + &quot;): &quot; + e.getMessage());</span>
+<span class="nc" id="L128">            return;</span>
+<span class="nc" id="L129">        }</span>
+        
+            // 職業情報を取得
+<span class="nc" id="L132">            PlayerJob currentJob = jobManager.getCurrentJob(player.getUniqueId());</span>
+<span class="nc" id="L133">            String jobInfo = &quot;なし&quot;;</span>
+<span class="nc" id="L134">            String levelInfo = &quot;&quot;;</span>
+<span class="nc" id="L135">            String experienceInfo = &quot;&quot;;</span>
+        
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (currentJob != null) {</span>
+<span class="nc" id="L138">                Job jobData = jobManager.getJobById(currentJob.getJobId());</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                if (jobData != null) {</span>
+<span class="nc" id="L140">                    String jobTitle = jobManager.getJobTitle(currentJob.getJobId(), currentJob.getLevel());</span>
+<span class="nc" id="L141">                    jobInfo = jobData.getName();</span>
+<span class="nc" id="L142">                    levelInfo = &quot;Lv.&quot; + currentJob.getLevel() + &quot; &quot; + jobTitle;</span>
+                    
+                    // 次レベルまでの経験値計算
+<span class="nc" id="L145">                    double requiredExp = PlayerJob.calculateExperienceRequired(currentJob.getLevel() + 1);</span>
+<span class="nc" id="L146">                    double currentExp = currentJob.getExperience();</span>
+<span class="nc" id="L147">                    double prevLevelExp = PlayerJob.calculateExperienceRequired(currentJob.getLevel());</span>
+                    
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                    if (currentJob.getLevel() &gt;= configManager.getMaxJobLevel()) {</span>
+<span class="nc" id="L150">                        experienceInfo = &quot;MAX&quot;;</span>
+                    } else {
+<span class="nc" id="L152">                        double progress = ((currentExp - prevLevelExp) / (requiredExp - prevLevelExp)) * 100;</span>
+<span class="nc" id="L153">                        experienceInfo = String.format(&quot;%.1f%%&quot;, progress);</span>
+                    }
+                }
+            }
+        
+            // 現金・預金情報を分けて取得
+<span class="nc" id="L159">            double cashBalance = currencyConverter.getCashBalance(player);</span>
+<span class="nc" id="L160">            double bankBalance = currencyConverter.getBankBalance(player);</span>
+<span class="nc" id="L161">            String currencySymbol = configManager.getCurrencySymbol();</span>
+            
+<span class="nc" id="L163">            String cashText = currencyConverter.formatCurrency(cashBalance) + currencySymbol;</span>
+<span class="nc" id="L164">            String bankText = currencyConverter.formatCurrency(bankBalance) + currencySymbol;</span>
+            
+            // オンライン時間（分単位で計算）
+<span class="nc" id="L167">            long onlineTime = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) / 20 / 60; // tick -&gt; minutes</span>
+<span class="nc" id="L168">            String onlineTimeText = formatTime(onlineTime);</span>
+            
+            // スコアを設定（下から上の順番で表示される）
+<span class="nc" id="L171">            int score = 15;</span>
+        
+            // 空行を追加してレイアウトを整える
+<span class="nc" id="L174">            objective.getScore(ChatColor.WHITE + &quot; &quot;).setScore(score--);</span>
+            
+            // オンライン時間
+<span class="nc" id="L177">            objective.getScore(ChatColor.AQUA + &quot;プレイ時間:&quot;).setScore(score--);</span>
+<span class="nc" id="L178">            objective.getScore(ChatColor.WHITE + onlineTimeText).setScore(score--);</span>
+            
+<span class="nc" id="L180">            objective.getScore(ChatColor.WHITE + &quot;  &quot;).setScore(score--);</span>
+            
+            // 職業経験値情報
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            if (!experienceInfo.isEmpty()) {</span>
+<span class="nc" id="L184">                objective.getScore(ChatColor.YELLOW + &quot;次レベル:&quot;).setScore(score--);</span>
+<span class="nc" id="L185">                objective.getScore(ChatColor.WHITE + experienceInfo).setScore(score--);</span>
+                
+<span class="nc" id="L187">                objective.getScore(ChatColor.WHITE + &quot;   &quot;).setScore(score--);</span>
+            }
+            
+            // 職業レベル
+<span class="nc bnc" id="L191" title="All 2 branches missed.">            if (!levelInfo.isEmpty()) {</span>
+<span class="nc" id="L192">                objective.getScore(ChatColor.GREEN + levelInfo).setScore(score--);</span>
+                
+<span class="nc" id="L194">                objective.getScore(ChatColor.WHITE + &quot;    &quot;).setScore(score--);</span>
+            }
+            
+            // 職業名
+<span class="nc" id="L198">            objective.getScore(ChatColor.GOLD + &quot;職業:&quot;).setScore(score--);</span>
+<span class="nc" id="L199">            objective.getScore(ChatColor.WHITE + jobInfo).setScore(score--);</span>
+            
+<span class="nc" id="L201">            objective.getScore(ChatColor.WHITE + &quot;     &quot;).setScore(score--);</span>
+            
+            // 預金残高
+<span class="nc" id="L204">            objective.getScore(ChatColor.GOLD + &quot;預金:&quot;).setScore(score--);</span>
+<span class="nc" id="L205">            objective.getScore(ChatColor.WHITE + bankText).setScore(score--);</span>
+            
+<span class="nc" id="L207">            objective.getScore(ChatColor.WHITE + &quot;      &quot;).setScore(score--);</span>
+            
+            // 現金残高（金塊）
+<span class="nc" id="L210">            objective.getScore(ChatColor.GREEN + &quot;現金:&quot;).setScore(score--);</span>
+<span class="nc" id="L211">            objective.getScore(ChatColor.WHITE + cashText).setScore(score--);</span>
+            
+<span class="nc" id="L213">            objective.getScore(ChatColor.WHITE + &quot;       &quot;).setScore(score--);</span>
+        
+            // プレイヤー名
+<span class="nc" id="L216">            objective.getScore(ChatColor.YELLOW + player.getName()).setScore(score--);</span>
+            
+<span class="nc" id="L218">            player.setScoreboard(scoreboard);</span>
+            
+<span class="nc" id="L220">        } catch (Exception e) {</span>
+            // スコアボード作成・更新中のエラーをキャッチ
+<span class="nc" id="L222">            plugin.getLogger().warning(&quot;Failed to update scoreboard for player &quot; + player.getName() + &quot;: &quot; + e.getMessage());</span>
+            // デバッグ用にスタックトレースも出力（必要に応じて）
+<span class="nc bnc" id="L224" title="All 2 branches missed.">            if (plugin.getServer().getPluginManager().getPlugin(&quot;TofuNomics&quot;).getLogger().isLoggable(java.util.logging.Level.FINE)) {</span>
+<span class="nc" id="L225">                e.printStackTrace();</span>
+            }
+<span class="nc" id="L227">        }</span>
+<span class="nc" id="L228">    }</span>
+    
+    /**
+     * 時間をフォーマット（分 -&gt; 時間:分）
+     */
+    private String formatTime(long minutes) {
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        if (minutes &lt; 60) {</span>
+<span class="nc" id="L235">            return minutes + &quot;分&quot;;</span>
+        }
+        
+<span class="nc" id="L238">        long hours = minutes / 60;</span>
+<span class="nc" id="L239">        long remainingMinutes = minutes % 60;</span>
+        
+<span class="nc bnc" id="L241" title="All 2 branches missed.">        if (hours &lt; 24) {</span>
+<span class="nc" id="L242">            return hours + &quot;時間&quot; + remainingMinutes + &quot;分&quot;;</span>
+        }
+        
+<span class="nc" id="L245">        long days = hours / 24;</span>
+<span class="nc" id="L246">        long remainingHours = hours % 24;</span>
+<span class="nc" id="L247">        return days + &quot;日&quot; + remainingHours + &quot;時間&quot;;</span>
+    }
+    
+    /**
+     * 定期更新タスクを開始
+     */
+    private void startUpdateTask() {
+<span class="nc" id="L254">        int updateInterval = configManager.getScoreboardUpdateInterval();</span>
+        
+<span class="nc" id="L256">        updateTask = new BukkitRunnable() {</span>
+            @Override
+            public void run() {
+<span class="nc bnc" id="L259" title="All 2 branches missed.">                for (Player player : Bukkit.getOnlinePlayers()) {</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                    if (isScoreboardEnabled(player)) {</span>
+<span class="nc" id="L261">                        updatePlayerScoreboard(player);</span>
+                    }
+<span class="nc" id="L263">                }</span>
+<span class="nc" id="L264">            }</span>
+<span class="nc" id="L265">        }.runTaskTimer(plugin, 0L, updateInterval * 20L); // 秒をtickに変換（同期処理）</span>
+<span class="nc" id="L266">    }</span>
+    
+    /**
+     * プレイヤー参加時の処理
+     */
+    public void onPlayerJoin(Player player) {
+        // デフォルト設定に基づいてスコアボードを表示（ワールド制限を考慮）
+<span class="nc bnc" id="L273" title="All 4 branches missed.">        if (configManager.isScoreboardDefaultEnabled() &amp;&amp; isScoreboardEnabledInCurrentWorld(player)) {</span>
+<span class="nc" id="L274">            enableScoreboard(player);</span>
+        }
+<span class="nc" id="L276">    }</span>
+    
+    /**
+     * プレイヤーがワールドを変更した時の処理
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+<span class="nc" id="L283">        Player player = event.getPlayer();</span>
+        
+<span class="nc bnc" id="L285" title="All 2 branches missed.">        if (isScoreboardEnabledInCurrentWorld(player)) {</span>
+            // 対象ワールドに入った場合、スコアボードが有効なら表示する
+<span class="nc bnc" id="L287" title="All 4 branches missed.">            if (configManager.isScoreboardDefaultEnabled() || scoreboardEnabled.getOrDefault(player.getUniqueId(), false)) {</span>
+<span class="nc" id="L288">                enableScoreboard(player);</span>
+            }
+        } else {
+            // 対象ワールド外に出た場合、スコアボードを無効にする
+<span class="nc bnc" id="L292" title="All 2 branches missed.">            if (isScoreboardEnabled(player)) {</span>
+<span class="nc" id="L293">                disableScoreboard(player);</span>
+            }
+        }
+<span class="nc" id="L296">    }</span>
+    
+    /**
+     * プレイヤー退出時の処理
+     */
+    public void onPlayerQuit(Player player) {
+<span class="nc" id="L302">        scoreboardEnabled.remove(player.getUniqueId());</span>
+<span class="nc" id="L303">    }</span>
+    
+    /**
+     * 全てのプレイヤーのスコアボードを更新
+     */
+    public void updateAllScoreboards() {
+<span class="nc bnc" id="L309" title="All 2 branches missed.">        for (Player player : Bukkit.getOnlinePlayers()) {</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">            if (isScoreboardEnabled(player)) {</span>
+<span class="nc" id="L311">                updatePlayerScoreboard(player);</span>
+            }
+<span class="nc" id="L313">        }</span>
+<span class="nc" id="L314">    }</span>
+    
+    /**
+     * スコアボードマネージャーの終了処理
+     */
+    public void shutdown() {
+<span class="nc bnc" id="L320" title="All 4 branches missed.">        if (updateTask != null &amp;&amp; !updateTask.isCancelled()) {</span>
+<span class="nc" id="L321">            updateTask.cancel();</span>
+        }
+        
+        // 全プレイヤーのスコアボードをデフォルトに戻す
+<span class="nc bnc" id="L325" title="All 2 branches missed.">        for (Player player : Bukkit.getOnlinePlayers()) {</span>
+<span class="nc" id="L326">            player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());</span>
+<span class="nc" id="L327">        }</span>
+        
+<span class="nc" id="L329">        scoreboardEnabled.clear();</span>
+<span class="nc" id="L330">    }</span>
+    
+    /**
+     * プレイヤーの現在のワールドでスコアボードが有効かどうかを確認
+     */
+    private boolean isScoreboardEnabledInCurrentWorld(Player player) {
+<span class="nc" id="L336">        String worldName = player.getWorld().getName();</span>
+<span class="nc" id="L337">        return configManager.isScoreboardEnabledInWorld(worldName);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

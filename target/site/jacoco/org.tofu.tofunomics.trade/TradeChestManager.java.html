@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TradeChestManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.trade</a> &gt; <span class="el_source">TradeChestManager.java</span></div><h1>TradeChestManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.trade;
+
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Chest;
+import org.bukkit.entity.Player;
+import org.bukkit.ChatColor;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.models.TradeChest;
+import org.tofu.tofunomics.models.PlayerTradeHistory;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * チェスト取引管理システム
+ */
+public class TradeChestManager {
+    
+    private final Connection connection;
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final Map&lt;String, TradeChest&gt; locationToChestMap;
+    
+<span class="nc" id="L35">    public TradeChestManager(Connection connection, ConfigManager configManager, PlayerDAO playerDAO) {</span>
+<span class="nc" id="L36">        this.connection = connection;</span>
+<span class="nc" id="L37">        this.configManager = configManager;</span>
+<span class="nc" id="L38">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L39">        this.locationToChestMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L40">        loadTradeChests();</span>
+<span class="nc" id="L41">    }</span>
+    
+    /**
+     * データベースから全取引チェストを読み込み
+     */
+    private void loadTradeChests() {
+<span class="nc" id="L47">        String sql = &quot;SELECT * FROM trade_chests WHERE active = 1&quot;;</span>
+        
+<span class="nc" id="L49">        try (PreparedStatement stmt = connection.prepareStatement(sql);</span>
+<span class="nc" id="L50">             ResultSet rs = stmt.executeQuery()) {</span>
+            
+<span class="nc" id="L52">            locationToChestMap.clear();</span>
+            
+<span class="nc bnc" id="L54" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L55">                TradeChest chest = createTradeChestFromResultSet(rs);</span>
+<span class="nc" id="L56">                String locationKey = createLocationKey(chest.getWorldName(), chest.getX(), chest.getY(), chest.getZ());</span>
+<span class="nc" id="L57">                locationToChestMap.put(locationKey, chest);</span>
+<span class="nc" id="L58">            }</span>
+            
+<span class="nc" id="L60">        } catch (SQLException e) {</span>
+<span class="nc" id="L61">            System.err.println(&quot;取引チェストの読み込みに失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L62">        }</span>
+<span class="nc" id="L63">    }</span>
+    
+    /**
+     * 取引チェストを作成
+     */
+    public boolean createTradeChest(Player creator, Location location, String jobType) {
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        if (!isValidJobType(jobType)) {</span>
+<span class="nc" id="L70">            creator.sendMessage(ChatColor.RED + &quot;無効な職業タイプです: &quot; + jobType);</span>
+<span class="nc" id="L71">            return false;</span>
+        }
+        
+<span class="nc" id="L74">        Block block = location.getBlock();</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (!(block.getState() instanceof Chest)) {</span>
+<span class="nc" id="L76">            creator.sendMessage(ChatColor.RED + &quot;指定された場所にチェストがありません。&quot;);</span>
+<span class="nc" id="L77">            return false;</span>
+        }
+        
+<span class="nc" id="L80">        String locationKey = createLocationKey(location);</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (locationToChestMap.containsKey(locationKey)) {</span>
+<span class="nc" id="L82">            creator.sendMessage(ChatColor.RED + &quot;この場所には既に取引チェストが設置されています。&quot;);</span>
+<span class="nc" id="L83">            return false;</span>
+        }
+        
+<span class="nc" id="L86">        TradeChest tradeChest = new TradeChest(</span>
+<span class="nc" id="L87">            location.getWorld().getName(),</span>
+<span class="nc" id="L88">            location.getBlockX(),</span>
+<span class="nc" id="L89">            location.getBlockY(),</span>
+<span class="nc" id="L90">            location.getBlockZ(),</span>
+            jobType,
+<span class="nc" id="L92">            creator.getUniqueId().toString()</span>
+        );
+        
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (saveTradeChest(tradeChest)) {</span>
+<span class="nc" id="L96">            locationToChestMap.put(locationKey, tradeChest);</span>
+<span class="nc" id="L97">            creator.sendMessage(ChatColor.GREEN + String.format(&quot;職業「%s」の取引チェストを設置しました。&quot;, </span>
+<span class="nc" id="L98">                configManager.getJobDisplayName(jobType)));</span>
+<span class="nc" id="L99">            return true;</span>
+        }
+        
+<span class="nc" id="L102">        return false;</span>
+    }
+    
+    /**
+     * 取引チェストをデータベースに保存
+     */
+    private boolean saveTradeChest(TradeChest tradeChest) {
+<span class="nc" id="L109">        String sql = &quot;INSERT INTO trade_chests (world_name, x, y, z, job_type, created_by) VALUES (?, ?, ?, ?, ?, ?)&quot;;</span>
+        
+<span class="nc" id="L111">        try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {</span>
+<span class="nc" id="L112">            stmt.setString(1, tradeChest.getWorldName());</span>
+<span class="nc" id="L113">            stmt.setInt(2, tradeChest.getX());</span>
+<span class="nc" id="L114">            stmt.setInt(3, tradeChest.getY());</span>
+<span class="nc" id="L115">            stmt.setInt(4, tradeChest.getZ());</span>
+<span class="nc" id="L116">            stmt.setString(5, tradeChest.getJobType());</span>
+<span class="nc" id="L117">            stmt.setString(6, tradeChest.getCreatedBy());</span>
+            
+<span class="nc" id="L119">            int rowsAffected = stmt.executeUpdate();</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            if (rowsAffected &gt; 0) {</span>
+<span class="nc" id="L121">                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">                    if (generatedKeys.next()) {</span>
+<span class="nc" id="L123">                        tradeChest.setId(generatedKeys.getInt(1));</span>
+<span class="nc" id="L124">                        return true;</span>
+                    }
+<span class="nc bnc" id="L126" title="All 2 branches missed.">                }</span>
+            }
+            
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        } catch (SQLException e) {</span>
+<span class="nc" id="L130">            System.err.println(&quot;取引チェストの保存に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L131">        }</span>
+        
+<span class="nc" id="L133">        return false;</span>
+    }
+    
+    /**
+     * 取引チェストを削除
+     */
+    public boolean removeTradeChest(Player remover, Location location) {
+<span class="nc" id="L140">        String locationKey = createLocationKey(location);</span>
+<span class="nc" id="L141">        TradeChest tradeChest = locationToChestMap.get(locationKey);</span>
+        
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (tradeChest == null) {</span>
+<span class="nc" id="L144">            remover.sendMessage(ChatColor.RED + &quot;この場所には取引チェストがありません。&quot;);</span>
+<span class="nc" id="L145">            return false;</span>
+        }
+        
+<span class="nc" id="L148">        String sql = &quot;UPDATE trade_chests SET active = 0 WHERE id = ?&quot;;</span>
+        
+<span class="nc" id="L150">        try (PreparedStatement stmt = connection.prepareStatement(sql)) {</span>
+<span class="nc" id="L151">            stmt.setInt(1, tradeChest.getId());</span>
+            
+<span class="nc" id="L153">            int rowsAffected = stmt.executeUpdate();</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (rowsAffected &gt; 0) {</span>
+<span class="nc" id="L155">                locationToChestMap.remove(locationKey);</span>
+<span class="nc" id="L156">                remover.sendMessage(ChatColor.GREEN + &quot;取引チェストを削除しました。&quot;);</span>
+<span class="nc" id="L157">                return true;</span>
+            }
+            
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        } catch (SQLException e) {</span>
+<span class="nc" id="L161">            System.err.println(&quot;取引チェストの削除に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L162">        }</span>
+        
+<span class="nc" id="L164">        return false;</span>
+    }
+    
+    /**
+     * 指定場所の取引チェストを取得
+     */
+    public TradeChest getTradeChest(Location location) {
+<span class="nc" id="L171">        String locationKey = createLocationKey(location);</span>
+<span class="nc" id="L172">        return locationToChestMap.get(locationKey);</span>
+    }
+    
+    /**
+     * 指定場所が取引チェストかチェック
+     */
+    public boolean isTradeChest(Location location) {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        return getTradeChest(location) != null;</span>
+    }
+    
+    /**
+     * 全ての取引チェストリストを取得
+     */
+    public List&lt;TradeChest&gt; getAllTradeChests() {
+<span class="nc" id="L186">        return new ArrayList&lt;&gt;(locationToChestMap.values());</span>
+    }
+    
+    /**
+     * 特定職業の取引チェストリストを取得
+     */
+    public List&lt;TradeChest&gt; getTradeChestsByJobType(String jobType) {
+<span class="nc" id="L193">        List&lt;TradeChest&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        for (TradeChest chest : locationToChestMap.values()) {</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">            if (chest.getJobType().equals(jobType)) {</span>
+<span class="nc" id="L196">                result.add(chest);</span>
+            }
+<span class="nc" id="L198">        }</span>
+<span class="nc" id="L199">        return result;</span>
+    }
+    
+    /**
+     * プレイヤーの取引履歴を保存
+     */
+    public boolean saveTradeHistory(PlayerTradeHistory history) {
+<span class="nc" id="L206">        String sql = &quot;INSERT INTO player_trade_history &quot; +</span>
+                    &quot;(uuid, trade_chest_id, item_type, item_amount, sale_price, job_bonus, player_job, player_job_level) &quot; +
+                    &quot;VALUES (?, ?, ?, ?, ?, ?, ?, ?)&quot;;
+        
+<span class="nc" id="L210">        try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {</span>
+<span class="nc" id="L211">            stmt.setString(1, history.getUuid());</span>
+<span class="nc" id="L212">            stmt.setInt(2, history.getTradeChestId());</span>
+<span class="nc" id="L213">            stmt.setString(3, history.getItemType());</span>
+<span class="nc" id="L214">            stmt.setInt(4, history.getItemAmount());</span>
+<span class="nc" id="L215">            stmt.setDouble(5, history.getSalePrice());</span>
+<span class="nc" id="L216">            stmt.setDouble(6, history.getJobBonus());</span>
+<span class="nc" id="L217">            stmt.setString(7, history.getPlayerJob());</span>
+<span class="nc" id="L218">            stmt.setInt(8, history.getPlayerJobLevel());</span>
+            
+<span class="nc" id="L220">            int rowsAffected = stmt.executeUpdate();</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">            if (rowsAffected &gt; 0) {</span>
+<span class="nc" id="L222">                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">                    if (generatedKeys.next()) {</span>
+<span class="nc" id="L224">                        history.setId(generatedKeys.getInt(1));</span>
+<span class="nc" id="L225">                        return true;</span>
+                    }
+<span class="nc bnc" id="L227" title="All 2 branches missed.">                }</span>
+            }
+            
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        } catch (SQLException e) {</span>
+<span class="nc" id="L231">            System.err.println(&quot;取引履歴の保存に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L232">        }</span>
+        
+<span class="nc" id="L234">        return false;</span>
+    }
+    
+    /**
+     * プレイヤーの取引履歴を取得
+     */
+    public List&lt;PlayerTradeHistory&gt; getPlayerTradeHistory(String uuid, int limit) {
+<span class="nc" id="L241">        String sql = &quot;SELECT * FROM player_trade_history WHERE uuid = ? ORDER BY traded_at DESC LIMIT ?&quot;;</span>
+<span class="nc" id="L242">        List&lt;PlayerTradeHistory&gt; histories = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc" id="L244">        try (PreparedStatement stmt = connection.prepareStatement(sql)) {</span>
+<span class="nc" id="L245">            stmt.setString(1, uuid);</span>
+<span class="nc" id="L246">            stmt.setInt(2, limit);</span>
+            
+<span class="nc" id="L248">            try (ResultSet rs = stmt.executeQuery()) {</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">                while (rs.next()) {</span>
+<span class="nc" id="L250">                    histories.add(createTradeHistoryFromResultSet(rs));</span>
+                }
+            }
+            
+<span class="nc" id="L254">        } catch (SQLException e) {</span>
+<span class="nc" id="L255">            System.err.println(&quot;取引履歴の取得に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L256">        }</span>
+        
+<span class="nc" id="L258">        return histories;</span>
+    }
+    
+    /**
+     * ユーティリティメソッド群
+     */
+    
+    private TradeChest createTradeChestFromResultSet(ResultSet rs) throws SQLException {
+<span class="nc" id="L266">        TradeChest chest = new TradeChest();</span>
+<span class="nc" id="L267">        chest.setId(rs.getInt(&quot;id&quot;));</span>
+<span class="nc" id="L268">        chest.setWorldName(rs.getString(&quot;world_name&quot;));</span>
+<span class="nc" id="L269">        chest.setX(rs.getInt(&quot;x&quot;));</span>
+<span class="nc" id="L270">        chest.setY(rs.getInt(&quot;y&quot;));</span>
+<span class="nc" id="L271">        chest.setZ(rs.getInt(&quot;z&quot;));</span>
+<span class="nc" id="L272">        chest.setJobType(rs.getString(&quot;job_type&quot;));</span>
+<span class="nc" id="L273">        chest.setActive(rs.getBoolean(&quot;active&quot;));</span>
+<span class="nc" id="L274">        chest.setCreatedBy(rs.getString(&quot;created_by&quot;));</span>
+<span class="nc" id="L275">        chest.setCreatedAt(rs.getTimestamp(&quot;created_at&quot;));</span>
+<span class="nc" id="L276">        return chest;</span>
+    }
+    
+    private PlayerTradeHistory createTradeHistoryFromResultSet(ResultSet rs) throws SQLException {
+<span class="nc" id="L280">        PlayerTradeHistory history = new PlayerTradeHistory();</span>
+<span class="nc" id="L281">        history.setId(rs.getInt(&quot;id&quot;));</span>
+<span class="nc" id="L282">        history.setUuid(rs.getString(&quot;uuid&quot;));</span>
+<span class="nc" id="L283">        history.setTradeChestId(rs.getInt(&quot;trade_chest_id&quot;));</span>
+<span class="nc" id="L284">        history.setItemType(rs.getString(&quot;item_type&quot;));</span>
+<span class="nc" id="L285">        history.setItemAmount(rs.getInt(&quot;item_amount&quot;));</span>
+<span class="nc" id="L286">        history.setSalePrice(rs.getDouble(&quot;sale_price&quot;));</span>
+<span class="nc" id="L287">        history.setJobBonus(rs.getDouble(&quot;job_bonus&quot;));</span>
+<span class="nc" id="L288">        history.setPlayerJob(rs.getString(&quot;player_job&quot;));</span>
+<span class="nc" id="L289">        history.setPlayerJobLevel(rs.getInt(&quot;player_job_level&quot;));</span>
+<span class="nc" id="L290">        history.setTradedAt(rs.getTimestamp(&quot;traded_at&quot;));</span>
+<span class="nc" id="L291">        return history;</span>
+    }
+    
+    private String createLocationKey(Location location) {
+<span class="nc" id="L295">        return createLocationKey(location.getWorld().getName(), </span>
+<span class="nc" id="L296">                               location.getBlockX(), location.getBlockY(), location.getBlockZ());</span>
+    }
+    
+    private String createLocationKey(String world, int x, int y, int z) {
+<span class="nc" id="L300">        return String.format(&quot;%s:%d:%d:%d&quot;, world, x, y, z);</span>
+    }
+    
+    private boolean isValidJobType(String jobType) {
+<span class="nc" id="L304">        String[] validJobs = {&quot;miner&quot;, &quot;woodcutter&quot;, &quot;farmer&quot;, &quot;fisherman&quot;, </span>
+                             &quot;blacksmith&quot;, &quot;alchemist&quot;, &quot;enchanter&quot;, &quot;architect&quot;};
+        
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        for (String validJob : validJobs) {</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">            if (validJob.equalsIgnoreCase(jobType)) {</span>
+<span class="nc" id="L309">                return true;</span>
+            }
+        }
+<span class="nc" id="L312">        return false;</span>
+    }
+    
+    /**
+     * データを再読み込み
+     */
+    public void reload() {
+<span class="nc" id="L319">        loadTradeChests();</span>
+<span class="nc" id="L320">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

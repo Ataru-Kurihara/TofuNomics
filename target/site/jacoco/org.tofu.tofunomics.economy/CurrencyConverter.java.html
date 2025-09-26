@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CurrencyConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.economy</a> &gt; <span class="el_source">CurrencyConverter.java</span></div><h1>CurrencyConverter.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.economy;
+
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.dao.PlayerDAO;
+
+import java.text.DecimalFormat;
+
+public class CurrencyConverter {
+    
+    private final PlayerDAO playerDAO;
+    private final ItemManager itemManager;
+    private final org.tofu.tofunomics.config.ConfigManager configManager;
+    private final int decimalPlaces;
+    private final DecimalFormat formatter;
+    
+    public CurrencyConverter(PlayerDAO playerDAO, ItemManager itemManager, 
+<span class="nc" id="L17">                           org.tofu.tofunomics.config.ConfigManager configManager, int decimalPlaces) {</span>
+<span class="nc" id="L18">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L19">        this.itemManager = itemManager;</span>
+<span class="nc" id="L20">        this.configManager = configManager;</span>
+<span class="nc" id="L21">        this.decimalPlaces = Math.max(0, Math.min(2, decimalPlaces));</span>
+        
+<span class="nc" id="L23">        StringBuilder pattern = new StringBuilder(&quot;#,##0&quot;);</span>
+<span class="nc bnc" id="L24" title="All 2 branches missed.">        if (this.decimalPlaces &gt; 0) {</span>
+<span class="nc" id="L25">            pattern.append(&quot;.&quot;);</span>
+<span class="nc bnc" id="L26" title="All 2 branches missed.">            for (int i = 0; i &lt; this.decimalPlaces; i++) {</span>
+<span class="nc" id="L27">                pattern.append(&quot;0&quot;);</span>
+            }
+        }
+<span class="nc" id="L30">        this.formatter = new DecimalFormat(pattern.toString());</span>
+<span class="nc" id="L31">    }</span>
+    
+    public String formatCurrency(double amount) {
+<span class="nc" id="L34">        return formatter.format(amount);</span>
+    }
+    
+    public boolean depositGoldNuggets(Player player, int nuggetAmount) {
+<span class="nc bnc" id="L38" title="All 2 branches missed.">        if (nuggetAmount &lt;= 0) {</span>
+<span class="nc" id="L39">            return false;</span>
+        }
+        
+<span class="nc" id="L42">        int availableNuggets = itemManager.countGoldNuggetsInInventory(player);</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">        if (availableNuggets &lt; nuggetAmount) {</span>
+<span class="nc" id="L44">            return false;</span>
+        }
+        
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        if (!itemManager.removeGoldNuggetsFromInventory(player, nuggetAmount)) {</span>
+<span class="nc" id="L48">            return false;</span>
+        }
+        
+<span class="nc" id="L51">        double bankAmount = convertNuggetsToBalance(nuggetAmount);</span>
+        
+<span class="nc" id="L53">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (tofuPlayer == null) {</span>
+<span class="nc" id="L55">            tofuPlayer = new org.tofu.tofunomics.models.Player();</span>
+<span class="nc" id="L56">            tofuPlayer.setUuid(player.getUniqueId().toString());</span>
+<span class="nc" id="L57">            tofuPlayer.setBalance(0.0); // 現金は0</span>
+<span class="nc" id="L58">            tofuPlayer.setBankBalance(bankAmount); // 銀行預金に追加</span>
+<span class="nc" id="L59">            return playerDAO.insertPlayer(tofuPlayer);</span>
+        } else {
+<span class="nc" id="L61">            tofuPlayer.addBankBalance(bankAmount); // 銀行預金に追加</span>
+<span class="nc" id="L62">            return playerDAO.updatePlayerData(tofuPlayer);</span>
+        }
+    }
+    
+    public boolean depositAllGoldNuggets(Player player) {
+<span class="nc" id="L67">        int availableNuggets = itemManager.countGoldNuggetsInInventory(player);</span>
+<span class="nc bnc" id="L68" title="All 4 branches missed.">        return availableNuggets &gt; 0 &amp;&amp; depositGoldNuggets(player, availableNuggets);</span>
+    }
+    
+<span class="nc" id="L71">    public enum WithdrawResult {</span>
+<span class="nc" id="L72">        SUCCESS,</span>
+<span class="nc" id="L73">        INSUFFICIENT_BALANCE,</span>
+<span class="nc" id="L74">        INSUFFICIENT_INVENTORY_SPACE,</span>
+<span class="nc" id="L75">        INVALID_AMOUNT,</span>
+<span class="nc" id="L76">        DATABASE_ERROR</span>
+    }
+    
+    public WithdrawResult withdrawToGoldNuggets(Player player, double amount) {
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L81">            return WithdrawResult.INVALID_AMOUNT;</span>
+        }
+        
+<span class="nc" id="L84">        int nuggetAmount = convertBalanceToNuggets(amount);</span>
+<span class="nc" id="L85">        double exactAmount = convertNuggetsToBalance(nuggetAmount);</span>
+        
+<span class="nc" id="L87">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());</span>
+<span class="nc bnc" id="L88" title="All 4 branches missed.">        if (tofuPlayer == null || tofuPlayer.getBankBalance() &lt; exactAmount) {</span>
+<span class="nc" id="L89">            return WithdrawResult.INSUFFICIENT_BALANCE;</span>
+        }
+        
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (!itemManager.hasInventorySpace(player, nuggetAmount)) {</span>
+<span class="nc" id="L93">            return WithdrawResult.INSUFFICIENT_INVENTORY_SPACE;</span>
+        }
+        
+<span class="nc" id="L96">        tofuPlayer.removeBankBalance(exactAmount); // 銀行預金から引き出し</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (!playerDAO.updatePlayerData(tofuPlayer)) {</span>
+<span class="nc" id="L98">            return WithdrawResult.DATABASE_ERROR;</span>
+        }
+        
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (!itemManager.addGoldNuggetsToInventory(player, nuggetAmount)) {</span>
+<span class="nc" id="L102">            tofuPlayer.addBankBalance(exactAmount); // ロールバック</span>
+<span class="nc" id="L103">            playerDAO.updatePlayerData(tofuPlayer);</span>
+<span class="nc" id="L104">            return WithdrawResult.INSUFFICIENT_INVENTORY_SPACE;</span>
+        }
+        
+<span class="nc" id="L107">        return WithdrawResult.SUCCESS;</span>
+    }
+    
+    public int convertBalanceToNuggets(double balance) {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        if (balance &lt;= 0) {</span>
+<span class="nc" id="L112">            return 0;</span>
+        }
+<span class="nc" id="L114">        double coinValue = configManager.getCoinValue();</span>
+<span class="nc" id="L115">        return (int) Math.floor(balance / coinValue);</span>
+    }
+    
+    public double convertNuggetsToBalance(int nuggets) {
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (nuggets &lt;= 0) {</span>
+<span class="nc" id="L120">            return 0.0;</span>
+        }
+<span class="nc" id="L122">        double coinValue = configManager.getCoinValue();</span>
+<span class="nc" id="L123">        return nuggets * coinValue;</span>
+    }
+
+    
+    /**
+     * 現在の通貨価値を取得
+     */
+    public double getCurrentCoinValue() {
+<span class="nc" id="L131">        return configManager.getCoinValue();</span>
+    }
+    
+    /**
+     * 通貨価値の説明文を取得
+     */
+    public String getCoinValueDescription() {
+<span class="nc" id="L138">        double coinValue = getCurrentCoinValue();</span>
+<span class="nc" id="L139">        return String.format(&quot;1コイン = $%.1f&quot;, coinValue);</span>
+    }
+    
+    public double roundToDecimalPlaces(double amount) {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (decimalPlaces == 0) {</span>
+<span class="nc" id="L144">            return Math.floor(amount);</span>
+        }
+        
+<span class="nc" id="L147">        double multiplier = Math.pow(10, decimalPlaces);</span>
+<span class="nc" id="L148">        return Math.round(amount * multiplier) / multiplier;</span>
+    }
+    
+    public boolean canAfford(Player player, double amount) {
+<span class="nc" id="L152">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());</span>
+<span class="nc bnc" id="L153" title="All 4 branches missed.">        return tofuPlayer != null &amp;&amp; tofuPlayer.getBankBalance() &gt;= amount;</span>
+    }
+    
+    public double getBalance(Player player) {
+<span class="nc" id="L157">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        return tofuPlayer != null ? tofuPlayer.getBankBalance() : 0.0;</span>
+    }
+    
+    // 現金（金塊）残高を取得
+    public double getCashBalance(Player player) {
+<span class="nc" id="L163">        int goldNuggets = itemManager.countGoldNuggetsInInventory(player);</span>
+<span class="nc" id="L164">        return convertNuggetsToBalance(goldNuggets);</span>
+    }
+    
+    // 銀行預金残高を取得
+    public double getBankBalance(Player player) {
+<span class="nc" id="L169">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        return tofuPlayer != null ? tofuPlayer.getBankBalance() : 0.0;</span>
+    }
+    
+    // 総資産（現金+預金）を取得
+    public double getTotalBalance(Player player) {
+<span class="nc" id="L175">        return getCashBalance(player) + getBankBalance(player);</span>
+    }
+    
+    public boolean transfer(Player fromPlayer, Player toPlayer, double amount) {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L180">            return false;</span>
+        }
+        
+<span class="nc" id="L183">        String fromUuid = fromPlayer.getUniqueId().toString();</span>
+<span class="nc" id="L184">        String toUuid = toPlayer.getUniqueId().toString();</span>
+        
+<span class="nc" id="L186">        return playerDAO.transferBalance(fromUuid, toUuid, amount);</span>
+    }
+    
+    public boolean hasEnoughGoldNuggets(Player player, int requiredAmount) {
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        return itemManager.countGoldNuggetsInInventory(player) &gt;= requiredAmount;</span>
+    }
+    
+    public int getMaxWithdrawableNuggets(Player player) {
+<span class="nc" id="L194">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        if (tofuPlayer == null) {</span>
+<span class="nc" id="L196">            return 0;</span>
+        }
+<span class="nc" id="L198">        return convertBalanceToNuggets(tofuPlayer.getBankBalance());</span>
+    }
+    
+    // UUIDベースのメソッド（NPCシステム用）
+    public double getBalance(java.util.UUID uuid) {
+<span class="nc" id="L203">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid.toString());</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        return tofuPlayer != null ? tofuPlayer.getBankBalance() : 0.0;</span>
+    }
+    
+    public boolean addBalance(java.util.UUID uuid, double amount) {
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L209">            return false;</span>
+        }
+        
+<span class="nc" id="L212">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid.toString());</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        if (tofuPlayer == null) {</span>
+<span class="nc" id="L214">            return false;</span>
+        }
+        
+<span class="nc" id="L217">        double newBalance = tofuPlayer.getBankBalance() + amount;</span>
+<span class="nc" id="L218">        tofuPlayer.setBankBalance(newBalance);</span>
+<span class="nc" id="L219">        return playerDAO.updatePlayerData(tofuPlayer);</span>
+    }
+    
+    public boolean subtractBalance(java.util.UUID uuid, double amount) {
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L224">            return false;</span>
+        }
+        
+<span class="nc" id="L227">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid.toString());</span>
+<span class="nc bnc" id="L228" title="All 4 branches missed.">        if (tofuPlayer == null || tofuPlayer.getBankBalance() &lt; amount) {</span>
+<span class="nc" id="L229">            return false;</span>
+        }
+        
+<span class="nc" id="L232">        double newBalance = tofuPlayer.getBankBalance() - amount;</span>
+<span class="nc" id="L233">        tofuPlayer.setBankBalance(newBalance);</span>
+<span class="nc" id="L234">        return playerDAO.updatePlayerData(tofuPlayer);</span>
+    }
+    
+    // 所持金での支払い処理（金塊をインベントリから削除）
+    public boolean payWithCash(Player player, double amount) {
+<span class="nc bnc" id="L239" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L240">            return false;</span>
+        }
+        
+<span class="nc" id="L243">        int requiredNuggets = convertBalanceToNuggets(amount);</span>
+<span class="nc" id="L244">        double exactAmount = convertNuggetsToBalance(requiredNuggets);</span>
+        
+        // 必要な金塊数をチェック
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if (!hasEnoughGoldNuggets(player, requiredNuggets)) {</span>
+<span class="nc" id="L248">            return false;</span>
+        }
+        
+        // 金塊をインベントリから削除
+<span class="nc" id="L252">        return itemManager.removeGoldNuggetsFromInventory(player, requiredNuggets);</span>
+    }
+    
+    // 所持金での受取り処理（金塊をインベントリに追加）
+    public boolean receiveCash(Player player, double amount) {
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L258">            return false;</span>
+        }
+        
+<span class="nc" id="L261">        int nuggetAmount = convertBalanceToNuggets(amount);</span>
+        
+        // インベントリ容量チェック
+<span class="nc bnc" id="L264" title="All 2 branches missed.">        if (!itemManager.hasInventorySpace(player, nuggetAmount)) {</span>
+<span class="nc" id="L265">            return false;</span>
+        }
+        
+        // 金塊をインベントリに追加
+<span class="nc" id="L269">        return itemManager.addGoldNuggetsToInventory(player, nuggetAmount);</span>
+    }
+    
+    // 所持金で支払い可能かチェック
+    public boolean canAffordWithCash(Player player, double amount) {
+<span class="nc bnc" id="L274" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L275">            return true;</span>
+        }
+        
+<span class="nc" id="L278">        int requiredNuggets = convertBalanceToNuggets(amount);</span>
+<span class="nc" id="L279">        return hasEnoughGoldNuggets(player, requiredNuggets);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

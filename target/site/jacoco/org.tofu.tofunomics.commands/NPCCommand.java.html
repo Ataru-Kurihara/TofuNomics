@@ -1,0 +1,1251 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NPCCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">NPCCommand.java</span></div><h1>NPCCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.Location;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.npc.BankNPCManager;
+import org.tofu.tofunomics.npc.NPCManager;
+import org.tofu.tofunomics.npc.TradingNPCManager;
+import org.tofu.tofunomics.npc.FoodNPCManager;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
+public class NPCCommand implements CommandExecutor, TabCompleter {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final NPCManager npcManager;
+    private final BankNPCManager bankNPCManager;
+    private final TradingNPCManager tradingNPCManager;
+    private final FoodNPCManager foodNPCManager;
+    
+<span class="nc" id="L32">    private static final String[] VALID_JOBS = {</span>
+        &quot;miner&quot;, &quot;woodcutter&quot;, &quot;farmer&quot;, &quot;fisherman&quot;,
+        &quot;blacksmith&quot;, &quot;alchemist&quot;, &quot;enchanter&quot;, &quot;architect&quot;
+    };
+    
+    public NPCCommand(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
+                    BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager,
+<span class="nc" id="L39">                    FoodNPCManager foodNPCManager) {</span>
+<span class="nc" id="L40">        this.plugin = plugin;</span>
+<span class="nc" id="L41">        this.configManager = configManager;</span>
+<span class="nc" id="L42">        this.npcManager = npcManager;</span>
+<span class="nc" id="L43">        this.bankNPCManager = bankNPCManager;</span>
+<span class="nc" id="L44">        this.tradingNPCManager = tradingNPCManager;</span>
+<span class="nc" id="L45">        this.foodNPCManager = foodNPCManager;</span>
+<span class="nc" id="L46">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if (args.length == 0) {</span>
+<span class="nc" id="L51">            sendUsage(sender);</span>
+<span class="nc" id="L52">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L55" title="All 15 branches missed.">        switch (args[0].toLowerCase()) {</span>
+            case &quot;spawn&quot;:
+<span class="nc" id="L57">                return handleSpawnCommand(sender, args);</span>
+            case &quot;remove&quot;:
+<span class="nc" id="L59">                return handleRemoveCommand(sender, args);</span>
+            case &quot;tp&quot;:
+<span class="nc" id="L61">                return handleTpCommand(sender, args);</span>
+            case &quot;list&quot;:
+<span class="nc" id="L63">                return handleListCommand(sender, args);</span>
+            case &quot;cleanup&quot;:
+<span class="nc" id="L65">                return handleCleanupCommand(sender);</span>
+            case &quot;reload&quot;:
+<span class="nc" id="L67">                return handleReloadCommand(sender);</span>
+            case &quot;info&quot;:
+<span class="nc" id="L69">                return handleInfoCommand(sender, args);</span>
+            case &quot;purge&quot;:
+<span class="nc" id="L71">                return handlePurgeCommand(sender, args);</span>
+            case &quot;restore&quot;:
+<span class="nc" id="L73">                return handleRestoreCommand(sender, args);</span>
+            case &quot;delete&quot;:
+<span class="nc" id="L75">                return handleDeleteCommand(sender, args);</span>
+            case &quot;status&quot;:
+<span class="nc" id="L77">                return handleStatusCommand(sender, args);</span>
+            case &quot;setup&quot;:
+<span class="nc" id="L79">                return handleSetupCommand(sender, args);</span>
+            case &quot;setup-location&quot;:
+<span class="nc" id="L81">                return handleSetupLocationCommand(sender, args);</span>
+            case &quot;setup-all&quot;:
+<span class="nc" id="L83">                return handleSetupAllCommand(sender, args);</span>
+            default:
+<span class="nc" id="L85">                sendUsage(sender);</span>
+<span class="nc" id="L86">                return true;</span>
+        }
+    }
+    
+    /**
+     * NPCスポーンコマンド
+     * /npc spawn trader &lt;職業名&gt; [NPC名] - 職業専用取引NPCをスポーン
+     * /npc spawn banker [NPC名] - 銀行NPCをスポーン
+     */
+    private boolean handleSpawnCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L97">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L98">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L102">            sender.sendMessage(&quot;§cこのコマンドはプレイヤーのみが実行できます。&quot;);</span>
+<span class="nc" id="L103">            return true;</span>
+        }
+        
+<span class="nc" id="L106">        Player player = (Player) sender;</span>
+        
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (args.length &lt; 2) {</span>
+<span class="nc" id="L109">            sender.sendMessage(&quot;§c使用法: /npc spawn &lt;trader|banker&gt; [職業名|NPC名]&quot;);</span>
+<span class="nc" id="L110">            return true;</span>
+        }
+        
+<span class="nc" id="L113">        String npcType = args[1].toLowerCase();</span>
+<span class="nc" id="L114">        Location spawnLocation = player.getLocation();</span>
+        
+<span class="nc bnc" id="L116" title="All 4 branches missed.">        switch (npcType) {</span>
+            case &quot;trader&quot;:
+<span class="nc" id="L118">                return handleSpawnTrader(player, args, spawnLocation);</span>
+            case &quot;banker&quot;:
+<span class="nc" id="L120">                return handleSpawnBanker(player, args, spawnLocation);</span>
+            case &quot;food_merchant&quot;:
+            case &quot;food&quot;:
+<span class="nc" id="L123">                return handleSpawnFoodMerchant(player, args, spawnLocation);</span>
+            default:
+<span class="nc" id="L125">                sender.sendMessage(&quot;§c無効なNPCタイプです: &quot; + npcType);</span>
+<span class="nc" id="L126">                sender.sendMessage(&quot;§7有効なタイプ: trader, banker, food_merchant&quot;);</span>
+<span class="nc" id="L127">                return true;</span>
+        }
+    }
+    
+    private boolean handleSpawnTrader(Player player, String[] args, Location spawnLocation) {
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (args.length &lt; 3) {</span>
+<span class="nc" id="L133">            player.sendMessage(&quot;§c使用法: /npc spawn trader &lt;職業名&gt; [NPC名]&quot;);</span>
+<span class="nc" id="L134">            player.sendMessage(&quot;§7職業: &quot; + String.join(&quot;, &quot;, VALID_JOBS));</span>
+<span class="nc" id="L135">            return true;</span>
+        }
+        
+<span class="nc" id="L138">        String jobType = args[2].toLowerCase();</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (!isValidJobType(jobType)) {</span>
+<span class="nc" id="L140">            player.sendMessage(&quot;§c無効な職業名です: &quot; + jobType);</span>
+<span class="nc" id="L141">            player.sendMessage(&quot;§7有効な職業: &quot; + String.join(&quot;, &quot;, VALID_JOBS));</span>
+<span class="nc" id="L142">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        String npcName = args.length &gt; 3 ? </span>
+<span class="nc" id="L146">            String.join(&quot; &quot;, Arrays.copyOfRange(args, 3, args.length)) : </span>
+<span class="nc" id="L147">            &quot;§6&quot; + configManager.getJobDisplayName(jobType) + &quot;取引商人&quot;;</span>
+        
+        // 重複チェック
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (configManager.hasTradingPostWithName(npcName)) {</span>
+<span class="nc" id="L151">            player.sendMessage(&quot;§c同じ名前の取引NPCが既に存在します: &quot; + npcName);</span>
+<span class="nc" id="L152">            player.sendMessage(&quot;§e既存NPCを削除してから再度スポーンするか、別の名前を使用してください。&quot;);</span>
+<span class="nc" id="L153">            player.sendMessage(&quot;§7削除コマンド: §f/npc remove &quot; + npcName);</span>
+<span class="nc" id="L154">            return true;</span>
+        }
+        
+        try {
+            // 取引NPCを作成
+<span class="nc" id="L159">            Villager npc = npcManager.createNPC(spawnLocation, &quot;trader&quot;, npcName);</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            boolean success = (npc != null);</span>
+            
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            if (success) {</span>
+                // 取引所データをconfig.ymlに自動追加
+                try {
+<span class="nc" id="L165">                    configManager.addTradingPost(npcName, spawnLocation, jobType);</span>
+                    
+                    // メッセージ設定も自動確認・追加
+<span class="nc" id="L168">                    configManager.ensureNPCMessagesExist();</span>
+                    
+                    // TradingNPCManagerに即座に反映
+<span class="nc bnc" id="L171" title="All 2 branches missed.">                    if (tradingNPCManager != null) {</span>
+<span class="nc" id="L172">                        tradingNPCManager.reloadTradingPosts();</span>
+                    }
+                    
+<span class="nc" id="L175">                    player.sendMessage(&quot;§a&quot; + jobType + &quot;専用取引NPC「&quot; + npcName + &quot;」をスポーンし、取引所データを追加しました。&quot;);</span>
+<span class="nc" id="L176">                    player.sendMessage(&quot;§7座標: &quot; + formatLocation(spawnLocation));</span>
+<span class="nc" id="L177">                    player.sendMessage(&quot;§e取引所データがconfig.ymlに自動追加され、即座に利用可能になりました。&quot;);</span>
+<span class="nc" id="L178">                } catch (Exception configError) {</span>
+<span class="nc" id="L179">                    plugin.getLogger().severe(&quot;取引所データの追加に失敗しました: &quot; + configError.getMessage());</span>
+<span class="nc" id="L180">                    player.sendMessage(&quot;§a&quot; + jobType + &quot;専用取引NPC「&quot; + npcName + &quot;」をスポーンしました。&quot;);</span>
+<span class="nc" id="L181">                    player.sendMessage(&quot;§c取引所データの自動追加に失敗しました。手動でconfig.ymlを編集してください。&quot;);</span>
+<span class="nc" id="L182">                    player.sendMessage(&quot;§7座標: &quot; + formatLocation(spawnLocation));</span>
+<span class="nc" id="L183">                }</span>
+            } else {
+<span class="nc" id="L185">                player.sendMessage(&quot;§c取引NPCのスポーンに失敗しました。&quot;);</span>
+            }
+            
+<span class="nc" id="L188">            return true;</span>
+            
+<span class="nc" id="L190">        } catch (Exception e) {</span>
+<span class="nc" id="L191">            player.sendMessage(&quot;§c取引NPCのスポーン中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L192">            plugin.getLogger().severe(&quot;取引NPCスポーンエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L193">            return true;</span>
+        }
+    }
+    
+    private boolean handleSpawnBanker(Player player, String[] args, Location spawnLocation) {
+<span class="nc bnc" id="L198" title="All 2 branches missed.">        String npcName = args.length &gt; 2 ? </span>
+<span class="nc" id="L199">            String.join(&quot; &quot;, Arrays.copyOfRange(args, 2, args.length)) : </span>
+<span class="nc" id="L200">            &quot;§6銀行員&quot;;</span>
+            
+        try {
+            // 銀行NPCを作成
+<span class="nc" id="L204">            Villager npc = npcManager.createNPC(spawnLocation, &quot;banker&quot;, npcName);</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">            boolean success = (npc != null);</span>
+            
+<span class="nc bnc" id="L207" title="All 2 branches missed.">            if (success) {</span>
+                // 銀行NPCデータをconfig.ymlに自動追加
+                try {
+<span class="nc" id="L210">                    configManager.addBankNPC(npcName, spawnLocation, &quot;bank&quot;);</span>
+                    
+                    // BankNPCManagerに即座に反映
+<span class="nc bnc" id="L213" title="All 2 branches missed.">                    if (bankNPCManager != null) {</span>
+<span class="nc" id="L214">                        bankNPCManager.reloadBankNPCs();</span>
+                    }
+                    
+<span class="nc" id="L217">                    player.sendMessage(&quot;§a銀行NPC「&quot; + npcName + &quot;」をスポーンし、データを追加しました。&quot;);</span>
+<span class="nc" id="L218">                    player.sendMessage(&quot;§7座標: &quot; + formatLocation(spawnLocation));</span>
+<span class="nc" id="L219">                    player.sendMessage(&quot;§e銀行NPCデータがconfig.ymlに自動追加されました。&quot;);</span>
+<span class="nc" id="L220">                } catch (Exception configError) {</span>
+<span class="nc" id="L221">                    plugin.getLogger().severe(&quot;銀行NPCデータの追加に失敗しました: &quot; + configError.getMessage());</span>
+<span class="nc" id="L222">                    player.sendMessage(&quot;§a銀行NPC「&quot; + npcName + &quot;」をスポーンしました。&quot;);</span>
+<span class="nc" id="L223">                    player.sendMessage(&quot;§c銀行NPCデータの自動追加に失敗しました。手動でconfig.ymlを編集してください。&quot;);</span>
+<span class="nc" id="L224">                    player.sendMessage(&quot;§7座標: &quot; + formatLocation(spawnLocation));</span>
+<span class="nc" id="L225">                }</span>
+            } else {
+<span class="nc" id="L227">                player.sendMessage(&quot;§c銀行NPCのスポーンに失敗しました。&quot;);</span>
+            }
+            
+<span class="nc" id="L230">            return true;</span>
+            
+<span class="nc" id="L232">        } catch (Exception e) {</span>
+<span class="nc" id="L233">            player.sendMessage(&quot;§c銀行NPCのスポーン中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L234">            plugin.getLogger().severe(&quot;銀行NPCスポーンエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L235">            return true;</span>
+        }
+    }
+    
+    private boolean handleSpawnFoodMerchant(Player player, String[] args, Location spawnLocation) {
+        // 使用法: /npc spawn food_merchant [NPC名] [タイプ]
+        String npcName;
+        String npcType;
+        
+<span class="nc bnc" id="L244" title="All 2 branches missed.">        if (args.length &gt;= 4) {</span>
+            // 名前とタイプの両方が指定された場合
+<span class="nc" id="L246">            npcName = args[2];</span>
+<span class="nc" id="L247">            npcType = args[3];</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        } else if (args.length &gt;= 3) {</span>
+            // 名前のみが指定された場合
+<span class="nc" id="L250">            npcName = args[2];</span>
+<span class="nc" id="L251">            npcType = &quot;general_store&quot;; // デフォルト</span>
+        } else {
+            // 何も指定されていない場合
+<span class="nc" id="L254">            npcName = &quot;§6食料品商人&quot;;</span>
+<span class="nc" id="L255">            npcType = &quot;general_store&quot;;</span>
+        }
+        
+        try {
+<span class="nc" id="L259">            plugin.getLogger().info(&quot;=== 食料NPCスポーン処理開始 ===&quot;);</span>
+<span class="nc" id="L260">            plugin.getLogger().info(&quot;プレイヤー: &quot; + player.getName() + &quot;, NPC名: &quot; + npcName + &quot;, タイプ: &quot; + npcType);</span>
+            
+            // 食料NPCを生成
+<span class="nc" id="L263">            org.bukkit.entity.Villager foodNPC = npcManager.createNPC(spawnLocation, &quot;food_merchant&quot;, npcName);</span>
+            
+<span class="nc bnc" id="L265" title="All 2 branches missed.">            if (foodNPC != null) {</span>
+<span class="nc" id="L266">                plugin.getLogger().info(&quot;NPCManagerでの作成成功: UUID=&quot; + foodNPC.getUniqueId());</span>
+                
+                // FoodNPCManagerに登録
+<span class="nc bnc" id="L269" title="All 2 branches missed.">                if (foodNPCManager != null) {</span>
+<span class="nc" id="L270">                    plugin.getLogger().info(&quot;FoodNPCManagerへの登録を開始&quot;);</span>
+<span class="nc" id="L271">                    foodNPCManager.registerFoodNPC(foodNPC, npcName, npcType);</span>
+                    
+                    // 食料NPCデータをconfig.ymlに自動追加
+                    try {
+<span class="nc" id="L275">                        configManager.addFoodNPC(npcName, spawnLocation);</span>
+                        
+<span class="nc" id="L277">                        player.sendMessage(&quot;§a食料NPCを生成し、データを追加しました！&quot;);</span>
+<span class="nc" id="L278">                        player.sendMessage(&quot;§7タイプ: &quot; + npcType + &quot; (&quot; + configManager.getFoodNPCTypeName(npcType) + &quot;)&quot;);</span>
+<span class="nc" id="L279">                        player.sendMessage(&quot;§7名前: &quot; + npcName);</span>
+<span class="nc" id="L280">                        player.sendMessage(&quot;§7場所: &quot; + formatLocation(spawnLocation));</span>
+<span class="nc" id="L281">                        player.sendMessage(&quot;§7UUID: &quot; + foodNPC.getUniqueId());</span>
+<span class="nc" id="L282">                        player.sendMessage(&quot;§e食料NPCデータがconfig.ymlに自動追加されました。&quot;);</span>
+<span class="nc" id="L283">                    } catch (Exception configError) {</span>
+<span class="nc" id="L284">                        plugin.getLogger().severe(&quot;食料NPCデータの追加に失敗しました: &quot; + configError.getMessage());</span>
+<span class="nc" id="L285">                        player.sendMessage(&quot;§a食料NPCを生成しました！&quot;);</span>
+<span class="nc" id="L286">                        player.sendMessage(&quot;§c食料NPCデータの自動追加に失敗しました。手動でconfig.ymlを編集してください。&quot;);</span>
+<span class="nc" id="L287">                        player.sendMessage(&quot;§7タイプ: &quot; + npcType + &quot; (&quot; + configManager.getFoodNPCTypeName(npcType) + &quot;)&quot;);</span>
+<span class="nc" id="L288">                        player.sendMessage(&quot;§7名前: &quot; + npcName);</span>
+<span class="nc" id="L289">                        player.sendMessage(&quot;§7場所: &quot; + formatLocation(spawnLocation));</span>
+<span class="nc" id="L290">                        player.sendMessage(&quot;§7UUID: &quot; + foodNPC.getUniqueId());</span>
+<span class="nc" id="L291">                    }</span>
+<span class="nc" id="L292">                    player.sendMessage(&quot;§e営業時間: 22:00-8:00&quot;);</span>
+<span class="nc" id="L293">                    player.sendMessage(&quot;§e§l右クリックで取引開始&quot;);</span>
+                    
+<span class="nc" id="L295">                    plugin.getLogger().info(&quot;=== 食料NPCスポーン処理完了 ===&quot;);</span>
+                } else {
+<span class="nc" id="L297">                    player.sendMessage(&quot;§c警告: 食料NPCは生成されましたが、システムへの登録に失敗しました&quot;);</span>
+<span class="nc" id="L298">                    plugin.getLogger().warning(&quot;FoodNPCManagerがnullのため、食料NPCの登録に失敗しました&quot;);</span>
+                }
+                
+<span class="nc" id="L301">                return true;</span>
+            } else {
+<span class="nc" id="L303">                player.sendMessage(&quot;§c食料NPCの生成に失敗しました&quot;);</span>
+<span class="nc" id="L304">                return true;</span>
+            }
+<span class="nc" id="L306">        } catch (Exception e) {</span>
+<span class="nc" id="L307">            player.sendMessage(&quot;§c食料NPC生成中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L308">            plugin.getLogger().severe(&quot;食料NPC生成エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L309">            e.printStackTrace();</span>
+<span class="nc" id="L310">            return true;</span>
+        }
+    }
+    
+    /**
+     * NPC削除コマンド
+     */
+    private boolean handleRemoveCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L319">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L320">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        if (args.length &lt; 2) {</span>
+<span class="nc" id="L324">            sender.sendMessage(&quot;§c使用法: /npc remove &lt;NPC名&gt;&quot;);</span>
+<span class="nc" id="L325">            return true;</span>
+        }
+        
+<span class="nc" id="L328">        String npcName = String.join(&quot; &quot;, Arrays.copyOfRange(args, 1, args.length));</span>
+        
+        // NPCを名前で検索して削除
+<span class="nc" id="L331">        Collection&lt;NPCManager.NPCData&gt; allNPCs = npcManager.getAllNPCs();</span>
+<span class="nc" id="L332">        NPCManager.NPCData targetNPC = null;</span>
+        
+<span class="nc bnc" id="L334" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : allNPCs) {</span>
+<span class="nc bnc" id="L335" title="All 4 branches missed.">            if (npcData.getName().contains(npcName) || npcData.getName().equals(npcName)) {</span>
+<span class="nc" id="L336">                targetNPC = npcData;</span>
+<span class="nc" id="L337">                break;</span>
+            }
+<span class="nc" id="L339">        }</span>
+        
+<span class="nc bnc" id="L341" title="All 2 branches missed.">        if (targetNPC == null) {</span>
+<span class="nc" id="L342">            sender.sendMessage(&quot;§c指定された名前のNPCが見つかりません: &quot; + npcName);</span>
+<span class="nc" id="L343">            return true;</span>
+        }
+        
+        try {
+<span class="nc" id="L347">            String npcNameToRemove = targetNPC.getName();</span>
+<span class="nc" id="L348">            String npcTypeToRemove = targetNPC.getNpcType();</span>
+            
+            // NPCエンティティを削除
+<span class="nc" id="L351">            npcManager.removeNPC(targetNPC.getEntityId());</span>
+            
+            // config.ymlに削除フラグを設定（論理削除）
+<span class="nc" id="L354">            configManager.markNPCAsDeleted(npcNameToRemove, npcTypeToRemove);</span>
+            
+            // TradingNPCManagerの更新（必要に応じて）
+<span class="nc bnc" id="L357" title="All 4 branches missed.">            if (&quot;trader&quot;.equals(npcTypeToRemove) &amp;&amp; tradingNPCManager != null) {</span>
+<span class="nc" id="L358">                tradingNPCManager.reloadTradingPosts();</span>
+            }
+            
+<span class="nc" id="L361">            sender.sendMessage(&quot;§aNPC「&quot; + npcNameToRemove + &quot;」を削除しました。&quot;);</span>
+<span class="nc" id="L362">            sender.sendMessage(&quot;§7プラグインリロード後も削除状態が保持されます。&quot;);</span>
+<span class="nc" id="L363">        } catch (Exception e) {</span>
+<span class="nc" id="L364">            sender.sendMessage(&quot;§cNPC削除中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L365">            plugin.getLogger().severe(&quot;NPC削除エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L366">        }</span>
+        
+<span class="nc" id="L368">        return true;</span>
+    }
+    
+    /**
+     * NPCテレポートコマンド
+     */
+    private boolean handleTpCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L375" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L376">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L377">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L380" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L381">            sender.sendMessage(&quot;§cこのコマンドはプレイヤーのみが実行できます。&quot;);</span>
+<span class="nc" id="L382">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L385" title="All 2 branches missed.">        if (args.length &lt; 2) {</span>
+<span class="nc" id="L386">            sender.sendMessage(&quot;§c使用法: /npc tp &lt;NPC名&gt;&quot;);</span>
+<span class="nc" id="L387">            return true;</span>
+        }
+        
+<span class="nc" id="L390">        Player player = (Player) sender;</span>
+<span class="nc" id="L391">        String npcName = String.join(&quot; &quot;, Arrays.copyOfRange(args, 1, args.length));</span>
+        
+        // NPCを名前で検索
+<span class="nc" id="L394">        Collection&lt;NPCManager.NPCData&gt; allNPCs = npcManager.getAllNPCs();</span>
+<span class="nc" id="L395">        NPCManager.NPCData targetNPC = null;</span>
+        
+<span class="nc bnc" id="L397" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : allNPCs) {</span>
+<span class="nc bnc" id="L398" title="All 4 branches missed.">            if (npcData.getName().contains(npcName) || npcData.getName().equals(npcName)) {</span>
+<span class="nc" id="L399">                targetNPC = npcData;</span>
+<span class="nc" id="L400">                break;</span>
+            }
+<span class="nc" id="L402">        }</span>
+        
+<span class="nc bnc" id="L404" title="All 2 branches missed.">        if (targetNPC == null) {</span>
+<span class="nc" id="L405">            player.sendMessage(&quot;§c指定された名前のNPCが見つかりません: &quot; + npcName);</span>
+<span class="nc" id="L406">            return true;</span>
+        }
+        
+        try {
+<span class="nc" id="L410">            Location npcLocation = targetNPC.getLocation();</span>
+<span class="nc" id="L411">            player.teleport(npcLocation);</span>
+<span class="nc" id="L412">            player.sendMessage(&quot;§aNPC「&quot; + targetNPC.getName() + &quot;」の場所にテレポートしました。&quot;);</span>
+<span class="nc" id="L413">        } catch (Exception e) {</span>
+<span class="nc" id="L414">            player.sendMessage(&quot;§cテレポート中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L415">            plugin.getLogger().severe(&quot;NPCテレポートエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L416">        }</span>
+        
+<span class="nc" id="L418">        return true;</span>
+    }
+    
+    private boolean handleListCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L422" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L423">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L424">            return true;</span>
+        }
+        
+        // --index オプションの確認
+<span class="nc bnc" id="L428" title="All 4 branches missed.">        boolean showIndex = args.length &gt; 1 &amp;&amp; &quot;--index&quot;.equals(args[1]);</span>
+        
+<span class="nc bnc" id="L430" title="All 2 branches missed.">        sender.sendMessage(&quot;§6=== システムNPC一覧&quot; + (showIndex ? &quot;（番号付き）&quot; : &quot;&quot;) + &quot; ===&quot;);</span>
+        
+<span class="nc" id="L432">        Collection&lt;NPCManager.NPCData&gt; allNPCs = npcManager.getAllNPCs();</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (allNPCs.isEmpty()) {</span>
+<span class="nc" id="L434">            sender.sendMessage(&quot;§e現在、スポーンしているNPCはありません。&quot;);</span>
+<span class="nc" id="L435">            return true;</span>
+        }
+        
+<span class="nc" id="L438">        int bankNPCs = 0;</span>
+<span class="nc" id="L439">        int tradingNPCs = 0;</span>
+<span class="nc" id="L440">        int foodNPCs = 0;</span>
+<span class="nc" id="L441">        int index = 1;</span>
+        
+<span class="nc bnc" id="L443" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : allNPCs) {</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">            String status = npcData.getEntity().isValid() ? &quot;§a正常&quot; : &quot;§c無効&quot;;</span>
+            
+<span class="nc bnc" id="L446" title="All 2 branches missed.">            if (showIndex) {</span>
+<span class="nc" id="L447">                sender.sendMessage(String.format(&quot;§f[%d] %s §7(%s) - %s&quot;, </span>
+<span class="nc" id="L448">                    index, npcData.getName(), npcData.getNpcType(), status));</span>
+            } else {
+<span class="nc" id="L450">                sender.sendMessage(String.format(&quot;§f• %s §7(%s) - %s&quot;, </span>
+<span class="nc" id="L451">                    npcData.getName(), npcData.getNpcType(), status));</span>
+            }
+                
+<span class="nc bnc" id="L454" title="All 2 branches missed.">            if (&quot;banker&quot;.equals(npcData.getNpcType())) {</span>
+<span class="nc" id="L455">                bankNPCs++;</span>
+<span class="nc bnc" id="L456" title="All 2 branches missed.">            } else if (&quot;trader&quot;.equals(npcData.getNpcType())) {</span>
+<span class="nc" id="L457">                tradingNPCs++;</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">            } else if (&quot;food_merchant&quot;.equals(npcData.getNpcType())) {</span>
+<span class="nc" id="L459">                foodNPCs++;</span>
+            }
+            
+<span class="nc" id="L462">            index++;</span>
+<span class="nc" id="L463">        }</span>
+        
+<span class="nc" id="L465">        sender.sendMessage(&quot;§e合計: §f&quot; + allNPCs.size() + &quot; §e個 (銀行: §f&quot; + bankNPCs + &quot;§e, 取引: §f&quot; + tradingNPCs + &quot;§e, 食料: §f&quot; + foodNPCs + &quot;§e)&quot;);</span>
+        
+<span class="nc bnc" id="L467" title="All 2 branches missed.">        if (showIndex) {</span>
+<span class="nc" id="L468">            sender.sendMessage(&quot;§7ヒント: §e/npc delete &lt;番号&gt; §7で番号指定削除ができます&quot;);</span>
+        } else {
+<span class="nc" id="L470">            sender.sendMessage(&quot;§7ヒント: §e/npc list --index §7で番号付き表示、§e/npc delete m1,w1,f1等 §7で簡単削除&quot;);</span>
+        }
+        
+<span class="nc" id="L473">        return true;</span>
+    }
+    
+    private boolean handleCleanupCommand(CommandSender sender) {
+<span class="nc bnc" id="L477" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L478">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L479">            return true;</span>
+        }
+        
+<span class="nc" id="L482">        sender.sendMessage(&quot;§c警告: 全NPCとその設定データを完全削除します（復元不可）&quot;);</span>
+<span class="nc" id="L483">        sender.sendMessage(&quot;§7個別削除は /npc remove &lt;NPC名&gt; を使用してください&quot;);</span>
+<span class="nc" id="L484">        sender.sendMessage(&quot;§e既存システムNPCを削除中...&quot;);</span>
+        
+        try {
+            // NPCエンティティを削除
+<span class="nc" id="L488">            npcManager.removeExistingSystemNPCs();</span>
+            
+            // config.ymlからすべての取引所データも削除
+<span class="nc" id="L491">            configManager.clearAllTradingPosts();</span>
+            
+            // TradingNPCManagerも更新
+<span class="nc bnc" id="L494" title="All 2 branches missed.">            if (tradingNPCManager != null) {</span>
+<span class="nc" id="L495">                tradingNPCManager.reloadTradingPosts();</span>
+            }
+            
+<span class="nc" id="L498">            sender.sendMessage(&quot;§a全NPCと設定データの完全削除が完了しました。&quot;);</span>
+<span class="nc" id="L499">            sender.sendMessage(&quot;§c注意: この操作は復元できません。&quot;);</span>
+<span class="nc" id="L500">        } catch (Exception e) {</span>
+<span class="nc" id="L501">            sender.sendMessage(&quot;§cNPC削除中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L502">            plugin.getLogger().severe(&quot;NPC削除中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L503">        }</span>
+        
+<span class="nc" id="L505">        return true;</span>
+    }
+    
+    private boolean handleReloadCommand(CommandSender sender) {
+<span class="nc bnc" id="L509" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L510">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L511">            return true;</span>
+        }
+        
+<span class="nc" id="L514">        sender.sendMessage(&quot;§eNPCシステムをリロード中...&quot;);</span>
+        
+        try {
+            // 既存NPCを削除
+<span class="nc" id="L518">            npcManager.removeExistingSystemNPCs();</span>
+            
+            // 新しいNPCを生成
+<span class="nc" id="L521">            npcManager.spawnConfiguredNPCs();</span>
+            
+            // 銀行NPCと取引NPCの初期化は直接呼び出せないため、メッセージで案内
+<span class="nc" id="L524">            sender.sendMessage(&quot;§aNPCシステムのリロードが完了しました。&quot;);</span>
+<span class="nc" id="L525">            sender.sendMessage(&quot;§e注意: 完全なリロードには §f/tofunomics reload §eを使用してください。&quot;);</span>
+<span class="nc" id="L526">        } catch (Exception e) {</span>
+<span class="nc" id="L527">            sender.sendMessage(&quot;§cNPCリロード中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L528">            plugin.getLogger().severe(&quot;NPCリロード中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L529">        }</span>
+        
+<span class="nc" id="L531">        return true;</span>
+    }
+    
+    private boolean handleInfoCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L535" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L536">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L537">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L540" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L541">            sender.sendMessage(&quot;§cこのコマンドはプレイヤーのみ使用できます。&quot;);</span>
+<span class="nc" id="L542">            return true;</span>
+        }
+        
+<span class="nc" id="L545">        Player player = (Player) sender;</span>
+<span class="nc" id="L546">        sender.sendMessage(&quot;§6=== NPC システム情報 ===&quot;);</span>
+<span class="nc bnc" id="L547" title="All 2 branches missed.">        sender.sendMessage(&quot;§eシステム有効: §f&quot; + (configManager.isNPCSystemEnabled() ? &quot;有効&quot; : &quot;無効&quot;));</span>
+<span class="nc" id="L548">        sender.sendMessage(&quot;§e管理NPC数: §f&quot; + npcManager.getAllNPCs().size() + &quot; 個&quot;);</span>
+        
+        // 最寄りのNPCを探す
+<span class="nc" id="L551">        double minDistance = Double.MAX_VALUE;</span>
+<span class="nc" id="L552">        NPCManager.NPCData nearestNPC = null;</span>
+        
+<span class="nc bnc" id="L554" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : npcManager.getAllNPCs()) {</span>
+<span class="nc" id="L555">            double distance = player.getLocation().distance(npcData.getLocation());</span>
+<span class="nc bnc" id="L556" title="All 2 branches missed.">            if (distance &lt; minDistance) {</span>
+<span class="nc" id="L557">                minDistance = distance;</span>
+<span class="nc" id="L558">                nearestNPC = npcData;</span>
+            }
+<span class="nc" id="L560">        }</span>
+        
+<span class="nc bnc" id="L562" title="All 2 branches missed.">        if (nearestNPC != null) {</span>
+<span class="nc" id="L563">            sender.sendMessage(String.format(&quot;§e最寄りNPC: §f%s §7(%.1fブロック先)&quot;, </span>
+<span class="nc" id="L564">                nearestNPC.getName(), minDistance));</span>
+        }
+        
+<span class="nc" id="L567">        return true;</span>
+    }
+    
+    /**
+     * NPC完全削除コマンド（物理削除）
+     */
+    private boolean handlePurgeCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L574" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L575">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L576">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L579" title="All 2 branches missed.">        if (args.length &lt; 2) {</span>
+<span class="nc" id="L580">            sender.sendMessage(&quot;§c使用法: /npc purge &lt;NPC名&gt;&quot;);</span>
+<span class="nc" id="L581">            sender.sendMessage(&quot;§c警告: このコマンドはNPCを削除します（復元可能）&quot;);</span>
+<span class="nc" id="L582">            return true;</span>
+        }
+        
+<span class="nc" id="L585">        String npcName = String.join(&quot; &quot;, Arrays.copyOfRange(args, 1, args.length));</span>
+        
+        // NPCを名前で検索して削除
+<span class="nc" id="L588">        Collection&lt;NPCManager.NPCData&gt; allNPCs = npcManager.getAllNPCs();</span>
+<span class="nc" id="L589">        NPCManager.NPCData targetNPC = null;</span>
+        
+<span class="nc bnc" id="L591" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : allNPCs) {</span>
+<span class="nc bnc" id="L592" title="All 4 branches missed.">            if (npcData.getName().contains(npcName) || npcData.getName().equals(npcName)) {</span>
+<span class="nc" id="L593">                targetNPC = npcData;</span>
+<span class="nc" id="L594">                break;</span>
+            }
+<span class="nc" id="L596">        }</span>
+        
+<span class="nc bnc" id="L598" title="All 2 branches missed.">        if (targetNPC == null) {</span>
+<span class="nc" id="L599">            sender.sendMessage(&quot;§c指定された名前のNPCが見つかりません: &quot; + npcName);</span>
+<span class="nc" id="L600">            return true;</span>
+        }
+        
+        // 削除前に詳細情報を表示
+<span class="nc" id="L604">        sender.sendMessage(&quot;§e=== NPC削除確認 ===&quot;);</span>
+<span class="nc" id="L605">        sender.sendMessage(&quot;§7NPC名: §f&quot; + targetNPC.getName());</span>
+<span class="nc" id="L606">        sender.sendMessage(&quot;§7NPCタイプ: §f&quot; + targetNPC.getNpcType());</span>
+<span class="nc" id="L607">        sender.sendMessage(&quot;§7座標: §f&quot; + formatLocation(targetNPC.getLocation()));</span>
+        
+        try {
+<span class="nc" id="L610">            String npcNameToRemove = targetNPC.getName();</span>
+<span class="nc" id="L611">            String npcTypeToRemove = targetNPC.getNpcType();</span>
+            
+            // NPCエンティティを削除
+<span class="nc" id="L614">            npcManager.removeNPC(targetNPC.getEntityId());</span>
+            
+            // config.ymlから物理削除
+<span class="nc" id="L617">            boolean configDeleted = false;</span>
+<span class="nc bnc" id="L618" title="All 2 branches missed.">            if (&quot;trader&quot;.equals(npcTypeToRemove)) {</span>
+<span class="nc" id="L619">                configManager.removeTradingPostByName(npcNameToRemove);</span>
+                
+                // TradingNPCManagerも更新
+<span class="nc bnc" id="L622" title="All 2 branches missed.">                if (tradingNPCManager != null) {</span>
+<span class="nc" id="L623">                    tradingNPCManager.reloadTradingPosts();</span>
+                }
+<span class="nc" id="L625">                configDeleted = true;</span>
+<span class="nc" id="L626">                sender.sendMessage(&quot;§aNPC「&quot; + npcNameToRemove + &quot;」を完全削除しました。&quot;);</span>
+<span class="nc bnc" id="L627" title="All 2 branches missed.">            } else if (&quot;banker&quot;.equals(npcTypeToRemove)) {</span>
+<span class="nc" id="L628">                configManager.removeBankNPCByName(npcNameToRemove);</span>
+<span class="nc" id="L629">                configDeleted = true;</span>
+<span class="nc" id="L630">                sender.sendMessage(&quot;§aNPC「&quot; + npcNameToRemove + &quot;」を完全削除しました。&quot;);</span>
+<span class="nc bnc" id="L631" title="All 2 branches missed.">            } else if (&quot;food_merchant&quot;.equals(npcTypeToRemove)) {</span>
+<span class="nc" id="L632">                configManager.removeFoodNPCByName(npcNameToRemove);</span>
+                
+                // FoodNPCManagerも更新
+<span class="nc bnc" id="L635" title="All 2 branches missed.">                if (foodNPCManager != null) {</span>
+<span class="nc" id="L636">                    foodNPCManager.reloadFoodNPCs();</span>
+                }
+<span class="nc" id="L638">                configDeleted = true;</span>
+<span class="nc" id="L639">                sender.sendMessage(&quot;§aNPC「&quot; + npcNameToRemove + &quot;」を完全削除しました。&quot;);</span>
+            } else {
+<span class="nc" id="L641">                sender.sendMessage(&quot;§aNPC「&quot; + npcNameToRemove + &quot;」をエンティティから削除しました。&quot;);</span>
+<span class="nc" id="L642">                sender.sendMessage(&quot;§e注意: このNPCタイプは設定ファイル削除に対応していません。&quot;);</span>
+            }
+            
+<span class="nc bnc" id="L645" title="All 2 branches missed.">            if (configDeleted) {</span>
+<span class="nc" id="L646">                sender.sendMessage(&quot;§7設定ファイルから完全に削除されました。&quot;);</span>
+            }
+<span class="nc" id="L648">        } catch (Exception e) {</span>
+<span class="nc" id="L649">            sender.sendMessage(&quot;§cNPC完全削除中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L650">            plugin.getLogger().severe(&quot;NPC完全削除エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L651">        }</span>
+        
+<span class="nc" id="L653">        return true;</span>
+    }
+    
+    /**
+     * NPC復元コマンド（論理削除されたNPCを復元）
+     */
+    private boolean handleRestoreCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L660" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L661">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L662">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L665" title="All 2 branches missed.">        if (args.length &lt; 2) {</span>
+<span class="nc" id="L666">            sender.sendMessage(&quot;§c使用法: /npc restore &lt;NPC名&gt;&quot;);</span>
+<span class="nc" id="L667">            return true;</span>
+        }
+        
+<span class="nc" id="L670">        String npcName = String.join(&quot; &quot;, Arrays.copyOfRange(args, 1, args.length));</span>
+        
+        try {
+            // 取引NPCの復元を試行
+            // 物理削除方式では復元機能は利用できません
+<span class="nc" id="L675">            sender.sendMessage(&quot;§c物理削除方式では復元機能は利用できません。&quot;);</span>
+<span class="nc" id="L676">            sender.sendMessage(&quot;§7NPCを再配置するには '/npc spawn' コマンドを使用してください。&quot;);</span>
+            
+            // 削除されたNPCが見つからない場合
+<span class="nc" id="L679">            sender.sendMessage(&quot;§c指定された名前の削除済みNPCが見つかりません: &quot; + npcName);</span>
+<span class="nc" id="L680">            sender.sendMessage(&quot;§7削除済みNPCの一覧は '/npc list deleted' で確認できます。&quot;);</span>
+            
+<span class="nc" id="L682">        } catch (Exception e) {</span>
+<span class="nc" id="L683">            sender.sendMessage(&quot;§cNPC復元中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L684">            plugin.getLogger().severe(&quot;NPC復元エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L685">        }</span>
+        
+<span class="nc" id="L687">        return true;</span>
+    }
+    
+    /**
+     * NPC完全削除コマンド（物理削除・復元不可）
+     */
+    private boolean handleDeleteCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L694" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L695">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L696">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L699" title="All 2 branches missed.">        if (args.length &lt; 2) {</span>
+<span class="nc" id="L700">            sender.sendMessage(&quot;§c使用法: /npc delete &lt;NPC指定&gt;&quot;);</span>
+<span class="nc" id="L701">            sender.sendMessage(&quot;§7指定方法:&quot;);</span>
+<span class="nc" id="L702">            sender.sendMessage(&quot;§7  - NPC名: '鉱夫取引商人'&quot;);</span>
+<span class="nc" id="L703">            sender.sendMessage(&quot;§7  - 部分名: '鉱夫'&quot;);</span>
+<span class="nc" id="L704">            sender.sendMessage(&quot;§7  - 職業ショートカット: m1,m2,w1,f1,fish1,b1,a1,e1,arch1&quot;);</span>
+<span class="nc" id="L705">            sender.sendMessage(&quot;§7  - インデックス: 1,2,3... (/npc list --index で確認)&quot;);</span>
+<span class="nc" id="L706">            return true;</span>
+        }
+        
+<span class="nc" id="L709">        String npcTarget = String.join(&quot; &quot;, Arrays.copyOfRange(args, 1, args.length));</span>
+        
+        // NPC簡単指定を解決
+<span class="nc" id="L712">        NPCManager.NPCData targetNPC = resolveNPCTarget(npcTarget);</span>
+        
+<span class="nc bnc" id="L714" title="All 2 branches missed.">        if (targetNPC == null) {</span>
+<span class="nc" id="L715">            sender.sendMessage(&quot;§c指定されたNPCが見つかりません: &quot; + npcTarget);</span>
+<span class="nc" id="L716">            sender.sendMessage(&quot;§7§l利用可能な指定方法:&quot;);</span>
+<span class="nc" id="L717">            sender.sendMessage(&quot;§e/npc list --index §7でNPC一覧と番号を確認できます&quot;);</span>
+<span class="nc" id="L718">            return true;</span>
+        }
+        
+        // 削除前に詳細情報を表示
+<span class="nc" id="L722">        sender.sendMessage(&quot;§c§l=== NPC完全削除確認 ===&quot;);</span>
+<span class="nc" id="L723">        sender.sendMessage(&quot;§7NPC名: §f&quot; + targetNPC.getName());</span>
+<span class="nc" id="L724">        sender.sendMessage(&quot;§7NPCタイプ: §f&quot; + targetNPC.getNpcType());</span>
+<span class="nc" id="L725">        sender.sendMessage(&quot;§7座標: §f&quot; + formatLocation(targetNPC.getLocation()));</span>
+<span class="nc" id="L726">        sender.sendMessage(&quot;§c§l警告: この操作は復元できません！&quot;);</span>
+        
+        try {
+<span class="nc" id="L729">            String npcNameToDelete = targetNPC.getName();</span>
+<span class="nc" id="L730">            String npcTypeToDelete = targetNPC.getNpcType();</span>
+            
+            // 1. まず設定ファイルから削除（削除失敗時のエンティティ残留を防ぐため）
+<span class="nc" id="L733">            boolean configDeleted = false;</span>
+<span class="nc bnc" id="L734" title="All 2 branches missed.">            if (&quot;trader&quot;.equals(npcTypeToDelete)) {</span>
+<span class="nc" id="L735">                configManager.permanentlyDeleteTradingPost(npcNameToDelete);</span>
+<span class="nc" id="L736">                configDeleted = true;</span>
+<span class="nc bnc" id="L737" title="All 2 branches missed.">            } else if (&quot;banker&quot;.equals(npcTypeToDelete)) {</span>
+<span class="nc" id="L738">                configManager.permanentlyDeleteBankNPC(npcNameToDelete);</span>
+<span class="nc" id="L739">                configDeleted = true;</span>
+<span class="nc bnc" id="L740" title="All 2 branches missed.">            } else if (&quot;food_merchant&quot;.equals(npcTypeToDelete)) {</span>
+<span class="nc" id="L741">                configManager.permanentlyDeleteFoodNPC(npcNameToDelete);</span>
+<span class="nc" id="L742">                configDeleted = true;</span>
+            }
+            
+            // 2. NPCエンティティを削除
+<span class="nc" id="L746">            npcManager.removeNPC(targetNPC.getEntityId());</span>
+            
+            // 3. 該当NPCManagerでリロード処理を実行（設定ファイルとの同期）
+<span class="nc bnc" id="L749" title="All 4 branches missed.">            if (&quot;trader&quot;.equals(npcTypeToDelete) &amp;&amp; tradingNPCManager != null) {</span>
+<span class="nc" id="L750">                tradingNPCManager.reloadTradingPosts();</span>
+<span class="nc bnc" id="L751" title="All 4 branches missed.">            } else if (&quot;banker&quot;.equals(npcTypeToDelete) &amp;&amp; bankNPCManager != null) {</span>
+<span class="nc" id="L752">                bankNPCManager.reloadBankNPCs();</span>
+<span class="nc bnc" id="L753" title="All 4 branches missed.">            } else if (&quot;food_merchant&quot;.equals(npcTypeToDelete) &amp;&amp; foodNPCManager != null) {</span>
+<span class="nc" id="L754">                foodNPCManager.reloadFoodNPCs();</span>
+            }
+            
+<span class="nc" id="L757">            sender.sendMessage(&quot;§aNPC「&quot; + npcNameToDelete + &quot;」を完全削除しました（復元不可）。&quot;);</span>
+            
+<span class="nc bnc" id="L759" title="All 2 branches missed.">            if (configDeleted) {</span>
+<span class="nc" id="L760">                sender.sendMessage(&quot;§7設定ファイルからも完全に削除されました。&quot;);</span>
+            } else {
+<span class="nc" id="L762">                sender.sendMessage(&quot;§e注意: このNPCタイプは設定ファイル削除に対応していません。&quot;);</span>
+            }
+            
+<span class="nc" id="L765">        } catch (Exception e) {</span>
+<span class="nc" id="L766">            sender.sendMessage(&quot;§cNPC完全削除中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L767">            plugin.getLogger().severe(&quot;NPC完全削除エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L768">        }</span>
+        
+<span class="nc" id="L770">        return true;</span>
+    }
+    
+    /**
+     * NPC状況診断コマンド（削除状況の確認）
+     */
+    private boolean handleStatusCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L777" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L778">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L779">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L782" title="All 2 branches missed.">        if (args.length &lt; 2) {</span>
+<span class="nc" id="L783">            sender.sendMessage(&quot;§c使用法: /npc status &lt;NPC名&gt;&quot;);</span>
+<span class="nc" id="L784">            sender.sendMessage(&quot;§7指定されたNPCの設定状況と削除フラグを確認します&quot;);</span>
+<span class="nc" id="L785">            return true;</span>
+        }
+        
+<span class="nc" id="L788">        String npcName = String.join(&quot; &quot;, Arrays.copyOfRange(args, 1, args.length));</span>
+        
+<span class="nc" id="L790">        sender.sendMessage(&quot;§6=== NPC状況診断: &quot; + npcName + &quot; ===&quot;);</span>
+        
+        // 1. アクティブなNPCエンティティの確認
+<span class="nc" id="L793">        boolean foundActiveNPC = false;</span>
+<span class="nc bnc" id="L794" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : npcManager.getAllNPCs()) {</span>
+<span class="nc bnc" id="L795" title="All 4 branches missed.">            if (npcData.getName().contains(npcName) || npcData.getName().equals(npcName)) {</span>
+<span class="nc" id="L796">                sender.sendMessage(&quot;§a✓ アクティブなNPCエンティティ: &quot; + npcData.getName());</span>
+<span class="nc" id="L797">                sender.sendMessage(&quot;  §7タイプ: &quot; + npcData.getNpcType());</span>
+<span class="nc" id="L798">                sender.sendMessage(&quot;  §7座標: &quot; + formatLocation(npcData.getLocation()));</span>
+<span class="nc" id="L799">                sender.sendMessage(&quot;  §7エンティティID: &quot; + npcData.getEntityId());</span>
+<span class="nc bnc" id="L800" title="All 2 branches missed.">                sender.sendMessage(&quot;  §7有効状態: &quot; + (npcData.getEntity().isValid() ? &quot;§a有効&quot; : &quot;§c無効&quot;));</span>
+<span class="nc" id="L801">                foundActiveNPC = true;</span>
+            }
+<span class="nc" id="L803">        }</span>
+        
+<span class="nc bnc" id="L805" title="All 2 branches missed.">        if (!foundActiveNPC) {</span>
+<span class="nc" id="L806">            sender.sendMessage(&quot;§c✗ アクティブなNPCエンティティが見つかりません&quot;);</span>
+        }
+        
+        // 2. 取引NPCの設定確認
+<span class="nc" id="L810">        checkTradingPostStatus(sender, npcName);</span>
+        
+        // 3. 銀行NPCの設定確認
+<span class="nc" id="L813">        checkBankNPCStatus(sender, npcName);</span>
+        
+        // 4. 重複チェック
+<span class="nc" id="L816">        checkDuplicateNPCs(sender, npcName);</span>
+        
+<span class="nc" id="L818">        sender.sendMessage(&quot;§6=== 診断完了 ===&quot;);</span>
+        
+<span class="nc" id="L820">        return true;</span>
+    }
+    
+    /**
+     * 取引NPCの設定状況を確認
+     */
+    private void checkTradingPostStatus(CommandSender sender, String npcName) {
+<span class="nc" id="L827">        List&lt;Map&lt;?, ?&gt;&gt; tradingPosts = configManager.getTradingPostConfigs();</span>
+<span class="nc" id="L828">        boolean foundInTrading = false;</span>
+        
+<span class="nc bnc" id="L830" title="All 2 branches missed.">        for (Map&lt;?, ?&gt; post : tradingPosts) {</span>
+<span class="nc" id="L831">            String postName = (String) post.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L832" title="All 6 branches missed.">            if (npcName.equals(postName) || (postName != null &amp;&amp; postName.contains(npcName))) {</span>
+<span class="nc" id="L833">                Object deletedFlag = post.get(&quot;deleted&quot;);</span>
+<span class="nc bnc" id="L834" title="All 4 branches missed.">                boolean isDeleted = deletedFlag != null &amp;&amp; (Boolean) deletedFlag;</span>
+                
+<span class="nc" id="L836">                sender.sendMessage(&quot;§e○ 取引NPC設定: &quot; + postName);</span>
+<span class="nc bnc" id="L837" title="All 2 branches missed.">                sender.sendMessage(&quot;  §7削除フラグ: &quot; + (isDeleted ? &quot;§c削除済み&quot; : &quot;§a有効&quot;));</span>
+<span class="nc" id="L838">                sender.sendMessage(&quot;  §7職業: &quot; + post.get(&quot;job&quot;));</span>
+<span class="nc" id="L839">                sender.sendMessage(&quot;  §7世界: &quot; + post.get(&quot;world&quot;));</span>
+<span class="nc" id="L840">                sender.sendMessage(&quot;  §7座標: (&quot; + post.get(&quot;x&quot;) + &quot;, &quot; + post.get(&quot;y&quot;) + &quot;, &quot; + post.get(&quot;z&quot;) + &quot;)&quot;);</span>
+<span class="nc" id="L841">                foundInTrading = true;</span>
+            }
+<span class="nc" id="L843">        }</span>
+        
+<span class="nc bnc" id="L845" title="All 2 branches missed.">        if (!foundInTrading) {</span>
+<span class="nc" id="L846">            sender.sendMessage(&quot;§7- 取引NPC設定には見つかりません&quot;);</span>
+        }
+<span class="nc" id="L848">    }</span>
+    
+    /**
+     * 銀行NPCの設定状況を確認
+     */
+    private void checkBankNPCStatus(CommandSender sender, String npcName) {
+<span class="nc" id="L854">        List&lt;Map&lt;?, ?&gt;&gt; bankNPCs = configManager.getBankNPCs();</span>
+<span class="nc" id="L855">        boolean foundInBank = false;</span>
+        
+<span class="nc bnc" id="L857" title="All 2 branches missed.">        for (Map&lt;?, ?&gt; npc : bankNPCs) {</span>
+<span class="nc" id="L858">            String npcNameInConfig = (String) npc.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L859" title="All 6 branches missed.">            if (npcName.equals(npcNameInConfig) || (npcNameInConfig != null &amp;&amp; npcNameInConfig.contains(npcName))) {</span>
+<span class="nc" id="L860">                Object deletedFlag = npc.get(&quot;deleted&quot;);</span>
+<span class="nc bnc" id="L861" title="All 4 branches missed.">                boolean isDeleted = deletedFlag != null &amp;&amp; (Boolean) deletedFlag;</span>
+                
+<span class="nc" id="L863">                sender.sendMessage(&quot;§e○ 銀行NPC設定: &quot; + npcNameInConfig);</span>
+<span class="nc bnc" id="L864" title="All 2 branches missed.">                sender.sendMessage(&quot;  §7削除フラグ: &quot; + (isDeleted ? &quot;§c削除済み&quot; : &quot;§a有効&quot;));</span>
+<span class="nc" id="L865">                sender.sendMessage(&quot;  §7世界: &quot; + npc.get(&quot;world&quot;));</span>
+<span class="nc" id="L866">                sender.sendMessage(&quot;  §7座標: (&quot; + npc.get(&quot;x&quot;) + &quot;, &quot; + npc.get(&quot;y&quot;) + &quot;, &quot; + npc.get(&quot;z&quot;) + &quot;)&quot;);</span>
+<span class="nc" id="L867">                foundInBank = true;</span>
+            }
+<span class="nc" id="L869">        }</span>
+        
+<span class="nc bnc" id="L871" title="All 2 branches missed.">        if (!foundInBank) {</span>
+<span class="nc" id="L872">            sender.sendMessage(&quot;§7- 銀行NPC設定には見つかりません&quot;);</span>
+        }
+<span class="nc" id="L874">    }</span>
+    
+    /**
+     * 重複NPCの確認
+     */
+    private void checkDuplicateNPCs(CommandSender sender, String npcName) {
+<span class="nc" id="L880">        int totalMatches = 0;</span>
+        
+        // アクティブNPCでの重複
+<span class="nc" id="L883">        long activeMatches = npcManager.getAllNPCs().stream()</span>
+<span class="nc bnc" id="L884" title="All 4 branches missed.">            .filter(npc -&gt; npc.getName().contains(npcName) || npc.getName().equals(npcName))</span>
+<span class="nc" id="L885">            .count();</span>
+        
+        // 設定ファイルでの重複
+<span class="nc" id="L888">        long tradingMatches = configManager.getTradingPostConfigs().stream()</span>
+<span class="nc" id="L889">            .filter(post -&gt; {</span>
+<span class="nc" id="L890">                String postName = (String) post.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L891" title="All 6 branches missed.">                return npcName.equals(postName) || (postName != null &amp;&amp; postName.contains(npcName));</span>
+            })
+<span class="nc" id="L893">            .count();</span>
+        
+<span class="nc" id="L895">        long bankMatches = configManager.getBankNPCs().stream()</span>
+<span class="nc" id="L896">            .filter(npc -&gt; {</span>
+<span class="nc" id="L897">                String npcNameInConfig = (String) npc.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L898" title="All 6 branches missed.">                return npcName.equals(npcNameInConfig) || (npcNameInConfig != null &amp;&amp; npcNameInConfig.contains(npcName));</span>
+            })
+<span class="nc" id="L900">            .count();</span>
+        
+<span class="nc" id="L902">        totalMatches = (int) (activeMatches + tradingMatches + bankMatches);</span>
+        
+<span class="nc bnc" id="L904" title="All 2 branches missed.">        if (totalMatches &gt; 1) {</span>
+<span class="nc" id="L905">            sender.sendMessage(&quot;§c⚠ 重複検出: &quot; + totalMatches + &quot;個の一致&quot;);</span>
+<span class="nc" id="L906">            sender.sendMessage(&quot;  §7アクティブNPC: &quot; + activeMatches + &quot;個&quot;);</span>
+<span class="nc" id="L907">            sender.sendMessage(&quot;  §7取引NPC設定: &quot; + tradingMatches + &quot;個&quot;);</span>
+<span class="nc" id="L908">            sender.sendMessage(&quot;  §7銀行NPC設定: &quot; + bankMatches + &quot;個&quot;);</span>
+<span class="nc" id="L909">            sender.sendMessage(&quot;  §e重複がある場合、予期しない動作の原因となる可能性があります&quot;);</span>
+<span class="nc bnc" id="L910" title="All 2 branches missed.">        } else if (totalMatches == 1) {</span>
+<span class="nc" id="L911">            sender.sendMessage(&quot;§a✓ 重複なし（1個の一致のみ）&quot;);</span>
+        } else {
+<span class="nc" id="L913">            sender.sendMessage(&quot;§c✗ 該当するNPCが見つかりません&quot;);</span>
+        }
+<span class="nc" id="L915">    }</span>
+    
+    /**
+     * NPC指定（ショートカット、部分名、インデックス）を解決する
+     */
+    private NPCManager.NPCData resolveNPCTarget(String target) {
+        // 1. インデックス指定の場合
+        try {
+<span class="nc" id="L923">            int index = Integer.parseInt(target);</span>
+<span class="nc" id="L924">            List&lt;NPCManager.NPCData&gt; allNPCs = new ArrayList&lt;&gt;(npcManager.getAllNPCs());</span>
+<span class="nc bnc" id="L925" title="All 4 branches missed.">            if (index &gt;= 1 &amp;&amp; index &lt;= allNPCs.size()) {</span>
+<span class="nc" id="L926">                return allNPCs.get(index - 1); // 1ベースのインデックス</span>
+            }
+<span class="nc" id="L928">        } catch (NumberFormatException ignored) {</span>
+            // インデックス指定ではない
+<span class="nc" id="L930">        }</span>
+        
+        // 2. 職業ショートカット指定の場合
+<span class="nc" id="L933">        NPCManager.NPCData shortcutNPC = resolveJobShortcut(target);</span>
+<span class="nc bnc" id="L934" title="All 2 branches missed.">        if (shortcutNPC != null) {</span>
+<span class="nc" id="L935">            return shortcutNPC;</span>
+        }
+        
+        // 3. 完全名マッチ
+<span class="nc bnc" id="L939" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : npcManager.getAllNPCs()) {</span>
+<span class="nc bnc" id="L940" title="All 2 branches missed.">            if (npcData.getName().equals(target)) {</span>
+<span class="nc" id="L941">                return npcData;</span>
+            }
+<span class="nc" id="L943">        }</span>
+        
+        // 4. 部分名マッチ
+<span class="nc bnc" id="L946" title="All 2 branches missed.">        for (NPCManager.NPCData npcData : npcManager.getAllNPCs()) {</span>
+<span class="nc bnc" id="L947" title="All 2 branches missed.">            if (npcData.getName().contains(target)) {</span>
+<span class="nc" id="L948">                return npcData;</span>
+            }
+<span class="nc" id="L950">        }</span>
+        
+<span class="nc" id="L952">        return null;</span>
+    }
+    
+    /**
+     * 職業ショートカット（m1, w1, f1など）を解決する
+     */
+    private NPCManager.NPCData resolveJobShortcut(String shortcut) {
+<span class="nc" id="L959">        String jobType = null;</span>
+<span class="nc" id="L960">        int index = 1;</span>
+        
+        // ショートカットを解析
+<span class="nc bnc" id="L963" title="All 2 branches missed.">        if (shortcut.matches(&quot;m\\d+&quot;)) {</span>
+<span class="nc" id="L964">            jobType = &quot;miner&quot;;</span>
+<span class="nc" id="L965">            index = Integer.parseInt(shortcut.substring(1));</span>
+<span class="nc bnc" id="L966" title="All 2 branches missed.">        } else if (shortcut.matches(&quot;w\\d+&quot;)) {</span>
+<span class="nc" id="L967">            jobType = &quot;woodcutter&quot;;</span>
+<span class="nc" id="L968">            index = Integer.parseInt(shortcut.substring(1));</span>
+<span class="nc bnc" id="L969" title="All 2 branches missed.">        } else if (shortcut.matches(&quot;f\\d+&quot;)) {</span>
+<span class="nc" id="L970">            jobType = &quot;farmer&quot;;</span>
+<span class="nc" id="L971">            index = Integer.parseInt(shortcut.substring(1));</span>
+<span class="nc bnc" id="L972" title="All 2 branches missed.">        } else if (shortcut.matches(&quot;fish\\d+&quot;)) {</span>
+<span class="nc" id="L973">            jobType = &quot;fisherman&quot;;</span>
+<span class="nc" id="L974">            index = Integer.parseInt(shortcut.substring(4));</span>
+<span class="nc bnc" id="L975" title="All 2 branches missed.">        } else if (shortcut.matches(&quot;b\\d+&quot;)) {</span>
+<span class="nc" id="L976">            jobType = &quot;blacksmith&quot;;</span>
+<span class="nc" id="L977">            index = Integer.parseInt(shortcut.substring(1));</span>
+<span class="nc bnc" id="L978" title="All 2 branches missed.">        } else if (shortcut.matches(&quot;a\\d+&quot;)) {</span>
+<span class="nc" id="L979">            jobType = &quot;alchemist&quot;;</span>
+<span class="nc" id="L980">            index = Integer.parseInt(shortcut.substring(1));</span>
+<span class="nc bnc" id="L981" title="All 2 branches missed.">        } else if (shortcut.matches(&quot;e\\d+&quot;)) {</span>
+<span class="nc" id="L982">            jobType = &quot;enchanter&quot;;</span>
+<span class="nc" id="L983">            index = Integer.parseInt(shortcut.substring(1));</span>
+<span class="nc bnc" id="L984" title="All 2 branches missed.">        } else if (shortcut.matches(&quot;arch\\d+&quot;)) {</span>
+<span class="nc" id="L985">            jobType = &quot;architect&quot;;</span>
+<span class="nc" id="L986">            index = Integer.parseInt(shortcut.substring(4));</span>
+        }
+        
+<span class="nc bnc" id="L989" title="All 2 branches missed.">        if (jobType == null) {</span>
+<span class="nc" id="L990">            return null;</span>
+        }
+        
+        // 指定された職業のNPCを取得
+<span class="nc" id="L994">        final String finalJobType = jobType;</span>
+<span class="nc" id="L995">        List&lt;NPCManager.NPCData&gt; jobNPCs = npcManager.getAllNPCs().stream()</span>
+<span class="nc" id="L996">            .filter(npc -&gt; &quot;trader&quot;.equals(npc.getNpcType()))</span>
+<span class="nc bnc" id="L997" title="All 2 branches missed.">            .filter(npc -&gt; npc.getName().toLowerCase().contains(finalJobType) || </span>
+<span class="nc bnc" id="L998" title="All 2 branches missed.">                          npc.getName().contains(configManager.getJobDisplayName(finalJobType)))</span>
+<span class="nc" id="L999">            .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);</span>
+        
+<span class="nc bnc" id="L1001" title="All 4 branches missed.">        if (index &gt;= 1 &amp;&amp; index &lt;= jobNPCs.size()) {</span>
+<span class="nc" id="L1002">            return jobNPCs.get(index - 1);</span>
+        }
+        
+<span class="nc" id="L1005">        return null;</span>
+    }
+    
+    private void sendUsage(CommandSender sender) {
+<span class="nc" id="L1009">        sender.sendMessage(&quot;§6=== TofuNomics NPC コマンド ===&quot;);</span>
+<span class="nc" id="L1010">        sender.sendMessage(&quot;§a【セットアップコマンド（新機能）】&quot;);</span>
+<span class="nc" id="L1011">        sender.sendMessage(&quot;§f/npc setup §7- 対話式NPC配置ガイド&quot;);</span>
+<span class="nc" id="L1012">        sender.sendMessage(&quot;§f/npc setup-location &lt;type&gt; [args] §7- 現在位置にNPC配置&quot;);</span>
+<span class="nc" id="L1013">        sender.sendMessage(&quot;§f/npc setup-all §7- 一括セットアップガイド&quot;);</span>
+<span class="nc" id="L1014">        sender.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L1015">        sender.sendMessage(&quot;§e【基本コマンド】&quot;);</span>
+<span class="nc" id="L1016">        sender.sendMessage(&quot;§f/npc spawn trader &lt;職業名&gt; [NPC名] §7- 職業専用取引NPCをスポーン&quot;);</span>
+<span class="nc" id="L1017">        sender.sendMessage(&quot;§f/npc spawn banker [NPC名] §7- 銀行NPCをスポーン&quot;);</span>
+<span class="nc" id="L1018">        sender.sendMessage(&quot;§f/npc spawn food_merchant [NPC名] [タイプ] §7- 食料NPCをスポーン&quot;);</span>
+<span class="nc" id="L1019">        sender.sendMessage(&quot;§7食料NPCタイプ: general_store, bakery, butcher, fishmonger, greengrocer, specialty&quot;);</span>
+<span class="nc" id="L1020">        sender.sendMessage(&quot;§f/npc remove &lt;NPC名&gt; §7- NPCを削除&quot;);</span>
+<span class="nc" id="L1021">        sender.sendMessage(&quot;§f/npc delete &lt;NPC指定&gt; §7- NPC完全削除（復元不可・簡単指定対応）&quot;);</span>
+<span class="nc" id="L1022">        sender.sendMessage(&quot;§f/npc status &lt;NPC名&gt; §7- NPC状況診断（削除フラグ・重複チェック）&quot;);</span>
+<span class="nc" id="L1023">        sender.sendMessage(&quot;§f/npc tp &lt;NPC名&gt; §7- NPCの場所へテレポート&quot;);</span>
+<span class="nc" id="L1024">        sender.sendMessage(&quot;§f/npc list [--index] §7- システムNPCの一覧表示（番号付き）&quot;);</span>
+<span class="nc" id="L1025">        sender.sendMessage(&quot;§f/npc cleanup §7- 全NPCを完全削除（復元不可・緊急用）&quot;);</span>
+<span class="nc" id="L1026">        sender.sendMessage(&quot;§f/npc reload §7- NPCシステムをリロード&quot;);</span>
+<span class="nc" id="L1027">        sender.sendMessage(&quot;§f/npc info §7- NPCシステム情報を表示&quot;);</span>
+<span class="nc" id="L1028">        sender.sendMessage(&quot;§f/npc purge &lt;NPC名&gt; §7- NPCを削除（復元可能）&quot;);</span>
+<span class="nc" id="L1029">        sender.sendMessage(&quot;§f/npc restore &lt;NPC名&gt; §7- 削除されたNPCを復元&quot;);</span>
+<span class="nc" id="L1030">        sender.sendMessage(&quot;§7職業: &quot; + String.join(&quot;, &quot;, VALID_JOBS));</span>
+<span class="nc" id="L1031">        sender.sendMessage(&quot;§7簡単指定: m1,m2,w1,f1,fish1,b1,a1,e1,arch1（職業ショートカット）&quot;);</span>
+<span class="nc" id="L1032">        sender.sendMessage(&quot;§7          1,2,3...（インデックス番号）、部分名マッチも対応&quot;);</span>
+<span class="nc" id="L1033">    }</span>
+    
+    /**
+     * ユーティリティメソッド群
+     */
+    private boolean isValidJobType(String jobType) {
+<span class="nc bnc" id="L1039" title="All 2 branches missed.">        for (String validJob : VALID_JOBS) {</span>
+<span class="nc bnc" id="L1040" title="All 2 branches missed.">            if (validJob.equalsIgnoreCase(jobType)) {</span>
+<span class="nc" id="L1041">                return true;</span>
+            }
+        }
+<span class="nc" id="L1044">        return false;</span>
+    }
+    
+    private String formatLocation(Location location) {
+<span class="nc" id="L1048">        return String.format(&quot;%s (%.1f, %.1f, %.1f)&quot;, </span>
+<span class="nc" id="L1049">            location.getWorld().getName(), </span>
+<span class="nc" id="L1050">            location.getX(), location.getY(), location.getZ());</span>
+    }
+    
+    @Override
+    public List&lt;String&gt; onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+<span class="nc" id="L1055">        List&lt;String&gt; completions = new ArrayList&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L1057" title="All 2 branches missed.">        if (args.length == 1) {</span>
+<span class="nc" id="L1058">            String[] subCommands = {&quot;spawn&quot;, &quot;remove&quot;, &quot;tp&quot;, &quot;list&quot;, &quot;cleanup&quot;, &quot;reload&quot;, &quot;info&quot;, &quot;purge&quot;, &quot;restore&quot;, &quot;delete&quot;, &quot;status&quot;, &quot;setup&quot;, &quot;setup-location&quot;, &quot;setup-all&quot;};</span>
+<span class="nc bnc" id="L1059" title="All 2 branches missed.">            for (String subCommand : subCommands) {</span>
+<span class="nc bnc" id="L1060" title="All 2 branches missed.">                if (subCommand.startsWith(args[0].toLowerCase())) {</span>
+<span class="nc" id="L1061">                    completions.add(subCommand);</span>
+                }
+            }
+<span class="nc bnc" id="L1064" title="All 2 branches missed.">        } else if (args.length == 2) {</span>
+<span class="nc bnc" id="L1065" title="All 5 branches missed.">            switch (args[0].toLowerCase()) {</span>
+                case &quot;spawn&quot;:
+<span class="nc" id="L1067">                    String[] npcTypes = {&quot;trader&quot;, &quot;banker&quot;};</span>
+<span class="nc bnc" id="L1068" title="All 2 branches missed.">                    for (String npcType : npcTypes) {</span>
+<span class="nc bnc" id="L1069" title="All 2 branches missed.">                        if (npcType.startsWith(args[1].toLowerCase())) {</span>
+<span class="nc" id="L1070">                            completions.add(npcType);</span>
+                        }
+                    }
+<span class="nc" id="L1073">                    break;</span>
+                case &quot;list&quot;:
+<span class="nc bnc" id="L1075" title="All 2 branches missed.">                    if (&quot;--index&quot;.startsWith(args[1].toLowerCase())) {</span>
+<span class="nc" id="L1076">                        completions.add(&quot;--index&quot;);</span>
+                    }
+                    break;
+                case &quot;remove&quot;:
+                case &quot;tp&quot;:
+                case &quot;purge&quot;:
+                case &quot;restore&quot;:
+                case &quot;delete&quot;:
+                case &quot;status&quot;:
+                    // NPCの名前を補完（簡略化のため省略）
+                    // 実際の実装では、NPCの名前やショートカット（m1, w1, f1等）を補完
+<span class="nc" id="L1087">                    break;</span>
+                case &quot;setup-location&quot;:
+<span class="nc" id="L1089">                    String[] setupTypes = {&quot;trader&quot;, &quot;banker&quot;, &quot;food&quot;};</span>
+<span class="nc bnc" id="L1090" title="All 2 branches missed.">                    for (String setupType : setupTypes) {</span>
+<span class="nc bnc" id="L1091" title="All 2 branches missed.">                        if (setupType.startsWith(args[1].toLowerCase())) {</span>
+<span class="nc" id="L1092">                            completions.add(setupType);</span>
+                        }
+                    }
+                    break;
+<span class="nc" id="L1096">            }</span>
+<span class="nc bnc" id="L1097" title="All 2 branches missed.">        } else if (args.length == 3) {</span>
+<span class="nc bnc" id="L1098" title="All 4 branches missed.">            if (args[0].equalsIgnoreCase(&quot;spawn&quot;) &amp;&amp; args[1].equalsIgnoreCase(&quot;trader&quot;)) {</span>
+<span class="nc bnc" id="L1099" title="All 2 branches missed.">                for (String job : VALID_JOBS) {</span>
+<span class="nc bnc" id="L1100" title="All 2 branches missed.">                    if (job.startsWith(args[2].toLowerCase())) {</span>
+<span class="nc" id="L1101">                        completions.add(job);</span>
+                    }
+                }
+<span class="nc bnc" id="L1104" title="All 4 branches missed.">            } else if (args[0].equalsIgnoreCase(&quot;setup-location&quot;) &amp;&amp; args[1].equalsIgnoreCase(&quot;trader&quot;)) {</span>
+<span class="nc bnc" id="L1105" title="All 2 branches missed.">                for (String job : VALID_JOBS) {</span>
+<span class="nc bnc" id="L1106" title="All 2 branches missed.">                    if (job.startsWith(args[2].toLowerCase())) {</span>
+<span class="nc" id="L1107">                        completions.add(job);</span>
+                    }
+                }
+            }
+        }
+        
+<span class="nc" id="L1113">        return completions;</span>
+    }
+    
+    /**
+     * セットアップコマンドハンドラー
+     * /npc setup - 対話式NPC配置ガイド
+     */
+    private boolean handleSetupCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L1121" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L1122">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L1123">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L1126" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L1127">            sender.sendMessage(&quot;§cこのコマンドはプレイヤーのみが実行できます。&quot;);</span>
+<span class="nc" id="L1128">            return true;</span>
+        }
+        
+<span class="nc" id="L1131">        Player player = (Player) sender;</span>
+        
+<span class="nc" id="L1133">        player.sendMessage(&quot;§6=== TofuNomics NPC セットアップガイド ===&quot;);</span>
+<span class="nc" id="L1134">        player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L1135">        player.sendMessage(&quot;§eNPCの配置を開始します。各NPCタイプを順番に配置できます。&quot;);</span>
+<span class="nc" id="L1136">        player.sendMessage(&quot;§7配置したい場所に移動してから対応するコマンドを実行してください。&quot;);</span>
+<span class="nc" id="L1137">        player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L1138">        player.sendMessage(&quot;§f利用可能なコマンド:&quot;);</span>
+<span class="nc" id="L1139">        player.sendMessage(&quot;§a  /tofunomics npc setup-location trader &lt;職業&gt; §7- 取引NPCを現在位置に配置&quot;);</span>
+<span class="nc" id="L1140">        player.sendMessage(&quot;§a  /tofunomics npc setup-location banker §7- 銀行NPCを現在位置に配置&quot;);</span>
+<span class="nc" id="L1141">        player.sendMessage(&quot;§a  /tofunomics npc setup-location food §7- 食料NPCを現在位置に配置&quot;);</span>
+<span class="nc" id="L1142">        player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L1143">        player.sendMessage(&quot;§f職業リスト: §7&quot; + String.join(&quot;, &quot;, VALID_JOBS));</span>
+<span class="nc" id="L1144">        player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L1145">        player.sendMessage(&quot;§e例: §f/tofunomics npc setup-location trader miner&quot;);</span>
+<span class="nc" id="L1146">        player.sendMessage(&quot;§e例: §f/tofunomics npc setup-location banker&quot;);</span>
+<span class="nc" id="L1147">        player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L1148">        player.sendMessage(&quot;§6一括セットアップ: §f/tofunomics npc setup-all&quot;);</span>
+        
+<span class="nc" id="L1150">        return true;</span>
+    }
+    
+    /**
+     * 現在位置セットアップコマンドハンドラー
+     * /npc setup-location &lt;type&gt; [args...] - 現在位置にNPCを配置
+     */
+    private boolean handleSetupLocationCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L1158" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L1159">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L1160">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L1163" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L1164">            sender.sendMessage(&quot;§cこのコマンドはプレイヤーのみが実行できます。&quot;);</span>
+<span class="nc" id="L1165">            return true;</span>
+        }
+        
+<span class="nc" id="L1168">        Player player = (Player) sender;</span>
+        
+<span class="nc bnc" id="L1170" title="All 2 branches missed.">        if (args.length &lt; 2) {</span>
+<span class="nc" id="L1171">            player.sendMessage(&quot;§c使用法: /npc setup-location &lt;trader|banker|food&gt; [引数...]&quot;);</span>
+<span class="nc" id="L1172">            player.sendMessage(&quot;§7trader: /npc setup-location trader &lt;職業名&gt; [NPC名]&quot;);</span>
+<span class="nc" id="L1173">            player.sendMessage(&quot;§7banker: /npc setup-location banker [NPC名]&quot;);</span>
+<span class="nc" id="L1174">            player.sendMessage(&quot;§7food: /npc setup-location food [NPC名]&quot;);</span>
+<span class="nc" id="L1175">            return true;</span>
+        }
+        
+<span class="nc" id="L1178">        String npcType = args[1].toLowerCase();</span>
+<span class="nc" id="L1179">        Location currentLocation = player.getLocation();</span>
+        
+<span class="nc" id="L1181">        player.sendMessage(&quot;§e現在位置に&quot; + npcType + &quot;NPCを配置します...&quot;);</span>
+<span class="nc" id="L1182">        player.sendMessage(&quot;§7座標: &quot; + formatLocation(currentLocation));</span>
+        
+        // 適切なspawnコマンド引数を構築
+        String[] spawnArgs;
+<span class="nc bnc" id="L1186" title="All 2 branches missed.">        if (args.length &gt;= 3) {</span>
+            // 名前が指定されている場合: setup-location banker 銀行員 -&gt; spawn banker 銀行員
+<span class="nc" id="L1188">            spawnArgs = new String[args.length];</span>
+<span class="nc" id="L1189">            spawnArgs[0] = &quot;spawn&quot;;</span>
+<span class="nc" id="L1190">            spawnArgs[1] = args[1]; // npcType (banker/trader/food)</span>
+            // 残りの引数をコピー (名前など)
+<span class="nc" id="L1192">            System.arraycopy(args, 2, spawnArgs, 2, args.length - 2);</span>
+        } else {
+            // 名前が指定されていない場合: setup-location banker -&gt; spawn banker
+<span class="nc" id="L1195">            spawnArgs = new String[2];</span>
+<span class="nc" id="L1196">            spawnArgs[0] = &quot;spawn&quot;;</span>
+<span class="nc" id="L1197">            spawnArgs[1] = args[1]; // npcType</span>
+        }
+        
+<span class="nc" id="L1200">        return handleSpawnCommand(sender, spawnArgs);</span>
+    }
+    
+    /**
+     * 一括セットアップコマンドハンドラー
+     * /npc setup-all - 必要なNPCを順番に配置するガイド
+     */
+    private boolean handleSetupAllCommand(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L1208" title="All 2 branches missed.">        if (!sender.hasPermission(&quot;tofunomics.npc.admin&quot;)) {</span>
+<span class="nc" id="L1209">            sender.sendMessage(configManager.getMessage(&quot;no_permission&quot;));</span>
+<span class="nc" id="L1210">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L1213" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L1214">            sender.sendMessage(&quot;§cこのコマンドはプレイヤーのみが実行できます。&quot;);</span>
+<span class="nc" id="L1215">            return true;</span>
+        }
+        
+<span class="nc" id="L1218">        Player player = (Player) sender;</span>
+        
+<span class="nc" id="L1220">        player.sendMessage(&quot;§6=== 一括NPCセットアップガイド ===&quot;);</span>
+<span class="nc" id="L1221">        player.sendMessage(&quot;&quot;);</span>
+<span class="nc" id="L1222">        player.sendMessage(&quot;§e以下の手順でNPCを配置してください：&quot;);</span>
+<span class="nc" id="L1223">        player.sendMessage(&quot;&quot;);</span>
+        
+<span class="nc" id="L1225">        player.sendMessage(&quot;§f1. §a銀行NPC §7- お金の管理&quot;);</span>
+<span class="nc" id="L1226">        player.sendMessage(&quot;   §7配置場所に移動して: §f/tofunomics npc setup-location banker&quot;);</span>
+<span class="nc" id="L1227">        player.sendMessage(&quot;&quot;);</span>
+        
+<span class="nc" id="L1229">        player.sendMessage(&quot;§f2. §a食料NPC §7- 緊急時の食料供給&quot;);</span>
+<span class="nc" id="L1230">        player.sendMessage(&quot;   §7配置場所に移動して: §f/tofunomics npc setup-location food&quot;);</span>
+<span class="nc" id="L1231">        player.sendMessage(&quot;&quot;);</span>
+        
+<span class="nc" id="L1233">        player.sendMessage(&quot;§f3. §a取引NPC §7- 各職業専用の取引所&quot;);</span>
+<span class="nc bnc" id="L1234" title="All 2 branches missed.">        for (String job : VALID_JOBS) {</span>
+<span class="nc" id="L1235">            String displayName = configManager.getJobDisplayName(job);</span>
+<span class="nc" id="L1236">            player.sendMessage(&quot;   §7&quot; + displayName + &quot;: §f/tofunomics npc setup-location trader &quot; + job);</span>
+        }
+<span class="nc" id="L1238">        player.sendMessage(&quot;&quot;);</span>
+        
+<span class="nc" id="L1240">        player.sendMessage(&quot;§e注意事項:&quot;);</span>
+<span class="nc" id="L1241">        player.sendMessage(&quot;§7• 各NPCは適切な場所に配置してください&quot;);</span>
+<span class="nc" id="L1242">        player.sendMessage(&quot;§7• 配置後は自動的にconfig.ymlに保存されます&quot;);</span>
+<span class="nc" id="L1243">        player.sendMessage(&quot;§7• プレイヤーがアクセスしやすい場所を選んでください&quot;);</span>
+<span class="nc" id="L1244">        player.sendMessage(&quot;&quot;);</span>
+        
+<span class="nc" id="L1246">        player.sendMessage(&quot;§6進捗確認: §f/tofunomics npc list&quot;);</span>
+        
+<span class="nc" id="L1248">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

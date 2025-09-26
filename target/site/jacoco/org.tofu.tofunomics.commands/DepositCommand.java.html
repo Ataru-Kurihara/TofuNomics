@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DepositCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">DepositCommand.java</span></div><h1>DepositCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.BankLocationManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.economy.ItemManager;
+
+public class DepositCommand implements CommandExecutor {
+    
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    private final ItemManager itemManager;
+    private final BankLocationManager bankLocationManager;
+    
+<span class="nc" id="L21">    public DepositCommand(ConfigManager configManager, CurrencyConverter currencyConverter, ItemManager itemManager, BankLocationManager bankLocationManager) {</span>
+<span class="nc" id="L22">        this.configManager = configManager;</span>
+<span class="nc" id="L23">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L24">        this.itemManager = itemManager;</span>
+<span class="nc" id="L25">        this.bankLocationManager = bankLocationManager;</span>
+<span class="nc" id="L26">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc bnc" id="L30" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L31">            sender.sendMessage(ChatColor.RED + &quot;このコマンドはプレイヤーのみ実行できます。&quot;);</span>
+<span class="nc" id="L32">            return true;</span>
+        }
+        
+<span class="nc bnc" id="L35" title="All 2 branches missed.">        if (args.length != 1) {</span>
+<span class="nc" id="L36">            sender.sendMessage(ChatColor.RED + &quot;使用法: /deposit &lt;金額|all&gt;&quot;);</span>
+<span class="nc" id="L37">            return true;</span>
+        }
+        
+<span class="nc" id="L40">        Player player = (Player) sender;</span>
+        
+        // 場所制限チェック
+<span class="nc bnc" id="L43" title="All 2 branches missed.">        if (!bankLocationManager.isPlayerNearBankOrAtm(player)) {</span>
+<span class="nc" id="L44">            String deniedMessage = bankLocationManager.getLocationDeniedMessage(player);</span>
+<span class="nc" id="L45">            player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L46">                configManager.getMessagePrefix() + deniedMessage));</span>
+<span class="nc" id="L47">            return true;</span>
+        }
+        
+<span class="nc" id="L50">        String amountString = args[0];</span>
+        
+<span class="nc" id="L52">        int availableNuggets = itemManager.countGoldNuggetsInInventory(player);</span>
+        
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (availableNuggets == 0) {</span>
+<span class="nc" id="L55">            player.sendMessage(ChatColor.RED + &quot;インベントリに金塊がありません。&quot;);</span>
+<span class="nc" id="L56">            return true;</span>
+        }
+        
+        int nuggetsToDeposit;
+        
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (&quot;all&quot;.equalsIgnoreCase(amountString)) {</span>
+<span class="nc" id="L62">            nuggetsToDeposit = availableNuggets;</span>
+        } else {
+            try {
+<span class="nc" id="L65">                double amount = Double.parseDouble(amountString);</span>
+                
+<span class="nc bnc" id="L67" title="All 2 branches missed.">                if (amount &lt;= 0) {</span>
+<span class="nc" id="L68">                    player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L69">                        configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L70">                    return true;</span>
+                }
+                
+<span class="nc" id="L73">                nuggetsToDeposit = currencyConverter.convertBalanceToNuggets(amount);</span>
+                
+<span class="nc bnc" id="L75" title="All 2 branches missed.">                if (nuggetsToDeposit &gt; availableNuggets) {</span>
+<span class="nc" id="L76">                    player.sendMessage(ChatColor.RED + &quot;インベントリに十分な金塊がありません。所有数: &quot; + </span>
+                        availableNuggets + &quot; 個&quot;);
+<span class="nc" id="L78">                    return true;</span>
+                }
+                
+<span class="nc" id="L81">                double maxDeposit = configManager.getMaxDeposit();</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">                if (amount &gt; maxDeposit) {</span>
+<span class="nc" id="L83">                    player.sendMessage(ChatColor.RED + &quot;一度に預け入れ可能な最大金額は &quot; + </span>
+<span class="nc" id="L84">                        currencyConverter.formatCurrency(maxDeposit) + &quot; &quot; + </span>
+<span class="nc" id="L85">                        configManager.getCurrencySymbol() + &quot; です。&quot;);</span>
+<span class="nc" id="L86">                    return true;</span>
+                }
+                
+<span class="nc" id="L89">            } catch (NumberFormatException e) {</span>
+<span class="nc" id="L90">                player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L91">                    configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L92">                return true;</span>
+<span class="nc" id="L93">            }</span>
+        }
+        
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (currencyConverter.depositGoldNuggets(player, nuggetsToDeposit)) {</span>
+<span class="nc" id="L97">            double depositedAmount = currencyConverter.convertNuggetsToBalance(nuggetsToDeposit);</span>
+<span class="nc" id="L98">            String formattedAmount = currencyConverter.formatCurrency(depositedAmount);</span>
+<span class="nc" id="L99">            String currencySymbol = configManager.getCurrencySymbol();</span>
+            
+<span class="nc" id="L101">            String message = configManager.getMessage(&quot;economy.deposit_success&quot;,</span>
+                &quot;amount&quot;, formattedAmount,
+                &quot;currency&quot;, currencySymbol);
+            
+<span class="nc" id="L105">            player.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L106">                configManager.getMessagePrefix() + message));</span>
+            
+<span class="nc" id="L108">            player.sendMessage(ChatColor.GRAY + &quot;預け入れた金塊: &quot; + nuggetsToDeposit + &quot; 個&quot;);</span>
+            
+            // スコアボードを即座に更新
+<span class="nc" id="L111">            TofuNomics plugin = TofuNomics.getInstance();</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            if (plugin.getScoreboardManager() != null) {</span>
+<span class="nc" id="L113">                plugin.getScoreboardManager().updatePlayerScoreboard(player);</span>
+            }
+            
+<span class="nc" id="L116">        } else {</span>
+<span class="nc" id="L117">            player.sendMessage(ChatColor.RED + &quot;預け入れ処理中にエラーが発生しました。しばらくしてから再度お試しください。&quot;);</span>
+        }
+        
+<span class="nc" id="L120">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

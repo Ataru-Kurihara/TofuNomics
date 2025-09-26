@@ -1,0 +1,685 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CacheManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.cache</a> &gt; <span class="el_source">CacheManager.java</span></div><h1>CacheManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.cache;
+
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.models.Player;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Logger;
+import java.lang.ref.WeakReference;
+
+/**
+ * プレイヤーデータキャッシュ管理システム
+ * メモリキャッシュによるデータベースアクセス最適化
+ */
+public class CacheManager {
+    
+    private final ConfigManager configManager;
+    private final Logger logger;
+    
+    // プレイヤーデータキャッシュ
+    private final Map&lt;String, CachedPlayer&gt; playerCache;
+    private final Map&lt;String, Long&gt; playerAccessTimes;
+    
+    // 職業データキャッシュ
+    private final Map&lt;String, CachedPlayerJob&gt; jobCache;
+    private final Map&lt;String, Long&gt; jobAccessTimes;
+    
+    // 統計情報
+    private final AtomicLong playerCacheHits;
+    private final AtomicLong playerCacheMisses;
+    private final AtomicLong jobCacheHits;
+    private final AtomicLong jobCacheMisses;
+    
+    // キャッシュクリーンアップ用スケジューラ
+    private final ScheduledExecutorService cleanupScheduler;
+    
+    // パフォーマンス最適化機能
+<span class="nc" id="L40">    private final Map&lt;String, Object&gt; objectPool = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="nc" id="L41">    private final Queue&lt;StringBuilder&gt; stringBuilderPool = new ConcurrentLinkedQueue&lt;&gt;();</span>
+<span class="nc" id="L42">    private final AtomicLong memoryUsage = new AtomicLong(0);</span>
+<span class="nc" id="L43">    private final Map&lt;String, WeakReference&lt;Object&gt;&gt; weakReferenceCache = new ConcurrentHashMap&lt;&gt;();</span>
+    
+    // 非同期処理用
+    private final ExecutorService asyncExecutor;
+    private final BlockingQueue&lt;Runnable&gt; asyncTaskQueue;
+    
+    // パフォーマンス監視
+<span class="nc" id="L50">    private final AtomicLong gcSuggestionCount = new AtomicLong(0);</span>
+<span class="nc" id="L51">    private final Map&lt;String, Long&gt; performanceMetrics = new ConcurrentHashMap&lt;&gt;();</span>
+    
+<span class="nc" id="L53">    public CacheManager(ConfigManager configManager, Logger logger) {</span>
+<span class="nc" id="L54">        this.configManager = configManager;</span>
+<span class="nc" id="L55">        this.logger = logger;</span>
+        
+        // キャッシュマップの初期化
+<span class="nc" id="L58">        this.playerCache = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="nc" id="L59">        this.playerAccessTimes = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="nc" id="L60">        this.jobCache = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="nc" id="L61">        this.jobAccessTimes = new ConcurrentHashMap&lt;&gt;();</span>
+        
+        // 統計情報の初期化
+<span class="nc" id="L64">        this.playerCacheHits = new AtomicLong(0);</span>
+<span class="nc" id="L65">        this.playerCacheMisses = new AtomicLong(0);</span>
+<span class="nc" id="L66">        this.jobCacheHits = new AtomicLong(0);</span>
+<span class="nc" id="L67">        this.jobCacheMisses = new AtomicLong(0);</span>
+        
+        // スケジューラとエグゼキューターの初期化
+<span class="nc" id="L70">        this.cleanupScheduler = Executors.newScheduledThreadPool(1);</span>
+<span class="nc" id="L71">        this.asyncExecutor = Executors.newFixedThreadPool(2);</span>
+<span class="nc" id="L72">        this.asyncTaskQueue = new LinkedBlockingQueue&lt;&gt;();</span>
+        
+        // オブジェクトプールの初期化
+<span class="nc" id="L75">        initializeObjectPool();</span>
+        
+        // 定期的なキャッシュクリーンアップとメモリ監視を開始
+<span class="nc" id="L78">        startCleanupTask();</span>
+<span class="nc" id="L79">        startMemoryMonitoring();</span>
+<span class="nc" id="L80">        startAsyncTaskProcessor();</span>
+<span class="nc" id="L81">    }</span>
+    
+    /**
+     * オブジェクトプールを初期化
+     */
+    private void initializeObjectPool() {
+        // StringBuilderプールの初期化
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        for (int i = 0; i &lt; 50; i++) {</span>
+<span class="nc" id="L89">            stringBuilderPool.offer(new StringBuilder());</span>
+        }
+<span class="nc" id="L91">    }</span>
+    
+    /**
+     * 非同期タスクプロセッサーを開始
+     */
+    private void startAsyncTaskProcessor() {
+<span class="nc" id="L97">        asyncExecutor.submit(() -&gt; {</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            while (!Thread.currentThread().isInterrupted()) {</span>
+                try {
+<span class="nc" id="L100">                    Runnable task = asyncTaskQueue.take();</span>
+<span class="nc" id="L101">                    task.run();</span>
+<span class="nc" id="L102">                } catch (InterruptedException e) {</span>
+<span class="nc" id="L103">                    Thread.currentThread().interrupt();</span>
+<span class="nc" id="L104">                    break;</span>
+<span class="nc" id="L105">                } catch (Exception e) {</span>
+<span class="nc" id="L106">                    logger.warning(&quot;非同期タスク実行中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L107">                }</span>
+            }
+<span class="nc" id="L109">        });</span>
+<span class="nc" id="L110">    }</span>
+    
+    /**
+     * メモリ監視を開始
+     */
+    private void startMemoryMonitoring() {
+<span class="nc" id="L116">        cleanupScheduler.scheduleAtFixedRate(() -&gt; {</span>
+            try {
+<span class="nc" id="L118">                monitorMemoryUsage();</span>
+<span class="nc" id="L119">            } catch (Exception e) {</span>
+<span class="nc" id="L120">                logger.warning(&quot;メモリ監視中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L121">            }</span>
+<span class="nc" id="L122">        }, 30, 30, TimeUnit.SECONDS);</span>
+<span class="nc" id="L123">    }</span>
+    
+    /**
+     * メモリ使用量を監視し、必要に応じて最適化を実行
+     */
+    private void monitorMemoryUsage() {
+<span class="nc" id="L129">        Runtime runtime = Runtime.getRuntime();</span>
+<span class="nc" id="L130">        long totalMemory = runtime.totalMemory();</span>
+<span class="nc" id="L131">        long freeMemory = runtime.freeMemory();</span>
+<span class="nc" id="L132">        long usedMemory = totalMemory - freeMemory;</span>
+<span class="nc" id="L133">        double memoryUsageRatio = (double) usedMemory / runtime.maxMemory();</span>
+        
+        // パフォーマンス指標を記録
+<span class="nc" id="L136">        performanceMetrics.put(&quot;memory_usage_ratio&quot;, (long) (memoryUsageRatio * 100));</span>
+<span class="nc" id="L137">        performanceMetrics.put(&quot;cache_hit_rate&quot;, (long) (getCombinedCacheHitRate() * 100));</span>
+<span class="nc" id="L138">        performanceMetrics.put(&quot;player_cache_size&quot;, (long) playerCache.size());</span>
+<span class="nc" id="L139">        performanceMetrics.put(&quot;job_cache_size&quot;, (long) jobCache.size());</span>
+        
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        if (configManager.isMemoryMonitoringEnabled()) {</span>
+<span class="nc" id="L142">            double warningThreshold = configManager.getMemoryWarningThreshold();</span>
+<span class="nc" id="L143">            double gcThreshold = 0.85; // GC提案閾値</span>
+            
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            if (memoryUsageRatio &gt; warningThreshold) {</span>
+<span class="nc" id="L146">                logger.warning(&quot;メモリ使用量が高くなっています: &quot; + String.format(&quot;%.1f%%&quot;, memoryUsageRatio * 100));</span>
+                
+<span class="nc bnc" id="L148" title="All 2 branches missed.">                if (memoryUsageRatio &gt; gcThreshold) {</span>
+<span class="nc" id="L149">                    gcSuggestionCount.incrementAndGet();</span>
+<span class="nc" id="L150">                    performMemoryOptimization();</span>
+                }
+            }
+        }
+        
+        // メモリ使用量をアトミックに更新
+<span class="nc" id="L156">        memoryUsage.set(usedMemory);</span>
+<span class="nc" id="L157">    }</span>
+    
+    /**
+     * メモリ最適化を実行
+     */
+    private void performMemoryOptimization() {
+        // 弱参照キャッシュをクリア
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        weakReferenceCache.entrySet().removeIf(entry -&gt; entry.getValue().get() == null);</span>
+        
+        // 期限切れエントリを強制的にクリーンアップ
+<span class="nc" id="L167">        cleanupExpiredEntries();</span>
+        
+        // オブジェクトプールを調整
+<span class="nc" id="L170">        optimizeObjectPool();</span>
+        
+<span class="nc" id="L172">        logger.info(&quot;メモリ最適化を実行しました。&quot;);</span>
+<span class="nc" id="L173">    }</span>
+    
+    /**
+     * オブジェクトプールを最適化
+     */
+    private void optimizeObjectPool() {
+        // StringBuilderプールのクリーンアップ
+<span class="nc bnc" id="L180" title="All 2 branches missed.">        while (stringBuilderPool.size() &gt; 25) {</span>
+<span class="nc" id="L181">            StringBuilder sb = stringBuilderPool.poll();</span>
+<span class="nc bnc" id="L182" title="All 4 branches missed.">            if (sb != null &amp;&amp; sb.capacity() &gt; 1024) {</span>
+<span class="nc" id="L183">                continue;</span>
+            }
+<span class="nc" id="L185">        }</span>
+        
+        // 必要に応じてプールを補充
+<span class="nc bnc" id="L188" title="All 2 branches missed.">        while (stringBuilderPool.size() &lt; 25) {</span>
+<span class="nc" id="L189">            stringBuilderPool.offer(new StringBuilder());</span>
+        }
+<span class="nc" id="L191">    }</span>
+    
+    // ========== プレイヤーキャッシュ ==========
+    
+    /**
+     * プレイヤーデータをキャッシュから取得
+     */
+    public Player getCachedPlayer(String playerUUID) {
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        if (!configManager.isPlayerCacheEnabled()) {</span>
+<span class="nc" id="L200">            playerCacheMisses.incrementAndGet();</span>
+<span class="nc" id="L201">            return null;</span>
+        }
+        
+<span class="nc" id="L204">        CachedPlayer cachedPlayer = playerCache.get(playerUUID);</span>
+        
+<span class="nc bnc" id="L206" title="All 4 branches missed.">        if (cachedPlayer != null &amp;&amp; !isExpired(cachedPlayer)) {</span>
+            // アクセス時間を更新
+<span class="nc" id="L208">            playerAccessTimes.put(playerUUID, System.currentTimeMillis());</span>
+<span class="nc" id="L209">            playerCacheHits.incrementAndGet();</span>
+<span class="nc" id="L210">            return cachedPlayer.getPlayer();</span>
+        }
+        
+        // キャッシュミスまたは期限切れ
+<span class="nc bnc" id="L214" title="All 2 branches missed.">        if (cachedPlayer != null) {</span>
+<span class="nc" id="L215">            playerCache.remove(playerUUID);</span>
+<span class="nc" id="L216">            playerAccessTimes.remove(playerUUID);</span>
+        }
+        
+<span class="nc" id="L219">        playerCacheMisses.incrementAndGet();</span>
+<span class="nc" id="L220">        return null;</span>
+    }
+    
+    /**
+     * プレイヤーデータをキャッシュに保存
+     */
+    public void cachePlayer(String playerUUID, Player player) {
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        if (!configManager.isPlayerCacheEnabled()) {</span>
+<span class="nc" id="L228">            return;</span>
+        }
+        
+        // キャッシュサイズ制限をチェック
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        if (playerCache.size() &gt;= configManager.getPlayerCacheMaxSize()) {</span>
+<span class="nc" id="L233">            evictOldestPlayerEntry();</span>
+        }
+        
+<span class="nc" id="L236">        long currentTime = System.currentTimeMillis();</span>
+<span class="nc" id="L237">        CachedPlayer cachedPlayer = new CachedPlayer(player, currentTime);</span>
+        
+<span class="nc" id="L239">        playerCache.put(playerUUID, cachedPlayer);</span>
+<span class="nc" id="L240">        playerAccessTimes.put(playerUUID, currentTime);</span>
+<span class="nc" id="L241">    }</span>
+    
+    // ========== 職業キャッシュ ==========
+    
+    /**
+     * 職業データをキャッシュから取得
+     */
+    public PlayerJob getCachedPlayerJob(String playerUUID, String jobType) {
+<span class="nc bnc" id="L249" title="All 2 branches missed.">        if (!configManager.isJobCacheEnabled()) {</span>
+<span class="nc" id="L250">            jobCacheMisses.incrementAndGet();</span>
+<span class="nc" id="L251">            return null;</span>
+        }
+        
+<span class="nc" id="L254">        String cacheKey = playerUUID + &quot;:&quot; + jobType;</span>
+<span class="nc" id="L255">        CachedPlayerJob cachedJob = jobCache.get(cacheKey);</span>
+        
+<span class="nc bnc" id="L257" title="All 4 branches missed.">        if (cachedJob != null &amp;&amp; !isExpired(cachedJob)) {</span>
+            // アクセス時間を更新
+<span class="nc" id="L259">            jobAccessTimes.put(cacheKey, System.currentTimeMillis());</span>
+<span class="nc" id="L260">            jobCacheHits.incrementAndGet();</span>
+<span class="nc" id="L261">            return cachedJob.getPlayerJob();</span>
+        }
+        
+        // キャッシュミスまたは期限切れ
+<span class="nc bnc" id="L265" title="All 2 branches missed.">        if (cachedJob != null) {</span>
+<span class="nc" id="L266">            jobCache.remove(cacheKey);</span>
+<span class="nc" id="L267">            jobAccessTimes.remove(cacheKey);</span>
+        }
+        
+<span class="nc" id="L270">        jobCacheMisses.incrementAndGet();</span>
+<span class="nc" id="L271">        return null;</span>
+    }
+    
+    /**
+     * 職業データをキャッシュに保存
+     */
+    public void cachePlayerJob(String playerUUID, String jobType, PlayerJob playerJob) {
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        if (!configManager.isJobCacheEnabled()) {</span>
+<span class="nc" id="L279">            return;</span>
+        }
+        
+<span class="nc" id="L282">        String cacheKey = playerUUID + &quot;:&quot; + jobType;</span>
+        
+        // キャッシュサイズ制限をチェック
+<span class="nc bnc" id="L285" title="All 2 branches missed.">        if (jobCache.size() &gt;= 500) {</span>
+<span class="nc" id="L286">            evictOldestJobEntry();</span>
+        }
+        
+<span class="nc" id="L289">        long currentTime = System.currentTimeMillis();</span>
+<span class="nc" id="L290">        CachedPlayerJob cachedJob = new CachedPlayerJob(playerJob, currentTime);</span>
+        
+<span class="nc" id="L292">        jobCache.put(cacheKey, cachedJob);</span>
+<span class="nc" id="L293">        jobAccessTimes.put(cacheKey, currentTime);</span>
+<span class="nc" id="L294">    }</span>
+    
+    // ========== キャッシュ管理 ==========
+    
+    /**
+     * キャッシュエントリが期限切れかチェック
+     */
+    private boolean isExpired(CachedPlayer cachedPlayer) {
+<span class="nc" id="L302">        long expireTime = configManager.getPlayerCacheExpireAfterWrite() * 1000; // 秒をミリ秒に変換</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        return System.currentTimeMillis() - cachedPlayer.getCacheTime() &gt; expireTime;</span>
+    }
+    
+    private boolean isExpired(CachedPlayerJob cachedJob) {
+<span class="nc" id="L307">        long expireTime = 7200 * 1000; // 2時間</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">        return System.currentTimeMillis() - cachedJob.getCacheTime() &gt; expireTime;</span>
+    }
+    
+    /**
+     * 最も古いプレイヤーエントリを削除
+     */
+    private void evictOldestPlayerEntry() {
+<span class="nc" id="L315">        String oldestKey = null;</span>
+<span class="nc" id="L316">        long oldestTime = Long.MAX_VALUE;</span>
+        
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        for (Map.Entry&lt;String, Long&gt; entry : playerAccessTimes.entrySet()) {</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">            if (entry.getValue() &lt; oldestTime) {</span>
+<span class="nc" id="L320">                oldestTime = entry.getValue();</span>
+<span class="nc" id="L321">                oldestKey = entry.getKey();</span>
+            }
+<span class="nc" id="L323">        }</span>
+        
+<span class="nc bnc" id="L325" title="All 2 branches missed.">        if (oldestKey != null) {</span>
+<span class="nc" id="L326">            playerCache.remove(oldestKey);</span>
+<span class="nc" id="L327">            playerAccessTimes.remove(oldestKey);</span>
+        }
+<span class="nc" id="L329">    }</span>
+    
+    /**
+     * 最も古い職業エントリを削除
+     */
+    private void evictOldestJobEntry() {
+<span class="nc" id="L335">        String oldestKey = null;</span>
+<span class="nc" id="L336">        long oldestTime = Long.MAX_VALUE;</span>
+        
+<span class="nc bnc" id="L338" title="All 2 branches missed.">        for (Map.Entry&lt;String, Long&gt; entry : jobAccessTimes.entrySet()) {</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">            if (entry.getValue() &lt; oldestTime) {</span>
+<span class="nc" id="L340">                oldestTime = entry.getValue();</span>
+<span class="nc" id="L341">                oldestKey = entry.getKey();</span>
+            }
+<span class="nc" id="L343">        }</span>
+        
+<span class="nc bnc" id="L345" title="All 2 branches missed.">        if (oldestKey != null) {</span>
+<span class="nc" id="L346">            jobCache.remove(oldestKey);</span>
+<span class="nc" id="L347">            jobAccessTimes.remove(oldestKey);</span>
+        }
+<span class="nc" id="L349">    }</span>
+    
+    /**
+     * 定期的なキャッシュクリーンアップタスクを開始
+     */
+    private void startCleanupTask() {
+<span class="nc" id="L355">        cleanupScheduler.scheduleAtFixedRate(() -&gt; {</span>
+            try {
+<span class="nc" id="L357">                cleanupExpiredEntries();</span>
+<span class="nc" id="L358">            } catch (Exception e) {</span>
+<span class="nc" id="L359">                logger.warning(&quot;キャッシュクリーンアップ中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L360">            }</span>
+<span class="nc" id="L361">        }, 60, 60, TimeUnit.SECONDS); // 1分毎に実行</span>
+<span class="nc" id="L362">    }</span>
+    
+    /**
+     * 期限切れのキャッシュエントリを削除
+     */
+    private void cleanupExpiredEntries() {
+        // プレイヤーキャッシュのクリーンアップ
+<span class="nc" id="L369">        playerCache.entrySet().removeIf(entry -&gt; {</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">            if (isExpired(entry.getValue())) {</span>
+<span class="nc" id="L371">                playerAccessTimes.remove(entry.getKey());</span>
+<span class="nc" id="L372">                return true;</span>
+            }
+<span class="nc" id="L374">            return false;</span>
+        });
+        
+        // 職業キャッシュのクリーンアップ
+<span class="nc" id="L378">        jobCache.entrySet().removeIf(entry -&gt; {</span>
+<span class="nc bnc" id="L379" title="All 2 branches missed.">            if (isExpired(entry.getValue())) {</span>
+<span class="nc" id="L380">                jobAccessTimes.remove(entry.getKey());</span>
+<span class="nc" id="L381">                return true;</span>
+            }
+<span class="nc" id="L383">            return false;</span>
+        });
+<span class="nc" id="L385">    }</span>
+    
+    /**
+     * キャッシュ統計情報を取得
+     */
+    public CacheStatistics getStatistics() {
+<span class="nc" id="L391">        return new CacheStatistics(</span>
+<span class="nc" id="L392">            playerCache.size(),</span>
+<span class="nc" id="L393">            playerCacheHits.get(),</span>
+<span class="nc" id="L394">            playerCacheMisses.get(),</span>
+<span class="nc" id="L395">            jobCache.size(),</span>
+<span class="nc" id="L396">            jobCacheHits.get(),</span>
+<span class="nc" id="L397">            jobCacheMisses.get(),</span>
+            0, // configCacheSize（簡略化）
+            0L, // configCacheHits（簡略化）
+            0L  // configCacheMisses（簡略化）
+        );
+    }
+    
+    /**
+     * シャットダウン処理
+     */
+    public void shutdown() {
+        // 非同期タスクキューの処理完了を待つ
+<span class="nc" id="L409">        asyncExecutor.shutdown();</span>
+        try {
+<span class="nc bnc" id="L411" title="All 2 branches missed.">            if (!asyncExecutor.awaitTermination(10, TimeUnit.SECONDS)) {</span>
+<span class="nc" id="L412">                asyncExecutor.shutdownNow();</span>
+            }
+<span class="nc" id="L414">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L415">            asyncExecutor.shutdownNow();</span>
+<span class="nc" id="L416">        }</span>
+        
+        // クリーンアップスケジューラの停止
+<span class="nc" id="L419">        cleanupScheduler.shutdown();</span>
+        try {
+<span class="nc bnc" id="L421" title="All 2 branches missed.">            if (!cleanupScheduler.awaitTermination(5, TimeUnit.SECONDS)) {</span>
+<span class="nc" id="L422">                cleanupScheduler.shutdownNow();</span>
+            }
+<span class="nc" id="L424">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L425">            cleanupScheduler.shutdownNow();</span>
+<span class="nc" id="L426">        }</span>
+        
+        // 全キャッシュのクリア
+<span class="nc" id="L429">        playerCache.clear();</span>
+<span class="nc" id="L430">        playerAccessTimes.clear();</span>
+<span class="nc" id="L431">        jobCache.clear();</span>
+<span class="nc" id="L432">        jobAccessTimes.clear();</span>
+<span class="nc" id="L433">        objectPool.clear();</span>
+<span class="nc" id="L434">        weakReferenceCache.clear();</span>
+<span class="nc" id="L435">        performanceMetrics.clear();</span>
+<span class="nc" id="L436">        stringBuilderPool.clear();</span>
+        
+<span class="nc" id="L438">        logger.info(&quot;CacheManager のシャットダウンが完了しました。&quot;);</span>
+<span class="nc" id="L439">    }</span>
+    
+    // ========== パフォーマンス最適化メソッド ==========
+    
+    /**
+     * StringBuilder をオブジェクトプールから取得
+     */
+    public StringBuilder getStringBuilder() {
+<span class="nc" id="L447">        StringBuilder sb = stringBuilderPool.poll();</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">        if (sb == null) {</span>
+<span class="nc" id="L449">            sb = new StringBuilder();</span>
+        } else {
+<span class="nc" id="L451">            sb.setLength(0); // リセット</span>
+        }
+<span class="nc" id="L453">        return sb;</span>
+    }
+    
+    /**
+     * StringBuilder をオブジェクトプールに返却
+     */
+    public void returnStringBuilder(StringBuilder sb) {
+<span class="nc bnc" id="L460" title="All 6 branches missed.">        if (sb != null &amp;&amp; sb.capacity() &lt;= 1024 &amp;&amp; stringBuilderPool.size() &lt; 50) {</span>
+<span class="nc" id="L461">            stringBuilderPool.offer(sb);</span>
+        }
+<span class="nc" id="L463">    }</span>
+    
+    /**
+     * 非同期タスクをキューに追加
+     */
+    public void submitAsyncTask(Runnable task) {
+        try {
+<span class="nc" id="L470">            asyncTaskQueue.offer(task, 1, TimeUnit.SECONDS);</span>
+<span class="nc" id="L471">        } catch (Exception e) {</span>
+<span class="nc" id="L472">            logger.warning(&quot;非同期タスクのキューイングに失敗: &quot; + e.getMessage());</span>
+<span class="nc" id="L473">        }</span>
+<span class="nc" id="L474">    }</span>
+    
+    /**
+     * 弱参照キャッシュにオブジェクトを保存
+     */
+    public void cacheWeakReference(String key, Object object) {
+<span class="nc" id="L480">        weakReferenceCache.put(key, new WeakReference&lt;&gt;(object));</span>
+<span class="nc" id="L481">    }</span>
+    
+    /**
+     * 弱参照キャッシュからオブジェクトを取得
+     */
+    public Object getWeakReference(String key) {
+<span class="nc" id="L487">        WeakReference&lt;Object&gt; ref = weakReferenceCache.get(key);</span>
+<span class="nc bnc" id="L488" title="All 2 branches missed.">        if (ref != null) {</span>
+<span class="nc" id="L489">            Object obj = ref.get();</span>
+<span class="nc bnc" id="L490" title="All 2 branches missed.">            if (obj == null) {</span>
+<span class="nc" id="L491">                weakReferenceCache.remove(key);</span>
+            }
+<span class="nc" id="L493">            return obj;</span>
+        }
+<span class="nc" id="L495">        return null;</span>
+    }
+    
+    /**
+     * 統合キャッシュヒット率を計算
+     */
+    private double getCombinedCacheHitRate() {
+<span class="nc" id="L502">        long totalHits = playerCacheHits.get() + jobCacheHits.get();</span>
+<span class="nc" id="L503">        long totalMisses = playerCacheMisses.get() + jobCacheMisses.get();</span>
+<span class="nc" id="L504">        long total = totalHits + totalMisses;</span>
+<span class="nc bnc" id="L505" title="All 2 branches missed.">        return total == 0 ? 0.0 : (double) totalHits / total;</span>
+    }
+    
+    /**
+     * パフォーマンスメトリクスを取得
+     */
+    public Map&lt;String, Long&gt; getPerformanceMetrics() {
+<span class="nc" id="L512">        Map&lt;String, Long&gt; metrics = new HashMap&lt;&gt;(performanceMetrics);</span>
+<span class="nc" id="L513">        metrics.put(&quot;gc_suggestion_count&quot;, gcSuggestionCount.get());</span>
+<span class="nc" id="L514">        metrics.put(&quot;memory_usage_bytes&quot;, memoryUsage.get());</span>
+<span class="nc" id="L515">        metrics.put(&quot;weak_reference_cache_size&quot;, (long) weakReferenceCache.size());</span>
+<span class="nc" id="L516">        metrics.put(&quot;string_builder_pool_size&quot;, (long) stringBuilderPool.size());</span>
+<span class="nc" id="L517">        metrics.put(&quot;async_task_queue_size&quot;, (long) asyncTaskQueue.size());</span>
+<span class="nc" id="L518">        return metrics;</span>
+    }
+    
+    /**
+     * キャッシュウォームアップ（事前読み込み）
+     */
+    public void warmupCache(List&lt;String&gt; playerUUIDs) {
+<span class="nc bnc" id="L525" title="All 4 branches missed.">        if (playerUUIDs == null || playerUUIDs.isEmpty()) {</span>
+<span class="nc" id="L526">            return;</span>
+        }
+        
+<span class="nc" id="L529">        submitAsyncTask(() -&gt; {</span>
+<span class="nc" id="L530">            logger.info(&quot;キャッシュウォームアップを開始します。対象: &quot; + playerUUIDs.size() + &quot;人のプレイヤー&quot;);</span>
+            
+<span class="nc bnc" id="L532" title="All 2 branches missed.">            for (String playerUUID : playerUUIDs) {</span>
+                try {
+                    // ここでデータベースから事前にデータを読み込む処理を実行
+                    // 実装は DAO クラスとの連携が必要
+                    
+<span class="nc" id="L537">                    Thread.sleep(10); // CPU負荷軽減のための短い待機</span>
+<span class="nc" id="L538">                } catch (InterruptedException e) {</span>
+<span class="nc" id="L539">                    Thread.currentThread().interrupt();</span>
+<span class="nc" id="L540">                    break;</span>
+<span class="nc" id="L541">                } catch (Exception e) {</span>
+<span class="nc" id="L542">                    logger.warning(&quot;キャッシュウォームアップ中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L543">                }</span>
+<span class="nc" id="L544">            }</span>
+            
+<span class="nc" id="L546">            logger.info(&quot;キャッシュウォームアップが完了しました。&quot;);</span>
+<span class="nc" id="L547">        });</span>
+<span class="nc" id="L548">    }</span>
+    
+    /**
+     * キャッシュの整合性チェック
+     */
+    public boolean checkCacheIntegrity() {
+        try {
+            // プレイヤーキャッシュの整合性チェック
+<span class="nc" id="L556">            int inconsistentEntries = 0;</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">            for (Map.Entry&lt;String, CachedPlayer&gt; entry : playerCache.entrySet()) {</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">                if (!playerAccessTimes.containsKey(entry.getKey())) {</span>
+<span class="nc" id="L559">                    inconsistentEntries++;</span>
+                }
+<span class="nc" id="L561">            }</span>
+            
+            // 職業キャッシュの整合性チェック
+<span class="nc bnc" id="L564" title="All 2 branches missed.">            for (Map.Entry&lt;String, CachedPlayerJob&gt; entry : jobCache.entrySet()) {</span>
+<span class="nc bnc" id="L565" title="All 2 branches missed.">                if (!jobAccessTimes.containsKey(entry.getKey())) {</span>
+<span class="nc" id="L566">                    inconsistentEntries++;</span>
+                }
+<span class="nc" id="L568">            }</span>
+            
+<span class="nc bnc" id="L570" title="All 2 branches missed.">            if (inconsistentEntries &gt; 0) {</span>
+<span class="nc" id="L571">                logger.warning(&quot;キャッシュの整合性に問題があります。不整合エントリ数: &quot; + inconsistentEntries);</span>
+<span class="nc" id="L572">                return false;</span>
+            }
+            
+<span class="nc" id="L575">            return true;</span>
+<span class="nc" id="L576">        } catch (Exception e) {</span>
+<span class="nc" id="L577">            logger.severe(&quot;キャッシュ整合性チェック中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L578">            return false;</span>
+        }
+    }
+    
+    /**
+     * キャッシュのプリロード（将来的にアクセスされる可能性の高いデータを事前読み込み）
+     */
+    public void preloadCache(String playerUUID, Set&lt;String&gt; jobTypes) {
+<span class="nc" id="L586">        submitAsyncTask(() -&gt; {</span>
+            try {
+                // ここで DAO を使用してデータベースからデータを読み込み、キャッシュに保存
+<span class="nc" id="L589">                logger.info(&quot;プリロード完了: &quot; + playerUUID + &quot; (&quot; + jobTypes.size() + &quot; jobs)&quot;);</span>
+<span class="nc" id="L590">            } catch (Exception e) {</span>
+<span class="nc" id="L591">                logger.warning(&quot;キャッシュプリロード中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L592">            }</span>
+<span class="nc" id="L593">        });</span>
+<span class="nc" id="L594">    }</span>
+    
+    // ========== 内部クラス ==========
+    
+    /**
+     * キャッシュされたプレイヤーデータ
+     */
+    private static class CachedPlayer {
+        private final Player player;
+        private final long cacheTime;
+        
+<span class="nc" id="L605">        public CachedPlayer(Player player, long cacheTime) {</span>
+<span class="nc" id="L606">            this.player = player;</span>
+<span class="nc" id="L607">            this.cacheTime = cacheTime;</span>
+<span class="nc" id="L608">        }</span>
+        
+<span class="nc" id="L610">        public Player getPlayer() { return player; }</span>
+<span class="nc" id="L611">        public long getCacheTime() { return cacheTime; }</span>
+    }
+    
+    /**
+     * キャッシュされた職業データ
+     */
+    private static class CachedPlayerJob {
+        private final PlayerJob playerJob;
+        private final long cacheTime;
+        
+<span class="nc" id="L621">        public CachedPlayerJob(PlayerJob playerJob, long cacheTime) {</span>
+<span class="nc" id="L622">            this.playerJob = playerJob;</span>
+<span class="nc" id="L623">            this.cacheTime = cacheTime;</span>
+<span class="nc" id="L624">        }</span>
+        
+<span class="nc" id="L626">        public PlayerJob getPlayerJob() { return playerJob; }</span>
+<span class="nc" id="L627">        public long getCacheTime() { return cacheTime; }</span>
+    }
+    
+    /**
+     * キャッシュ統計情報
+     */
+    public static class CacheStatistics {
+        private final int playerCacheSize;
+        private final long playerCacheHits;
+        private final long playerCacheMisses;
+        private final int jobCacheSize;
+        private final long jobCacheHits;
+        private final long jobCacheMisses;
+        private final int configCacheSize;
+        private final long configCacheHits;
+        private final long configCacheMisses;
+        
+        public CacheStatistics(int playerCacheSize, long playerCacheHits, long playerCacheMisses,
+                              int jobCacheSize, long jobCacheHits, long jobCacheMisses,
+<span class="nc" id="L646">                              int configCacheSize, long configCacheHits, long configCacheMisses) {</span>
+<span class="nc" id="L647">            this.playerCacheSize = playerCacheSize;</span>
+<span class="nc" id="L648">            this.playerCacheHits = playerCacheHits;</span>
+<span class="nc" id="L649">            this.playerCacheMisses = playerCacheMisses;</span>
+<span class="nc" id="L650">            this.jobCacheSize = jobCacheSize;</span>
+<span class="nc" id="L651">            this.jobCacheHits = jobCacheHits;</span>
+<span class="nc" id="L652">            this.jobCacheMisses = jobCacheMisses;</span>
+<span class="nc" id="L653">            this.configCacheSize = configCacheSize;</span>
+<span class="nc" id="L654">            this.configCacheHits = configCacheHits;</span>
+<span class="nc" id="L655">            this.configCacheMisses = configCacheMisses;</span>
+<span class="nc" id="L656">        }</span>
+        
+        public double getPlayerCacheHitRate() {
+<span class="nc" id="L659">            long total = playerCacheHits + playerCacheMisses;</span>
+<span class="nc bnc" id="L660" title="All 2 branches missed.">            return total == 0 ? 0.0 : (double) playerCacheHits / total;</span>
+        }
+        
+        public double getJobCacheHitRate() {
+<span class="nc" id="L664">            long total = jobCacheHits + jobCacheMisses;</span>
+<span class="nc bnc" id="L665" title="All 2 branches missed.">            return total == 0 ? 0.0 : (double) jobCacheHits / total;</span>
+        }
+        
+        public double getConfigCacheHitRate() {
+<span class="nc" id="L669">            long total = configCacheHits + configCacheMisses;</span>
+<span class="nc bnc" id="L670" title="All 2 branches missed.">            return total == 0 ? 0.0 : (double) configCacheHits / total;</span>
+        }
+        
+        // Getters
+<span class="nc" id="L674">        public int getPlayerCacheSize() { return playerCacheSize; }</span>
+<span class="nc" id="L675">        public long getPlayerCacheHits() { return playerCacheHits; }</span>
+<span class="nc" id="L676">        public long getPlayerCacheMisses() { return playerCacheMisses; }</span>
+<span class="nc" id="L677">        public int getJobCacheSize() { return jobCacheSize; }</span>
+<span class="nc" id="L678">        public long getJobCacheHits() { return jobCacheHits; }</span>
+<span class="nc" id="L679">        public long getJobCacheMisses() { return jobCacheMisses; }</span>
+<span class="nc" id="L680">        public int getConfigCacheSize() { return configCacheSize; }</span>
+<span class="nc" id="L681">        public long getConfigCacheHits() { return configCacheHits; }</span>
+<span class="nc" id="L682">        public long getConfigCacheMisses() { return configCacheMisses; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

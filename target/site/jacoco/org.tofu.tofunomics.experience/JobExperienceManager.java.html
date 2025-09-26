@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobExperienceManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.experience</a> &gt; <span class="el_source">JobExperienceManager.java</span></div><h1>JobExperienceManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.experience;
+
+import org.bukkit.Material;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.inventory.BrewEvent;
+import org.bukkit.event.enchantment.EnchantItemEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.ChatColor;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerJobDAO;
+import org.tofu.tofunomics.dao.JobDAO;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.jobs.ExperienceManager;
+import org.tofu.tofunomics.models.PlayerJob;
+import org.tofu.tofunomics.models.Job;
+import org.tofu.tofunomics.tools.JobToolManager;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 職業別経験値獲得システム
+ */
+public class JobExperienceManager implements Listener {
+    
+    private final ConfigManager configManager;
+    private final PlayerJobDAO playerJobDAO;
+    private final JobDAO jobDAO;
+    private final JobManager jobManager;
+    private final JobToolManager jobToolManager;
+    private final ExperienceManager experienceManager;
+    
+    // 経験値テーブル
+    private final Map&lt;Material, Double&gt; miningExperience;
+    private final Map&lt;Material, Double&gt; loggingExperience;
+    private final Map&lt;Material, Double&gt; farmingExperience;
+    private final Map&lt;PlayerFishEvent.State, Double&gt; fishingExperience;
+    private final Map&lt;Material, Double&gt; craftingExperience;
+    private final Map&lt;Material, Double&gt; brewingExperience;
+    private final Map&lt;Integer, Double&gt; enchantingExperience;
+    private final Map&lt;Material, Double&gt; buildingExperience;
+    
+    public JobExperienceManager(ConfigManager configManager, PlayerJobDAO playerJobDAO, 
+                               JobDAO jobDAO, JobManager jobManager, JobToolManager jobToolManager,
+<span class="nc" id="L53">                               ExperienceManager experienceManager) {</span>
+<span class="nc" id="L54">        this.configManager = configManager;</span>
+<span class="nc" id="L55">        this.playerJobDAO = playerJobDAO;</span>
+<span class="nc" id="L56">        this.jobDAO = jobDAO;</span>
+<span class="nc" id="L57">        this.jobManager = jobManager;</span>
+<span class="nc" id="L58">        this.jobToolManager = jobToolManager;</span>
+<span class="nc" id="L59">        this.experienceManager = experienceManager;</span>
+        
+<span class="nc" id="L61">        this.miningExperience = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L62">        this.loggingExperience = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L63">        this.farmingExperience = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L64">        this.fishingExperience = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L65">        this.craftingExperience = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L66">        this.brewingExperience = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L67">        this.enchantingExperience = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L68">        this.buildingExperience = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L70">        initializeExperienceTables();</span>
+<span class="nc" id="L71">    }</span>
+    
+    private void initializeExperienceTables() {
+        // 採掘経験値テーブル
+<span class="nc" id="L75">        miningExperience.put(Material.COAL_ORE, 2.0);</span>
+<span class="nc" id="L76">        miningExperience.put(Material.IRON_ORE, 5.0);</span>
+<span class="nc" id="L77">        miningExperience.put(Material.GOLD_ORE, 8.0);</span>
+<span class="nc" id="L78">        miningExperience.put(Material.DIAMOND_ORE, 25.0);</span>
+<span class="nc" id="L79">        miningExperience.put(Material.EMERALD_ORE, 20.0);</span>
+<span class="nc" id="L80">        miningExperience.put(Material.LAPIS_ORE, 4.0);</span>
+<span class="nc" id="L81">        miningExperience.put(Material.REDSTONE_ORE, 3.0);</span>
+<span class="nc" id="L82">        miningExperience.put(Material.NETHER_QUARTZ_ORE, 6.0);</span>
+<span class="nc" id="L83">        miningExperience.put(Material.ANCIENT_DEBRIS, 50.0);</span>
+<span class="nc" id="L84">        miningExperience.put(Material.STONE, 0.5);</span>
+<span class="nc" id="L85">        miningExperience.put(Material.COBBLESTONE, 0.3);</span>
+        
+        // 伐採経験値テーブル
+<span class="nc" id="L88">        loggingExperience.put(Material.OAK_LOG, 2.0);</span>
+<span class="nc" id="L89">        loggingExperience.put(Material.BIRCH_LOG, 2.0);</span>
+<span class="nc" id="L90">        loggingExperience.put(Material.SPRUCE_LOG, 2.0);</span>
+<span class="nc" id="L91">        loggingExperience.put(Material.JUNGLE_LOG, 3.0);</span>
+<span class="nc" id="L92">        loggingExperience.put(Material.ACACIA_LOG, 3.0);</span>
+<span class="nc" id="L93">        loggingExperience.put(Material.DARK_OAK_LOG, 3.0);</span>
+<span class="nc" id="L94">        loggingExperience.put(Material.WARPED_STEM, 4.0);</span>
+<span class="nc" id="L95">        loggingExperience.put(Material.CRIMSON_STEM, 4.0);</span>
+        
+        // 農業経験値テーブル
+<span class="nc" id="L98">        farmingExperience.put(Material.WHEAT, 1.5);</span>
+<span class="nc" id="L99">        farmingExperience.put(Material.POTATO, 1.2);</span>
+<span class="nc" id="L100">        farmingExperience.put(Material.CARROT, 1.2);</span>
+<span class="nc" id="L101">        farmingExperience.put(Material.BEETROOT, 2.0);</span>
+<span class="nc" id="L102">        farmingExperience.put(Material.PUMPKIN, 3.0);</span>
+<span class="nc" id="L103">        farmingExperience.put(Material.MELON, 2.5);</span>
+<span class="nc" id="L104">        farmingExperience.put(Material.SUGAR_CANE, 1.0);</span>
+<span class="nc" id="L105">        farmingExperience.put(Material.COCOA_BEANS, 2.5);</span>
+<span class="nc" id="L106">        farmingExperience.put(Material.NETHER_WART, 3.0);</span>
+        
+        // 釣り経験値テーブル
+<span class="nc" id="L109">        fishingExperience.put(PlayerFishEvent.State.CAUGHT_FISH, 5.0);</span>
+<span class="nc" id="L110">        fishingExperience.put(PlayerFishEvent.State.CAUGHT_ENTITY, 8.0);</span>
+<span class="nc" id="L111">        fishingExperience.put(PlayerFishEvent.State.IN_GROUND, 1.0);</span>
+        
+        // 製作経験値テーブル（鍛冶屋）
+<span class="nc" id="L114">        craftingExperience.put(Material.IRON_INGOT, 3.0);</span>
+<span class="nc" id="L115">        craftingExperience.put(Material.GOLD_INGOT, 5.0);</span>
+<span class="nc" id="L116">        craftingExperience.put(Material.IRON_SWORD, 8.0);</span>
+<span class="nc" id="L117">        craftingExperience.put(Material.IRON_PICKAXE, 10.0);</span>
+<span class="nc" id="L118">        craftingExperience.put(Material.IRON_AXE, 10.0);</span>
+<span class="nc" id="L119">        craftingExperience.put(Material.IRON_SHOVEL, 6.0);</span>
+<span class="nc" id="L120">        craftingExperience.put(Material.DIAMOND_SWORD, 20.0);</span>
+<span class="nc" id="L121">        craftingExperience.put(Material.DIAMOND_PICKAXE, 25.0);</span>
+<span class="nc" id="L122">        craftingExperience.put(Material.DIAMOND_AXE, 25.0);</span>
+<span class="nc" id="L123">        craftingExperience.put(Material.NETHERITE_INGOT, 50.0);</span>
+        
+        // 醸造経験値テーブル
+<span class="nc" id="L126">        brewingExperience.put(Material.POTION, 5.0);</span>
+<span class="nc" id="L127">        brewingExperience.put(Material.SPLASH_POTION, 8.0);</span>
+<span class="nc" id="L128">        brewingExperience.put(Material.LINGERING_POTION, 12.0);</span>
+        
+        // エンチャント経験値テーブル（エンチャントレベル別）
+<span class="nc" id="L131">        enchantingExperience.put(1, 10.0);</span>
+<span class="nc" id="L132">        enchantingExperience.put(2, 15.0);</span>
+<span class="nc" id="L133">        enchantingExperience.put(3, 25.0);</span>
+<span class="nc" id="L134">        enchantingExperience.put(4, 35.0);</span>
+<span class="nc" id="L135">        enchantingExperience.put(5, 50.0);</span>
+        
+        // 建築経験値テーブル
+<span class="nc" id="L138">        buildingExperience.put(Material.STONE, 0.2);</span>
+<span class="nc" id="L139">        buildingExperience.put(Material.COBBLESTONE, 0.1);</span>
+<span class="nc" id="L140">        buildingExperience.put(Material.STONE_BRICKS, 0.5);</span>
+<span class="nc" id="L141">        buildingExperience.put(Material.QUARTZ_BLOCK, 1.0);</span>
+<span class="nc" id="L142">        buildingExperience.put(Material.PRISMARINE, 1.5);</span>
+<span class="nc" id="L143">        buildingExperience.put(Material.PURPUR_BLOCK, 2.0);</span>
+<span class="nc" id="L144">        buildingExperience.put(Material.END_STONE_BRICKS, 2.5);</span>
+<span class="nc" id="L145">    }</span>
+    
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+<span class="nc" id="L149">        Player player = event.getPlayer();</span>
+<span class="nc" id="L150">        Material blockType = event.getBlock().getType();</span>
+        
+        // 鉱夫の採掘経験値
+<span class="nc bnc" id="L153" title="All 4 branches missed.">        if (jobManager.hasJob(player, &quot;miner&quot;) &amp;&amp; miningExperience.containsKey(blockType)) {</span>
+<span class="nc" id="L154">            double baseExp = miningExperience.get(blockType);</span>
+<span class="nc" id="L155">            double multipliedExp = applyJobMultiplier(player, &quot;miner&quot;, baseExp);</span>
+<span class="nc" id="L156">            giveJobExperience(player, &quot;miner&quot;, multipliedExp);</span>
+        }
+        
+        // 木こりの伐採経験値
+<span class="nc bnc" id="L160" title="All 4 branches missed.">        if (jobManager.hasJob(player, &quot;woodcutter&quot;) &amp;&amp; loggingExperience.containsKey(blockType)) {</span>
+<span class="nc" id="L161">            double baseExp = loggingExperience.get(blockType);</span>
+<span class="nc" id="L162">            double multipliedExp = applyJobMultiplier(player, &quot;woodcutter&quot;, baseExp);</span>
+<span class="nc" id="L163">            giveJobExperience(player, &quot;woodcutter&quot;, multipliedExp);</span>
+        }
+        
+        // 農家の収穫経験値
+<span class="nc bnc" id="L167" title="All 4 branches missed.">        if (jobManager.hasJob(player, &quot;farmer&quot;) &amp;&amp; farmingExperience.containsKey(blockType)) {</span>
+<span class="nc" id="L168">            double baseExp = farmingExperience.get(blockType);</span>
+<span class="nc" id="L169">            double multipliedExp = applyJobMultiplier(player, &quot;farmer&quot;, baseExp);</span>
+<span class="nc" id="L170">            giveJobExperience(player, &quot;farmer&quot;, multipliedExp);</span>
+        }
+<span class="nc" id="L172">    }</span>
+    
+    @EventHandler
+    public void onPlayerFish(PlayerFishEvent event) {
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        if (event.getState() == PlayerFishEvent.State.CAUGHT_FISH || </span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY) {</span>
+            
+<span class="nc" id="L179">            Player player = event.getPlayer();</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">            if (jobManager.hasJob(player, &quot;fisherman&quot;)) {</span>
+<span class="nc" id="L181">                double baseExp = fishingExperience.getOrDefault(event.getState(), 5.0);</span>
+<span class="nc" id="L182">                double multipliedExp = applyJobMultiplier(player, &quot;fisherman&quot;, baseExp);</span>
+<span class="nc" id="L183">                giveJobExperience(player, &quot;fisherman&quot;, multipliedExp);</span>
+            }
+        }
+<span class="nc" id="L186">    }</span>
+    
+    @EventHandler
+    public void onCraftItem(CraftItemEvent event) {
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (!(event.getWhoClicked() instanceof Player)) return;</span>
+        
+<span class="nc" id="L192">        Player player = (Player) event.getWhoClicked();</span>
+<span class="nc" id="L193">        Material craftedItem = event.getRecipe().getResult().getType();</span>
+        
+<span class="nc bnc" id="L195" title="All 4 branches missed.">        if (jobManager.hasJob(player, &quot;blacksmith&quot;) &amp;&amp; craftingExperience.containsKey(craftedItem)) {</span>
+<span class="nc" id="L196">            double baseExp = craftingExperience.get(craftedItem);</span>
+<span class="nc" id="L197">            double multipliedExp = applyJobMultiplier(player, &quot;blacksmith&quot;, baseExp);</span>
+<span class="nc" id="L198">            giveJobExperience(player, &quot;blacksmith&quot;, multipliedExp);</span>
+        }
+<span class="nc" id="L200">    }</span>
+    
+    @EventHandler
+    public void onBrew(BrewEvent event) {
+        // 醸造台の使用者を特定する必要がある（近くのプレイヤーをチェック）
+<span class="nc" id="L205">        event.getBlock().getWorld().getPlayers().stream()</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">            .filter(p -&gt; p.getLocation().distance(event.getBlock().getLocation()) &lt;= 5.0)</span>
+<span class="nc" id="L207">            .forEach(player -&gt; {</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            if (jobManager.hasJob(player, &quot;alchemist&quot;)) {</span>
+<span class="nc" id="L209">                double baseExp = brewingExperience.getOrDefault(Material.POTION, 5.0);</span>
+<span class="nc" id="L210">                double multipliedExp = applyJobMultiplier(player, &quot;alchemist&quot;, baseExp);</span>
+<span class="nc" id="L211">                giveJobExperience(player, &quot;alchemist&quot;, multipliedExp);</span>
+            }
+<span class="nc" id="L213">        });</span>
+<span class="nc" id="L214">    }</span>
+    
+    @EventHandler
+    public void onEnchantItem(EnchantItemEvent event) {
+<span class="nc" id="L218">        Player player = event.getEnchanter();</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        if (jobManager.hasJob(player, &quot;enchanter&quot;)) {</span>
+<span class="nc" id="L220">            int totalLevels = event.getEnchantsToAdd().values().stream()</span>
+<span class="nc" id="L221">                .mapToInt(Integer::intValue).sum();</span>
+            
+<span class="nc" id="L223">            double baseExp = enchantingExperience.getOrDefault(totalLevels, 10.0);</span>
+<span class="nc" id="L224">            double multipliedExp = applyJobMultiplier(player, &quot;enchanter&quot;, baseExp);</span>
+<span class="nc" id="L225">            giveJobExperience(player, &quot;enchanter&quot;, multipliedExp);</span>
+        }
+<span class="nc" id="L227">    }</span>
+    
+    @EventHandler
+    public void onBlockPlace(BlockPlaceEvent event) {
+<span class="nc" id="L231">        Player player = event.getPlayer();</span>
+<span class="nc" id="L232">        Material blockType = event.getBlock().getType();</span>
+        
+<span class="nc bnc" id="L234" title="All 4 branches missed.">        if (jobManager.hasJob(player, &quot;architect&quot;) &amp;&amp; buildingExperience.containsKey(blockType)) {</span>
+<span class="nc" id="L235">            double baseExp = buildingExperience.get(blockType);</span>
+<span class="nc" id="L236">            double multipliedExp = applyJobMultiplier(player, &quot;architect&quot;, baseExp);</span>
+<span class="nc" id="L237">            giveJobExperience(player, &quot;architect&quot;, multipliedExp);</span>
+        }
+<span class="nc" id="L239">    }</span>
+    
+    /**
+     * プレイヤーに職業経験値を付与
+     */
+    private void giveJobExperience(Player player, String jobName, double experience) {
+<span class="nc" id="L245">        PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">        if (playerJob == null) return;</span>
+        
+<span class="nc" id="L248">        double currentExp = playerJob.getExperience();</span>
+<span class="nc" id="L249">        int currentLevel = playerJob.getLevel();</span>
+        
+<span class="nc" id="L251">        playerJob.addExperience(experience);</span>
+        
+        // レベルアップチェック
+<span class="nc" id="L254">        checkLevelUp(player, playerJob, jobName, currentLevel);</span>
+        
+        // データベース更新
+<span class="nc" id="L257">        playerJobDAO.updatePlayerJobData(playerJob);</span>
+        
+        // 経験値獲得メッセージ（5経験値以上の場合のみ表示）
+<span class="nc bnc" id="L260" title="All 2 branches missed.">        if (experience &gt;= 5.0) {</span>
+<span class="nc" id="L261">            player.sendMessage(ChatColor.GREEN + String.format(&quot;+ %.1f %s経験値&quot;, </span>
+<span class="nc" id="L262">                experience, configManager.getJobDisplayName(jobName)));</span>
+        }
+<span class="nc" id="L264">    }</span>
+    
+    /**
+     * レベルアップチェックと処理
+     */
+    private void checkLevelUp(Player player, PlayerJob playerJob, String jobName, int previousLevel) {
+<span class="nc bnc" id="L270" title="All 2 branches missed.">        while (canPlayerLevelUp(playerJob)) {</span>
+<span class="nc" id="L271">            playerJob.levelUp();</span>
+<span class="nc" id="L272">            int newLevel = playerJob.getLevel();</span>
+            
+            // レベルアップメッセージ
+<span class="nc" id="L275">            player.sendMessage(ChatColor.GOLD + &quot;★ レベルアップ！ &quot; + </span>
+<span class="nc" id="L276">                configManager.getJobDisplayName(jobName) + &quot; レベル &quot; + newLevel + &quot; に到達！&quot;);</span>
+            
+            // 新しいツールの付与チェック
+<span class="nc" id="L279">            jobToolManager.checkAndGiveNewTools(player, jobName, newLevel);</span>
+            
+            // 職業レベル最大値チェック
+<span class="nc" id="L282">            Job job = jobDAO.getJobByNameSafe(jobName);</span>
+<span class="nc bnc" id="L283" title="All 4 branches missed.">            if (job != null &amp;&amp; newLevel &gt;= job.getMaxLevel()) {</span>
+<span class="nc" id="L284">                player.sendMessage(ChatColor.LIGHT_PURPLE + &quot;★ おめでとうございます！ &quot; + </span>
+<span class="nc" id="L285">                    configManager.getJobDisplayName(jobName) + &quot; の最大レベルに到達しました！&quot;);</span>
+<span class="nc" id="L286">                break;</span>
+            }
+<span class="nc" id="L288">        }</span>
+<span class="nc" id="L289">    }</span>
+    
+    /**
+     * 職業レベルによる経験値倍率を適用
+     */
+    private double applyJobMultiplier(Player player, String jobName, double baseExperience) {
+<span class="nc" id="L295">        PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">        if (playerJob == null) return baseExperience;</span>
+        
+        // レベルが高いほど経験値獲得効率が下がる（現実的な成長曲線）
+<span class="nc" id="L299">        double levelPenalty = Math.max(0.1, 1.0 - (playerJob.getLevel() * 0.01));</span>
+        
+        // 設定ファイルの経験値倍率を適用
+<span class="nc" id="L302">        Job job = jobDAO.getJobByNameSafe(jobName);</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        double configMultiplier = job != null ? </span>
+<span class="nc" id="L304">            configManager.getJobExpMultiplier(jobName) : 1.0;</span>
+        
+<span class="nc" id="L306">        return baseExperience * levelPenalty * configMultiplier;</span>
+    }
+    
+    /**
+     * プレイヤーがレベルアップ可能かチェック
+     */
+    private boolean canPlayerLevelUp(PlayerJob playerJob) {
+<span class="nc" id="L313">        double currentExp = playerJob.getExperience();</span>
+<span class="nc" id="L314">        double requiredExp = experienceManager.calculateRequiredExperience(playerJob.getLevel() + 1);</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">        return currentExp &gt;= requiredExp;</span>
+    }
+    
+    /**
+     * 手動で経験値を付与（管理者用）
+     */
+    public boolean giveExperienceManual(Player player, String jobName, double amount) {
+<span class="nc bnc" id="L322" title="All 2 branches missed.">        if (!jobManager.hasJob(player, jobName)) {</span>
+<span class="nc" id="L323">            return false;</span>
+        }
+        
+<span class="nc" id="L326">        giveJobExperience(player, jobName, amount);</span>
+<span class="nc" id="L327">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobQuest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.quests</a> &gt; <span class="el_source">JobQuest.java</span></div><h1>JobQuest.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.quests;
+
+import org.bukkit.Material;
+
+import java.sql.Timestamp;
+import java.util.List;
+
+/**
+ * 職業別クエストデータモデル
+ */
+public class JobQuest {
+    
+    private int questId;
+    private String jobName;
+    private String questName;
+    private String description;
+    private QuestType questType;
+    private Material targetMaterial;
+    private int targetAmount;
+    private double experienceReward;
+    private double incomeReward;
+    private List&lt;String&gt; itemRewards;
+    private int requiredLevel;
+    private int cooldownHours;
+    private boolean isDaily;
+    private boolean isActive;
+    private Timestamp createdAt;
+    
+<span class="nc" id="L29">    public enum QuestType {</span>
+<span class="nc" id="L30">        COLLECT(&quot;収集&quot;, &quot;指定されたアイテムを集める&quot;),</span>
+<span class="nc" id="L31">        CRAFT(&quot;製作&quot;, &quot;指定されたアイテムを製作する&quot;),</span>
+<span class="nc" id="L32">        MINE(&quot;採掘&quot;, &quot;指定されたブロックを採掘する&quot;),</span>
+<span class="nc" id="L33">        FISH(&quot;釣り&quot;, &quot;指定された魚を釣る&quot;),</span>
+<span class="nc" id="L34">        BUILD(&quot;建築&quot;, &quot;指定されたブロックを設置する&quot;),</span>
+<span class="nc" id="L35">        KILL(&quot;討伐&quot;, &quot;指定されたモンスターを倒す&quot;),</span>
+<span class="nc" id="L36">        DELIVER(&quot;配達&quot;, &quot;指定された場所にアイテムを配達する&quot;),</span>
+<span class="nc" id="L37">        EXPLORE(&quot;探索&quot;, &quot;指定された場所を探索する&quot;);</span>
+        
+        private final String displayName;
+        private final String description;
+        
+<span class="nc" id="L42">        QuestType(String displayName, String description) {</span>
+<span class="nc" id="L43">            this.displayName = displayName;</span>
+<span class="nc" id="L44">            this.description = description;</span>
+<span class="nc" id="L45">        }</span>
+        
+        public String getDisplayName() {
+<span class="nc" id="L48">            return displayName;</span>
+        }
+        
+        public String getDescription() {
+<span class="nc" id="L52">            return description;</span>
+        }
+    }
+    
+<span class="nc" id="L56">    public JobQuest() {</span>
+<span class="nc" id="L57">        this.isActive = true;</span>
+<span class="nc" id="L58">        this.createdAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L59">    }</span>
+    
+    // Getters and Setters
+    public int getQuestId() {
+<span class="nc" id="L63">        return questId;</span>
+    }
+    
+    public void setQuestId(int questId) {
+<span class="nc" id="L67">        this.questId = questId;</span>
+<span class="nc" id="L68">    }</span>
+    
+    public String getJobName() {
+<span class="nc" id="L71">        return jobName;</span>
+    }
+    
+    public void setJobName(String jobName) {
+<span class="nc" id="L75">        this.jobName = jobName;</span>
+<span class="nc" id="L76">    }</span>
+    
+    public String getQuestName() {
+<span class="nc" id="L79">        return questName;</span>
+    }
+    
+    public void setQuestName(String questName) {
+<span class="nc" id="L83">        this.questName = questName;</span>
+<span class="nc" id="L84">    }</span>
+    
+    public String getDescription() {
+<span class="nc" id="L87">        return description;</span>
+    }
+    
+    public void setDescription(String description) {
+<span class="nc" id="L91">        this.description = description;</span>
+<span class="nc" id="L92">    }</span>
+    
+    public QuestType getQuestType() {
+<span class="nc" id="L95">        return questType;</span>
+    }
+    
+    public void setQuestType(QuestType questType) {
+<span class="nc" id="L99">        this.questType = questType;</span>
+<span class="nc" id="L100">    }</span>
+    
+    public Material getTargetMaterial() {
+<span class="nc" id="L103">        return targetMaterial;</span>
+    }
+    
+    public void setTargetMaterial(Material targetMaterial) {
+<span class="nc" id="L107">        this.targetMaterial = targetMaterial;</span>
+<span class="nc" id="L108">    }</span>
+    
+    public int getTargetAmount() {
+<span class="nc" id="L111">        return targetAmount;</span>
+    }
+    
+    public void setTargetAmount(int targetAmount) {
+<span class="nc" id="L115">        this.targetAmount = targetAmount;</span>
+<span class="nc" id="L116">    }</span>
+    
+    public double getExperienceReward() {
+<span class="nc" id="L119">        return experienceReward;</span>
+    }
+    
+    public void setExperienceReward(double experienceReward) {
+<span class="nc" id="L123">        this.experienceReward = experienceReward;</span>
+<span class="nc" id="L124">    }</span>
+    
+    public double getIncomeReward() {
+<span class="nc" id="L127">        return incomeReward;</span>
+    }
+    
+    public void setIncomeReward(double incomeReward) {
+<span class="nc" id="L131">        this.incomeReward = incomeReward;</span>
+<span class="nc" id="L132">    }</span>
+    
+    public List&lt;String&gt; getItemRewards() {
+<span class="nc" id="L135">        return itemRewards;</span>
+    }
+    
+    public void setItemRewards(List&lt;String&gt; itemRewards) {
+<span class="nc" id="L139">        this.itemRewards = itemRewards;</span>
+<span class="nc" id="L140">    }</span>
+    
+    public int getRequiredLevel() {
+<span class="nc" id="L143">        return requiredLevel;</span>
+    }
+    
+    public void setRequiredLevel(int requiredLevel) {
+<span class="nc" id="L147">        this.requiredLevel = requiredLevel;</span>
+<span class="nc" id="L148">    }</span>
+    
+    public int getCooldownHours() {
+<span class="nc" id="L151">        return cooldownHours;</span>
+    }
+    
+    public void setCooldownHours(int cooldownHours) {
+<span class="nc" id="L155">        this.cooldownHours = cooldownHours;</span>
+<span class="nc" id="L156">    }</span>
+    
+    public boolean isDaily() {
+<span class="nc" id="L159">        return isDaily;</span>
+    }
+    
+    public void setDaily(boolean daily) {
+<span class="nc" id="L163">        isDaily = daily;</span>
+<span class="nc" id="L164">    }</span>
+    
+    public boolean isActive() {
+<span class="nc" id="L167">        return isActive;</span>
+    }
+    
+    public void setActive(boolean active) {
+<span class="nc" id="L171">        isActive = active;</span>
+<span class="nc" id="L172">    }</span>
+    
+    public Timestamp getCreatedAt() {
+<span class="nc" id="L175">        return createdAt;</span>
+    }
+    
+    public void setCreatedAt(Timestamp createdAt) {
+<span class="nc" id="L179">        this.createdAt = createdAt;</span>
+<span class="nc" id="L180">    }</span>
+    
+    /**
+     * プレイヤーレベルがクエスト要求レベルに達しているかチェック
+     */
+    public boolean canPlayerAccept(int playerLevel) {
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        return playerLevel &gt;= requiredLevel;</span>
+    }
+    
+    /**
+     * クエストの難易度を取得
+     */
+    public String getDifficultyString() {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (requiredLevel &lt;= 5) {</span>
+<span class="nc" id="L194">            return &quot;初級&quot;;</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        } else if (requiredLevel &lt;= 15) {</span>
+<span class="nc" id="L196">            return &quot;中級&quot;;</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        } else if (requiredLevel &lt;= 30) {</span>
+<span class="nc" id="L198">            return &quot;上級&quot;;</span>
+        } else {
+<span class="nc" id="L200">            return &quot;最上級&quot;;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

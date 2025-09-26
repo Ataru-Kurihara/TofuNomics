@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BankGUI.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.npc.gui</a> &gt; <span class="el_source">BankGUI.java</span></div><h1>BankGUI.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.npc.gui;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.economy.ItemManager;
+import org.tofu.tofunomics.npc.NPCManager;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class BankGUI implements Listener {
+    
+    private final TofuNomics plugin;
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    private final ItemManager itemManager;
+    
+<span class="nc" id="L29">    private final Map&lt;UUID, BankGUISession&gt; activeSessions = new ConcurrentHashMap&lt;&gt;();</span>
+    
+    public BankGUI(TofuNomics plugin, ConfigManager configManager, 
+<span class="nc" id="L32">                   CurrencyConverter currencyConverter, ItemManager itemManager) {</span>
+<span class="nc" id="L33">        this.plugin = plugin;</span>
+<span class="nc" id="L34">        this.configManager = configManager;</span>
+<span class="nc" id="L35">        this.currencyConverter = currencyConverter;</span>
+<span class="nc" id="L36">        this.itemManager = itemManager;</span>
+<span class="nc" id="L37">    }</span>
+    
+    private static class BankGUISession {
+        private final UUID playerId;
+        private final UUID npcId;
+        private final String npcName;
+        private final Inventory inventory;
+        private final long createdTime;
+        
+<span class="nc" id="L46">        public BankGUISession(UUID playerId, UUID npcId, String npcName, Inventory inventory) {</span>
+<span class="nc" id="L47">            this.playerId = playerId;</span>
+<span class="nc" id="L48">            this.npcId = npcId;</span>
+<span class="nc" id="L49">            this.npcName = npcName;</span>
+<span class="nc" id="L50">            this.inventory = inventory;</span>
+<span class="nc" id="L51">            this.createdTime = System.currentTimeMillis();</span>
+<span class="nc" id="L52">        }</span>
+        
+<span class="nc" id="L54">        public UUID getPlayerId() { return playerId; }</span>
+<span class="nc" id="L55">        public UUID getNpcId() { return npcId; }</span>
+<span class="nc" id="L56">        public String getNpcName() { return npcName; }</span>
+<span class="nc" id="L57">        public Inventory getInventory() { return inventory; }</span>
+<span class="nc" id="L58">        public long getCreatedTime() { return createdTime; }</span>
+    }
+    
+    public void openBankGUI(Player player, NPCManager.NPCData npcData) {
+        try {
+<span class="nc" id="L63">            String title = &quot;§6&quot; + npcData.getName() + &quot; - 銀行サービス&quot;;</span>
+<span class="nc" id="L64">            Inventory gui = Bukkit.createInventory(null, 27, title);</span>
+            
+<span class="nc" id="L66">            setupBankGUIItems(gui, player);</span>
+            
+<span class="nc" id="L68">            BankGUISession session = new BankGUISession(</span>
+<span class="nc" id="L69">                player.getUniqueId(), </span>
+<span class="nc" id="L70">                npcData.getEntityId(), </span>
+<span class="nc" id="L71">                npcData.getName(), </span>
+                gui
+            );
+            
+<span class="nc" id="L75">            activeSessions.put(player.getUniqueId(), session);</span>
+<span class="nc" id="L76">            player.openInventory(gui);</span>
+            
+<span class="nc" id="L78">            plugin.getLogger().info(&quot;銀行GUIを開きました: &quot; + player.getName() + &quot; -&gt; &quot; + npcData.getName());</span>
+            
+<span class="nc" id="L80">        } catch (Exception e) {</span>
+<span class="nc" id="L81">            plugin.getLogger().severe(&quot;銀行GUI作成中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L82">            player.sendMessage(configManager.getMessage(&quot;npc.bank.gui_error&quot;));</span>
+<span class="nc" id="L83">            e.printStackTrace();</span>
+<span class="nc" id="L84">        }</span>
+<span class="nc" id="L85">    }</span>
+    
+    private void setupBankGUIItems(Inventory gui, Player player) {
+        // 残高表示
+<span class="nc" id="L89">        double balance = currencyConverter.getBalance(player.getUniqueId());</span>
+<span class="nc" id="L90">        String balanceText = currencyConverter.formatCurrency(balance);</span>
+        
+<span class="nc" id="L92">        ItemStack balanceItem = createGUIItem(</span>
+            Material.GOLD_INGOT,
+            &quot;§6残高照会&quot;,
+<span class="nc" id="L95">            Arrays.asList(</span>
+                &quot;§f現在の残高: §a&quot; + balanceText,
+                &quot;§7クリックして更新&quot;
+            )
+        );
+<span class="nc" id="L100">        gui.setItem(4, balanceItem);</span>
+        
+        // 引き出しボタン
+<span class="nc" id="L103">        ItemStack withdrawItem = createGUIItem(</span>
+            Material.HOPPER,
+            &quot;§c金塊を引き出し&quot;,
+<span class="nc" id="L106">            Arrays.asList(</span>
+                &quot;§7銀行から金塊を引き出します&quot;,
+<span class="nc" id="L108">                &quot;§7左クリック: §f100 &quot; + configManager.getCurrencyName(),</span>
+<span class="nc" id="L109">                &quot;§7右クリック: §f500 &quot; + configManager.getCurrencyName(),</span>
+<span class="nc" id="L110">                &quot;§7シフト+クリック: §f1000 &quot; + configManager.getCurrencyName()</span>
+            )
+        );
+<span class="nc" id="L113">        gui.setItem(11, withdrawItem);</span>
+        
+        // 預け入れボタン
+<span class="nc" id="L116">        ItemStack depositItem = createGUIItem(</span>
+            Material.CHEST,
+            &quot;§a金塊を預け入れ&quot;,
+<span class="nc" id="L119">            Arrays.asList(</span>
+                &quot;§7手持ちの金塊を銀行に預けます&quot;,
+                &quot;§7左クリック: §f手持ち金塊を1個預入&quot;,
+                &quot;§7右クリック: §f手持ち金塊を10個預入&quot;,
+                &quot;§7シフト+クリック: §f手持ち金塊を全て預入&quot;
+            )
+        );
+<span class="nc" id="L126">        gui.setItem(13, depositItem);</span>
+        
+        // 送金ボタン
+<span class="nc" id="L129">        ItemStack payItem = createGUIItem(</span>
+            Material.PAPER,
+            &quot;§e送金サービス&quot;,
+<span class="nc" id="L132">            Arrays.asList(</span>
+                &quot;§7他のプレイヤーに送金します&quot;,
+                &quot;§c※ チャットで /pay &lt;プレイヤー&gt; &lt;金額&gt;&quot;,
+                &quot;§7を入力してください&quot;
+            )
+        );
+<span class="nc" id="L138">        gui.setItem(15, payItem);</span>
+        
+        // 取引履歴ボタン
+<span class="nc" id="L141">        ItemStack historyItem = createGUIItem(</span>
+            Material.BOOK,
+            &quot;§b取引履歴&quot;,
+<span class="nc" id="L144">            Arrays.asList(</span>
+                &quot;§7最近の取引履歴を表示&quot;,
+                &quot;§8※ 実装予定機能&quot;
+            )
+        );
+<span class="nc" id="L149">        gui.setItem(22, historyItem);</span>
+        
+        // 閉じるボタン
+<span class="nc" id="L152">        ItemStack closeItem = createGUIItem(</span>
+            Material.BARRIER,
+            &quot;§c閉じる&quot;,
+<span class="nc" id="L155">            Arrays.asList(&quot;§7GUIを閉じます&quot;)</span>
+        );
+<span class="nc" id="L157">        gui.setItem(26, closeItem);</span>
+        
+        // 装飾アイテム
+<span class="nc" id="L160">        ItemStack glassPane = createGUIItem(Material.GRAY_STAINED_GLASS_PANE, &quot;§r&quot;, Collections.emptyList());</span>
+<span class="nc" id="L161">        int[] decorationSlots = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 14, 16, 17, 18, 19, 20, 21, 23, 24, 25};</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        for (int slot : decorationSlots) {</span>
+<span class="nc" id="L163">            gui.setItem(slot, glassPane);</span>
+        }
+<span class="nc" id="L165">    }</span>
+    
+    private ItemStack createGUIItem(Material material, String name, List&lt;String&gt; lore) {
+<span class="nc" id="L168">        ItemStack item = new ItemStack(material);</span>
+<span class="nc" id="L169">        ItemMeta meta = item.getItemMeta();</span>
+        
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (meta != null) {</span>
+<span class="nc" id="L172">            meta.setDisplayName(name);</span>
+<span class="nc" id="L173">            meta.setLore(lore);</span>
+<span class="nc" id="L174">            item.setItemMeta(meta);</span>
+        }
+        
+<span class="nc" id="L177">        return item;</span>
+    }
+    
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        if (!(event.getWhoClicked() instanceof Player)) {</span>
+<span class="nc" id="L183">            return;</span>
+        }
+        
+<span class="nc" id="L186">        Player player = (Player) event.getWhoClicked();</span>
+<span class="nc" id="L187">        UUID playerId = player.getUniqueId();</span>
+        
+<span class="nc" id="L189">        BankGUISession session = activeSessions.get(playerId);</span>
+<span class="nc bnc" id="L190" title="All 4 branches missed.">        if (session == null || !session.getInventory().equals(event.getInventory())) {</span>
+<span class="nc" id="L191">            return;</span>
+        }
+        
+<span class="nc" id="L194">        event.setCancelled(true);</span>
+        
+<span class="nc" id="L196">        ItemStack clickedItem = event.getCurrentItem();</span>
+<span class="nc bnc" id="L197" title="All 4 branches missed.">        if (clickedItem == null || clickedItem.getType() == Material.AIR) {</span>
+<span class="nc" id="L198">            return;</span>
+        }
+        
+        try {
+<span class="nc" id="L202">            handleBankGUIClick(player, session, event.getSlot(), event.getClick());</span>
+<span class="nc" id="L203">        } catch (Exception e) {</span>
+<span class="nc" id="L204">            plugin.getLogger().severe(&quot;銀行GUIクリック処理中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L205">            player.sendMessage(configManager.getMessage(&quot;npc.bank.action_error&quot;));</span>
+<span class="nc" id="L206">            e.printStackTrace();</span>
+<span class="nc" id="L207">        }</span>
+<span class="nc" id="L208">    }</span>
+    
+    private void handleBankGUIClick(Player player, BankGUISession session, int slot, 
+                                  org.bukkit.event.inventory.ClickType clickType) {
+<span class="nc bnc" id="L212" title="All 7 branches missed.">        switch (slot) {</span>
+            case 4: // 残高照会
+<span class="nc" id="L214">                handleBalanceCheck(player, session);</span>
+<span class="nc" id="L215">                break;</span>
+                
+            case 11: // 引き出し
+<span class="nc" id="L218">                handleWithdraw(player, session, clickType);</span>
+<span class="nc" id="L219">                break;</span>
+                
+            case 13: // 預け入れ
+<span class="nc" id="L222">                handleDeposit(player, session, clickType);</span>
+<span class="nc" id="L223">                break;</span>
+                
+            case 15: // 送金
+<span class="nc" id="L226">                handlePayInfo(player);</span>
+<span class="nc" id="L227">                break;</span>
+                
+            case 22: // 取引履歴
+<span class="nc" id="L230">                handleTransactionHistory(player);</span>
+<span class="nc" id="L231">                break;</span>
+                
+            case 26: // 閉じる
+<span class="nc" id="L234">                player.closeInventory();</span>
+<span class="nc" id="L235">                break;</span>
+                
+            default:
+                // 他のスロットは無視
+                break;
+        }
+<span class="nc" id="L241">    }</span>
+    
+    private void handleBalanceCheck(Player player, BankGUISession session) {
+<span class="nc" id="L244">        double balance = currencyConverter.getBalance(player.getUniqueId());</span>
+<span class="nc" id="L245">        String balanceText = currencyConverter.formatCurrency(balance);</span>
+        
+<span class="nc" id="L247">        player.sendMessage(configManager.getMessage(&quot;economy.balance_self&quot;, </span>
+            &quot;amount&quot;, balanceText, 
+<span class="nc" id="L249">            &quot;currency&quot;, configManager.getCurrencyName()));</span>
+        
+        // GUIアイテムも更新
+<span class="nc" id="L252">        setupBankGUIItems(session.getInventory(), player);</span>
+<span class="nc" id="L253">    }</span>
+    
+    private void handleWithdraw(Player player, BankGUISession session, 
+                              org.bukkit.event.inventory.ClickType clickType) {
+        double amount;
+        
+<span class="nc bnc" id="L259" title="All 4 branches missed.">        switch (clickType) {</span>
+            case LEFT:
+<span class="nc" id="L261">                amount = 100.0;</span>
+<span class="nc" id="L262">                break;</span>
+            case RIGHT:
+<span class="nc" id="L264">                amount = 500.0;</span>
+<span class="nc" id="L265">                break;</span>
+            case SHIFT_LEFT:
+            case SHIFT_RIGHT:
+<span class="nc" id="L268">                amount = 1000.0;</span>
+<span class="nc" id="L269">                break;</span>
+            default:
+<span class="nc" id="L271">                return;</span>
+        }
+        
+<span class="nc" id="L274">        double balance = currencyConverter.getBalance(player.getUniqueId());</span>
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (balance &lt; amount) {</span>
+<span class="nc" id="L276">            player.sendMessage(configManager.getMessage(&quot;insufficient_balance&quot;));</span>
+<span class="nc" id="L277">            return;</span>
+        }
+        
+<span class="nc" id="L280">        double maxWithdraw = configManager.getMaxWithdrawAmount();</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">        if (amount &gt; maxWithdraw) {</span>
+<span class="nc" id="L282">            player.sendMessage(configManager.getMessage(&quot;economy.exceed_max_withdraw&quot;, </span>
+<span class="nc" id="L283">                &quot;max_amount&quot;, currencyConverter.formatCurrency(maxWithdraw)));</span>
+<span class="nc" id="L284">            return;</span>
+        }
+        
+        // 引き出し処理
+<span class="nc bnc" id="L288" title="All 2 branches missed.">        if (currencyConverter.subtractBalance(player.getUniqueId(), amount)) {</span>
+            // 金インゴットではなく豆腐コイン（カスタム金塊）を作成
+<span class="nc" id="L290">            ItemStack tofuCoins = itemManager.createGoldNugget((int) amount);</span>
+<span class="nc" id="L291">            player.getInventory().addItem(tofuCoins);</span>
+            
+<span class="nc" id="L293">            String amountText = currencyConverter.formatCurrency(amount);</span>
+<span class="nc" id="L294">            player.sendMessage(configManager.getMessage(&quot;economy.withdraw_success&quot;, </span>
+                &quot;amount&quot;, amountText, 
+<span class="nc" id="L296">                &quot;currency&quot;, configManager.getCurrencyName()));</span>
+            
+            // GUIを更新
+<span class="nc" id="L299">            setupBankGUIItems(session.getInventory(), player);</span>
+<span class="nc" id="L300">        } else {</span>
+<span class="nc" id="L301">            player.sendMessage(configManager.getMessage(&quot;npc.bank.withdraw_failed&quot;));</span>
+        }
+<span class="nc" id="L303">    }</span>
+    
+    private void handleDeposit(Player player, BankGUISession session, 
+                             org.bukkit.event.inventory.ClickType clickType) {
+        int amount;
+        
+<span class="nc bnc" id="L309" title="All 4 branches missed.">        switch (clickType) {</span>
+            case LEFT:
+<span class="nc" id="L311">                amount = 1;</span>
+<span class="nc" id="L312">                break;</span>
+            case RIGHT:
+<span class="nc" id="L314">                amount = 10;</span>
+<span class="nc" id="L315">                break;</span>
+            case SHIFT_LEFT:
+            case SHIFT_RIGHT:
+<span class="nc" id="L318">                amount = Integer.MAX_VALUE; // 全て</span>
+<span class="nc" id="L319">                break;</span>
+            default:
+<span class="nc" id="L321">                return;</span>
+        }
+        
+        // 手持ちの豆腐コインをカウント
+<span class="nc" id="L325">        int goldCount = 0;</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">        for (ItemStack item : player.getInventory().getContents()) {</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">            if (itemManager.isAnyValidGoldNugget(item)) {</span>
+<span class="nc" id="L328">                goldCount += item.getAmount();</span>
+            }
+        }
+        
+<span class="nc bnc" id="L332" title="All 2 branches missed.">        if (goldCount == 0) {</span>
+<span class="nc" id="L333">            player.sendMessage(configManager.getMessage(&quot;npc.bank.no_tofu_coins&quot;));</span>
+<span class="nc" id="L334">            return;</span>
+        }
+        
+        // 実際に預ける量を決定
+<span class="nc" id="L338">        int depositAmount = Math.min(amount, goldCount);</span>
+<span class="nc" id="L339">        double maxDeposit = configManager.getMaxDepositAmount();</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">        if (depositAmount &gt; maxDeposit) {</span>
+<span class="nc" id="L341">            depositAmount = (int) maxDeposit;</span>
+        }
+        
+        // 豆腐コインをインベントリから削除
+<span class="nc" id="L345">        int remaining = depositAmount;</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">        for (ItemStack item : player.getInventory().getContents()) {</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">            if (remaining &lt;= 0) break;</span>
+            
+<span class="nc bnc" id="L349" title="All 2 branches missed.">            if (itemManager.isAnyValidGoldNugget(item)) {</span>
+<span class="nc" id="L350">                int itemAmount = item.getAmount();</span>
+<span class="nc bnc" id="L351" title="All 2 branches missed.">                if (itemAmount &lt;= remaining) {</span>
+<span class="nc" id="L352">                    remaining -= itemAmount;</span>
+<span class="nc" id="L353">                    item.setAmount(0);</span>
+                } else {
+<span class="nc" id="L355">                    item.setAmount(itemAmount - remaining);</span>
+<span class="nc" id="L356">                    remaining = 0;</span>
+                }
+            }
+        }
+        
+        // 残高に追加
+<span class="nc" id="L362">        currencyConverter.addBalance(player.getUniqueId(), depositAmount);</span>
+        
+<span class="nc" id="L364">        String amountText = currencyConverter.formatCurrency(depositAmount);</span>
+<span class="nc" id="L365">        player.sendMessage(configManager.getMessage(&quot;economy.deposit_success&quot;, </span>
+            &quot;amount&quot;, amountText, 
+<span class="nc" id="L367">            &quot;currency&quot;, configManager.getCurrencyName()));</span>
+        
+        // GUIを更新
+<span class="nc" id="L370">        setupBankGUIItems(session.getInventory(), player);</span>
+<span class="nc" id="L371">    }</span>
+    
+    private void handlePayInfo(Player player) {
+<span class="nc" id="L374">        player.sendMessage(&quot;§6=== 送金サービス ===&quot;);</span>
+<span class="nc" id="L375">        player.sendMessage(&quot;§fコマンド: §a/pay &lt;プレイヤー名&gt; &lt;金額&gt;&quot;);</span>
+<span class="nc" id="L376">        player.sendMessage(&quot;§f例: §a/pay Steve 100&quot;);</span>
+<span class="nc" id="L377">        player.sendMessage(&quot;§7※ GUIを閉じてからコマンドを入力してください&quot;);</span>
+<span class="nc" id="L378">        player.closeInventory();</span>
+<span class="nc" id="L379">    }</span>
+    
+    private void handleTransactionHistory(Player player) {
+<span class="nc" id="L382">        player.sendMessage(&quot;§6=== 取引履歴 ===&quot;);</span>
+<span class="nc" id="L383">        player.sendMessage(&quot;§c※ この機能は実装予定です&quot;);</span>
+<span class="nc" id="L384">        player.sendMessage(&quot;§7将来的に取引履歴を確認できるようになります&quot;);</span>
+<span class="nc" id="L385">    }</span>
+    
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+<span class="nc bnc" id="L389" title="All 2 branches missed.">        if (!(event.getPlayer() instanceof Player)) {</span>
+<span class="nc" id="L390">            return;</span>
+        }
+        
+<span class="nc" id="L393">        Player player = (Player) event.getPlayer();</span>
+<span class="nc" id="L394">        UUID playerId = player.getUniqueId();</span>
+        
+<span class="nc" id="L396">        BankGUISession session = activeSessions.remove(playerId);</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">        if (session != null) {</span>
+<span class="nc" id="L398">            plugin.getLogger().info(&quot;銀行GUIを閉じました: &quot; + player.getName());</span>
+        }
+<span class="nc" id="L400">    }</span>
+    
+    public void closeAllGUIs() {
+<span class="nc bnc" id="L403" title="All 2 branches missed.">        for (BankGUISession session : activeSessions.values()) {</span>
+<span class="nc" id="L404">            Player player = Bukkit.getPlayer(session.getPlayerId());</span>
+<span class="nc bnc" id="L405" title="All 4 branches missed.">            if (player != null &amp;&amp; player.isOnline()) {</span>
+<span class="nc" id="L406">                player.closeInventory();</span>
+            }
+<span class="nc" id="L408">        }</span>
+<span class="nc" id="L409">        activeSessions.clear();</span>
+<span class="nc" id="L410">    }</span>
+    
+    public int getActiveSessionsCount() {
+<span class="nc" id="L413">        return activeSessions.size();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

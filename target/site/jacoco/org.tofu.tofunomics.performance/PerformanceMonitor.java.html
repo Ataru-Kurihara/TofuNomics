@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PerformanceMonitor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.performance</a> &gt; <span class="el_source">PerformanceMonitor.java</span></div><h1>PerformanceMonitor.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.performance;
+
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.tofu.tofunomics.batch.OptimizedBatchProcessor;
+import org.tofu.tofunomics.cache.CacheManager;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.database.HikariDatabaseManager;
+
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.OperatingSystemMXBean;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Logger;
+
+/**
+ * パフォーマンス監視システム
+ * CPU、メモリ、TPS、データベース、キャッシュのリアルタイム監視
+ */
+public class PerformanceMonitor {
+    
+    private final JavaPlugin plugin;
+    private final ConfigManager configManager;
+    private final Logger logger;
+    
+    // 監視対象システム
+    private final HikariDatabaseManager databaseManager;
+    private final CacheManager cacheManager;
+    private final OptimizedBatchProcessor batchProcessor;
+    
+    // システム情報取得用
+    private final OperatingSystemMXBean osBean;
+    private final MemoryMXBean memoryBean;
+    
+    // TPS監視用
+    private final TpsCalculator tpsCalculator;
+    
+    // 監視スケジューラ
+    private final ScheduledExecutorService monitorScheduler;
+    
+    // 統計データ
+    private final ConcurrentHashMap&lt;String, PerformanceMetric&gt; metrics;
+    
+    // アラート機能
+    private final AlertManager alertManager;
+    
+    // 監視設定
+    private volatile boolean statisticsEnabled;
+    private volatile boolean realtimeMonitoringEnabled;
+    private volatile int collectionInterval;
+    private volatile double cpuThreshold;
+    private volatile double memoryThreshold;
+    private volatile double tpsThreshold;
+    
+    public PerformanceMonitor(JavaPlugin plugin, ConfigManager configManager,
+                            HikariDatabaseManager databaseManager, CacheManager cacheManager,
+<span class="nc" id="L64">                            OptimizedBatchProcessor batchProcessor) {</span>
+<span class="nc" id="L65">        this.plugin = plugin;</span>
+<span class="nc" id="L66">        this.configManager = configManager;</span>
+<span class="nc" id="L67">        this.logger = plugin.getLogger();</span>
+<span class="nc" id="L68">        this.databaseManager = databaseManager;</span>
+<span class="nc" id="L69">        this.cacheManager = cacheManager;</span>
+<span class="nc" id="L70">        this.batchProcessor = batchProcessor;</span>
+        
+        // システム情報取得
+<span class="nc" id="L73">        this.osBean = ManagementFactory.getOperatingSystemMXBean();</span>
+<span class="nc" id="L74">        this.memoryBean = ManagementFactory.getMemoryMXBean();</span>
+        
+        // TPS計算機
+<span class="nc" id="L77">        this.tpsCalculator = new TpsCalculator();</span>
+        
+        // メトリクス保存
+<span class="nc" id="L80">        this.metrics = new ConcurrentHashMap&lt;&gt;();</span>
+        
+        // アラートマネージャ
+<span class="nc" id="L83">        this.alertManager = new AlertManager(plugin, configManager);</span>
+        
+        // スケジューラ
+<span class="nc" id="L86">        this.monitorScheduler = Executors.newScheduledThreadPool(2, r -&gt; {</span>
+<span class="nc" id="L87">            Thread thread = new Thread(r, &quot;TofuNomics-PerformanceMonitor&quot;);</span>
+<span class="nc" id="L88">            thread.setDaemon(true);</span>
+<span class="nc" id="L89">            return thread;</span>
+        });
+        
+        // 設定読み込み
+<span class="nc" id="L93">        loadConfiguration();</span>
+        
+        // 監視開始
+<span class="nc" id="L96">        startMonitoring();</span>
+<span class="nc" id="L97">    }</span>
+    
+    /**
+     * 設定読み込み
+     */
+    private void loadConfiguration() {
+<span class="nc" id="L103">        this.statisticsEnabled = configManager.isStatisticsEnabled();</span>
+<span class="nc" id="L104">        this.realtimeMonitoringEnabled = true; // 基本的には常時有効</span>
+<span class="nc" id="L105">        this.collectionInterval = configManager.getStatisticsCollectionInterval();</span>
+<span class="nc" id="L106">        this.cpuThreshold = 80.0; // 設定から取得するように後で修正</span>
+<span class="nc" id="L107">        this.memoryThreshold = configManager.getMemoryWarningThreshold() * 100;</span>
+<span class="nc" id="L108">        this.tpsThreshold = configManager.getTpsWarningThreshold();</span>
+<span class="nc" id="L109">    }</span>
+    
+    /**
+     * 監視開始
+     */
+    private void startMonitoring() {
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (!statisticsEnabled) {</span>
+<span class="nc" id="L116">            logger.info(&quot;パフォーマンス統計が無効化されています。&quot;);</span>
+<span class="nc" id="L117">            return;</span>
+        }
+        
+        // TPS監視を開始（1秒間隔）
+<span class="nc" id="L121">        tpsCalculator.startMonitoring();</span>
+        
+        // メトリクス収集タスク（設定間隔で実行）
+<span class="nc" id="L124">        monitorScheduler.scheduleAtFixedRate(this::collectMetrics, </span>
+                10, collectionInterval, TimeUnit.SECONDS);
+        
+        // リアルタイム監視タスク（30秒間隔）
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (realtimeMonitoringEnabled) {</span>
+<span class="nc" id="L129">            monitorScheduler.scheduleAtFixedRate(this::performRealtimeChecks, </span>
+                    30, 30, TimeUnit.SECONDS);
+        }
+        
+<span class="nc" id="L133">        logger.info(&quot;パフォーマンス監視システムを開始しました。&quot;);</span>
+<span class="nc" id="L134">    }</span>
+    
+    /**
+     * メトリクス収集
+     */
+    private void collectMetrics() {
+        try {
+<span class="nc" id="L141">            long timestamp = System.currentTimeMillis();</span>
+            
+            // システムメトリクス
+<span class="nc" id="L144">            collectSystemMetrics(timestamp);</span>
+            
+            // Minecraftメトリクス
+<span class="nc" id="L147">            collectMinecraftMetrics(timestamp);</span>
+            
+            // データベースメトリクス
+<span class="nc" id="L150">            collectDatabaseMetrics(timestamp);</span>
+            
+            // キャッシュメトリクス
+<span class="nc" id="L153">            collectCacheMetrics(timestamp);</span>
+            
+            // バッチ処理メトリクス
+<span class="nc" id="L156">            collectBatchMetrics(timestamp);</span>
+            
+            // 古いメトリクスを削除（メモリ使用量を制限）
+<span class="nc" id="L159">            cleanupOldMetrics(timestamp);</span>
+            
+<span class="nc" id="L161">        } catch (Exception e) {</span>
+<span class="nc" id="L162">            logger.warning(&quot;メトリクス収集中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L163">        }</span>
+<span class="nc" id="L164">    }</span>
+    
+    /**
+     * システムメトリクス収集
+     */
+    private void collectSystemMetrics(long timestamp) {
+        // CPU使用率（Java8では別の方法で取得）
+        try {
+            // 利用可能なプロセッサ数
+<span class="nc" id="L173">            int availableProcessors = osBean.getAvailableProcessors();</span>
+<span class="nc" id="L174">            addMetric(&quot;system.available_processors&quot;, availableProcessors, timestamp);</span>
+            
+            // システム負荷平均（Unix系のみ）
+<span class="nc" id="L177">            double systemLoadAverage = osBean.getSystemLoadAverage();</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">            if (systemLoadAverage &gt;= 0) {</span>
+<span class="nc" id="L179">                addMetric(&quot;system.load_average&quot;, systemLoadAverage, timestamp);</span>
+                // 負荷を百分率で表現
+<span class="nc bnc" id="L181" title="All 2 branches missed.">                double loadPercentage = availableProcessors &gt; 0 ? (systemLoadAverage / availableProcessors) * 100 : 0;</span>
+<span class="nc" id="L182">                addMetric(&quot;system.cpu_usage&quot;, Math.min(loadPercentage, 100), timestamp);</span>
+            }
+<span class="nc" id="L184">        } catch (Exception e) {</span>
+            // CPU情報取得失敗時はスキップ
+<span class="nc" id="L186">        }</span>
+        
+        // メモリ使用率
+<span class="nc" id="L189">        long usedMemory = memoryBean.getHeapMemoryUsage().getUsed();</span>
+<span class="nc" id="L190">        long maxMemory = memoryBean.getHeapMemoryUsage().getMax();</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">        double memoryUsage = maxMemory &gt; 0 ? ((double) usedMemory / maxMemory) * 100 : 0;</span>
+<span class="nc" id="L192">        addMetric(&quot;system.memory_usage&quot;, memoryUsage, timestamp);</span>
+<span class="nc" id="L193">        addMetric(&quot;system.memory_used&quot;, usedMemory / (1024 * 1024), timestamp); // MB</span>
+<span class="nc" id="L194">        addMetric(&quot;system.memory_max&quot;, maxMemory / (1024 * 1024), timestamp); // MB</span>
+        
+        // GC統計
+<span class="nc" id="L197">        addMetric(&quot;system.gc_collections&quot;, ManagementFactory.getGarbageCollectorMXBeans().stream()</span>
+<span class="nc" id="L198">                .mapToLong(gc -&gt; gc.getCollectionCount()).sum(), timestamp);</span>
+<span class="nc" id="L199">        addMetric(&quot;system.gc_time&quot;, ManagementFactory.getGarbageCollectorMXBeans().stream()</span>
+<span class="nc" id="L200">                .mapToLong(gc -&gt; gc.getCollectionTime()).sum(), timestamp);</span>
+<span class="nc" id="L201">    }</span>
+    
+    /**
+     * Minecraftメトリクス収集
+     */
+    private void collectMinecraftMetrics(long timestamp) {
+        // TPS
+<span class="nc" id="L208">        double tps = tpsCalculator.getTPS();</span>
+<span class="nc" id="L209">        addMetric(&quot;minecraft.tps&quot;, tps, timestamp);</span>
+        
+        // プレイヤー数
+<span class="nc" id="L212">        int onlinePlayers = Bukkit.getOnlinePlayers().size();</span>
+<span class="nc" id="L213">        addMetric(&quot;minecraft.players_online&quot;, onlinePlayers, timestamp);</span>
+        
+        // チャンク数
+<span class="nc" id="L216">        int totalChunks = Bukkit.getWorlds().stream()</span>
+<span class="nc" id="L217">                .mapToInt(world -&gt; world.getLoadedChunks().length)</span>
+<span class="nc" id="L218">                .sum();</span>
+<span class="nc" id="L219">        addMetric(&quot;minecraft.loaded_chunks&quot;, totalChunks, timestamp);</span>
+        
+        // エンティティ数
+<span class="nc" id="L222">        int totalEntities = Bukkit.getWorlds().stream()</span>
+<span class="nc" id="L223">                .mapToInt(world -&gt; world.getEntities().size())</span>
+<span class="nc" id="L224">                .sum();</span>
+<span class="nc" id="L225">        addMetric(&quot;minecraft.total_entities&quot;, totalEntities, timestamp);</span>
+<span class="nc" id="L226">    }</span>
+    
+    /**
+     * データベースメトリクス収集
+     */
+    private void collectDatabaseMetrics(long timestamp) {
+<span class="nc bnc" id="L232" title="All 4 branches missed.">        if (databaseManager != null &amp;&amp; databaseManager.isInitialized()) {</span>
+<span class="nc" id="L233">            HikariDatabaseManager.DatabaseStatistics dbStats = databaseManager.getStatistics();</span>
+            
+<span class="nc" id="L235">            addMetric(&quot;database.active_connections&quot;, dbStats.getActiveConnections(), timestamp);</span>
+<span class="nc" id="L236">            addMetric(&quot;database.total_queries&quot;, dbStats.getTotalQueries(), timestamp);</span>
+<span class="nc" id="L237">            addMetric(&quot;database.failed_queries&quot;, dbStats.getFailedQueries(), timestamp);</span>
+<span class="nc" id="L238">            addMetric(&quot;database.average_query_time&quot;, dbStats.getAverageQueryTime(), timestamp);</span>
+<span class="nc" id="L239">            addMetric(&quot;database.success_rate&quot;, dbStats.getSuccessRate() * 100, timestamp);</span>
+        }
+<span class="nc" id="L241">    }</span>
+    
+    /**
+     * キャッシュメトリクス収集
+     */
+    private void collectCacheMetrics(long timestamp) {
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if (cacheManager != null) {</span>
+<span class="nc" id="L248">            CacheManager.CacheStatistics cacheStats = cacheManager.getStatistics();</span>
+            
+<span class="nc" id="L250">            addMetric(&quot;cache.player_cache_size&quot;, cacheStats.getPlayerCacheSize(), timestamp);</span>
+<span class="nc" id="L251">            addMetric(&quot;cache.player_hit_rate&quot;, cacheStats.getPlayerCacheHitRate() * 100, timestamp);</span>
+<span class="nc" id="L252">            addMetric(&quot;cache.job_cache_size&quot;, cacheStats.getJobCacheSize(), timestamp);</span>
+<span class="nc" id="L253">            addMetric(&quot;cache.job_hit_rate&quot;, cacheStats.getJobCacheHitRate() * 100, timestamp);</span>
+<span class="nc" id="L254">            addMetric(&quot;cache.config_cache_size&quot;, cacheStats.getConfigCacheSize(), timestamp);</span>
+<span class="nc" id="L255">            addMetric(&quot;cache.config_hit_rate&quot;, cacheStats.getConfigCacheHitRate() * 100, timestamp);</span>
+        }
+<span class="nc" id="L257">    }</span>
+    
+    /**
+     * バッチ処理メトリクス収集
+     */
+    private void collectBatchMetrics(long timestamp) {
+<span class="nc bnc" id="L263" title="All 2 branches missed.">        if (batchProcessor != null) {</span>
+<span class="nc" id="L264">            OptimizedBatchProcessor.BatchStatistics batchStats = batchProcessor.getStatistics();</span>
+            
+<span class="nc" id="L266">            addMetric(&quot;batch.processed_batches&quot;, batchStats.getTotalBatchesProcessed(), timestamp);</span>
+<span class="nc" id="L267">            addMetric(&quot;batch.processed_operations&quot;, batchStats.getTotalOperationsProcessed(), timestamp);</span>
+<span class="nc" id="L268">            addMetric(&quot;batch.queued_operations&quot;, batchStats.getCurrentQueuedOperations(), timestamp);</span>
+<span class="nc" id="L269">            addMetric(&quot;batch.failed_batches&quot;, batchStats.getFailedBatches(), timestamp);</span>
+<span class="nc" id="L270">            addMetric(&quot;batch.success_rate&quot;, batchStats.getBatchSuccessRate() * 100, timestamp);</span>
+<span class="nc" id="L271">            addMetric(&quot;batch.average_batch_time&quot;, batchStats.getAverageBatchTime(), timestamp);</span>
+        }
+<span class="nc" id="L273">    }</span>
+    
+    /**
+     * リアルタイムチェック
+     */
+    private void performRealtimeChecks() {
+        try {
+            // CPU使用率チェック
+<span class="nc" id="L281">            PerformanceMetric cpuMetric = metrics.get(&quot;system.cpu_usage&quot;);</span>
+<span class="nc bnc" id="L282" title="All 4 branches missed.">            if (cpuMetric != null &amp;&amp; cpuMetric.getValue() &gt; cpuThreshold) {</span>
+<span class="nc" id="L283">                alertManager.sendAlert(AlertLevel.WARNING, </span>
+                        &quot;CPU使用率が高いです&quot;, 
+<span class="nc" id="L285">                        String.format(&quot;現在のCPU使用率: %.1f%% (閾値: %.1f%%)&quot;, cpuMetric.getValue(), cpuThreshold));</span>
+            }
+            
+            // メモリ使用率チェック
+<span class="nc" id="L289">            PerformanceMetric memoryMetric = metrics.get(&quot;system.memory_usage&quot;);</span>
+<span class="nc bnc" id="L290" title="All 4 branches missed.">            if (memoryMetric != null &amp;&amp; memoryMetric.getValue() &gt; memoryThreshold) {</span>
+<span class="nc" id="L291">                alertManager.sendAlert(AlertLevel.WARNING, </span>
+                        &quot;メモリ使用率が高いです&quot;, 
+<span class="nc" id="L293">                        String.format(&quot;現在のメモリ使用率: %.1f%% (閾値: %.1f%%)&quot;, memoryMetric.getValue(), memoryThreshold));</span>
+            }
+            
+            // TPS低下チェック
+<span class="nc" id="L297">            PerformanceMetric tpsMetric = metrics.get(&quot;minecraft.tps&quot;);</span>
+<span class="nc bnc" id="L298" title="All 4 branches missed.">            if (tpsMetric != null &amp;&amp; tpsMetric.getValue() &lt; tpsThreshold) {</span>
+<span class="nc" id="L299">                alertManager.sendAlert(AlertLevel.CRITICAL, </span>
+                        &quot;TPS低下が発生しています&quot;, 
+<span class="nc" id="L301">                        String.format(&quot;現在のTPS: %.1f (閾値: %.1f)&quot;, tpsMetric.getValue(), tpsThreshold));</span>
+            }
+            
+            // データベース失敗率チェック
+<span class="nc" id="L305">            PerformanceMetric dbSuccessRate = metrics.get(&quot;database.success_rate&quot;);</span>
+<span class="nc bnc" id="L306" title="All 4 branches missed.">            if (dbSuccessRate != null &amp;&amp; dbSuccessRate.getValue() &lt; 95.0) {</span>
+<span class="nc" id="L307">                alertManager.sendAlert(AlertLevel.WARNING, </span>
+                        &quot;データベースエラー率が高いです&quot;, 
+<span class="nc" id="L309">                        String.format(&quot;成功率: %.1f%%&quot;, dbSuccessRate.getValue()));</span>
+            }
+            
+<span class="nc" id="L312">        } catch (Exception e) {</span>
+<span class="nc" id="L313">            logger.warning(&quot;リアルタイムチェック中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L314">        }</span>
+<span class="nc" id="L315">    }</span>
+    
+    /**
+     * メトリクス追加
+     */
+    private void addMetric(String name, double value, long timestamp) {
+<span class="nc" id="L321">        metrics.put(name, new PerformanceMetric(name, value, timestamp));</span>
+<span class="nc" id="L322">    }</span>
+    
+    /**
+     * 古いメトリクスをクリーンアップ
+     */
+    private void cleanupOldMetrics(long currentTimestamp) {
+<span class="nc" id="L328">        long retentionTime = 7 * 24 * 60 * 60 * 1000; // 7日間</span>
+<span class="nc" id="L329">        long cutoffTime = currentTimestamp - retentionTime;</span>
+        
+<span class="nc bnc" id="L331" title="All 2 branches missed.">        metrics.entrySet().removeIf(entry -&gt; entry.getValue().getTimestamp() &lt; cutoffTime);</span>
+<span class="nc" id="L332">    }</span>
+    
+    /**
+     * パフォーマンスレポートの生成
+     */
+    public PerformanceReport generateReport() {
+<span class="nc" id="L338">        return new PerformanceReport(</span>
+<span class="nc" id="L339">            metrics.get(&quot;system.cpu_usage&quot;),</span>
+<span class="nc" id="L340">            metrics.get(&quot;system.memory_usage&quot;),</span>
+<span class="nc" id="L341">            metrics.get(&quot;minecraft.tps&quot;),</span>
+<span class="nc" id="L342">            metrics.get(&quot;minecraft.players_online&quot;),</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">            databaseManager != null ? databaseManager.getStatistics() : null,</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">            cacheManager != null ? cacheManager.getStatistics() : null,</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">            batchProcessor != null ? batchProcessor.getStatistics() : null</span>
+        );
+    }
+    
+    /**
+     * 統計データをデータベースに永続化
+     */
+    public void persistStatistics() {
+        // バッチ処理を使用して統計データを保存
+<span class="nc bnc" id="L354" title="All 2 branches missed.">        for (PerformanceMetric metric : metrics.values()) {</span>
+<span class="nc" id="L355">            batchProcessor.queueOperation(</span>
+                OptimizedBatchProcessor.BatchOperationType.PERFORMANCE_STATS,
+                &quot;system&quot;, // プレイヤーUUIDの代わりにsystemを使用
+<span class="nc" id="L358">                metric.getName(),</span>
+<span class="nc" id="L359">                metric.getValue()</span>
+            );
+<span class="nc" id="L361">        }</span>
+<span class="nc" id="L362">    }</span>
+    
+    /**
+     * 設定再読み込み
+     */
+    public void reloadConfiguration() {
+<span class="nc" id="L368">        loadConfiguration();</span>
+<span class="nc" id="L369">        logger.info(&quot;パフォーマンス監視設定を再読み込みしました。&quot;);</span>
+<span class="nc" id="L370">    }</span>
+    
+    /**
+     * シャットダウン処理
+     */
+    public void shutdown() {
+        // 統計データを永続化
+<span class="nc" id="L377">        persistStatistics();</span>
+        
+        // TPS計算を停止
+<span class="nc" id="L380">        tpsCalculator.stopMonitoring();</span>
+        
+        // スケジューラを停止
+<span class="nc" id="L383">        monitorScheduler.shutdown();</span>
+        try {
+<span class="nc bnc" id="L385" title="All 2 branches missed.">            if (!monitorScheduler.awaitTermination(5, TimeUnit.SECONDS)) {</span>
+<span class="nc" id="L386">                monitorScheduler.shutdownNow();</span>
+            }
+<span class="nc" id="L388">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L389">            monitorScheduler.shutdownNow();</span>
+<span class="nc" id="L390">        }</span>
+        
+<span class="nc" id="L392">        logger.info(&quot;パフォーマンス監視システムをシャットダウンしました。&quot;);</span>
+<span class="nc" id="L393">    }</span>
+    
+    // ========== 内部クラス ==========
+    
+    /**
+     * TPS計算機
+     */
+<span class="nc" id="L400">    private class TpsCalculator {</span>
+<span class="nc" id="L401">        private final AtomicLong tickCount = new AtomicLong(0);</span>
+<span class="nc" id="L402">        private final AtomicLong startTime = new AtomicLong(System.currentTimeMillis());</span>
+<span class="nc" id="L403">        private volatile double currentTPS = 20.0;</span>
+        private BukkitRunnable tpsTask;
+        
+        public void startMonitoring() {
+<span class="nc" id="L407">            tpsTask = new BukkitRunnable() {</span>
+<span class="nc" id="L408">                private long lastCheck = System.currentTimeMillis();</span>
+<span class="nc" id="L409">                private long lastTickCount = 0;</span>
+                
+                @Override
+                public void run() {
+<span class="nc" id="L413">                    long currentTime = System.currentTimeMillis();</span>
+<span class="nc" id="L414">                    long currentTicks = tickCount.incrementAndGet();</span>
+                    
+<span class="nc bnc" id="L416" title="All 2 branches missed.">                    if (currentTime - lastCheck &gt;= 1000) { // 1秒間隔で計算</span>
+<span class="nc" id="L417">                        long timeDiff = currentTime - lastCheck;</span>
+<span class="nc" id="L418">                        long tickDiff = currentTicks - lastTickCount;</span>
+                        
+<span class="nc" id="L420">                        currentTPS = (tickDiff * 1000.0) / timeDiff;</span>
+<span class="nc" id="L421">                        currentTPS = Math.min(currentTPS, 20.0); // 最大20TPS</span>
+                        
+<span class="nc" id="L423">                        lastCheck = currentTime;</span>
+<span class="nc" id="L424">                        lastTickCount = currentTicks;</span>
+                    }
+<span class="nc" id="L426">                }</span>
+            };
+            
+<span class="nc" id="L429">            tpsTask.runTaskTimer(plugin, 0L, 1L);</span>
+<span class="nc" id="L430">        }</span>
+        
+        public void stopMonitoring() {
+<span class="nc bnc" id="L433" title="All 2 branches missed.">            if (tpsTask != null) {</span>
+<span class="nc" id="L434">                tpsTask.cancel();</span>
+            }
+<span class="nc" id="L436">        }</span>
+        
+        public double getTPS() {
+<span class="nc" id="L439">            return currentTPS;</span>
+        }
+    }
+    
+    /**
+     * アラートマネージャー
+     */
+    private static class AlertManager {
+        private final JavaPlugin plugin;
+        private final ConfigManager configManager;
+        
+<span class="nc" id="L450">        public AlertManager(JavaPlugin plugin, ConfigManager configManager) {</span>
+<span class="nc" id="L451">            this.plugin = plugin;</span>
+<span class="nc" id="L452">            this.configManager = configManager;</span>
+<span class="nc" id="L453">        }</span>
+        
+        public void sendAlert(AlertLevel level, String title, String message) {
+            // ログに記録
+<span class="nc bnc" id="L457" title="All 3 branches missed.">            switch (level) {</span>
+                case WARNING:
+<span class="nc" id="L459">                    plugin.getLogger().warning(&quot;[ALERT] &quot; + title + &quot;: &quot; + message);</span>
+<span class="nc" id="L460">                    break;</span>
+                case CRITICAL:
+<span class="nc" id="L462">                    plugin.getLogger().severe(&quot;[CRITICAL ALERT] &quot; + title + &quot;: &quot; + message);</span>
+<span class="nc" id="L463">                    break;</span>
+                case INFO:
+                default:
+<span class="nc" id="L466">                    plugin.getLogger().info(&quot;[ALERT] &quot; + title + &quot;: &quot; + message);</span>
+                    break;
+            }
+            
+            // 管理者プレイヤーに通知
+<span class="nc bnc" id="L471" title="All 2 branches missed.">            for (Player player : Bukkit.getOnlinePlayers()) {</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">                if (player.hasPermission(&quot;tofunomics.admin.alerts&quot;)) {</span>
+<span class="nc" id="L473">                    String alertMessage = String.format(&quot;§c[%s] §f%s: %s&quot;, level, title, message);</span>
+<span class="nc" id="L474">                    player.sendMessage(alertMessage);</span>
+                }
+<span class="nc" id="L476">            }</span>
+<span class="nc" id="L477">        }</span>
+    }
+    
+    /**
+     * アラートレベル
+     */
+<span class="nc" id="L483">    public enum AlertLevel {</span>
+<span class="nc" id="L484">        INFO, WARNING, CRITICAL</span>
+    }
+    
+    /**
+     * パフォーマンスメトリクス
+     */
+    public static class PerformanceMetric {
+        private final String name;
+        private final double value;
+        private final long timestamp;
+        
+<span class="nc" id="L495">        public PerformanceMetric(String name, double value, long timestamp) {</span>
+<span class="nc" id="L496">            this.name = name;</span>
+<span class="nc" id="L497">            this.value = value;</span>
+<span class="nc" id="L498">            this.timestamp = timestamp;</span>
+<span class="nc" id="L499">        }</span>
+        
+<span class="nc" id="L501">        public String getName() { return name; }</span>
+<span class="nc" id="L502">        public double getValue() { return value; }</span>
+<span class="nc" id="L503">        public long getTimestamp() { return timestamp; }</span>
+    }
+    
+    /**
+     * パフォーマンスレポート
+     */
+    public static class PerformanceReport {
+        private final PerformanceMetric cpuUsage;
+        private final PerformanceMetric memoryUsage;
+        private final PerformanceMetric tps;
+        private final PerformanceMetric onlinePlayers;
+        private final HikariDatabaseManager.DatabaseStatistics databaseStats;
+        private final CacheManager.CacheStatistics cacheStats;
+        private final OptimizedBatchProcessor.BatchStatistics batchStats;
+        
+        public PerformanceReport(PerformanceMetric cpuUsage, PerformanceMetric memoryUsage,
+                               PerformanceMetric tps, PerformanceMetric onlinePlayers,
+                               HikariDatabaseManager.DatabaseStatistics databaseStats,
+                               CacheManager.CacheStatistics cacheStats,
+<span class="nc" id="L522">                               OptimizedBatchProcessor.BatchStatistics batchStats) {</span>
+<span class="nc" id="L523">            this.cpuUsage = cpuUsage;</span>
+<span class="nc" id="L524">            this.memoryUsage = memoryUsage;</span>
+<span class="nc" id="L525">            this.tps = tps;</span>
+<span class="nc" id="L526">            this.onlinePlayers = onlinePlayers;</span>
+<span class="nc" id="L527">            this.databaseStats = databaseStats;</span>
+<span class="nc" id="L528">            this.cacheStats = cacheStats;</span>
+<span class="nc" id="L529">            this.batchStats = batchStats;</span>
+<span class="nc" id="L530">        }</span>
+        
+        // Getters
+<span class="nc" id="L533">        public PerformanceMetric getCpuUsage() { return cpuUsage; }</span>
+<span class="nc" id="L534">        public PerformanceMetric getMemoryUsage() { return memoryUsage; }</span>
+<span class="nc" id="L535">        public PerformanceMetric getTps() { return tps; }</span>
+<span class="nc" id="L536">        public PerformanceMetric getOnlinePlayers() { return onlinePlayers; }</span>
+<span class="nc" id="L537">        public HikariDatabaseManager.DatabaseStatistics getDatabaseStats() { return databaseStats; }</span>
+<span class="nc" id="L538">        public CacheManager.CacheStatistics getCacheStats() { return cacheStats; }</span>
+<span class="nc" id="L539">        public OptimizedBatchProcessor.BatchStatistics getBatchStats() { return batchStats; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

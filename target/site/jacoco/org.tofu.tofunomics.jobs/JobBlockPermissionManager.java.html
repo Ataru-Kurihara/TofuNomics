@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobBlockPermissionManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.jobs</a> &gt; <span class="el_source">JobBlockPermissionManager.java</span></div><h1>JobBlockPermissionManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.jobs;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.*;
+
+/**
+ * 職業別ブロック採掘権限管理システム
+ * 基本ブロックは全職業で採掘可能、専門ブロックは対応職業のみ採掘可能
+ */
+public class JobBlockPermissionManager {
+    
+    private final ConfigManager configManager;
+    private final JobManager jobManager;
+    
+    // 基本ブロック（全職業で採掘可能）
+    private final Set&lt;Material&gt; basicBlocks;
+    
+    // 職業専用ブロック
+    private final Map&lt;String, Set&lt;Material&gt;&gt; jobRestrictedBlocks;
+    
+<span class="nc" id="L25">    public JobBlockPermissionManager(ConfigManager configManager, JobManager jobManager) {</span>
+<span class="nc" id="L26">        this.configManager = configManager;</span>
+<span class="nc" id="L27">        this.jobManager = jobManager;</span>
+<span class="nc" id="L28">        this.basicBlocks = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L29">        this.jobRestrictedBlocks = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L31">        initializeBasicBlocks();</span>
+<span class="nc" id="L32">        initializeJobRestrictedBlocks();</span>
+<span class="nc" id="L33">    }</span>
+    
+    /**
+     * 基本ブロック（全職業採掘可能）を初期化
+     */
+    private void initializeBasicBlocks() {
+        // 基本的な建築・整地用ブロック
+<span class="nc" id="L40">        basicBlocks.addAll(Arrays.asList(</span>
+            Material.STONE,
+            Material.COBBLESTONE,
+            Material.DIRT,
+            Material.GRASS_BLOCK,
+            Material.SAND,
+            Material.GRAVEL,
+            Material.SANDSTONE,
+            Material.ANDESITE,
+            Material.DIORITE,
+            Material.GRANITE,
+            Material.NETHERRACK,
+            Material.END_STONE,
+            Material.OBSIDIAN,
+            Material.BEDROCK
+        ));
+<span class="nc" id="L56">    }</span>
+    
+    /**
+     * 職業別制限ブロックを初期化
+     */
+    private void initializeJobRestrictedBlocks() {
+        // 鉱夫専用ブロック（鉱石類）- Minecraft 1.16.5対応
+<span class="nc" id="L63">        Set&lt;Material&gt; minerBlocks = new HashSet&lt;&gt;(Arrays.asList(</span>
+            Material.COAL_ORE,
+            Material.IRON_ORE,
+            Material.GOLD_ORE,
+            Material.DIAMOND_ORE,
+            Material.EMERALD_ORE,
+            Material.LAPIS_ORE,
+            Material.REDSTONE_ORE,
+            Material.NETHER_QUARTZ_ORE
+        ));
+<span class="nc" id="L73">        jobRestrictedBlocks.put(&quot;miner&quot;, minerBlocks);</span>
+        
+        // 木こり専用ブロック（木材類）- Minecraft 1.16.5対応
+<span class="nc" id="L76">        Set&lt;Material&gt; woodcutterBlocks = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // 原木類
+            Material.OAK_LOG,
+            Material.BIRCH_LOG,
+            Material.SPRUCE_LOG,
+            Material.JUNGLE_LOG,
+            Material.ACACIA_LOG,
+            Material.DARK_OAK_LOG,
+            // 葉ブロック類
+            Material.OAK_LEAVES,
+            Material.BIRCH_LEAVES,
+            Material.SPRUCE_LEAVES,
+            Material.JUNGLE_LEAVES,
+            Material.ACACIA_LEAVES,
+            Material.DARK_OAK_LEAVES,
+            // キノコブロック類
+            Material.BROWN_MUSHROOM_BLOCK,
+            Material.RED_MUSHROOM_BLOCK,
+            Material.MUSHROOM_STEM
+        ));
+<span class="nc" id="L96">        jobRestrictedBlocks.put(&quot;woodcutter&quot;, woodcutterBlocks);</span>
+        // 農家専用ブロック（農作物・畜産関連）- Minecraft 1.16.5対応
+<span class="nc" id="L98">        Set&lt;Material&gt; farmerBlocks = new HashSet&lt;&gt;(Arrays.asList(</span>
+            // 作物ブロック（成熟状態）
+            Material.WHEAT,
+            Material.POTATOES,
+            Material.CARROTS,
+            Material.BEETROOTS,
+            Material.PUMPKIN,
+            Material.MELON,
+            // 特殊農業ブロック
+            Material.COCOA,
+            Material.SUGAR_CANE,
+            Material.CACTUS,
+            Material.BROWN_MUSHROOM,
+            Material.RED_MUSHROOM,
+            // 畜産関連ブロック
+            Material.HAY_BLOCK,
+            Material.DRIED_KELP_BLOCK
+        ));
+<span class="nc" id="L116">        jobRestrictedBlocks.put(&quot;farmer&quot;, farmerBlocks);</span>
+<span class="nc" id="L117">        jobRestrictedBlocks.put(&quot;fisherman&quot;, new HashSet&lt;&gt;());</span>
+<span class="nc" id="L118">        jobRestrictedBlocks.put(&quot;blacksmith&quot;, new HashSet&lt;&gt;());</span>
+<span class="nc" id="L119">        jobRestrictedBlocks.put(&quot;alchemist&quot;, new HashSet&lt;&gt;());</span>
+<span class="nc" id="L120">        jobRestrictedBlocks.put(&quot;enchanter&quot;, new HashSet&lt;&gt;());</span>
+<span class="nc" id="L121">        jobRestrictedBlocks.put(&quot;architect&quot;, new HashSet&lt;&gt;());</span>
+<span class="nc" id="L122">    }</span>
+    
+    /**
+     * プレイヤーが指定ブロックを採掘する権限があるかチェック
+     * 
+     * @param player プレイヤー
+     * @param blockType ブロックタイプ
+     * @return 採掘可能な場合true
+     */
+    public boolean canPlayerBreakBlock(Player player, Material blockType) {
+<span class="nc" id="L132">        System.out.println(&quot;=== canPlayerBreakBlock デバッグ開始 ===&quot;);</span>
+<span class="nc" id="L133">        System.out.println(&quot;プレイヤー: &quot; + player.getName());</span>
+<span class="nc" id="L134">        System.out.println(&quot;ブロックタイプ: &quot; + blockType.name());</span>
+        
+        // 職業制限システムが無効の場合は常に許可
+<span class="nc" id="L137">        boolean isRestrictionEnabled = configManager.isJobBlockRestrictionEnabled();</span>
+<span class="nc" id="L138">        System.out.println(&quot;ブロック制限システム有効: &quot; + isRestrictionEnabled);</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (!isRestrictionEnabled) {</span>
+<span class="nc" id="L140">            System.out.println(&quot;判定結果: ブロック制限システムが無効のため許可&quot;);</span>
+<span class="nc" id="L141">            return true;</span>
+        }
+        
+        // 管理者権限を持つ場合は常に許可
+<span class="nc" id="L145">        boolean hasAdminPermission = player.hasPermission(&quot;tofunomics.admin.break&quot;);</span>
+<span class="nc" id="L146">        System.out.println(&quot;管理者権限: &quot; + hasAdminPermission);</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (hasAdminPermission) {</span>
+<span class="nc" id="L148">            System.out.println(&quot;判定結果: 管理者権限のため許可&quot;);</span>
+<span class="nc" id="L149">            return true;</span>
+        }
+        
+        // 基本ブロックの場合は常に許可
+<span class="nc" id="L153">        boolean isBasicBlock = basicBlocks.contains(blockType);</span>
+<span class="nc" id="L154">        System.out.println(&quot;基本ブロック: &quot; + isBasicBlock);</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        if (isBasicBlock) {</span>
+<span class="nc" id="L156">            System.out.println(&quot;判定結果: 基本ブロックのため許可&quot;);</span>
+<span class="nc" id="L157">            return true;</span>
+        }
+        
+        // 制限ブロックかチェック
+<span class="nc" id="L161">        String requiredJob = getRequiredJobForBlock(blockType);</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        System.out.println(&quot;必要な職業: &quot; + (requiredJob != null ? requiredJob : &quot;なし&quot;));</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        if (requiredJob == null) {</span>
+            // 制限されていないブロックは誰でも採掘可能
+<span class="nc" id="L165">            System.out.println(&quot;判定結果: 制限されていないブロックのため許可&quot;);</span>
+<span class="nc" id="L166">            return true;</span>
+        }
+        
+        // プレイヤーが必要な職業を持っているかチェック
+<span class="nc" id="L170">        boolean hasRequiredJob = jobManager.hasJob(player, requiredJob);</span>
+<span class="nc" id="L171">        System.out.println(&quot;必要職業の保有: &quot; + hasRequiredJob);</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        System.out.println(&quot;判定結果: &quot; + (hasRequiredJob ? &quot;必要職業保有のため許可&quot; : &quot;必要職業なしのため拒否&quot;));</span>
+<span class="nc" id="L173">        return hasRequiredJob;</span>
+    }
+    
+    /**
+     * ブロック採掘に必要な職業を取得
+     * 
+     * @param blockType ブロックタイプ
+     * @return 必要な職業名、制限がない場合はnull
+     */
+    private String getRequiredJobForBlock(Material blockType) {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        for (Map.Entry&lt;String, Set&lt;Material&gt;&gt; entry : jobRestrictedBlocks.entrySet()) {</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">            if (entry.getValue().contains(blockType)) {</span>
+<span class="nc" id="L185">                return entry.getKey();</span>
+            }
+<span class="nc" id="L187">        }</span>
+<span class="nc" id="L188">        return null;</span>
+    }
+    
+    /**
+     * 職業制限によって採掘が拒否された場合のメッセージを取得
+     * 
+     * @param player プレイヤー
+     * @param blockType ブロックタイプ
+     * @return 表示メッセージ
+     */
+    public String getDeniedMessage(Player player, Material blockType) {
+<span class="nc" id="L199">        String requiredJob = getRequiredJobForBlock(blockType);</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">        if (requiredJob == null) {</span>
+<span class="nc" id="L201">            return &quot;§cこのブロックは採掘できません。&quot;;</span>
+        }
+        
+<span class="nc" id="L204">        String jobDisplayName = jobManager.getJobDisplayName(requiredJob);</span>
+<span class="nc" id="L205">        return &quot;§c&quot; + blockType.name() + &quot; を採掘するには &quot; + jobDisplayName + &quot; の職業が必要です。&quot;;</span>
+    }
+    
+    /**
+     * 基本ブロックセットを取得
+     */
+    public Set&lt;Material&gt; getBasicBlocks() {
+<span class="nc" id="L212">        return new HashSet&lt;&gt;(basicBlocks);</span>
+    }
+    
+    /**
+     * 職業別制限ブロックマップを取得
+     */
+    public Map&lt;String, Set&lt;Material&gt;&gt; getJobRestrictedBlocks() {
+<span class="nc" id="L219">        return new HashMap&lt;&gt;(jobRestrictedBlocks);</span>
+    }
+    
+    /**
+     * 特定職業の制限ブロックを取得
+     */
+    public Set&lt;Material&gt; getRestrictedBlocksForJob(String jobName) {
+<span class="nc" id="L226">        return jobRestrictedBlocks.getOrDefault(jobName, new HashSet&lt;&gt;());</span>
+    }
+    
+    /**
+     * ブロックが制限対象かチェック
+     */
+    public boolean isRestrictedBlock(Material blockType) {
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        return getRequiredJobForBlock(blockType) != null;</span>
+    }
+    
+    /**
+     * システムのリロード（設定変更時に呼び出し）
+     */
+    public void reload() {
+        // 必要に応じて設定ファイルから動的読み込み
+        // 現在は静的定義のため処理なし
+<span class="nc" id="L242">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

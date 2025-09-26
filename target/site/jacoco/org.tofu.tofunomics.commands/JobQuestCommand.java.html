@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobQuestCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">JobQuestCommand.java</span></div><h1>JobQuestCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.quests.JobQuestManager;
+import org.tofu.tofunomics.quests.JobQuest;
+import org.tofu.tofunomics.quests.PlayerQuestProgress;
+
+import java.util.List;
+
+/**
+ * 職業クエストコマンド
+ */
+public class JobQuestCommand implements CommandExecutor {
+    
+    private final ConfigManager configManager;
+    private final JobQuestManager jobQuestManager;
+    
+<span class="nc" id="L23">    public JobQuestCommand(ConfigManager configManager, JobQuestManager jobQuestManager) {</span>
+<span class="nc" id="L24">        this.configManager = configManager;</span>
+<span class="nc" id="L25">        this.jobQuestManager = jobQuestManager;</span>
+<span class="nc" id="L26">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="nc bnc" id="L30" title="All 2 branches missed.">        if (!(sender instanceof Player)) {</span>
+<span class="nc" id="L31">            sender.sendMessage(ChatColor.RED + &quot;このコマンドはプレイヤーのみ使用できます。&quot;);</span>
+<span class="nc" id="L32">            return true;</span>
+        }
+        
+<span class="nc" id="L35">        Player player = (Player) sender;</span>
+        
+<span class="nc bnc" id="L37" title="All 2 branches missed.">        if (args.length == 0) {</span>
+<span class="nc" id="L38">            showActiveQuests(player);</span>
+<span class="nc" id="L39">            return true;</span>
+        }
+        
+<span class="nc" id="L42">        String subcommand = args[0].toLowerCase();</span>
+        
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        switch (subcommand) {</span>
+            case &quot;list&quot;:
+<span class="nc" id="L46">                return handleQuestList(player, args);</span>
+            case &quot;accept&quot;:
+<span class="nc" id="L48">                return handleQuestAccept(player, args);</span>
+            case &quot;progress&quot;:
+<span class="nc" id="L50">                return handleQuestProgress(player);</span>
+            default:
+<span class="nc" id="L52">                sendHelpMessage(player);</span>
+<span class="nc" id="L53">                return true;</span>
+        }
+    }
+    
+    private void showActiveQuests(Player player) {
+<span class="nc" id="L58">        List&lt;PlayerQuestProgress&gt; activeQuests = jobQuestManager.getActiveQuests(player);</span>
+        
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (activeQuests.isEmpty()) {</span>
+<span class="nc" id="L61">            player.sendMessage(ChatColor.YELLOW + &quot;現在進行中のクエストはありません。&quot;);</span>
+<span class="nc" id="L62">            player.sendMessage(ChatColor.GRAY + &quot;/quest list &lt;職業名&gt; で利用可能なクエストを確認できます。&quot;);</span>
+<span class="nc" id="L63">            return;</span>
+        }
+        
+<span class="nc" id="L66">        player.sendMessage(ChatColor.GOLD + &quot;==================== 進行中のクエスト ====================&quot;);</span>
+        
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        for (PlayerQuestProgress progress : activeQuests) {</span>
+            // クエスト情報を表示（実装は簡略化）
+<span class="nc" id="L70">            player.sendMessage(ChatColor.GREEN + &quot;クエスト ID: &quot; + progress.getQuestId() + </span>
+<span class="nc" id="L71">                &quot; - 進行度: &quot; + progress.getCurrentProgress());</span>
+<span class="nc" id="L72">        }</span>
+        
+<span class="nc" id="L74">        player.sendMessage(ChatColor.GOLD + &quot;========================================================&quot;);</span>
+<span class="nc" id="L75">    }</span>
+    
+    private boolean handleQuestList(Player player, String[] args) {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (args.length != 2) {</span>
+<span class="nc" id="L79">            player.sendMessage(ChatColor.RED + &quot;使用法: /quest list &lt;職業名&gt;&quot;);</span>
+<span class="nc" id="L80">            return true;</span>
+        }
+        
+<span class="nc" id="L83">        String jobName = args[1].toLowerCase();</span>
+<span class="nc" id="L84">        List&lt;JobQuest&gt; availableQuests = jobQuestManager.getAvailableQuests(player, jobName);</span>
+        
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (availableQuests.isEmpty()) {</span>
+<span class="nc" id="L87">            player.sendMessage(ChatColor.YELLOW + configManager.getJobDisplayName(jobName) + </span>
+                &quot; の利用可能なクエストはありません。&quot;);
+<span class="nc" id="L89">            return true;</span>
+        }
+        
+<span class="nc" id="L92">        player.sendMessage(ChatColor.GOLD + &quot;==================== &quot; + </span>
+<span class="nc" id="L93">            configManager.getJobDisplayName(jobName) + &quot; クエスト ====================&quot;);</span>
+        
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        for (JobQuest quest : availableQuests) {</span>
+<span class="nc" id="L96">            player.sendMessage(String.format(&quot;%sID:%d %s[%s] %s%s&quot;, </span>
+<span class="nc" id="L97">                ChatColor.YELLOW, quest.getQuestId(),</span>
+<span class="nc" id="L98">                ChatColor.GREEN, quest.getDifficultyString(),</span>
+<span class="nc" id="L99">                ChatColor.WHITE, quest.getQuestName()));</span>
+            
+<span class="nc" id="L101">            player.sendMessage(ChatColor.GRAY + &quot;  &quot; + quest.getDescription());</span>
+<span class="nc" id="L102">            player.sendMessage(String.format(&quot;  %s報酬: %s%.0f経験値 + %.0f%s&quot;, </span>
+                ChatColor.AQUA, ChatColor.WHITE,
+<span class="nc" id="L104">                quest.getExperienceReward(), quest.getIncomeReward(),</span>
+<span class="nc" id="L105">                configManager.getCurrencySymbol()));</span>
+<span class="nc" id="L106">        }</span>
+        
+<span class="nc" id="L108">        player.sendMessage(ChatColor.GOLD + &quot;====================================================&quot;);</span>
+        
+<span class="nc" id="L110">        return true;</span>
+    }
+    
+    private boolean handleQuestAccept(Player player, String[] args) {
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if (args.length != 2) {</span>
+<span class="nc" id="L115">            player.sendMessage(ChatColor.RED + &quot;使用法: /quest accept &lt;クエストID&gt;&quot;);</span>
+<span class="nc" id="L116">            return true;</span>
+        }
+        
+        try {
+<span class="nc" id="L120">            int questId = Integer.parseInt(args[1]);</span>
+            
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            if (jobQuestManager.acceptQuest(player, questId)) {</span>
+<span class="nc" id="L123">                player.sendMessage(ChatColor.GREEN + &quot;クエストを受諾しました。&quot;);</span>
+            } else {
+<span class="nc" id="L125">                player.sendMessage(ChatColor.RED + &quot;クエストの受諾に失敗しました。&quot;);</span>
+            }
+<span class="nc" id="L127">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L128">            player.sendMessage(ChatColor.RED + &quot;無効なクエストIDです。&quot;);</span>
+<span class="nc" id="L129">        }</span>
+        
+<span class="nc" id="L131">        return true;</span>
+    }
+    
+    private boolean handleQuestProgress(Player player) {
+<span class="nc" id="L135">        showActiveQuests(player);</span>
+<span class="nc" id="L136">        return true;</span>
+    }
+    
+    private void sendHelpMessage(Player player) {
+<span class="nc" id="L140">        player.sendMessage(ChatColor.GOLD + &quot;==================== クエストコマンド ====================&quot;);</span>
+<span class="nc" id="L141">        player.sendMessage(ChatColor.YELLOW + &quot;/quest - 進行中のクエストを表示&quot;);</span>
+<span class="nc" id="L142">        player.sendMessage(ChatColor.YELLOW + &quot;/quest list &lt;職業名&gt; - 利用可能なクエスト一覧&quot;);</span>
+<span class="nc" id="L143">        player.sendMessage(ChatColor.YELLOW + &quot;/quest accept &lt;ID&gt; - クエストを受諾&quot;);</span>
+<span class="nc" id="L144">        player.sendMessage(ChatColor.YELLOW + &quot;/quest progress - 進行状況を確認&quot;);</span>
+<span class="nc" id="L145">        player.sendMessage(ChatColor.GOLD + &quot;=========================================================&quot;);</span>
+<span class="nc" id="L146">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EnchantmentEventHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.events.handlers</a> &gt; <span class="el_source">EnchantmentEventHandler.java</span></div><h1>EnchantmentEventHandler.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.events.handlers;
+
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Player;
+import org.bukkit.event.enchantment.EnchantItemEvent;
+import org.bukkit.inventory.ItemStack;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.events.AsyncEventUpdater;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.Map;
+import java.util.Random;
+
+/**
+ * エンチャントイベントハンドラ
+ * 魔術師のエンチャント処理を管理
+ */
+public class EnchantmentEventHandler {
+    
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final JobManager jobManager;
+    private final AsyncEventUpdater asyncUpdater;
+    private final Random random;
+    
+    public EnchantmentEventHandler(ConfigManager configManager, PlayerDAO playerDAO,
+<span class="nc" id="L31">                                  JobManager jobManager, AsyncEventUpdater asyncUpdater) {</span>
+<span class="nc" id="L32">        this.configManager = configManager;</span>
+<span class="nc" id="L33">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L34">        this.jobManager = jobManager;</span>
+<span class="nc" id="L35">        this.asyncUpdater = asyncUpdater;</span>
+<span class="nc" id="L36">        this.random = new Random();</span>
+<span class="nc" id="L37">    }</span>
+    
+    /**
+     * エンチャントイベントの処理
+     */
+    public void handleEnchantment(EnchantItemEvent event) {
+<span class="nc" id="L43">        Player player = event.getEnchanter();</span>
+        
+        // 魔術師の職業チェック
+<span class="nc" id="L46">        PlayerJob wizardJob = jobManager.getPlayerJob(player, &quot;wizard&quot;);</span>
+<span class="nc bnc" id="L47" title="All 4 branches missed.">        if (wizardJob == null || !wizardJob.isActive()) {</span>
+            // 魔術師でない場合は通常のエンチャント処理
+<span class="nc" id="L49">            return;</span>
+        }
+        
+        // エンチャント結果を処理
+<span class="nc" id="L53">        processEnchantmentResult(player, wizardJob, event);</span>
+        
+        // 魔術師特典を適用
+<span class="nc" id="L56">        applyWizardBenefits(player, wizardJob, event);</span>
+<span class="nc" id="L57">    }</span>
+    
+    /**
+     * エンチャント結果の処理
+     */
+    private void processEnchantmentResult(Player player, PlayerJob wizardJob, EnchantItemEvent event) {
+<span class="nc" id="L63">        ItemStack item = event.getItem();</span>
+<span class="nc" id="L64">        int expLevelCost = event.getExpLevelCost();</span>
+<span class="nc" id="L65">        Map&lt;Enchantment, Integer&gt; enchantments = event.getEnchantsToAdd();</span>
+        
+        // 基本報酬計算
+<span class="nc" id="L68">        double baseExperience = expLevelCost * 2.0; // 消費レベル×2の経験値</span>
+<span class="nc" id="L69">        double baseIncome = expLevelCost * 5.0; // 消費レベル×5の金塊</span>
+        
+        // エンチャント数によるボーナス
+<span class="nc" id="L72">        double enchantBonus = enchantments.size() * 1.5;</span>
+        
+        // レベルによる倍率
+<span class="nc" id="L75">        double levelMultiplier = 1.0 + (wizardJob.getLevel() * 0.03); // レベル毎に3%ボーナス</span>
+        
+        // 最終報酬計算
+<span class="nc" id="L78">        double totalExperience = (baseExperience + enchantBonus) * levelMultiplier;</span>
+<span class="nc" id="L79">        double totalIncome = (baseIncome + enchantBonus * 2) * levelMultiplier;</span>
+        
+        // 非同期で報酬を付与
+<span class="nc" id="L82">        String playerUUID = player.getUniqueId().toString();</span>
+<span class="nc" id="L83">        asyncUpdater.updateJobExperience(playerUUID, &quot;wizard&quot;, totalExperience);</span>
+<span class="nc" id="L84">        asyncUpdater.updatePlayerBalance(playerUUID, totalIncome, &quot;エンチャント報酬&quot;);</span>
+        
+        // メッセージ表示
+<span class="nc" id="L87">        displayEnchantmentResult(player, item, enchantments.size(), totalExperience, totalIncome);</span>
+<span class="nc" id="L88">    }</span>
+    
+    /**
+     * 魔術師特典の適用
+     */
+    private void applyWizardBenefits(Player player, PlayerJob wizardJob, EnchantItemEvent event) {
+<span class="nc" id="L94">        int level = wizardJob.getLevel();</span>
+        
+        // レベル10以上：経験値コスト削減
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (level &gt;= 10) {</span>
+<span class="nc" id="L98">            int reduction = Math.min(level / 10, 5); // 最大5レベル削減</span>
+<span class="nc" id="L99">            int newCost = Math.max(1, event.getExpLevelCost() - reduction);</span>
+<span class="nc" id="L100">            event.setExpLevelCost(newCost);</span>
+            
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (reduction &gt; 0) {</span>
+<span class="nc" id="L103">                player.sendMessage(ChatColor.LIGHT_PURPLE + &quot;✦ 魔術師特典: 経験値コストが&quot; + </span>
+                                 reduction + &quot;レベル削減されました！&quot;);
+            }
+        }
+        
+        // レベル25以上：追加エンチャントチャンス
+<span class="nc bnc" id="L109" title="All 4 branches missed.">        if (level &gt;= 25 &amp;&amp; random.nextDouble() &lt; 0.2) { // 20%の確率</span>
+<span class="nc" id="L110">            addBonusEnchantment(event);</span>
+<span class="nc" id="L111">            player.sendMessage(ChatColor.GOLD + &quot;✦ ボーナスエンチャント！追加の魔法効果を付与しました！&quot;);</span>
+        }
+        
+        // レベル50以上：超越エンチャント
+<span class="nc bnc" id="L115" title="All 4 branches missed.">        if (level &gt;= 50 &amp;&amp; random.nextDouble() &lt; 0.1) { // 10%の確率</span>
+<span class="nc" id="L116">            upgradeEnchantments(event);</span>
+<span class="nc" id="L117">            player.sendMessage(ChatColor.GOLD + &quot;✦ 超越エンチャント！全ての魔法効果が強化されました！&quot;);</span>
+        }
+        
+        // レベル75以上：ラピスラズリ消費削減
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (level &gt;= 75) {</span>
+            // ラピスラズリの一部を返却（実装は複雑なため簡略化）
+<span class="nc" id="L123">            player.sendMessage(ChatColor.AQUA + &quot;✦ 達人の技: ラピスラズリ消費が軽減されました&quot;);</span>
+        }
+<span class="nc" id="L125">    }</span>
+    
+    /**
+     * ボーナスエンチャントを追加
+     */
+    private void addBonusEnchantment(EnchantItemEvent event) {
+<span class="nc" id="L131">        ItemStack item = event.getItem();</span>
+<span class="nc" id="L132">        Map&lt;Enchantment, Integer&gt; currentEnchants = event.getEnchantsToAdd();</span>
+        
+        // アイテムタイプに応じた追加エンチャントを選択
+<span class="nc" id="L135">        Enchantment bonusEnchant = selectBonusEnchantment(item.getType(), currentEnchants);</span>
+        
+<span class="nc bnc" id="L137" title="All 4 branches missed.">        if (bonusEnchant != null &amp;&amp; bonusEnchant.canEnchantItem(item)) {</span>
+<span class="nc" id="L138">            int level = random.nextInt(bonusEnchant.getMaxLevel()) + 1;</span>
+<span class="nc" id="L139">            currentEnchants.put(bonusEnchant, level);</span>
+        }
+<span class="nc" id="L141">    }</span>
+    
+    /**
+     * ボーナスエンチャントを選択
+     */
+    private Enchantment selectBonusEnchantment(Material itemType, Map&lt;Enchantment, Integer&gt; currentEnchants) {
+        // 武器の場合
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        if (isWeapon(itemType)) {</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            if (!currentEnchants.containsKey(Enchantment.DAMAGE_ALL)) {</span>
+<span class="nc" id="L150">                return Enchantment.DAMAGE_ALL; // ダメージ増加</span>
+            }
+<span class="nc bnc" id="L152" title="All 2 branches missed.">            if (!currentEnchants.containsKey(Enchantment.KNOCKBACK)) {</span>
+<span class="nc" id="L153">                return Enchantment.KNOCKBACK; // ノックバック</span>
+            }
+        }
+        
+        // 防具の場合
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        if (isArmor(itemType)) {</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">            if (!currentEnchants.containsKey(Enchantment.PROTECTION_ENVIRONMENTAL)) {</span>
+<span class="nc" id="L160">                return Enchantment.PROTECTION_ENVIRONMENTAL; // ダメージ軽減</span>
+            }
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            if (!currentEnchants.containsKey(Enchantment.DURABILITY)) {</span>
+<span class="nc" id="L163">                return Enchantment.DURABILITY; // 耐久力</span>
+            }
+        }
+        
+        // ツールの場合
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        if (isTool(itemType)) {</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">            if (!currentEnchants.containsKey(Enchantment.DIG_SPEED)) {</span>
+<span class="nc" id="L170">                return Enchantment.DIG_SPEED; // 効率強化</span>
+            }
+<span class="nc bnc" id="L172" title="All 2 branches missed.">            if (!currentEnchants.containsKey(Enchantment.DURABILITY)) {</span>
+<span class="nc" id="L173">                return Enchantment.DURABILITY; // 耐久力</span>
+            }
+        }
+        
+<span class="nc" id="L177">        return null;</span>
+    }
+    
+    /**
+     * エンチャントレベルを強化
+     */
+    private void upgradeEnchantments(EnchantItemEvent event) {
+<span class="nc" id="L184">        Map&lt;Enchantment, Integer&gt; enchantments = event.getEnchantsToAdd();</span>
+        
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        for (Map.Entry&lt;Enchantment, Integer&gt; entry : enchantments.entrySet()) {</span>
+<span class="nc" id="L187">            Enchantment enchant = entry.getKey();</span>
+<span class="nc" id="L188">            int currentLevel = entry.getValue();</span>
+            
+            // レベルを1上昇（最大レベルを超えない）
+<span class="nc" id="L191">            int newLevel = Math.min(currentLevel + 1, enchant.getMaxLevel());</span>
+<span class="nc" id="L192">            entry.setValue(newLevel);</span>
+<span class="nc" id="L193">        }</span>
+<span class="nc" id="L194">    }</span>
+    
+    /**
+     * エンチャント結果を表示
+     */
+    private void displayEnchantmentResult(Player player, ItemStack item, int enchantCount,
+                                         double experience, double income) {
+<span class="nc" id="L201">        String itemName = item.getType().name().toLowerCase().replace(&quot;_&quot;, &quot; &quot;);</span>
+        
+<span class="nc" id="L203">        player.sendMessage(ChatColor.LIGHT_PURPLE + &quot;═══════════════════════════&quot;);</span>
+<span class="nc" id="L204">        player.sendMessage(ChatColor.GOLD + &quot;✦ エンチャント成功！&quot;);</span>
+<span class="nc" id="L205">        player.sendMessage(ChatColor.YELLOW + &quot;アイテム: &quot; + ChatColor.WHITE + itemName);</span>
+<span class="nc" id="L206">        player.sendMessage(ChatColor.YELLOW + &quot;付与効果数: &quot; + ChatColor.WHITE + enchantCount);</span>
+<span class="nc" id="L207">        player.sendMessage(ChatColor.GREEN + &quot;獲得経験値: +&quot; + String.format(&quot;%.1f&quot;, experience));</span>
+<span class="nc" id="L208">        player.sendMessage(ChatColor.GOLD + &quot;獲得金塊: +&quot; + String.format(&quot;%.1f&quot;, income));</span>
+<span class="nc" id="L209">        player.sendMessage(ChatColor.LIGHT_PURPLE + &quot;═══════════════════════════&quot;);</span>
+<span class="nc" id="L210">    }</span>
+    
+    /**
+     * アイテムが武器かチェック
+     */
+    private boolean isWeapon(Material material) {
+<span class="nc" id="L216">        String name = material.name();</span>
+<span class="nc bnc" id="L217" title="All 4 branches missed.">        return name.contains(&quot;SWORD&quot;) || name.contains(&quot;BOW&quot;) || </span>
+<span class="nc bnc" id="L218" title="All 4 branches missed.">               name.contains(&quot;AXE&quot;) || name.contains(&quot;TRIDENT&quot;);</span>
+    }
+    
+    /**
+     * アイテムが防具かチェック
+     */
+    private boolean isArmor(Material material) {
+<span class="nc" id="L225">        String name = material.name();</span>
+<span class="nc bnc" id="L226" title="All 4 branches missed.">        return name.contains(&quot;HELMET&quot;) || name.contains(&quot;CHESTPLATE&quot;) || </span>
+<span class="nc bnc" id="L227" title="All 4 branches missed.">               name.contains(&quot;LEGGINGS&quot;) || name.contains(&quot;BOOTS&quot;) || </span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">               name.contains(&quot;SHIELD&quot;);</span>
+    }
+    
+    /**
+     * アイテムがツールかチェック
+     */
+    private boolean isTool(Material material) {
+<span class="nc" id="L235">        String name = material.name();</span>
+<span class="nc bnc" id="L236" title="All 4 branches missed.">        return name.contains(&quot;PICKAXE&quot;) || name.contains(&quot;SHOVEL&quot;) || </span>
+<span class="nc bnc" id="L237" title="All 4 branches missed.">               name.contains(&quot;HOE&quot;) || name.contains(&quot;FISHING_ROD&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

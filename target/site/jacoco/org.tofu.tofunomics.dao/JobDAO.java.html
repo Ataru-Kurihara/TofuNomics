@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobDAO.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.dao</a> &gt; <span class="el_source">JobDAO.java</span></div><h1>JobDAO.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.dao;
+
+import org.tofu.tofunomics.models.Job;
+import org.tofu.tofunomics.TofuNomics;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.logging.Logger;
+
+public class JobDAO {
+    private final Connection connection;
+
+<span class="fc" id="L21">    public JobDAO(Connection connection) {</span>
+<span class="fc" id="L22">        this.connection = connection;</span>
+<span class="fc" id="L23">    }</span>
+
+    public void createJob(Job job) throws SQLException {
+<span class="fc" id="L26">        String query = &quot;INSERT INTO jobs (name, display_name, max_level, base_income, created_at) VALUES (?, ?, ?, ?, ?)&quot;;</span>
+<span class="fc" id="L27">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L28">            statement.setString(1, job.getName());</span>
+<span class="fc" id="L29">            statement.setString(2, job.getDisplayName());</span>
+<span class="fc" id="L30">            statement.setInt(3, job.getMaxLevel());</span>
+<span class="fc" id="L31">            statement.setDouble(4, job.getBaseIncome());</span>
+<span class="fc" id="L32">            statement.setTimestamp(5, job.getCreatedAt());</span>
+<span class="fc" id="L33">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L35">    }</span>
+
+    public Job getJobById(int id) throws SQLException {
+<span class="fc" id="L38">        String query = &quot;SELECT * FROM jobs WHERE id = ?&quot;;</span>
+<span class="fc" id="L39">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L40">            statement.setInt(1, id);</span>
+<span class="fc" id="L41">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L43" title="All 2 branches covered.">            if (resultSet.next()) {</span>
+<span class="fc" id="L44">                return mapResultSetToJob(resultSet);</span>
+            }
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">        }</span>
+<span class="fc" id="L47">        return null;</span>
+    }
+
+    public Job getJobByName(String name) throws SQLException {
+<span class="fc" id="L51">        String query = &quot;SELECT * FROM jobs WHERE name = ?&quot;;</span>
+<span class="fc" id="L52">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L53">            statement.setString(1, name);</span>
+<span class="fc" id="L54">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L56" title="All 2 branches covered.">            if (resultSet.next()) {</span>
+<span class="fc" id="L57">                return mapResultSetToJob(resultSet);</span>
+            }
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        }</span>
+<span class="fc" id="L60">        return null;</span>
+    }
+
+    public List&lt;Job&gt; getAllJobs() throws SQLException {
+<span class="fc" id="L64">        String query = &quot;SELECT * FROM jobs ORDER BY id&quot;;</span>
+<span class="fc" id="L65">        List&lt;Job&gt; jobs = new ArrayList&lt;&gt;();</span>
+        
+<span class="fc" id="L67">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L68">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L70" title="All 2 branches covered.">            while (resultSet.next()) {</span>
+<span class="fc" id="L71">                jobs.add(mapResultSetToJob(resultSet));</span>
+            }
+        }
+<span class="fc" id="L74">        return jobs;</span>
+    }
+
+    public void updateJob(Job job) throws SQLException {
+<span class="fc" id="L78">        String query = &quot;UPDATE jobs SET name = ?, display_name = ?, max_level = ?, base_income = ? WHERE id = ?&quot;;</span>
+<span class="fc" id="L79">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L80">            statement.setString(1, job.getName());</span>
+<span class="fc" id="L81">            statement.setString(2, job.getDisplayName());</span>
+<span class="fc" id="L82">            statement.setInt(3, job.getMaxLevel());</span>
+<span class="fc" id="L83">            statement.setDouble(4, job.getBaseIncome());</span>
+<span class="fc" id="L84">            statement.setInt(5, job.getId());</span>
+<span class="fc" id="L85">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L87">    }</span>
+
+    public void deleteJob(int id) throws SQLException {
+<span class="fc" id="L90">        String query = &quot;DELETE FROM jobs WHERE id = ?&quot;;</span>
+<span class="fc" id="L91">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L92">            statement.setInt(1, id);</span>
+<span class="fc" id="L93">            statement.executeUpdate();</span>
+        }
+<span class="fc" id="L95">    }</span>
+
+    public boolean jobExists(String name) throws SQLException {
+<span class="fc" id="L98">        String query = &quot;SELECT COUNT(*) FROM jobs WHERE name = ?&quot;;</span>
+<span class="fc" id="L99">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L100">            statement.setString(1, name);</span>
+<span class="fc" id="L101">            ResultSet resultSet = statement.executeQuery();</span>
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">            if (resultSet.next()) {</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">                return resultSet.getInt(1) &gt; 0;</span>
+            }
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        }</span>
+<span class="nc" id="L106">        return false;</span>
+    }
+
+    public List&lt;String&gt; getJobNames() throws SQLException {
+<span class="fc" id="L110">        String query = &quot;SELECT name FROM jobs ORDER BY id&quot;;</span>
+<span class="fc" id="L111">        List&lt;String&gt; jobNames = new ArrayList&lt;&gt;();</span>
+        
+<span class="fc" id="L113">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L114">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L116" title="All 2 branches covered.">            while (resultSet.next()) {</span>
+<span class="fc" id="L117">                jobNames.add(resultSet.getString(&quot;name&quot;));</span>
+            }
+        }
+<span class="fc" id="L120">        return jobNames;</span>
+    }
+
+    public List&lt;String&gt; getJobDisplayNames() throws SQLException {
+<span class="fc" id="L124">        String query = &quot;SELECT display_name FROM jobs ORDER BY id&quot;;</span>
+<span class="fc" id="L125">        List&lt;String&gt; displayNames = new ArrayList&lt;&gt;();</span>
+        
+<span class="fc" id="L127">        try (PreparedStatement statement = connection.prepareStatement(query)) {</span>
+<span class="fc" id="L128">            ResultSet resultSet = statement.executeQuery();</span>
+            
+<span class="fc bfc" id="L130" title="All 2 branches covered.">            while (resultSet.next()) {</span>
+<span class="fc" id="L131">                displayNames.add(resultSet.getString(&quot;display_name&quot;));</span>
+            }
+        }
+<span class="fc" id="L134">        return displayNames;</span>
+    }
+
+    private Job mapResultSetToJob(ResultSet resultSet) throws SQLException {
+<span class="fc" id="L138">        Job job = new Job();</span>
+<span class="fc" id="L139">        job.setId(resultSet.getInt(&quot;id&quot;));</span>
+<span class="fc" id="L140">        job.setName(resultSet.getString(&quot;name&quot;));</span>
+<span class="fc" id="L141">        job.setDisplayName(resultSet.getString(&quot;display_name&quot;));</span>
+<span class="fc" id="L142">        job.setMaxLevel(resultSet.getInt(&quot;max_level&quot;));</span>
+<span class="fc" id="L143">        job.setBaseIncome(resultSet.getDouble(&quot;base_income&quot;));</span>
+        
+        // タイムスタンプの安全な取得
+        try {
+            // まず通常のgetTimestamp()を試す
+<span class="fc" id="L148">            job.setCreatedAt(resultSet.getTimestamp(&quot;created_at&quot;));</span>
+<span class="nc" id="L149">        } catch (SQLException e) {</span>
+            // エラーが発生した場合、文字列として取得してパース
+<span class="nc" id="L151">            String dateStr = resultSet.getString(&quot;created_at&quot;);</span>
+<span class="nc bnc" id="L152" title="All 4 branches missed.">            if (dateStr != null &amp;&amp; !dateStr.isEmpty()) {</span>
+                try {
+                    // 複数のフォーマットに対応
+<span class="nc" id="L155">                    Timestamp timestamp = parseTimestamp(dateStr);</span>
+<span class="nc" id="L156">                    job.setCreatedAt(timestamp);</span>
+<span class="nc" id="L157">                } catch (Exception parseEx) {</span>
+                    // パースに失敗した場合は現在時刻を設定
+<span class="nc" id="L159">                    TofuNomics plugin = TofuNomics.getInstance();</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">                    if (plugin != null) {</span>
+<span class="nc" id="L161">                        plugin.getLogger().warning(&quot;Failed to parse timestamp: &quot; + dateStr + &quot;, using current time&quot;);</span>
+                    }
+<span class="nc" id="L163">                    job.setCreatedAt(new Timestamp(System.currentTimeMillis()));</span>
+<span class="nc" id="L164">                }</span>
+            } else {
+                // nullの場合は現在時刻を設定
+<span class="nc" id="L167">                job.setCreatedAt(new Timestamp(System.currentTimeMillis()));</span>
+            }
+<span class="fc" id="L169">        }</span>
+        
+<span class="fc" id="L171">        return job;</span>
+    }
+    
+    private Timestamp parseTimestamp(String dateStr) throws ParseException {
+        // 複数の日付フォーマットを試す
+<span class="nc" id="L176">        String[] patterns = {</span>
+            &quot;yyyy-MM-dd HH:mm:ss.SSS&quot;,
+            &quot;yyyy-MM-dd HH:mm:ss&quot;,
+            &quot;yyyy-MM-dd'T'HH:mm:ss&quot;,
+            &quot;yyyy-MM-dd&quot;
+        };
+        
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        for (String pattern : patterns) {</span>
+            try {
+<span class="nc" id="L185">                SimpleDateFormat sdf = new SimpleDateFormat(pattern);</span>
+<span class="nc" id="L186">                Date date = sdf.parse(dateStr);</span>
+<span class="nc" id="L187">                return new Timestamp(date.getTime());</span>
+<span class="nc" id="L188">            } catch (ParseException e) {</span>
+                // 次のパターンを試す
+            }
+        }
+        
+<span class="nc" id="L193">        throw new ParseException(&quot;Unable to parse date: &quot; + dateStr, 0);</span>
+    }
+    
+    // SQLExceptionをハンドリングするメソッド群
+    public Job getJobByNameSafe(String name) {
+        try {
+<span class="nc" id="L199">            return getJobByName(name);</span>
+<span class="fc" id="L200">        } catch (SQLException e) {</span>
+<span class="fc" id="L201">            return null;</span>
+        }
+    }
+    
+    public Job getJobByIdSafe(int id) {
+        try {
+<span class="nc" id="L207">            return getJobById(id);</span>
+<span class="nc" id="L208">        } catch (SQLException e) {</span>
+<span class="nc" id="L209">            return null;</span>
+        }
+    }
+    
+    public List&lt;Job&gt; getAllJobsSafe() {
+        try {
+            // TofuNomicsインスタンスの安全な取得
+<span class="fc" id="L216">            TofuNomics plugin = TofuNomics.getInstance();</span>
+<span class="pc bpc" id="L217" title="1 of 2 branches missed.">            if (plugin != null) {</span>
+<span class="nc" id="L218">                Logger logger = plugin.getLogger();</span>
+<span class="nc" id="L219">                logger.info(&quot;=== JobDAO.getAllJobsSafe() Debug ===&quot;);</span>
+<span class="nc" id="L220">                logger.info(&quot;Executing getAllJobs() query...&quot;);</span>
+                
+<span class="nc" id="L222">                List&lt;Job&gt; jobs = getAllJobs();</span>
+<span class="nc" id="L223">                logger.info(&quot;Query executed successfully. Jobs found: &quot; + jobs.size());</span>
+                
+<span class="nc bnc" id="L225" title="All 2 branches missed.">                for (Job job : jobs) {</span>
+<span class="nc" id="L226">                    logger.info(&quot;Job: &quot; + job.getName() + &quot; (&quot; + job.getDisplayName() + &quot;) ID: &quot; + job.getId());</span>
+<span class="nc" id="L227">                }</span>
+                
+<span class="nc" id="L229">                return jobs;</span>
+            } else {
+                // テスト環境などでプラグインインスタンスが存在しない場合
+                // 接続が閉じられている可能性があるため、空のリストを返す
+<span class="fc" id="L233">                return new ArrayList&lt;&gt;();</span>
+            }
+<span class="nc" id="L235">        } catch (SQLException e) {</span>
+            // エラーログの安全な出力
+<span class="nc" id="L237">            TofuNomics plugin = TofuNomics.getInstance();</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">            if (plugin != null) {</span>
+<span class="nc" id="L239">                Logger logger = plugin.getLogger();</span>
+<span class="nc" id="L240">                logger.severe(&quot;SQLException in getAllJobsSafe(): &quot; + e.getMessage());</span>
+<span class="nc" id="L241">                e.printStackTrace();</span>
+<span class="nc" id="L242">            } else {</span>
+<span class="nc" id="L243">                System.err.println(&quot;SQLException in getAllJobsSafe(): &quot; + e.getMessage());</span>
+<span class="nc" id="L244">                e.printStackTrace();</span>
+            }
+<span class="nc" id="L246">            return new ArrayList&lt;&gt;();</span>
+        }
+    }
+    
+    public boolean jobExistsSafe(String name) {
+        try {
+<span class="nc" id="L252">            return jobExists(name);</span>
+<span class="fc" id="L253">        } catch (SQLException e) {</span>
+<span class="fc" id="L254">            return false;</span>
+        }
+    }
+    
+    public List&lt;String&gt; getJobNamesSafe() {
+        try {
+<span class="nc" id="L260">            return getJobNames();</span>
+<span class="fc" id="L261">        } catch (SQLException e) {</span>
+<span class="fc" id="L262">            return new ArrayList&lt;&gt;();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

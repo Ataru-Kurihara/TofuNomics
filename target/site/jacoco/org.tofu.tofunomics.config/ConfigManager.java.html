@@ -1,0 +1,3171 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.config</a> &gt; <span class="el_source">ConfigManager.java</span></div><h1>ConfigManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.config;
+
+import org.bukkit.Bukkit;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Level;
+
+public class ConfigManager {
+    
+    private final JavaPlugin plugin;
+    private FileConfiguration config;
+<span class="nc" id="L22">    private final Map&lt;String, Object&gt; configCache = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="nc" id="L23">    private final List&lt;ConfigChangeListener&gt; listeners = new CopyOnWriteArrayList&lt;&gt;();</span>
+<span class="nc" id="L24">    private final Set&lt;String&gt; validationErrors = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L25">    private long lastReloadTime = 0;</span>
+    
+    public interface ConfigChangeListener {
+        void onConfigChanged(String section);
+    }
+    
+<span class="nc" id="L31">    public ConfigManager(JavaPlugin plugin) {</span>
+<span class="nc" id="L32">        this.plugin = plugin;</span>
+<span class="nc" id="L33">        reloadConfig();</span>
+<span class="nc" id="L34">    }</span>
+    
+    public void reloadConfig() {
+        try {
+<span class="nc" id="L38">            plugin.reloadConfig();</span>
+            
+            // 設定自動更新を実行
+<span class="nc" id="L41">            updateConfigWithDefaults();</span>
+            
+<span class="nc" id="L43">            FileConfiguration newConfig = plugin.getConfig();</span>
+            
+<span class="nc" id="L45">            Map&lt;String, Object&gt; oldValues = new HashMap&lt;&gt;(configCache);</span>
+<span class="nc" id="L46">            configCache.clear();</span>
+<span class="nc" id="L47">            validationErrors.clear();</span>
+            
+<span class="nc" id="L49">            config = newConfig;</span>
+<span class="nc" id="L50">            lastReloadTime = System.currentTimeMillis();</span>
+            
+<span class="nc" id="L52">            validateConfig();</span>
+            
+<span class="nc" id="L54">            Set&lt;String&gt; changedSections = detectChanges(oldValues);</span>
+            
+<span class="nc bnc" id="L56" title="All 2 branches missed.">            for (String section : changedSections) {</span>
+<span class="nc" id="L57">                notifyListeners(section);</span>
+<span class="nc" id="L58">            }</span>
+            
+<span class="nc" id="L60">            plugin.getLogger().info(&quot;設定ファイルを正常にリロードしました。&quot;);</span>
+            
+<span class="nc bnc" id="L62" title="All 2 branches missed.">            if (!validationErrors.isEmpty()) {</span>
+<span class="nc" id="L63">                plugin.getLogger().warning(&quot;設定エラーが見つかりました:&quot;);</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">                for (String error : validationErrors) {</span>
+<span class="nc" id="L65">                    plugin.getLogger().warning(&quot;  - &quot; + error);</span>
+<span class="nc" id="L66">                }</span>
+            }
+            
+<span class="nc" id="L69">        } catch (Exception e) {</span>
+<span class="nc" id="L70">            plugin.getLogger().severe(&quot;設定ファイルのリロード中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L71">            e.printStackTrace();</span>
+<span class="nc" id="L72">        }</span>
+<span class="nc" id="L73">    }</span>
+    
+    public void addConfigChangeListener(ConfigChangeListener listener) {
+<span class="nc" id="L76">        listeners.add(listener);</span>
+<span class="nc" id="L77">    }</span>
+    
+    public void removeConfigChangeListener(ConfigChangeListener listener) {
+<span class="nc" id="L80">        listeners.remove(listener);</span>
+<span class="nc" id="L81">    }</span>
+    
+    private void notifyListeners(String section) {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        for (ConfigChangeListener listener : listeners) {</span>
+            try {
+<span class="nc" id="L86">                listener.onConfigChanged(section);</span>
+<span class="nc" id="L87">            } catch (Exception e) {</span>
+<span class="nc" id="L88">                plugin.getLogger().warning(&quot;設定変更リスナーでエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L89">            }</span>
+<span class="nc" id="L90">        }</span>
+<span class="nc" id="L91">    }</span>
+    
+    private Set&lt;String&gt; detectChanges(Map&lt;String, Object&gt; oldValues) {
+<span class="nc" id="L94">        Set&lt;String&gt; changedSections = new HashSet&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        for (String key : configCache.keySet()) {</span>
+<span class="nc" id="L97">            Object oldValue = oldValues.get(key);</span>
+<span class="nc" id="L98">            Object newValue = configCache.get(key);</span>
+            
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            if (!Objects.equals(oldValue, newValue)) {</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">                String section = key.substring(0, key.indexOf('.') &gt; 0 ? key.indexOf('.') : key.length());</span>
+<span class="nc" id="L102">                changedSections.add(section);</span>
+            }
+<span class="nc" id="L104">        }</span>
+        
+<span class="nc" id="L106">        return changedSections;</span>
+    }
+    
+    private void validateConfig() {
+<span class="nc" id="L110">        validateDatabaseSettings();</span>
+<span class="nc" id="L111">        validateEconomySettings();</span>
+<span class="nc" id="L112">        validateJobSettings();</span>
+<span class="nc" id="L113">        validatePerformanceSettings();</span>
+<span class="nc" id="L114">        validateSkillSettings();</span>
+<span class="nc" id="L115">        validateEventSettings();</span>
+<span class="nc" id="L116">    }</span>
+    
+    private void validateDatabaseSettings() {
+<span class="nc" id="L119">        int maxConnections = getDatabaseMaxConnections();</span>
+<span class="nc bnc" id="L120" title="All 4 branches missed.">        if (maxConnections &lt;= 0 || maxConnections &gt; 100) {</span>
+<span class="nc" id="L121">            validationErrors.add(&quot;database.connection_pool.max_connections は1-100の範囲で設定してください (現在: &quot; + maxConnections + &quot;)&quot;);</span>
+        }
+        
+<span class="nc" id="L124">        int timeout = getDatabaseTimeout();</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (timeout &lt; 1000) {</span>
+<span class="nc" id="L126">            validationErrors.add(&quot;database.connection_pool.timeout は1000ms以上で設定してください (現在: &quot; + timeout + &quot;)&quot;);</span>
+        }
+<span class="nc" id="L128">    }</span>
+    
+    private void validateEconomySettings() {
+<span class="nc" id="L131">        double startingBalance = getStartingBalance();</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (startingBalance &lt; 0) {</span>
+<span class="nc" id="L133">            validationErrors.add(&quot;economy.starting_balance は0以上で設定してください (現在: &quot; + startingBalance + &quot;)&quot;);</span>
+        }
+        
+<span class="nc" id="L136">        double minPay = getMinimumPayAmount();</span>
+<span class="nc" id="L137">        double maxPay = getMaximumPayAmount();</span>
+<span class="nc bnc" id="L138" title="All 4 branches missed.">        if (maxPay &gt; 0 &amp;&amp; minPay &gt; maxPay) {</span>
+<span class="nc" id="L139">            validationErrors.add(&quot;economy.pay.minimum_amount はmaximum_amount以下で設定してください&quot;);</span>
+        }
+        
+<span class="nc" id="L142">        double feePercentage = getPayFeePercentage();</span>
+<span class="nc bnc" id="L143" title="All 4 branches missed.">        if (feePercentage &lt; 0 || feePercentage &gt; 1) {</span>
+<span class="nc" id="L144">            validationErrors.add(&quot;economy.pay.fee_percentage は0.0-1.0の範囲で設定してください (現在: &quot; + feePercentage + &quot;)&quot;);</span>
+        }
+<span class="nc" id="L146">    }</span>
+    
+    private void validateJobSettings() {
+<span class="nc" id="L149">        int maxJobsPerPlayer = getMaxJobsPerPlayer();</span>
+<span class="nc bnc" id="L150" title="All 4 branches missed.">        if (maxJobsPerPlayer &lt;= 0 || maxJobsPerPlayer &gt; 8) {</span>
+<span class="nc" id="L151">            validationErrors.add(&quot;jobs.general.max_jobs_per_player は1-8の範囲で設定してください (現在: &quot; + maxJobsPerPlayer + &quot;)&quot;);</span>
+        }
+        
+<span class="nc" id="L154">        int cooldown = getJobChangeCooldown();</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        if (cooldown &lt; 0) {</span>
+<span class="nc" id="L156">            validationErrors.add(&quot;jobs.general.job_change_cooldown は0以上で設定してください (現在: &quot; + cooldown + &quot;)&quot;);</span>
+        }
+        
+<span class="nc" id="L159">        String[] jobNames = {&quot;miner&quot;, &quot;woodcutter&quot;, &quot;farmer&quot;, &quot;fisherman&quot;, &quot;blacksmith&quot;, &quot;alchemist&quot;, &quot;enchanter&quot;, &quot;architect&quot;};</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        for (String jobName : jobNames) {</span>
+<span class="nc" id="L161">            int maxLevel = getJobMaxLevel(jobName);</span>
+<span class="nc bnc" id="L162" title="All 4 branches missed.">            if (maxLevel &lt;= 0 || maxLevel &gt; 100) {</span>
+<span class="nc" id="L163">                validationErrors.add(&quot;jobs.job_settings.&quot; + jobName + &quot;.max_level は1-100の範囲で設定してください (現在: &quot; + maxLevel + &quot;)&quot;);</span>
+            }
+            
+<span class="nc" id="L166">            double incomeMultiplier = getJobIncomeMultiplier(jobName);</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">            if (incomeMultiplier &lt;= 0) {</span>
+<span class="nc" id="L168">                validationErrors.add(&quot;jobs.job_settings.&quot; + jobName + &quot;.base_income_multiplier は0より大きく設定してください (現在: &quot; + incomeMultiplier + &quot;)&quot;);</span>
+            }
+        }
+        
+        // 職業ブロック制限システムの検証
+<span class="nc" id="L173">        validateJobBlockRestrictionSettings();</span>
+<span class="nc" id="L174">    }</span>
+    
+    private void validatePerformanceSettings() {
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if (isConnectionPoolEnabled()) {</span>
+<span class="nc" id="L178">            int maxPoolSize = getMaximumPoolSize();</span>
+<span class="nc" id="L179">            int minIdle = getMinimumIdle();</span>
+            
+<span class="nc bnc" id="L181" title="All 4 branches missed.">            if (maxPoolSize &lt;= 0 || maxPoolSize &gt; 50) {</span>
+<span class="nc" id="L182">                validationErrors.add(&quot;performance.database.connection_pool.maximum_pool_size は1-50の範囲で設定してください (現在: &quot; + maxPoolSize + &quot;)&quot;);</span>
+            }
+            
+<span class="nc bnc" id="L185" title="All 4 branches missed.">            if (minIdle &lt; 0 || minIdle &gt; maxPoolSize) {</span>
+<span class="nc" id="L186">                validationErrors.add(&quot;performance.database.connection_pool.minimum_idle は0以上かつmaximum_pool_size以下で設定してください (現在: &quot; + minIdle + &quot;)&quot;);</span>
+            }
+        }
+        
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (isPlayerCacheEnabled()) {</span>
+<span class="nc" id="L191">            int cacheMaxSize = getPlayerCacheMaxSize();</span>
+<span class="nc bnc" id="L192" title="All 4 branches missed.">            if (cacheMaxSize &lt;= 0 || cacheMaxSize &gt; 10000) {</span>
+<span class="nc" id="L193">                validationErrors.add(&quot;performance.caching.player_cache.max_size は1-10000の範囲で設定してください (現在: &quot; + cacheMaxSize + &quot;)&quot;);</span>
+            }
+        }
+<span class="nc" id="L196">    }</span>
+    
+    private void validateSkillSettings() {
+<span class="nc" id="L199">        String[] jobNames = {&quot;miner&quot;, &quot;woodcutter&quot;, &quot;farmer&quot;, &quot;fisherman&quot;, &quot;blacksmith&quot;, &quot;alchemist&quot;, &quot;enchanter&quot;, &quot;architect&quot;};</span>
+<span class="nc" id="L200">        Map&lt;String, String[]&gt; jobSkills = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L201">        jobSkills.put(&quot;miner&quot;, new String[]{&quot;fortune_strike&quot;, &quot;vein_discovery&quot;, &quot;mining_mastery&quot;});</span>
+<span class="nc" id="L202">        jobSkills.put(&quot;woodcutter&quot;, new String[]{&quot;tree_feller&quot;, &quot;sapling_blessing&quot;, &quot;forest_guardian&quot;});</span>
+<span class="nc" id="L203">        jobSkills.put(&quot;farmer&quot;, new String[]{&quot;harvest_blessing&quot;, &quot;twin_miracle&quot;, &quot;growth_acceleration&quot;, &quot;selective_breeding&quot;});</span>
+<span class="nc" id="L204">        jobSkills.put(&quot;fisherman&quot;, new String[]{&quot;big_catch&quot;, &quot;treasure_hunter&quot;, &quot;sea_blessing&quot;});</span>
+<span class="nc" id="L205">        jobSkills.put(&quot;blacksmith&quot;, new String[]{&quot;perfect_repair&quot;, &quot;master_craftsmanship&quot;, &quot;artifact_creation&quot;});</span>
+<span class="nc" id="L206">        jobSkills.put(&quot;alchemist&quot;, new String[]{&quot;ingredient_conservation&quot;, &quot;double_brewing&quot;, &quot;alchemy_mastery&quot;});</span>
+<span class="nc" id="L207">        jobSkills.put(&quot;enchanter&quot;, new String[]{&quot;experience_conservation&quot;, &quot;bonus_enchantment&quot;, &quot;mystical_arts&quot;});</span>
+<span class="nc" id="L208">        jobSkills.put(&quot;architect&quot;, new String[]{&quot;material_efficiency&quot;, &quot;architectural_aesthetics&quot;, &quot;master_architect&quot;});</span>
+        
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        for (String jobName : jobNames) {</span>
+<span class="nc" id="L211">            String[] skills = jobSkills.get(jobName);</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">            for (String skillName : skills) {</span>
+<span class="nc" id="L213">                double baseProbability = getJobSkillBaseProbability(jobName, skillName);</span>
+<span class="nc" id="L214">                double maxProbability = getJobSkillMaxProbability(jobName, skillName);</span>
+<span class="nc" id="L215">                double levelBonus = getJobSkillLevelBonus(jobName, skillName);</span>
+                
+<span class="nc bnc" id="L217" title="All 2 branches missed.">                if (!isValidProbability(baseProbability)) {</span>
+<span class="nc" id="L218">                    validationErrors.add(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.base_probability は0.0-1.0の範囲で設定してください (現在: &quot; + baseProbability + &quot;)&quot;);</span>
+                }
+                
+<span class="nc bnc" id="L221" title="All 2 branches missed.">                if (!isValidProbability(maxProbability)) {</span>
+<span class="nc" id="L222">                    validationErrors.add(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.max_probability は0.0-1.0の範囲で設定してください (現在: &quot; + maxProbability + &quot;)&quot;);</span>
+                }
+                
+<span class="nc bnc" id="L225" title="All 2 branches missed.">                if (baseProbability &gt; maxProbability) {</span>
+<span class="nc" id="L226">                    validationErrors.add(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot; base_probabilityはmax_probability以下で設定してください&quot;);</span>
+                }
+                
+<span class="nc bnc" id="L229" title="All 2 branches missed.">                if (levelBonus &lt; 0) {</span>
+<span class="nc" id="L230">                    validationErrors.add(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.level_bonus は0以上で設定してください (現在: &quot; + levelBonus + &quot;)&quot;);</span>
+                }
+            }
+        }
+<span class="nc" id="L234">    }</span>
+    
+    private void validateEventSettings() {
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        if (isEventCachingEnabled()) {</span>
+<span class="nc" id="L238">            long cacheExpiry = getEventCacheExpiry();</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">            if (cacheExpiry &lt;= 0) {</span>
+<span class="nc" id="L240">                validationErrors.add(&quot;events.caching.expiry_time は0より大きく設定してください (現在: &quot; + cacheExpiry + &quot;)&quot;);</span>
+            }
+        }
+        
+<span class="nc" id="L244">        double globalExpMultiplier = getGlobalExperienceMultiplier();</span>
+<span class="nc" id="L245">        double globalIncomeMultiplier = getGlobalIncomeMultiplier();</span>
+<span class="nc" id="L246">        double globalSkillMultiplier = getGlobalSkillProbabilityMultiplier();</span>
+        
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        if (globalExpMultiplier &lt;= 0) {</span>
+<span class="nc" id="L249">            validationErrors.add(&quot;event_rewards.global_multipliers.experience_multiplier は0より大きく設定してください (現在: &quot; + globalExpMultiplier + &quot;)&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        if (globalIncomeMultiplier &lt;= 0) {</span>
+<span class="nc" id="L253">            validationErrors.add(&quot;event_rewards.global_multipliers.income_multiplier は0より大きく設定してください (現在: &quot; + globalIncomeMultiplier + &quot;)&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L256" title="All 2 branches missed.">        if (globalSkillMultiplier &lt;= 0) {</span>
+<span class="nc" id="L257">            validationErrors.add(&quot;event_rewards.global_multipliers.skill_probability_multiplier は0より大きく設定してください (現在: &quot; + globalSkillMultiplier + &quot;)&quot;);</span>
+        }
+<span class="nc" id="L259">    }</span>
+    
+    private Object getCachedValue(String path, Object defaultValue) {
+<span class="nc" id="L262">        return configCache.computeIfAbsent(path, k -&gt; config.get(path, defaultValue));</span>
+    }
+    
+    // データベース設定
+    public String getDatabaseFilename() {
+<span class="nc" id="L267">        return (String) getCachedValue(&quot;database.filename&quot;, &quot;tofunomics.db&quot;);</span>
+    }
+    
+    public int getDatabaseMaxConnections() {
+<span class="nc" id="L271">        return (Integer) getCachedValue(&quot;database.connection_pool.max_connections&quot;, 10);</span>
+    }
+    
+    public int getDatabaseTimeout() {
+<span class="nc" id="L275">        return (Integer) getCachedValue(&quot;database.connection_pool.timeout&quot;, 30000);</span>
+    }
+    
+    // 通貨設定
+    public String getCurrencyName() {
+<span class="nc" id="L280">        return (String) getCachedValue(&quot;economy.currency.name&quot;, &quot;金塊&quot;);</span>
+    }
+    
+    public String getCurrencySymbol() {
+<span class="nc" id="L284">        return (String) getCachedValue(&quot;economy.currency.symbol&quot;, &quot;G&quot;);</span>
+    }
+    
+    public int getCurrencyDecimalPlaces() {
+<span class="nc" id="L288">        return (Integer) getCachedValue(&quot;economy.currency.decimal_places&quot;, 2);</span>
+    }
+
+    
+    public double getCoinValue() {
+<span class="nc" id="L293">        return (Double) getCachedValue(&quot;economy.currency.coin_value&quot;, 10.0);</span>
+    }
+    
+    public boolean isDynamicValueEnabled() {
+<span class="nc" id="L297">        return (Boolean) getCachedValue(&quot;economy.currency.dynamic_value&quot;, true);</span>
+    }
+    
+    public double getMinCoinValue() {
+<span class="nc" id="L301">        return (Double) getCachedValue(&quot;economy.currency.min_value&quot;, 0.1);</span>
+    }
+    
+    public double getMaxCoinValue() {
+<span class="nc" id="L305">        return (Double) getCachedValue(&quot;economy.currency.max_value&quot;, 1000.0);</span>
+    }
+    
+    public void setCoinValue(double value) {
+<span class="nc bnc" id="L309" title="All 4 branches missed.">        if (value &lt; getMinCoinValue() || value &gt; getMaxCoinValue()) {</span>
+<span class="nc" id="L310">            throw new IllegalArgumentException(&quot;通貨価値は &quot; + getMinCoinValue() + &quot; から &quot; + getMaxCoinValue() + &quot; の範囲内である必要があります&quot;);</span>
+        }
+<span class="nc" id="L312">        updateConfigValue(&quot;economy.currency.coin_value&quot;, value);</span>
+<span class="nc" id="L313">    }</span>
+    
+    public double getStartingBalance() {
+<span class="nc" id="L316">        return (Double) getCachedValue(&quot;economy.starting_balance&quot;, 100.0);</span>
+    }
+    
+    // 送金設定
+    public double getMinimumPayAmount() {
+<span class="nc" id="L321">        return config.getDouble(&quot;economy.pay.minimum_amount&quot;, 1.0);</span>
+    }
+    
+    public double getMaximumPayAmount() {
+<span class="nc" id="L325">        return config.getDouble(&quot;economy.pay.maximum_amount&quot;, 0);</span>
+    }
+    
+    public double getPayFeePercentage() {
+<span class="nc" id="L329">        return config.getDouble(&quot;economy.pay.fee_percentage&quot;, 0.0);</span>
+    }
+    
+    // 引き出し・預け入れ設定
+    public double getMaxWithdraw() {
+<span class="nc" id="L334">        return config.getDouble(&quot;economy.withdraw_deposit.max_withdraw&quot;, 10000.0);</span>
+    }
+    
+    public double getMaxDeposit() {
+<span class="nc" id="L338">        return config.getDouble(&quot;economy.withdraw_deposit.max_deposit&quot;, 10000.0);</span>
+    }
+    
+    // 職業設定
+    public int getMaxJobsPerPlayer() {
+<span class="nc" id="L343">        return config.getInt(&quot;jobs.general.max_jobs_per_player&quot;, 1);</span>
+    }
+    
+    public boolean isKeepLevelOnJobChange() {
+<span class="nc" id="L347">        return config.getBoolean(&quot;jobs.general.keep_level_on_change&quot;, true);</span>
+    }
+    
+    public int getJobChangeCooldown() {
+<span class="nc" id="L351">        return config.getInt(&quot;jobs.general.job_change_cooldown&quot;, 86400);</span>
+    }
+    
+    // ========== 職業ブロック制限システム設定 ==========
+    
+    /**
+     * 職業ブロック制限システムが有効かどうか
+     */
+    public boolean isJobBlockRestrictionEnabled() {
+<span class="nc" id="L360">        return (Boolean) getCachedValue(&quot;jobs.block_restrictions.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 基本ブロック（全職業で採掘可能）のリストを取得
+     */
+    public List&lt;String&gt; getBasicBlocks() {
+<span class="nc" id="L367">        return config.getStringList(&quot;jobs.block_restrictions.basic_blocks&quot;);</span>
+    }
+    
+    /**
+     * 特定職業の制限ブロックリストを取得
+     * 
+     * @param jobName 職業名
+     * @return 制限ブロックのリスト
+     */
+    public List&lt;String&gt; getJobRestrictedBlocks(String jobName) {
+<span class="nc" id="L377">        String path = &quot;jobs.block_restrictions.job_restricted_blocks.&quot; + jobName;</span>
+<span class="nc" id="L378">        return config.getStringList(path);</span>
+    }
+    
+    /**
+     * 職業ブロック制限システムの設定を検証
+     */
+    private void validateJobBlockRestrictionSettings() {
+        // 基本設定の存在確認
+<span class="nc bnc" id="L386" title="All 2 branches missed.">        if (!config.contains(&quot;jobs.block_restrictions&quot;)) {</span>
+<span class="nc" id="L387">            validationErrors.add(&quot;職業ブロック制限システムの設定が見つかりません&quot;);</span>
+<span class="nc" id="L388">            return;</span>
+        }
+        
+        // 基本ブロックの検証
+<span class="nc" id="L392">        List&lt;String&gt; basicBlocks = getBasicBlocks();</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">        if (basicBlocks.isEmpty()) {</span>
+<span class="nc" id="L394">            validationErrors.add(&quot;基本ブロックが設定されていません&quot;);</span>
+        }
+        
+        // 職業専用ブロックの検証
+<span class="nc" id="L398">        String[] jobs = {&quot;miner&quot;, &quot;woodcutter&quot;, &quot;farmer&quot;, &quot;fisherman&quot;, &quot;blacksmith&quot;, &quot;alchemist&quot;, &quot;enchanter&quot;, &quot;architect&quot;};</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">        for (String job : jobs) {</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">            if (!config.contains(&quot;jobs.block_restrictions.job_restricted_blocks.&quot; + job)) {</span>
+<span class="nc" id="L401">                validationErrors.add(&quot;職業 &quot; + job + &quot; の制限ブロック設定が見つかりません&quot;);</span>
+            }
+        }
+<span class="nc" id="L404">    }</span>
+    
+    // 職業別設定
+    public String getJobDisplayName(String jobName) {
+<span class="nc" id="L408">        return config.getString(&quot;jobs.job_settings.&quot; + jobName + &quot;.display_name&quot;, jobName);</span>
+    }
+    
+    public String getJobDescription(String jobName) {
+<span class="nc" id="L412">        return config.getString(&quot;jobs.job_settings.&quot; + jobName + &quot;.description&quot;, &quot;&quot;);</span>
+    }
+    
+    public int getJobMaxLevel(String jobName) {
+<span class="nc" id="L416">        return config.getInt(&quot;jobs.job_settings.&quot; + jobName + &quot;.max_level&quot;, 75);</span>
+    }
+    
+    public double getJobIncomeMultiplier(String jobName) {
+<span class="nc" id="L420">        return config.getDouble(&quot;jobs.job_settings.&quot; + jobName + &quot;.base_income_multiplier&quot;, 1.0);</span>
+    }
+    
+    // イベントシステム設定
+    public boolean isEventSystemEnabled() {
+<span class="nc" id="L425">        return config.getBoolean(&quot;events.enabled&quot;, true);</span>
+    }
+    
+    public java.util.List&lt;String&gt; getExcludedWorlds() {
+<span class="nc" id="L429">        return config.getStringList(&quot;events.excluded_worlds&quot;);</span>
+    }
+    
+    public java.util.List&lt;String&gt; getExcludedGameModes() {
+<span class="nc" id="L433">        return config.getStringList(&quot;events.excluded_game_modes&quot;);</span>
+    }
+    
+    public boolean isEventCachingEnabled() {
+<span class="nc" id="L437">        return config.getBoolean(&quot;events.caching.enabled&quot;, true);</span>
+    }
+    
+    public long getEventCacheExpiry() {
+<span class="nc" id="L441">        return config.getLong(&quot;events.caching.expiry_time&quot;, 300000); // 5分</span>
+    }
+    
+    public JavaPlugin getPlugin() {
+<span class="nc" id="L445">        return plugin;</span>
+    }
+    
+    public double getJobExpMultiplier(String jobName) {
+<span class="nc" id="L449">        return config.getDouble(&quot;jobs.job_settings.&quot; + jobName + &quot;.exp_multiplier&quot;, 1.0);</span>
+    }
+    
+    public double getJobBaseSellBonus(String jobName) {
+<span class="nc" id="L453">        return config.getDouble(&quot;jobs.job_settings.&quot; + jobName + &quot;.base_sell_bonus&quot;, 0.05);</span>
+    }
+    
+    
+    // 土地保護設定
+    public boolean isWorldGuardIntegration() {
+<span class="nc" id="L459">        return config.getBoolean(&quot;land_protection.worldguard_integration&quot;, true);</span>
+    }
+    
+    public double getUrbanLandPrice() {
+<span class="nc" id="L463">        return config.getDouble(&quot;land_protection.urban_land_price&quot;, 100.0);</span>
+    }
+    
+    public int getMaxLandsPerPlayer() {
+<span class="nc" id="L467">        return config.getInt(&quot;land_protection.max_lands_per_player&quot;, 5);</span>
+    }
+    
+    // メッセージ設定
+    public String getMessagePrefix() {
+<span class="nc" id="L472">        return config.getString(&quot;messages.prefix&quot;, &quot;&amp;6[TofuNomics] &amp;f&quot;);</span>
+    }
+    
+    public String getMessage(String key) {
+<span class="nc" id="L476">    String fullKey = &quot;messages.&quot; + key;</span>
+<span class="nc" id="L477">    String message = config.getString(fullKey, &quot;メッセージが見つかりません: &quot; + key);</span>
+    
+    // デバッグ情報をログに出力
+<span class="nc bnc" id="L480" title="All 2 branches missed.">    if (plugin.getConfig().getBoolean(&quot;debug.enabled&quot;, false)) {</span>
+<span class="nc" id="L481">        plugin.getLogger().info(&quot;getMessage(): key=&quot; + key + &quot;, fullKey=&quot; + fullKey + &quot;, message=&quot; + message);</span>
+<span class="nc bnc" id="L482" title="All 2 branches missed.">        if (message.startsWith(&quot;メッセージが見つかりません:&quot;)) {</span>
+<span class="nc" id="L483">            plugin.getLogger().warning(&quot;メッセージが見つかりません。設定ファイルを確認してください。&quot;);</span>
+<span class="nc" id="L484">            plugin.getLogger().info(&quot;利用可能なメッセージキー一覧:&quot;);</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">            if (config.getConfigurationSection(&quot;messages&quot;) != null) {</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">                for (String availableKey : config.getConfigurationSection(&quot;messages&quot;).getKeys(true)) {</span>
+<span class="nc" id="L487">                    plugin.getLogger().info(&quot;  - &quot; + availableKey);</span>
+<span class="nc" id="L488">                }</span>
+            }
+        }
+    }
+    
+<span class="nc" id="L493">    return org.bukkit.ChatColor.translateAlternateColorCodes('&amp;', message);</span>
+}
+    
+    public String getMessage(String key, Object... replacements) {
+<span class="nc" id="L497">        String message = getMessage(key);</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">        if (replacements != null) {</span>
+<span class="nc bnc" id="L499" title="All 2 branches missed.">            for (int i = 0; i &lt; replacements.length; i += 2) {</span>
+<span class="nc bnc" id="L500" title="All 2 branches missed.">                if (i + 1 &lt; replacements.length) {</span>
+<span class="nc" id="L501">                    message = message.replace(&quot;%&quot; + replacements[i] + &quot;%&quot;, String.valueOf(replacements[i + 1]));</span>
+                }
+            }
+        }
+<span class="nc" id="L505">        return message;</span>
+    }
+    
+    /**
+     * 複数行メッセージを取得
+     */
+    public java.util.List&lt;String&gt; getMessageList(String key) {
+<span class="nc" id="L512">        String fullPath = &quot;messages.&quot; + key;</span>
+        
+<span class="nc bnc" id="L514" title="All 2 branches missed.">        if (config.isList(fullPath)) {</span>
+<span class="nc" id="L515">            java.util.List&lt;String&gt; messages = config.getStringList(fullPath);</span>
+<span class="nc bnc" id="L516" title="All 4 branches missed.">            if (messages != null &amp;&amp; !messages.isEmpty()) {</span>
+<span class="nc" id="L517">                return messages;</span>
+            }
+<span class="nc bnc" id="L519" title="All 2 branches missed.">        } else if (config.contains(fullPath)) {</span>
+            // 単一文字列の場合は1行のリストとして返す
+<span class="nc" id="L521">            String singleMessage = getMessage(key);</span>
+<span class="nc bnc" id="L522" title="All 4 branches missed.">            if (singleMessage != null &amp;&amp; !singleMessage.contains(&quot;メッセージが見つかりません&quot;)) {</span>
+<span class="nc" id="L523">                return java.util.Arrays.asList(singleMessage);</span>
+            }
+        }
+        
+        // デバッグ情報：重要なエラーのみログ出力
+<span class="nc bnc" id="L528" title="All 2 branches missed.">        if (isDebugEnabled()) {</span>
+<span class="nc" id="L529">            plugin.getLogger().warning(&quot;メッセージパスが見つからない: &quot; + fullPath);</span>
+        }
+        
+        // 空のリストを返すのではなく、nullを返してフォールバック処理を促す
+<span class="nc" id="L533">        return null;</span>
+    }
+    
+    /**
+     * 複数行メッセージをプレイヤーに送信
+     */
+    public void sendMessageList(org.bukkit.entity.Player player, String key, Object... replacements) {
+<span class="nc" id="L540">        java.util.List&lt;String&gt; messages = getMessageList(key);</span>
+<span class="nc bnc" id="L541" title="All 2 branches missed.">        for (String message : messages) {</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">            if (replacements != null) {</span>
+<span class="nc bnc" id="L543" title="All 2 branches missed.">                for (int i = 0; i &lt; replacements.length; i += 2) {</span>
+<span class="nc bnc" id="L544" title="All 2 branches missed.">                    if (i + 1 &lt; replacements.length) {</span>
+<span class="nc" id="L545">                        message = message.replace(&quot;%&quot; + replacements[i] + &quot;%&quot;, String.valueOf(replacements[i + 1]));</span>
+                    }
+                }
+            }
+<span class="nc" id="L549">            String coloredMessage = org.bukkit.ChatColor.translateAlternateColorCodes('&amp;', message);</span>
+<span class="nc" id="L550">            player.sendMessage(coloredMessage);</span>
+<span class="nc" id="L551">        }</span>
+<span class="nc" id="L552">    }</span>
+    
+    /**
+     * NPC固有の複数行メッセージを取得
+     */
+    public java.util.List&lt;String&gt; getNPCSpecificMessageList(String npcType, String key) {
+<span class="nc" id="L558">        String specificPath = &quot;messages.npc.trading.npc_specific.&quot; + npcType + &quot;.&quot; + key;</span>
+        
+        // デバッグレベルログ：必要な時のみ表示
+<span class="nc bnc" id="L561" title="All 2 branches missed.">        if (isDebugEnabled()) {</span>
+<span class="nc" id="L562">            plugin.getLogger().info(&quot;NPCメッセージ検索: npcType=&quot; + npcType + &quot;, key=&quot; + key);</span>
+<span class="nc" id="L563">            plugin.getLogger().info(&quot;検索パス: &quot; + specificPath);</span>
+        }
+        
+<span class="nc bnc" id="L566" title="All 2 branches missed.">        if (config.isList(specificPath)) {</span>
+<span class="nc" id="L567">            java.util.List&lt;String&gt; messages = config.getStringList(specificPath);</span>
+<span class="nc bnc" id="L568" title="All 4 branches missed.">            if (messages != null &amp;&amp; !messages.isEmpty()) {</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">                if (isDebugEnabled()) {</span>
+<span class="nc" id="L570">                    plugin.getLogger().info(&quot;NPC固有メッセージを取得: &quot; + messages.size() + &quot;行&quot;);</span>
+                }
+<span class="nc" id="L572">                return messages;</span>
+            }
+        }
+        
+        // NPC固有メッセージがない場合は共通メッセージを使用
+<span class="nc" id="L577">        String fallbackPath = &quot;npc.trading.&quot; + key;</span>
+<span class="nc" id="L578">        java.util.List&lt;String&gt; fallbackMessages = getMessageList(fallbackPath);</span>
+        
+        // 重要：メッセージが見つからない場合の最終フォールバック
+<span class="nc bnc" id="L581" title="All 4 branches missed.">        if (fallbackMessages == null || fallbackMessages.isEmpty()) {</span>
+<span class="nc" id="L582">            plugin.getLogger().warning(&quot;NPCメッセージが見つかりません: &quot; + specificPath + &quot; (フォールバック: &quot; + fallbackPath + &quot;)&quot;);</span>
+<span class="nc" id="L583">            return java.util.Arrays.asList(&quot;§c申し訳ありませんが、メッセージの読み込みでエラーが発生しました。&quot;);</span>
+        }
+        
+<span class="nc" id="L586">        return fallbackMessages;</span>
+    }
+
+    
+    /**
+     * NPC固有の単一メッセージを取得
+     */
+    public String getNPCSpecificMessage(String npcType, String messageType, String playerName) {
+        try {
+            // まずリスト形式のメッセージを確認
+<span class="nc" id="L596">            List&lt;String&gt; messages = getNPCSpecificMessageList(npcType, messageType);</span>
+<span class="nc bnc" id="L597" title="All 2 branches missed.">            if (!messages.isEmpty()) {</span>
+                // 複数メッセージがある場合はランダムに選択
+<span class="nc" id="L599">                String message = messages.get(new java.util.Random().nextInt(messages.size()));</span>
+<span class="nc" id="L600">                return message.replace(&quot;%player%&quot;, playerName);</span>
+            }
+            
+            // 単一メッセージを確認
+<span class="nc" id="L604">            String path = &quot;messages.npc.trading.npc_specific.&quot; + npcType + &quot;.&quot; + messageType;</span>
+<span class="nc bnc" id="L605" title="All 2 branches missed.">            if (config.contains(path)) {</span>
+<span class="nc" id="L606">                String message = config.getString(path);</span>
+<span class="nc bnc" id="L607" title="All 2 branches missed.">                if (message != null) {</span>
+<span class="nc" id="L608">                    return message.replace(&quot;%player%&quot;, playerName);</span>
+                }
+            }
+            
+            // デフォルトメッセージを返す
+<span class="nc" id="L613">            String defaultPath = &quot;npc_system.trading_npcs.default_messages.&quot; + messageType;</span>
+<span class="nc bnc" id="L614" title="All 2 branches missed.">            if (config.contains(defaultPath)) {</span>
+<span class="nc" id="L615">                String message = config.getString(defaultPath);</span>
+<span class="nc bnc" id="L616" title="All 2 branches missed.">                if (message != null) {</span>
+<span class="nc" id="L617">                    return message.replace(&quot;%player%&quot;, playerName).replace(&quot;%npc_name%&quot;, npcType);</span>
+                }
+            }
+            
+<span class="nc" id="L621">            return &quot;§7[&quot; + npcType + &quot;] メッセージが設定されていません&quot;;</span>
+            
+<span class="nc" id="L623">        } catch (Exception e) {</span>
+<span class="nc" id="L624">            plugin.getLogger().warning(&quot;NPCメッセージの取得中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L625">            return &quot;§cメッセージの取得に失敗しました&quot;;</span>
+        }
+    }
+    
+    /**
+     * NPC固有の複数行メッセージをプレイヤーに送信
+     */
+    public void sendNPCSpecificMessageList(org.bukkit.entity.Player player, String npcType, String key, Object... replacements) {
+        try {
+<span class="nc" id="L634">            java.util.List&lt;String&gt; messages = getNPCSpecificMessageList(npcType, key);</span>
+            
+<span class="nc bnc" id="L636" title="All 4 branches missed.">            if (messages == null || messages.isEmpty()) {</span>
+<span class="nc" id="L637">                plugin.getLogger().warning(&quot;NPCメッセージが見つかりません: &quot; + npcType + &quot;.&quot; + key);</span>
+<span class="nc" id="L638">                player.sendMessage(&quot;§c申し訳ありませんが、メッセージの読み込みに失敗しました。&quot;);</span>
+<span class="nc" id="L639">                return;</span>
+            }
+            
+            // メッセージの送信
+<span class="nc" id="L643">            int sentCount = 0;</span>
+<span class="nc bnc" id="L644" title="All 2 branches missed.">            for (String message : messages) {</span>
+<span class="nc bnc" id="L645" title="All 4 branches missed.">                if (message == null || message.trim().isEmpty()) {</span>
+<span class="nc" id="L646">                    continue;</span>
+                }
+                
+                // 置換処理
+<span class="nc" id="L650">                String processedMessage = message;</span>
+<span class="nc bnc" id="L651" title="All 2 branches missed.">                if (replacements != null) {</span>
+<span class="nc bnc" id="L652" title="All 2 branches missed.">                    for (int i = 0; i &lt; replacements.length; i += 2) {</span>
+<span class="nc bnc" id="L653" title="All 2 branches missed.">                        if (i + 1 &lt; replacements.length) {</span>
+<span class="nc" id="L654">                            String placeholder = &quot;%&quot; + replacements[i] + &quot;%&quot;;</span>
+<span class="nc" id="L655">                            String replacement = String.valueOf(replacements[i + 1]);</span>
+<span class="nc" id="L656">                            processedMessage = processedMessage.replace(placeholder, replacement);</span>
+                        }
+                    }
+                }
+                
+<span class="nc" id="L661">                String coloredMessage = org.bukkit.ChatColor.translateAlternateColorCodes('&amp;', processedMessage);</span>
+<span class="nc" id="L662">                player.sendMessage(coloredMessage);</span>
+<span class="nc" id="L663">                sentCount++;</span>
+<span class="nc" id="L664">            }</span>
+            
+            // デバッグログ：送信成功の場合のみ
+<span class="nc bnc" id="L667" title="All 4 branches missed.">            if (isDebugEnabled() &amp;&amp; sentCount &gt; 0) {</span>
+<span class="nc" id="L668">                plugin.getLogger().info(&quot;NPCメッセージ送信完了: &quot; + sentCount + &quot;行 (&quot; + npcType + &quot;.&quot; + key + &quot;)&quot;);</span>
+            }
+            
+<span class="nc" id="L671">        } catch (Exception e) {</span>
+<span class="nc" id="L672">            plugin.getLogger().severe(&quot;NPCメッセージ送信中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L673">            player.sendMessage(&quot;§cメッセージ処理中にエラーが発生しました。&quot;);</span>
+<span class="nc" id="L674">        }</span>
+<span class="nc" id="L675">    }</span>
+    
+    /**
+     * NPC挨拶メッセージをプレイヤーに送信
+     */
+    public void sendNPCWelcomeMessage(org.bukkit.entity.Player player, String npcType) {
+        try {
+<span class="nc" id="L682">            String welcomePath = &quot;messages.npc_specific.&quot; + npcType + &quot;.welcome&quot;;</span>
+            
+<span class="nc bnc" id="L684" title="All 2 branches missed.">            if (config.contains(welcomePath)) {</span>
+<span class="nc" id="L685">                String welcomeMessage = config.getString(welcomePath, &quot;§6「いらっしゃいませ、%player%さん！」&quot;);</span>
+                
+                // プレイヤー名の置換
+<span class="nc" id="L688">                String processedMessage = welcomeMessage.replace(&quot;%player%&quot;, player.getName());</span>
+                
+                // 色コード変換
+<span class="nc" id="L691">                String coloredMessage = org.bukkit.ChatColor.translateAlternateColorCodes('&amp;', processedMessage);</span>
+                
+                // メッセージ送信
+<span class="nc" id="L694">                player.sendMessage(coloredMessage);</span>
+                
+                // デバッグログ
+<span class="nc bnc" id="L697" title="All 2 branches missed.">                if (isDebugEnabled()) {</span>
+<span class="nc" id="L698">                    plugin.getLogger().info(&quot;NPC挨拶メッセージ送信: &quot; + npcType + &quot; -&gt; &quot; + player.getName());</span>
+                }
+<span class="nc" id="L700">            } else {</span>
+                // デフォルト挨拶メッセージ
+<span class="nc" id="L702">                String defaultWelcome = &quot;§6「いらっしゃいませ、&quot; + player.getName() + &quot;さん！」&quot;;</span>
+<span class="nc" id="L703">                player.sendMessage(defaultWelcome);</span>
+                
+<span class="nc bnc" id="L705" title="All 2 branches missed.">                if (isDebugEnabled()) {</span>
+<span class="nc" id="L706">                    plugin.getLogger().warning(&quot;挨拶メッセージが見つかりません: &quot; + welcomePath + &quot; (デフォルト使用)&quot;);</span>
+                }
+            }
+            
+<span class="nc" id="L710">        } catch (Exception e) {</span>
+<span class="nc" id="L711">            plugin.getLogger().severe(&quot;NPC挨拶メッセージ送信中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L712">            player.sendMessage(&quot;§6「いらっしゃいませ、&quot; + player.getName() + &quot;さん！」&quot;);</span>
+<span class="nc" id="L713">        }</span>
+<span class="nc" id="L714">    }</span>
+    
+    // デバッグ設定
+    public boolean isDebugEnabled() {
+<span class="nc" id="L718">        return config.getBoolean(&quot;debug.enabled&quot;, false);</span>
+    }
+    
+    public boolean isVerboseEnabled() {
+<span class="nc" id="L722">        return config.getBoolean(&quot;debug.verbose&quot;, false);</span>
+    }
+    
+    // 職業変更制限の日付チェック用メソッド
+    public boolean isDailyJobChangeLimitEnabled() {
+<span class="nc bnc" id="L727" title="All 2 branches missed.">        return getJobChangeCooldown() &gt;= 86400;</span>
+    }
+    
+    // 取引システム設定（フェーズ4）
+    public boolean isTradeSystemEnabled() {
+<span class="nc" id="L732">        return config.getBoolean(&quot;trade_system.enabled&quot;, true);</span>
+    }
+    
+    public boolean isTradeConfirmationRequired() {
+<span class="nc" id="L736">        return config.getBoolean(&quot;trade_system.confirmation_required&quot;, true);</span>
+    }
+    
+    public double getTradePriceMultiplier() {
+<span class="nc" id="L740">        return config.getDouble(&quot;trade_system.global_price_multiplier&quot;, 1.0);</span>
+    }
+    
+    public double getJobPriceMultiplier(String jobType) {
+<span class="nc" id="L744">        return config.getDouble(&quot;trade_system.job_price_multipliers.&quot; + jobType.toLowerCase(), 1.0);</span>
+    }
+    
+    public int getTradeHistoryMaxDays() {
+<span class="nc" id="L748">        return config.getInt(&quot;trade_system.history.max_days&quot;, 30);</span>
+    }
+    
+    public int getTradeHistoryMaxRecordsPerPlayer() {
+<span class="nc" id="L752">        return config.getInt(&quot;trade_system.history.max_records_per_player&quot;, 1000);</span>
+    }
+    
+    public boolean isTradeHistoryAutoCleanupEnabled() {
+<span class="nc" id="L756">        return config.getBoolean(&quot;trade_system.history.auto_cleanup&quot;, true);</span>
+    }
+    
+    public int getMaxTradesPerDay() {
+<span class="nc" id="L760">        return config.getInt(&quot;trade_system.limits.max_trades_per_day&quot;, 0);</span>
+    }
+    
+    public int getMaxItemsPerTrade() {
+<span class="nc" id="L764">        return config.getInt(&quot;trade_system.limits.max_items_per_trade&quot;, 2304);</span>
+    }
+    
+    public double getMaxEarningsPerDay() {
+<span class="nc" id="L768">        return config.getDouble(&quot;trade_system.limits.max_earnings_per_day&quot;, 0.0);</span>
+    }
+    
+    public int getMaxChestsPerJob() {
+<span class="nc" id="L772">        return config.getInt(&quot;trade_system.chest_settings.max_chests_per_job&quot;, 10);</span>
+    }
+    
+    public boolean isPreventDuplicateLocationEnabled() {
+<span class="nc" id="L776">        return config.getBoolean(&quot;trade_system.chest_settings.prevent_duplicate_location&quot;, true);</span>
+    }
+    
+    public boolean isRequireConfirmationOnRemove() {
+<span class="nc" id="L780">        return config.getBoolean(&quot;trade_system.chest_settings.require_confirmation_on_remove&quot;, true);</span>
+    }
+    
+    public String getTradeMessage(String key) {
+<span class="nc" id="L784">        return config.getString(&quot;trade_system.messages.&quot; + key, &quot;メッセージが見つかりません: &quot; + key);</span>
+    }
+    
+    public String getTradeMessage(String key, Object... replacements) {
+<span class="nc" id="L788">        String message = getTradeMessage(key);</span>
+<span class="nc bnc" id="L789" title="All 2 branches missed.">        if (replacements != null) {</span>
+<span class="nc bnc" id="L790" title="All 2 branches missed.">            for (int i = 0; i &lt; replacements.length; i += 2) {</span>
+<span class="nc bnc" id="L791" title="All 2 branches missed.">                if (i + 1 &lt; replacements.length) {</span>
+<span class="nc" id="L792">                    message = message.replace(&quot;%&quot; + replacements[i] + &quot;%&quot;, String.valueOf(replacements[i + 1]));</span>
+                }
+            }
+        }
+<span class="nc" id="L796">        return message;</span>
+    }
+    
+    // ========== フェーズ6: 職業別スキル設定 ==========
+    
+    /**
+     * 職業別スキルの基本発動確率を取得
+     */
+    public double getJobSkillBaseProbability(String jobName, String skillName) {
+<span class="nc" id="L805">        return config.getDouble(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.base_probability&quot;, 0.0);</span>
+    }
+    
+    /**
+     * 職業別スキルのレベルボーナスを取得
+     */
+    public double getJobSkillLevelBonus(String jobName, String skillName) {
+<span class="nc" id="L812">        return config.getDouble(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.level_bonus&quot;, 0.0);</span>
+    }
+    
+    /**
+     * 職業別スキルの最大発動確率を取得
+     */
+    public double getJobSkillMaxProbability(String jobName, String skillName) {
+<span class="nc" id="L819">        return config.getDouble(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.max_probability&quot;, 1.0);</span>
+    }
+    
+    /**
+     * 職業別スキルのクールダウン時間を取得
+     */
+    public int getJobSkillCooldown(String jobName, String skillName) {
+<span class="nc" id="L826">        return config.getInt(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.cooldown_seconds&quot;, 0);</span>
+    }
+    
+    /**
+     * 職業別スキルの効果倍率を取得
+     */
+    public double getJobSkillEffectMultiplier(String jobName, String skillName) {
+<span class="nc" id="L833">        return config.getDouble(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.effect_multiplier&quot;, 1.0);</span>
+    }
+    
+    /**
+     * 職業別スキルの効果範囲を取得
+     */
+    public int getJobSkillEffectRange(String jobName, String skillName) {
+<span class="nc" id="L840">        return config.getInt(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.effect_range&quot;, 1);</span>
+    }
+    
+    /**
+     * 職業別スキルの節約率を取得
+     */
+    public double getJobSkillSaveRate(String jobName, String skillName) {
+<span class="nc" id="L847">        return config.getDouble(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.save_rate&quot;, 0.0);</span>
+    }
+    
+    /**
+     * 職業別スキルの最大ブロック数を取得
+     */
+    public int getJobSkillMaxBlocks(String jobName, String skillName) {
+<span class="nc" id="L854">        return config.getInt(&quot;job_skills.&quot; + jobName + &quot;.&quot; + skillName + &quot;.max_blocks&quot;, 64);</span>
+    }
+    
+    /**
+     * スキル確率を計算（レベル考慮）
+     */
+    public double calculateSkillProbability(String jobName, String skillName, int level) {
+<span class="nc" id="L861">        double baseProbability = getJobSkillBaseProbability(jobName, skillName);</span>
+<span class="nc" id="L862">        double levelBonus = getJobSkillLevelBonus(jobName, skillName);</span>
+<span class="nc" id="L863">        double maxProbability = getJobSkillMaxProbability(jobName, skillName);</span>
+        
+<span class="nc" id="L865">        double calculatedProbability = baseProbability + (levelBonus * level);</span>
+<span class="nc" id="L866">        return Math.min(calculatedProbability, maxProbability);</span>
+    }
+    
+    // ========== レベルアップシステム設定 ==========
+    
+    /**
+     * 基本経験値倍率を取得
+     */
+    public int getExperienceBaseMultiplier() {
+<span class="nc" id="L875">        return config.getInt(&quot;leveling.experience.base_multiplier&quot;, 100);</span>
+    }
+    
+    /**
+     * 経験値計算指数を取得
+     */
+    public double getExperienceExponent() {
+<span class="nc" id="L882">        return config.getDouble(&quot;leveling.experience.exponent&quot;, 2.0);</span>
+    }
+    
+    /**
+     * レベル範囲別倍率を取得
+     */
+    public double getLevelScalingMultiplier(int level) {
+<span class="nc bnc" id="L889" title="All 4 branches missed.">        if (level &gt;= 1 &amp;&amp; level &lt;= 10) {</span>
+<span class="nc" id="L890">            return config.getDouble(&quot;leveling.experience.level_scaling.early_levels.multiplier&quot;, 1.0);</span>
+<span class="nc bnc" id="L891" title="All 4 branches missed.">        } else if (level &gt;= 11 &amp;&amp; level &lt;= 25) {</span>
+<span class="nc" id="L892">            return config.getDouble(&quot;leveling.experience.level_scaling.mid_levels.multiplier&quot;, 0.9);</span>
+<span class="nc bnc" id="L893" title="All 4 branches missed.">        } else if (level &gt;= 26 &amp;&amp; level &lt;= 50) {</span>
+<span class="nc" id="L894">            return config.getDouble(&quot;leveling.experience.level_scaling.advanced_levels.multiplier&quot;, 1.0);</span>
+<span class="nc bnc" id="L895" title="All 4 branches missed.">        } else if (level &gt;= 51 &amp;&amp; level &lt;= 75) {</span>
+<span class="nc" id="L896">            return config.getDouble(&quot;leveling.experience.level_scaling.master_levels.multiplier&quot;, 1.5);</span>
+        }
+<span class="nc" id="L898">        return 1.0;</span>
+    }
+    
+    /**
+     * レベルアップ報酬（金塊）の基本額を取得
+     */
+    public double getLevelRewardBaseAmount() {
+<span class="nc" id="L905">        return config.getDouble(&quot;leveling.rewards.base_rewards.money.base_amount&quot;, 50.0);</span>
+    }
+    
+    /**
+     * レベルアップ報酬（金塊）のレベル倍率を取得
+     */
+    public double getLevelRewardLevelMultiplier() {
+<span class="nc" id="L912">        return config.getDouble(&quot;leveling.rewards.base_rewards.money.level_multiplier&quot;, 2.5);</span>
+    }
+    
+    /**
+     * レベルアップ報酬（金塊）の最大額を取得
+     */
+    public double getLevelRewardMaxAmount() {
+<span class="nc" id="L919">        return config.getDouble(&quot;leveling.rewards.base_rewards.money.max_amount&quot;, 500.0);</span>
+    }
+    
+    /**
+     * スキルポイント付与レベルを取得
+     */
+    public java.util.List&lt;Integer&gt; getSkillPointLevels() {
+<span class="nc" id="L926">        return config.getIntegerList(&quot;leveling.rewards.base_rewards.skill_points.levels&quot;);</span>
+    }
+    
+    // ========== イベント報酬バランス設定 ==========
+    
+    /**
+     * 全体経験値倍率を取得
+     */
+    public double getGlobalExperienceMultiplier() {
+<span class="nc" id="L935">        return config.getDouble(&quot;event_rewards.global_multipliers.experience_multiplier&quot;, 1.0);</span>
+    }
+    
+    /**
+     * 全体収入倍率を取得
+     */
+    public double getGlobalIncomeMultiplier() {
+<span class="nc" id="L942">        return config.getDouble(&quot;event_rewards.global_multipliers.income_multiplier&quot;, 1.0);</span>
+    }
+    
+    /**
+     * スキル発動確率倍率を取得
+     */
+    public double getGlobalSkillProbabilityMultiplier() {
+<span class="nc" id="L949">        return config.getDouble(&quot;event_rewards.global_multipliers.skill_probability_multiplier&quot;, 1.0);</span>
+    }
+    
+    /**
+     * 時間帯別ボーナスを取得
+     */
+    public double getTimeBonus(String timeOfDay, String bonusType) {
+<span class="nc" id="L956">        return config.getDouble(&quot;event_rewards.global_multipliers.time_bonuses.&quot; + timeOfDay + &quot;.&quot; + bonusType, 0.0);</span>
+    }
+    
+    /**
+     * 天候ボーナスを取得
+     */
+    public double getWeatherBonus(String weather, String bonusType) {
+<span class="nc" id="L963">        return config.getDouble(&quot;event_rewards.global_multipliers.weather_bonuses.&quot; + weather + &quot;.&quot; + bonusType, 0.0);</span>
+    }
+    
+    /**
+     * 個別イベントの基本経験値を取得
+     */
+    public double getIndividualEventBaseExperience(String eventType) {
+<span class="nc" id="L970">        return config.getDouble(&quot;event_rewards.individual_events.&quot; + eventType + &quot;.base_experience&quot;, 1.0);</span>
+    }
+    
+    /**
+     * 個別イベントの基本収入を取得
+     */
+    public double getIndividualEventBaseIncome(String eventType) {
+<span class="nc" id="L977">        return config.getDouble(&quot;event_rewards.individual_events.&quot; + eventType + &quot;.base_income&quot;, 1.0);</span>
+    }
+    
+    /**
+     * 個別イベントのレベル経験値ボーナスを取得
+     */
+    public double getIndividualEventLevelExperienceBonus(String eventType) {
+<span class="nc" id="L984">        return config.getDouble(&quot;event_rewards.individual_events.&quot; + eventType + &quot;.level_experience_bonus&quot;, 0.0);</span>
+    }
+    
+    /**
+     * 個別イベントのレベル収入ボーナスを取得
+     */
+    public double getIndividualEventLevelIncomeBonus(String eventType) {
+<span class="nc" id="L991">        return config.getDouble(&quot;event_rewards.individual_events.&quot; + eventType + &quot;.level_income_bonus&quot;, 0.0);</span>
+    }
+    
+    // ========== パフォーマンス最適化設定 ==========
+    
+    /**
+     * コネクションプール有効化状態を取得
+     */
+    public boolean isConnectionPoolEnabled() {
+<span class="nc" id="L1000">        return config.getBoolean(&quot;performance.database.connection_pool.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 最大コネクションプールサイズを取得
+     */
+    public int getMaximumPoolSize() {
+<span class="nc" id="L1007">        return config.getInt(&quot;performance.database.connection_pool.maximum_pool_size&quot;, 15);</span>
+    }
+    
+    /**
+     * 最小アイドル接続数を取得
+     */
+    public int getMinimumIdle() {
+<span class="nc" id="L1014">        return config.getInt(&quot;performance.database.connection_pool.minimum_idle&quot;, 3);</span>
+    }
+    
+    /**
+     * 接続タイムアウト時間を取得
+     */
+    public long getConnectionTimeout() {
+<span class="nc" id="L1021">        return config.getLong(&quot;performance.database.connection_pool.connection_timeout&quot;, 30000);</span>
+    }
+    
+    /**
+     * プレイヤーキャッシュ有効化状態を取得
+     */
+    public boolean isPlayerCacheEnabled() {
+<span class="nc" id="L1028">        return config.getBoolean(&quot;performance.caching.player_cache.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * プレイヤーキャッシュ最大サイズを取得
+     */
+    public int getPlayerCacheMaxSize() {
+<span class="nc" id="L1035">        return config.getInt(&quot;performance.caching.player_cache.max_size&quot;, 1000);</span>
+    }
+    
+    /**
+     * プレイヤーキャッシュアクセス後期限を取得（秒）
+     */
+    public long getPlayerCacheExpireAfterAccess() {
+<span class="nc" id="L1042">        return config.getLong(&quot;performance.caching.player_cache.expire_after_access&quot;, 1800);</span>
+    }
+    
+    /**
+     * プレイヤーキャッシュ書き込み後期限を取得（秒）
+     */
+    public long getPlayerCacheExpireAfterWrite() {
+<span class="nc" id="L1049">        return config.getLong(&quot;performance.caching.player_cache.expire_after_write&quot;, 3600);</span>
+    }
+    
+    /**
+     * 職業キャッシュ有効化状態を取得
+     */
+    public boolean isJobCacheEnabled() {
+<span class="nc" id="L1056">        return config.getBoolean(&quot;performance.caching.job_cache.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * バッチ処理有効化状態を取得
+     */
+    public boolean isBatchProcessingEnabled() {
+<span class="nc" id="L1063">        return config.getBoolean(&quot;performance.database.batch_processing.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * バッチサイズを取得
+     */
+    public int getBatchSize() {
+<span class="nc" id="L1070">        return config.getInt(&quot;performance.database.batch_processing.batch_size&quot;, 100);</span>
+    }
+    
+    /**
+     * バッチタイムアウトを取得
+     */
+    public int getBatchTimeout() {
+<span class="nc" id="L1077">        return config.getInt(&quot;performance.database.batch_processing.batch_timeout&quot;, 5000);</span>
+    }
+    
+    /**
+     * メモリ監視有効化状態を取得
+     */
+    public boolean isMemoryMonitoringEnabled() {
+<span class="nc" id="L1084">        return config.getBoolean(&quot;performance.memory_management.memory_monitoring.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * メモリ警告閾値を取得
+     */
+    public double getMemoryWarningThreshold() {
+<span class="nc" id="L1091">        return config.getDouble(&quot;performance.memory_management.memory_monitoring.warning_threshold&quot;, 0.8);</span>
+    }
+    
+    /**
+     * パフォーマンス統計収集有効化状態を取得
+     */
+    public boolean isStatisticsEnabled() {
+<span class="nc" id="L1098">        return config.getBoolean(&quot;performance.monitoring.statistics.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 統計収集間隔を取得（秒）
+     */
+    public int getStatisticsCollectionInterval() {
+<span class="nc" id="L1105">        return config.getInt(&quot;performance.monitoring.statistics.collection_interval&quot;, 300);</span>
+    }
+    
+    /**
+     * TPS警告閾値を取得
+     */
+    public double getTpsWarningThreshold() {
+<span class="nc" id="L1112">        return config.getDouble(&quot;performance.monitoring.realtime_monitoring.tps_threshold&quot;, 18.0);</span>
+    }
+    
+    // ========== 設定値検証メソッド ==========
+    
+    /**
+     * 設定値が有効な範囲内かチェック
+     */
+    public boolean isValidProbability(double value) {
+<span class="nc bnc" id="L1121" title="All 4 branches missed.">        return value &gt;= 0.0 &amp;&amp; value &lt;= 1.0;</span>
+    }
+    
+    /**
+     * 設定値が正の数かチェック
+     */
+    public boolean isPositiveNumber(double value) {
+<span class="nc bnc" id="L1128" title="All 2 branches missed.">        return value &gt; 0.0;</span>
+    }
+    
+    /**
+     * 設定値が有効なレベル範囲内かチェック
+     */
+    public boolean isValidLevel(int level) {
+<span class="nc bnc" id="L1135" title="All 4 branches missed.">        return level &gt;= 1 &amp;&amp; level &lt;= 75;</span>
+    }
+    
+    /**
+     * レベルに応じた必要経験値を計算
+     */
+    public int calculateRequiredExperience(int level) {
+<span class="nc bnc" id="L1142" title="All 2 branches missed.">        if (level &lt;= 0) return 0;</span>
+        
+<span class="nc" id="L1144">        double baseMultiplier = getExperienceBaseMultiplier();</span>
+<span class="nc" id="L1145">        double exponent = getExperienceExponent();</span>
+<span class="nc" id="L1146">        double scalingMultiplier = getLevelScalingMultiplier(level);</span>
+        
+<span class="nc" id="L1148">        return (int) (baseMultiplier * Math.pow(level, exponent) * scalingMultiplier);</span>
+    }
+    
+    /**
+     * レベルアップ時の金塊報酬を計算
+     */
+    public double calculateLevelUpReward(int level) {
+<span class="nc" id="L1155">        double baseAmount = getLevelRewardBaseAmount();</span>
+<span class="nc" id="L1156">        double levelMultiplier = getLevelRewardLevelMultiplier();</span>
+<span class="nc" id="L1157">        double maxAmount = getLevelRewardMaxAmount();</span>
+        
+<span class="nc" id="L1159">        double calculatedAmount = baseAmount + (level * levelMultiplier);</span>
+<span class="nc" id="L1160">        return Math.min(calculatedAmount, maxAmount);</span>
+    }
+    
+    // ========== 拡張機能メソッド ==========
+    
+    /**
+     * 設定の妥当性検証結果を取得
+     */
+    public Set&lt;String&gt; getValidationErrors() {
+<span class="nc" id="L1169">        return new HashSet&lt;&gt;(validationErrors);</span>
+    }
+    
+    /**
+     * 設定が有効かチェック
+     */
+    public boolean isConfigValid() {
+<span class="nc" id="L1176">        return validationErrors.isEmpty();</span>
+    }
+    
+    /**
+     * 最後のリロード時刻を取得
+     */
+    public long getLastReloadTime() {
+<span class="nc" id="L1183">        return lastReloadTime;</span>
+    }
+    
+    /**
+     * 設定統計情報を取得
+     */
+    public Map&lt;String, Object&gt; getConfigStats() {
+<span class="nc" id="L1190">        Map&lt;String, Object&gt; stats = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L1191">        stats.put(&quot;last_reload&quot;, new Date(lastReloadTime));</span>
+<span class="nc" id="L1192">        stats.put(&quot;validation_errors&quot;, validationErrors.size());</span>
+<span class="nc" id="L1193">        stats.put(&quot;cache_size&quot;, configCache.size());</span>
+<span class="nc" id="L1194">        stats.put(&quot;listeners_count&quot;, listeners.size());</span>
+<span class="nc" id="L1195">        stats.put(&quot;config_valid&quot;, validationErrors.isEmpty());</span>
+<span class="nc" id="L1196">        return stats;</span>
+    }
+    
+    /**
+     * 設定セクション別統計を取得
+     */
+    public Map&lt;String, Integer&gt; getSectionStats() {
+<span class="nc" id="L1203">        Map&lt;String, Integer&gt; sectionCounts = new HashMap&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L1205" title="All 2 branches missed.">        for (String key : configCache.keySet()) {</span>
+<span class="nc bnc" id="L1206" title="All 2 branches missed.">            String section = key.contains(&quot;.&quot;) ? key.substring(0, key.indexOf('.')) : key;</span>
+<span class="nc" id="L1207">            sectionCounts.put(section, sectionCounts.getOrDefault(section, 0) + 1);</span>
+<span class="nc" id="L1208">        }</span>
+        
+<span class="nc" id="L1210">        return sectionCounts;</span>
+    }
+    
+    /**
+     * 特定設定パスの値の型チェック
+     */
+    public boolean isConfigPathOfType(String path, Class&lt;?&gt; expectedType) {
+<span class="nc" id="L1217">        Object value = config.get(path);</span>
+<span class="nc bnc" id="L1218" title="All 4 branches missed.">        return value != null &amp;&amp; expectedType.isInstance(value);</span>
+    }
+    
+    /**
+     * 設定ファイルの整合性をチェック
+     */
+    public boolean checkConfigIntegrity() {
+        try {
+<span class="nc" id="L1226">            plugin.saveDefaultConfig();</span>
+<span class="nc" id="L1227">            return true;</span>
+<span class="nc" id="L1228">        } catch (Exception e) {</span>
+<span class="nc" id="L1229">            plugin.getLogger().severe(&quot;設定ファイルの整合性チェックに失敗: &quot; + e.getMessage());</span>
+<span class="nc" id="L1230">            return false;</span>
+        }
+    }
+    
+    /**
+     * デフォルト設定値に戻す
+     */
+    public void resetToDefaults() {
+        try {
+<span class="nc" id="L1239">            plugin.saveDefaultConfig();</span>
+<span class="nc" id="L1240">            reloadConfig();</span>
+<span class="nc" id="L1241">            plugin.getLogger().info(&quot;設定をデフォルトに戻しました。&quot;);</span>
+<span class="nc" id="L1242">        } catch (Exception e) {</span>
+<span class="nc" id="L1243">            plugin.getLogger().severe(&quot;設定のリセット中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L1244">        }</span>
+<span class="nc" id="L1245">    }</span>
+    
+    /**
+     * 設定値の動的更新（runtime中の一時的変更）
+     */
+    public void updateConfigValue(String path, Object value) {
+<span class="nc bnc" id="L1251" title="All 2 branches missed.">        if (config != null) {</span>
+<span class="nc" id="L1252">            config.set(path, value);</span>
+<span class="nc" id="L1253">            configCache.put(path, value);</span>
+            
+<span class="nc bnc" id="L1255" title="All 2 branches missed.">            String section = path.contains(&quot;.&quot;) ? path.substring(0, path.indexOf('.')) : path;</span>
+<span class="nc" id="L1256">            notifyListeners(section);</span>
+            
+<span class="nc" id="L1258">            plugin.getLogger().info(&quot;設定値を更新しました: &quot; + path + &quot; = &quot; + value);</span>
+        }
+<span class="nc" id="L1260">    }</span>
+    
+    /**
+     * 設定のバックアップ作成
+     */
+    public boolean createConfigBackup() {
+        try {
+<span class="nc" id="L1267">            java.io.File configFile = new java.io.File(plugin.getDataFolder(), &quot;config.yml&quot;);</span>
+<span class="nc" id="L1268">            java.io.File backupFile = new java.io.File(plugin.getDataFolder(), </span>
+<span class="nc" id="L1269">                &quot;config_backup_&quot; + System.currentTimeMillis() + &quot;.yml&quot;);</span>
+                
+<span class="nc" id="L1271">            java.nio.file.Files.copy(configFile.toPath(), backupFile.toPath());</span>
+<span class="nc" id="L1272">            plugin.getLogger().info(&quot;設定のバックアップを作成しました: &quot; + backupFile.getName());</span>
+<span class="nc" id="L1273">            return true;</span>
+<span class="nc" id="L1274">        } catch (Exception e) {</span>
+<span class="nc" id="L1275">            plugin.getLogger().severe(&quot;設定のバックアップ作成に失敗: &quot; + e.getMessage());</span>
+<span class="nc" id="L1276">            return false;</span>
+        }
+    }
+    
+    /**
+     * 設定値の変更履歴を記録
+     */
+<span class="nc" id="L1283">    private final Map&lt;String, List&lt;ConfigChange&gt;&gt; changeHistory = new ConcurrentHashMap&lt;&gt;();</span>
+    
+    private static class ConfigChange {
+        public final long timestamp;
+        public final Object oldValue;
+        public final Object newValue;
+        
+<span class="nc" id="L1290">        public ConfigChange(Object oldValue, Object newValue) {</span>
+<span class="nc" id="L1291">            this.timestamp = System.currentTimeMillis();</span>
+<span class="nc" id="L1292">            this.oldValue = oldValue;</span>
+<span class="nc" id="L1293">            this.newValue = newValue;</span>
+<span class="nc" id="L1294">        }</span>
+    }
+    
+    /**
+     * 設定変更を履歴に記録
+     */
+    private void recordConfigChange(String path, Object oldValue, Object newValue) {
+<span class="nc" id="L1301">        changeHistory.computeIfAbsent(path, k -&gt; new ArrayList&lt;&gt;())</span>
+<span class="nc" id="L1302">                    .add(new ConfigChange(oldValue, newValue));</span>
+        
+<span class="nc" id="L1304">        List&lt;ConfigChange&gt; history = changeHistory.get(path);</span>
+<span class="nc bnc" id="L1305" title="All 2 branches missed.">        if (history.size() &gt; 10) {</span>
+<span class="nc" id="L1306">            history.remove(0);</span>
+        }
+<span class="nc" id="L1308">    }</span>
+    
+    /**
+     * 設定変更履歴を取得
+     */
+    public Map&lt;String, List&lt;ConfigChange&gt;&gt; getChangeHistory() {
+<span class="nc" id="L1314">        return new HashMap&lt;&gt;(changeHistory);</span>
+    }
+    
+    /**
+     * 設定のホットリロード（一部設定のみ）
+     */
+    public void hotReloadSection(String section) {
+        try {
+<span class="nc" id="L1322">            plugin.reloadConfig();</span>
+<span class="nc" id="L1323">            FileConfiguration newConfig = plugin.getConfig();</span>
+            
+<span class="nc" id="L1325">            Set&lt;String&gt; sectionKeys = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L1326" title="All 2 branches missed.">            for (String key : configCache.keySet()) {</span>
+<span class="nc bnc" id="L1327" title="All 2 branches missed.">                if (key.startsWith(section + &quot;.&quot;)) {</span>
+<span class="nc" id="L1328">                    sectionKeys.add(key);</span>
+                }
+<span class="nc" id="L1330">            }</span>
+            
+<span class="nc bnc" id="L1332" title="All 2 branches missed.">            for (String key : sectionKeys) {</span>
+<span class="nc" id="L1333">                Object oldValue = configCache.get(key);</span>
+<span class="nc" id="L1334">                Object newValue = newConfig.get(key);</span>
+                
+<span class="nc bnc" id="L1336" title="All 2 branches missed.">                if (!Objects.equals(oldValue, newValue)) {</span>
+<span class="nc" id="L1337">                    configCache.put(key, newValue);</span>
+<span class="nc" id="L1338">                    recordConfigChange(key, oldValue, newValue);</span>
+                }
+<span class="nc" id="L1340">            }</span>
+            
+<span class="nc" id="L1342">            config = newConfig;</span>
+<span class="nc" id="L1343">            notifyListeners(section);</span>
+            
+<span class="nc" id="L1345">            plugin.getLogger().info(&quot;設定セクション '&quot; + section + &quot;' をホットリロードしました。&quot;);</span>
+            
+<span class="nc" id="L1347">        } catch (Exception e) {</span>
+<span class="nc" id="L1348">            plugin.getLogger().severe(&quot;設定セクションのホットリロード中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L1349">        }</span>
+<span class="nc" id="L1350">    }</span>
+    
+    // ========== プレイヤー参加時の設定 ==========
+    
+    /**
+     * ウェルカムメッセージ一覧を取得
+     */
+    public java.util.List&lt;String&gt; getWelcomeMessages() {
+<span class="nc" id="L1358">        return config.getStringList(&quot;player_join.welcome_messages&quot;);</span>
+    }
+    
+    /**
+     * ウェルカムタイトルを取得
+     */
+    public String getWelcomeTitle() {
+<span class="nc" id="L1365">        return config.getString(&quot;player_join.welcome_title&quot;, &quot;&amp;6&amp;lようこそ TofuNomicsワールドへ!&quot;);</span>
+    }
+    
+    /**
+     * ウェルカムサブタイトルを取得
+     */
+    public String getWelcomeSubtitle() {
+<span class="nc" id="L1372">        return config.getString(&quot;player_join.welcome_subtitle&quot;, &quot;&amp;e%player%さん、お帰りなさい!&quot;);</span>
+    }
+    
+    /**
+     * 新規プレイヤーボーナスの有効化状態を取得
+     */
+    public boolean isNewPlayerBonusEnabled() {
+<span class="nc" id="L1379">        return config.getBoolean(&quot;player_join.new_player_bonus.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 新規プレイヤーボーナス金額を取得
+     */
+    public double getNewPlayerBonusAmount() {
+<span class="nc" id="L1386">        return config.getDouble(&quot;player_join.new_player_bonus.amount&quot;, 100.0);</span>
+    }
+    
+    /**
+     * 新規プレイヤーメッセージを取得
+     */
+    public java.util.List&lt;String&gt; getNewPlayerMessages() {
+<span class="nc" id="L1393">        return config.getStringList(&quot;player_join.new_player_bonus.messages&quot;);</span>
+    }
+    
+    /**
+     * 復帰プレイヤーメッセージの有効化状態を取得
+     */
+    public boolean isWelcomeBackMessageEnabled() {
+<span class="nc" id="L1400">        return config.getBoolean(&quot;player_join.welcome_back_message.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 復帰プレイヤーメッセージを取得
+     */
+    public String getWelcomeBackMessage() {
+<span class="nc" id="L1407">        return config.getString(&quot;player_join.welcome_back_message.message&quot;, &quot;&amp;aおかえりなさい、%player%さん!&quot;);</span>
+    }
+    
+    /**
+     * 復帰判定日数を取得（この日数以上離れていたら復帰扱い）
+     */
+    public int getWelcomeBackDays() {
+<span class="nc" id="L1414">        return config.getInt(&quot;player_join.welcome_back_message.days_threshold&quot;, 7);</span>
+    }
+    
+    /**
+     * スポーン座標機能の有効化状態を取得
+     */
+    public boolean isSpawnLocationEnabled() {
+<span class="nc" id="L1421">        return config.getBoolean(&quot;player_join.spawn_location.enabled&quot;, false);</span>
+    }
+    
+    /**
+     * スポーン座標のワールド名を取得
+     */
+    public String getSpawnWorldName() {
+<span class="nc" id="L1428">        return config.getString(&quot;player_join.spawn_location.world&quot;, &quot;world&quot;);</span>
+    }
+    
+    /**
+     * スポーン座標のX座標を取得
+     */
+    public int getSpawnX() {
+<span class="nc" id="L1435">        return config.getInt(&quot;player_join.spawn_location.x&quot;, 0);</span>
+    }
+    
+    /**
+     * スポーン座標のY座標を取得
+     */
+    public int getSpawnY() {
+<span class="nc" id="L1442">        return config.getInt(&quot;player_join.spawn_location.y&quot;, 64);</span>
+    }
+    
+    /**
+     * スポーン座標のZ座標を取得
+     */
+    public int getSpawnZ() {
+<span class="nc" id="L1449">        return config.getInt(&quot;player_join.spawn_location.z&quot;, 0);</span>
+    }
+    
+    /**
+     * スポーン座標テレポートの遅延時間を取得（tick）
+     */
+    public int getSpawnTeleportDelay() {
+<span class="nc" id="L1456">        return config.getInt(&quot;player_join.spawn_location.teleport_delay&quot;, 60);</span>
+    }
+    
+    // ==================== スコアボード設定関連メソッド ====================
+    
+    /**
+     * スコアボード機能が有効かどうかを取得
+     */
+    public boolean isScoreboardEnabled() {
+<span class="nc" id="L1465">        return (Boolean) getCachedValue(&quot;scoreboard.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * スコアボードのデフォルト表示設定を取得
+     */
+    public boolean isScoreboardDefaultEnabled() {
+<span class="nc" id="L1472">        return (Boolean) getCachedValue(&quot;scoreboard.default_enabled&quot;, true);</span>
+    }
+    
+    /**
+     * スコアボードタイトルを取得
+     */
+    public String getScoreboardTitle() {
+<span class="nc" id="L1479">        return (String) getCachedValue(&quot;scoreboard.title&quot;, &quot;&amp;6&amp;l★ &amp;eTofuNomics &amp;6&amp;l★&quot;);</span>
+    }
+    
+    /**
+     * スコアボード更新間隔を取得（秒）
+     */
+    public int getScoreboardUpdateInterval() {
+<span class="nc" id="L1486">        return (Integer) getCachedValue(&quot;scoreboard.update_interval&quot;, 1);</span>
+    }
+    
+    /**
+     * スコアボードでプレイヤー名を表示するかどうか
+     */
+    public boolean isScoreboardShowPlayerName() {
+<span class="nc" id="L1493">        return (Boolean) getCachedValue(&quot;scoreboard.display_settings.show_player_name&quot;, true);</span>
+    }
+    
+    /**
+     * スコアボードで残高を表示するかどうか
+     */
+    public boolean isScoreboardShowBalance() {
+<span class="nc" id="L1500">        return (Boolean) getCachedValue(&quot;scoreboard.display_settings.show_balance&quot;, true);</span>
+    }
+    
+    /**
+     * スコアボードで職業を表示するかどうか
+     */
+    public boolean isScoreboardShowJob() {
+<span class="nc" id="L1507">        return (Boolean) getCachedValue(&quot;scoreboard.display_settings.show_job&quot;, true);</span>
+    }
+    
+    /**
+     * スコアボードで職業レベルを表示するかどうか
+     */
+    public boolean isScoreboardShowJobLevel() {
+<span class="nc" id="L1514">        return (Boolean) getCachedValue(&quot;scoreboard.display_settings.show_job_level&quot;, true);</span>
+    }
+    
+    /**
+     * スコアボードで経験値を表示するかどうか
+     */
+    public boolean isScoreboardShowExperience() {
+<span class="nc" id="L1521">        return (Boolean) getCachedValue(&quot;scoreboard.display_settings.show_experience&quot;, true);</span>
+    }
+    
+    /**
+     * スコアボードでオンライン時間を表示するかどうか
+     */
+    public boolean isScoreboardShowOnlineTime() {
+<span class="nc" id="L1528">        return (Boolean) getCachedValue(&quot;scoreboard.display_settings.show_online_time&quot;, true);</span>
+    }
+    
+    /**
+     * スコアボード表示対象ワールド一覧を取得
+     */
+    public java.util.List&lt;String&gt; getScoreboardEnabledWorlds() {
+<span class="nc" id="L1535">        return config.getStringList(&quot;scoreboard.enabled_worlds&quot;);</span>
+    }
+    
+    /**
+     * 指定されたワールドでスコアボードを表示するかどうか
+     */
+    public boolean isScoreboardEnabledInWorld(String worldName) {
+<span class="nc" id="L1542">        java.util.List&lt;String&gt; enabledWorlds = getScoreboardEnabledWorlds();</span>
+<span class="nc" id="L1543">        return enabledWorlds.contains(worldName);</span>
+    }
+    
+    /**
+     * 職業の最大レベルを取得
+     */
+    public int getMaxJobLevel() {
+        // すべての職業で共通の最大レベル（75）を返す
+<span class="nc" id="L1551">        return 75;</span>
+    }
+    
+    // ========== 銀行・ATM場所制限設定 ==========
+    
+    /**
+     * 場所制限機能の有効/無効
+     */
+    public boolean isLocationRestrictionsEnabled() {
+<span class="nc" id="L1560">        return config.getBoolean(&quot;economy.location_restrictions.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 銀行・ATMアクセス可能範囲
+     */
+    public int getBankAccessRange() {
+<span class="nc" id="L1567">        return config.getInt(&quot;economy.location_restrictions.access_range&quot;, 5);</span>
+    }
+    
+    /**
+     * 銀行の場所一覧
+     */
+    public List&lt;Map&lt;?, ?&gt;&gt; getBankLocations() {
+<span class="nc" id="L1574">        return config.getMapList(&quot;npc_system.bank_npc.locations&quot;);</span>
+    }
+    
+    /**
+     * ATMの場所一覧
+     */
+    public List&lt;Map&lt;?, ?&gt;&gt; getAtmLocations() {
+<span class="nc" id="L1581">        return config.getMapList(&quot;economy.location_restrictions.atms&quot;);</span>
+    }
+    
+    // ========== NPCシステム設定 ==========
+    
+    /**
+     * NPCシステムの有効化状態を取得
+     */
+    public boolean isNPCSystemEnabled() {
+<span class="nc" id="L1590">        return config.getBoolean(&quot;npc_system.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * NPCとの相互作用クールダウンを取得（ミリ秒）
+     */
+    public long getNPCInteractionCooldownMs() {
+<span class="nc" id="L1597">        return config.getLong(&quot;npc_system.interaction.cooldown_ms&quot;, 1000);</span>
+    }
+    
+    /**
+     * NPCセッションのタイムアウトを取得（ミリ秒）
+     */
+    public long getNPCInteractionTimeoutMs() {
+<span class="nc" id="L1604">        return config.getLong(&quot;npc_system.interaction.session_timeout_ms&quot;, 300000);</span>
+    }
+    
+    /**
+     * NPCへのアクセス範囲を取得
+     */
+    public int getNPCAccessRange() {
+<span class="nc" id="L1611">        return config.getInt(&quot;npc_system.interaction.access_range&quot;, 5);</span>
+    }
+    
+    // ========== 銀行NPC設定 ==========
+    
+    /**
+     * 銀行NPCシステムの有効化状態を取得
+     */
+    public boolean isBankNPCEnabled() {
+<span class="nc" id="L1620">        return config.getBoolean(&quot;npc_system.bank_npcs.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 銀行NPCの場所一覧を取得
+     */
+    public List&lt;Map&lt;?, ?&gt;&gt; getBankNPCs() {
+<span class="nc" id="L1627">        return config.getMapList(&quot;npc_system.bank_npc.locations&quot;);</span>
+    }
+    
+    /**
+     * 銀行NPCの名前を取得
+     */
+    public String getBankNPCName(String locationType) {
+<span class="nc" id="L1634">        String defaultName = &quot;§6銀行員&quot;;</span>
+<span class="nc bnc" id="L1635" title="All 2 branches missed.">        if (locationType != null) {</span>
+<span class="nc bnc" id="L1636" title="All 4 branches missed.">            switch (locationType.toLowerCase()) {</span>
+                case &quot;main_bank&quot;:
+<span class="nc" id="L1638">                    return config.getString(&quot;npc_system.bank_npcs.locations.0.name&quot;, &quot;§6中央銀行員&quot;);</span>
+                case &quot;branch_bank&quot;:
+<span class="nc" id="L1640">                    return config.getString(&quot;npc_system.bank_npcs.locations.1.name&quot;, &quot;§e支店銀行員&quot;);</span>
+                case &quot;atm_assistant&quot;:
+<span class="nc" id="L1642">                    return config.getString(&quot;npc_system.bank_npcs.locations.2.name&quot;, &quot;§bATM案内係&quot;);</span>
+                default:
+<span class="nc" id="L1644">                    return defaultName;</span>
+            }
+        }
+<span class="nc" id="L1647">        return defaultName;</span>
+    }
+    
+    /**
+     * ATM NPCの名前を取得
+     */
+    public String getATMNPCName(String locationName) {
+<span class="nc" id="L1654">        return config.getString(&quot;npc_system.bank_npcs.messages.atm_greeting&quot;, &quot;§bATM案内係&quot;);</span>
+    }
+    
+    /**
+     * 銀行NPCの挨拶メッセージを取得
+     */
+    public String getBankNPCGreeting(String npcName, String playerName) {
+<span class="nc" id="L1661">        String greeting = config.getString(&quot;npc_system.bank_npcs.messages.greeting&quot;, </span>
+            &quot;§6こんにちは、%player%さん！%npc_name%へようこそ。&quot;);
+<span class="nc" id="L1663">        return greeting.replace(&quot;%player%&quot;, playerName).replace(&quot;%npc_name%&quot;, npcName);</span>
+    }
+    
+    // ========== 取引NPC設定 ==========
+    
+    /**
+     * 取引NPCシステムの有効化状態を取得
+     */
+    public boolean isTradingNPCEnabled() {
+<span class="nc" id="L1672">        return config.getBoolean(&quot;npc_system.trading_npcs.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 取引時間制限の有効化状態を取得
+     */
+    public boolean isTradingHoursEnabled() {
+<span class="nc" id="L1679">        return config.getBoolean(&quot;npc_system.trading_npcs.trading_hours.enabled&quot;, true);</span>
+    }
+    
+    /**
+     * 取引開始時刻を取得
+     */
+    public int getTradingStartHour() {
+<span class="nc" id="L1686">        return config.getInt(&quot;npc_system.trading_npcs.trading_hours.start&quot;, 6);</span>
+    }
+    
+    /**
+     * 取引終了時刻を取得
+     */
+    public int getTradingEndHour() {
+<span class="nc" id="L1693">        return config.getInt(&quot;npc_system.trading_npcs.trading_hours.end&quot;, 22);</span>
+    }
+    
+    /**
+     * 取引所の設定一覧を取得
+     */
+    public List&lt;Map&lt;?, ?&gt;&gt; getTradingPostConfigs() {
+<span class="nc" id="L1700">        return config.getMapList(&quot;npc_system.trading_posts&quot;);</span>
+    }
+    
+    /**
+     * 新しい取引所をconfig.ymlに追加
+     */
+    public void addTradingPost(String npcName, org.bukkit.Location location, String jobType) {
+        try {
+            // 既存の取引所リスト取得
+<span class="nc" id="L1709">            java.util.List&lt;java.util.Map&lt;String, Object&gt;&gt; tradingPosts = new java.util.ArrayList&lt;&gt;();</span>
+<span class="nc" id="L1710">            java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; existingPosts = config.getMapList(&quot;npc_system.trading_posts&quot;);</span>
+<span class="nc bnc" id="L1711" title="All 2 branches missed.">            for (java.util.Map&lt;?, ?&gt; post : existingPosts) {</span>
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L1713">                java.util.Map&lt;String, Object&gt; castedPost = (java.util.Map&lt;String, Object&gt;) post;</span>
+<span class="nc" id="L1714">                tradingPosts.add(castedPost);</span>
+<span class="nc" id="L1715">            }</span>
+            
+            // 新しい取引所データ作成
+<span class="nc" id="L1718">            java.util.Map&lt;String, Object&gt; newPost = new java.util.HashMap&lt;&gt;();</span>
+<span class="nc" id="L1719">            newPost.put(&quot;id&quot;, npcName.toLowerCase().replace(&quot; &quot;, &quot;_&quot;).replace(&quot;　&quot;, &quot;_&quot;));</span>
+<span class="nc" id="L1720">            newPost.put(&quot;name&quot;, npcName);</span>
+<span class="nc" id="L1721">            newPost.put(&quot;world&quot;, location.getWorld().getName());</span>
+<span class="nc" id="L1722">            newPost.put(&quot;x&quot;, location.getBlockX());</span>
+<span class="nc" id="L1723">            newPost.put(&quot;y&quot;, location.getBlockY());</span>
+<span class="nc" id="L1724">            newPost.put(&quot;z&quot;, location.getBlockZ());</span>
+<span class="nc" id="L1725">            newPost.put(&quot;accepted_jobs&quot;, java.util.Arrays.asList(jobType));</span>
+<span class="nc" id="L1726">            newPost.put(&quot;description&quot;, jobType + &quot;専用の取引所&quot;);</span>
+            
+            // リストに追加
+<span class="nc" id="L1729">            tradingPosts.add(newPost);</span>
+            
+            // 設定更新・保存
+<span class="nc" id="L1732">            updateConfigValue(&quot;npc_system.trading_posts&quot;, tradingPosts);</span>
+<span class="nc" id="L1733">            plugin.saveConfig();</span>
+            
+<span class="nc" id="L1735">            plugin.getLogger().info(&quot;取引所データを追加しました: &quot; + npcName + &quot; (&quot; + jobType + &quot;)&quot;);</span>
+            
+<span class="nc" id="L1737">        } catch (Exception e) {</span>
+<span class="nc" id="L1738">            plugin.getLogger().severe(&quot;取引所データの追加に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L1739">            e.printStackTrace();</span>
+<span class="nc" id="L1740">        }</span>
+<span class="nc" id="L1741">    }</span>
+    
+    /**
+     * 新しい銀行NPCをconfig.ymlに追加
+     */
+    public void addBankNPC(String npcName, org.bukkit.Location location, String npcType) {
+        try {
+            // 既存の銀行NPCリスト取得
+<span class="nc" id="L1749">            java.util.List&lt;java.util.Map&lt;String, Object&gt;&gt; bankNPCs = new java.util.ArrayList&lt;&gt;();</span>
+<span class="nc" id="L1750">            java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; existingNPCs = config.getMapList(&quot;npc_system.bank_npc.locations&quot;);</span>
+            
+            // 新しい銀行NPCデータ作成
+<span class="nc" id="L1753">            java.util.Map&lt;String, Object&gt; newNPC = new java.util.HashMap&lt;&gt;();</span>
+<span class="nc" id="L1754">            newNPC.put(&quot;world&quot;, location.getWorld().getName());</span>
+<span class="nc" id="L1755">            newNPC.put(&quot;x&quot;, location.getBlockX());</span>
+<span class="nc" id="L1756">            newNPC.put(&quot;y&quot;, location.getBlockY());</span>
+<span class="nc" id="L1757">            newNPC.put(&quot;z&quot;, location.getBlockZ());</span>
+<span class="nc" id="L1758">            newNPC.put(&quot;type&quot;, npcType);  // &quot;bank&quot; または &quot;atm&quot;</span>
+<span class="nc" id="L1759">            newNPC.put(&quot;name&quot;, npcName);</span>
+            // 適切な挨拶メッセージを作成（nullチェック付き）
+<span class="nc bnc" id="L1761" title="All 4 branches missed.">            String greeting = npcName != null &amp;&amp; !npcName.trim().isEmpty() ? </span>
+<span class="nc" id="L1762">                &quot;§6いらっしゃいませ、&quot; + npcName + &quot;へようこそ！&quot; : </span>
+<span class="nc" id="L1763">                &quot;§6いらっしゃいませ、銀行へようこそ！&quot;;</span>
+<span class="nc" id="L1764">            newNPC.put(&quot;greeting&quot;, greeting);</span>
+            
+            // 重複チェック: 同じ座標に既存NPCがないか確認
+<span class="nc" id="L1767">            int newX = location.getBlockX();</span>
+<span class="nc" id="L1768">            int newY = location.getBlockY();</span>
+<span class="nc" id="L1769">            int newZ = location.getBlockZ();</span>
+<span class="nc" id="L1770">            String newWorld = location.getWorld().getName();</span>
+<span class="nc" id="L1771">            boolean foundDuplicate = false;</span>
+            
+            // 既存NPCをチェックして、重複しないものだけをリストに追加
+<span class="nc" id="L1774">            boolean alreadyAdded = false; // 新しいNPCを既に追加したかのフラグ</span>
+            
+<span class="nc bnc" id="L1776" title="All 2 branches missed.">            for (java.util.Map&lt;?, ?&gt; npc : existingNPCs) {</span>
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L1778">                java.util.Map&lt;String, Object&gt; existingNPC = (java.util.Map&lt;String, Object&gt;) npc;</span>
+                
+<span class="nc bnc" id="L1780" title="All 2 branches missed.">                if (newWorld.equals(existingNPC.get(&quot;world&quot;)) &amp;&amp;</span>
+<span class="nc bnc" id="L1781" title="All 2 branches missed.">                    newX == ((Number) existingNPC.get(&quot;x&quot;)).intValue() &amp;&amp;</span>
+<span class="nc bnc" id="L1782" title="All 2 branches missed.">                    newY == ((Number) existingNPC.get(&quot;y&quot;)).intValue() &amp;&amp;</span>
+<span class="nc bnc" id="L1783" title="All 2 branches missed.">                    newZ == ((Number) existingNPC.get(&quot;z&quot;)).intValue()) {</span>
+                    // 同じ座標の既存NPCを発見
+<span class="nc bnc" id="L1785" title="All 2 branches missed.">                    if (!alreadyAdded) {</span>
+                        // 初回の重複のみ新しいNPCで置換
+<span class="nc" id="L1787">                        bankNPCs.add(newNPC);</span>
+<span class="nc" id="L1788">                        alreadyAdded = true;</span>
+<span class="nc" id="L1789">                        plugin.getLogger().info(&quot;同じ座標の既存銀行NPCを更新しました: &quot; + existingNPC.get(&quot;name&quot;) + &quot; -&gt; &quot; + npcName);</span>
+                    } else {
+                        // 2回目以降の重複は無視（ログのみ出力）
+<span class="nc" id="L1792">                        plugin.getLogger().info(&quot;重複エントリを除去しました: &quot; + existingNPC.get(&quot;name&quot;));</span>
+                    }
+<span class="nc" id="L1794">                    foundDuplicate = true;</span>
+                } else {
+                    // 重複しないNPCはそのまま保持
+<span class="nc" id="L1797">                    bankNPCs.add(existingNPC);</span>
+                }
+<span class="nc" id="L1799">            }</span>
+            
+            // 重複がなかった場合のみ新規追加
+<span class="nc bnc" id="L1802" title="All 2 branches missed.">            if (!foundDuplicate) {</span>
+<span class="nc" id="L1803">                bankNPCs.add(newNPC);</span>
+            }
+            
+            // 設定更新・保存
+<span class="nc" id="L1807">            updateConfigValue(&quot;npc_system.bank_npc.locations&quot;, bankNPCs);</span>
+<span class="nc" id="L1808">            plugin.saveConfig();</span>
+            
+<span class="nc" id="L1810">            plugin.getLogger().info(&quot;銀行NPCデータを追加しました: &quot; + npcName + &quot; (&quot; + npcType + &quot;)&quot;);</span>
+            
+<span class="nc" id="L1812">        } catch (Exception e) {</span>
+<span class="nc" id="L1813">            plugin.getLogger().severe(&quot;銀行NPCデータの追加に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L1814">            e.printStackTrace();</span>
+<span class="nc" id="L1815">        }</span>
+<span class="nc" id="L1816">    }</span>
+    
+    /**
+     * config.ymlから銀行NPCの位置情報を取得
+     */
+    public java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; getBankNPCLocations() {
+<span class="nc" id="L1822">        return config.getMapList(&quot;npc_system.bank_npc.locations&quot;);</span>
+    }
+
+    /**
+     * 新しい食料NPCをconfig.ymlに追加
+     */
+    public void addFoodNPC(String npcName, org.bukkit.Location location) {
+        try {
+            // 既存の食料NPCリスト取得
+<span class="nc" id="L1831">            java.util.List&lt;java.util.Map&lt;String, Object&gt;&gt; foodNPCs = new java.util.ArrayList&lt;&gt;();</span>
+<span class="nc" id="L1832">            java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; existingNPCs = config.getMapList(&quot;npc_system.food_npc.locations&quot;);</span>
+            
+            // 新しい食料NPCデータ作成
+<span class="nc" id="L1835">            java.util.Map&lt;String, Object&gt; newNPC = new java.util.HashMap&lt;&gt;();</span>
+<span class="nc" id="L1836">            newNPC.put(&quot;world&quot;, location.getWorld().getName());</span>
+<span class="nc" id="L1837">            newNPC.put(&quot;x&quot;, location.getBlockX());</span>
+<span class="nc" id="L1838">            newNPC.put(&quot;y&quot;, location.getBlockY());</span>
+<span class="nc" id="L1839">            newNPC.put(&quot;z&quot;, location.getBlockZ());</span>
+<span class="nc" id="L1840">            newNPC.put(&quot;name&quot;, npcName);</span>
+<span class="nc" id="L1841">            newNPC.put(&quot;description&quot;, &quot;基本的な食料品を販売&quot;);</span>
+            
+            // 重複チェック: 同じ座標に既存NPCがないか確認
+<span class="nc" id="L1844">            int newX = location.getBlockX();</span>
+<span class="nc" id="L1845">            int newY = location.getBlockY();</span>
+<span class="nc" id="L1846">            int newZ = location.getBlockZ();</span>
+<span class="nc" id="L1847">            String newWorld = location.getWorld().getName();</span>
+<span class="nc" id="L1848">            boolean foundDuplicate = false;</span>
+            
+            // 既存NPCをチェックして、重複しないものだけをリストに追加
+<span class="nc" id="L1851">            boolean alreadyAdded = false; // 新しいNPCを既に追加したかのフラグ</span>
+            
+<span class="nc bnc" id="L1853" title="All 2 branches missed.">            for (java.util.Map&lt;?, ?&gt; npc : existingNPCs) {</span>
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L1855">                java.util.Map&lt;String, Object&gt; existingNPC = (java.util.Map&lt;String, Object&gt;) npc;</span>
+                
+<span class="nc bnc" id="L1857" title="All 2 branches missed.">                if (newWorld.equals(existingNPC.get(&quot;world&quot;)) &amp;&amp;</span>
+<span class="nc bnc" id="L1858" title="All 2 branches missed.">                    newX == ((Number) existingNPC.get(&quot;x&quot;)).intValue() &amp;&amp;</span>
+<span class="nc bnc" id="L1859" title="All 2 branches missed.">                    newY == ((Number) existingNPC.get(&quot;y&quot;)).intValue() &amp;&amp;</span>
+<span class="nc bnc" id="L1860" title="All 2 branches missed.">                    newZ == ((Number) existingNPC.get(&quot;z&quot;)).intValue()) {</span>
+                    // 同じ座標の既存NPCを発見
+<span class="nc bnc" id="L1862" title="All 2 branches missed.">                    if (!alreadyAdded) {</span>
+                        // 初回の重複のみ新しいNPCで置換
+<span class="nc" id="L1864">                        foodNPCs.add(newNPC);</span>
+<span class="nc" id="L1865">                        alreadyAdded = true;</span>
+<span class="nc" id="L1866">                        plugin.getLogger().info(&quot;同じ座標の既存食料NPCを更新しました: &quot; + existingNPC.get(&quot;name&quot;) + &quot; -&gt; &quot; + npcName);</span>
+                    } else {
+                        // 2回目以降の重複は無視（ログのみ出力）
+<span class="nc" id="L1869">                        plugin.getLogger().info(&quot;重複エントリを除去しました: &quot; + existingNPC.get(&quot;name&quot;));</span>
+                    }
+<span class="nc" id="L1871">                    foundDuplicate = true;</span>
+                } else {
+                    // 重複しないNPCはそのまま保持
+<span class="nc" id="L1874">                    foodNPCs.add(existingNPC);</span>
+                }
+<span class="nc" id="L1876">            }</span>
+            
+            // 重複がなかった場合のみ新規追加
+<span class="nc bnc" id="L1879" title="All 2 branches missed.">            if (!foundDuplicate) {</span>
+<span class="nc" id="L1880">                foodNPCs.add(newNPC);</span>
+            }
+            
+            // 設定更新・保存
+<span class="nc" id="L1884">            updateConfigValue(&quot;npc_system.food_npc.locations&quot;, foodNPCs);</span>
+<span class="nc" id="L1885">            plugin.saveConfig();</span>
+            
+<span class="nc" id="L1887">            plugin.getLogger().info(&quot;食料NPCデータを追加しました: &quot; + npcName);</span>
+            
+<span class="nc" id="L1889">        } catch (Exception e) {</span>
+<span class="nc" id="L1890">            plugin.getLogger().severe(&quot;食料NPCデータの追加に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L1891">            e.printStackTrace();</span>
+<span class="nc" id="L1892">        }</span>
+<span class="nc" id="L1893">    }</span>
+    
+    /**
+     * NPCメッセージの存在を確認し、不足している場合は自動追加
+     */
+    public void ensureNPCMessagesExist() {
+        try {
+<span class="nc" id="L1900">            plugin.getLogger().info(&quot;NPCメッセージ設定を確認・初期化しています...&quot;);</span>
+            
+            // 基本メッセージを確保
+<span class="nc" id="L1903">            ensureMessagePath(&quot;messages.npc.unknown_type&quot;, &quot;&amp;cNPCの種類が不明です。&quot;);</span>
+<span class="nc" id="L1904">            ensureMessagePath(&quot;messages.npc.service_error&quot;, </span>
+                &quot;&amp;cサービス処理中にエラーが発生しました。しばらく経ってから再度お試しください。&quot;);
+            
+            // 取引NPC基本メッセージを確保
+<span class="nc" id="L1908">            ensureMessagePath(&quot;messages.npc.trading.no_job&quot;, </span>
+                &quot;&amp;c職業に就いていません。/jobs join &lt;職業名&gt; で職業に就いてからご利用ください。&quot;);
+<span class="nc" id="L1910">            ensureMessagePath(&quot;messages.npc.trading.job_not_accepted&quot;, </span>
+                &quot;&amp;c申し訳ありませんが、あなたの職業（%job%）では当店をご利用いただけません。&quot;);
+            
+            // central_market固有メッセージを確保
+<span class="nc" id="L1914">            ensureMessageListPath(&quot;messages.npc.trading.npc_specific.central_market.no_job&quot;, </span>
+<span class="nc" id="L1915">                java.util.Arrays.asList(</span>
+                    &quot;&amp;6「いらっしゃい、お客さん！」&quot;,
+                    &quot;&amp;e「まずは何か職業に就いてからお越しください」&quot;,
+                    &quot;&amp;7コマンド: &amp;f/jobs join &lt;職業名&gt;&quot;
+                ));
+<span class="nc" id="L1920">            ensureMessageListPath(&quot;messages.npc.trading.npc_specific.central_market.greeting&quot;,</span>
+<span class="nc" id="L1921">                java.util.Arrays.asList(</span>
+                    &quot;&amp;6「いらっしゃいませ！中央市場へようこそ！」&quot;,
+                    &quot;&amp;e「何でも買い取りますよ～」&quot;
+                ));
+            
+            // mining_post固有メッセージを確保
+<span class="nc" id="L1927">            ensureMessageListPath(&quot;messages.npc.trading.npc_specific.mining_post.no_job&quot;,</span>
+<span class="nc" id="L1928">                java.util.Arrays.asList(</span>
+                    &quot;&amp;8「ここは鉱夫の取引所だ」&quot;,
+                    &quot;&amp;7「まずは /jobs join miner で鉱夫になってくれ」&quot;
+                ));
+<span class="nc" id="L1932">            ensureMessageListPath(&quot;messages.npc.trading.npc_specific.mining_post.greeting&quot;,</span>
+<span class="nc" id="L1933">                java.util.Arrays.asList(</span>
+                    &quot;&amp;8「よう、同志よ。今日はどんな鉱石を掘ってきた？」&quot;
+                ));
+            
+<span class="nc" id="L1937">            plugin.getLogger().info(&quot;NPCメッセージ設定の確認・初期化が完了しました&quot;);</span>
+            
+<span class="nc" id="L1939">        } catch (Exception e) {</span>
+<span class="nc" id="L1940">            plugin.getLogger().severe(&quot;NPCメッセージ初期化中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L1941">            e.printStackTrace();</span>
+<span class="nc" id="L1942">        }</span>
+<span class="nc" id="L1943">    }</span>
+    
+    /**
+     * 指定されたパスに文字列メッセージが存在しない場合は追加
+     */
+    private void ensureMessagePath(String path, String defaultMessage) {
+<span class="nc bnc" id="L1949" title="All 2 branches missed.">        if (!config.contains(path)) {</span>
+<span class="nc" id="L1950">            updateConfigValue(path, defaultMessage);</span>
+<span class="nc" id="L1951">            plugin.getLogger().info(&quot;メッセージを追加しました: &quot; + path);</span>
+        }
+<span class="nc" id="L1953">    }</span>
+    
+    /**
+     * 指定されたパスにリストメッセージが存在しない場合は追加
+     */
+    private void ensureMessageListPath(String path, java.util.List&lt;String&gt; defaultMessages) {
+<span class="nc bnc" id="L1959" title="All 2 branches missed.">        if (!config.contains(path)) {</span>
+<span class="nc" id="L1960">            updateConfigValue(path, defaultMessages);</span>
+<span class="nc" id="L1961">            plugin.getLogger().info(&quot;メッセージリストを追加しました: &quot; + path + &quot; (&quot; + defaultMessages.size() + &quot;行)&quot;);</span>
+        }
+<span class="nc" id="L1963">    }</span>
+    
+    /**
+     * クラフト制限メッセージの存在を確認し、不足している場合は自動追加
+     */
+    public void ensureCraftRestrictionMessagesExist() {
+        try {
+<span class="nc" id="L1970">            plugin.getLogger().info(&quot;クラフト制限メッセージ設定を確認・初期化しています...&quot;);</span>
+            
+            // 基本クラフト制限メッセージを確保
+<span class="nc" id="L1973">            ensureMessagePath(&quot;messages.craft.no_job_required&quot;, </span>
+                &quot;&amp;c職業に就いていないため、このアイテムをクラフトできません。&quot;);
+<span class="nc" id="L1975">            ensureMessagePath(&quot;messages.craft.wrong_job_required&quot;, </span>
+                &quot;&amp;c{item}をクラフトするには{required_job}である必要があります。（現在: {current_job}）&quot;);
+<span class="nc" id="L1977">            ensureMessagePath(&quot;messages.craft.item_not_craftable&quot;, </span>
+                &quot;&amp;cこのアイテムはクラフトできません。&quot;);
+            
+<span class="nc" id="L1980">            plugin.getLogger().info(&quot;クラフト制限メッセージ設定の確認・初期化が完了しました&quot;);</span>
+            
+<span class="nc" id="L1982">        } catch (Exception e) {</span>
+<span class="nc" id="L1983">            plugin.getLogger().severe(&quot;クラフト制限メッセージ初期化中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L1984">            e.printStackTrace();</span>
+<span class="nc" id="L1985">        }</span>
+<span class="nc" id="L1986">    }</span>
+    
+    /**
+     * player_join設定の存在を確認し、不足している場合は自動追加
+     */
+    public void ensurePlayerJoinSettingsExist() {
+        try {
+<span class="nc" id="L1993">            plugin.getLogger().info(&quot;player_join設定を確認・初期化しています...&quot;);</span>
+            
+            // スポーン座標設定を確保
+<span class="nc" id="L1996">            ensureConfigPath(&quot;player_join.spawn_location.enabled&quot;, true);</span>
+<span class="nc" id="L1997">            ensureConfigPath(&quot;player_join.spawn_location.world&quot;, &quot;tofuNomics&quot;);</span>
+<span class="nc" id="L1998">            ensureConfigPath(&quot;player_join.spawn_location.x&quot;, -97);</span>
+<span class="nc" id="L1999">            ensureConfigPath(&quot;player_join.spawn_location.y&quot;, 75);</span>
+<span class="nc" id="L2000">            ensureConfigPath(&quot;player_join.spawn_location.z&quot;, -247);</span>
+<span class="nc" id="L2001">            ensureConfigPath(&quot;player_join.spawn_location.teleport_delay&quot;, 60);</span>
+            
+            // ウェルカムメッセージ設定を確保
+<span class="nc" id="L2004">            ensureConfigListPath(&quot;player_join.welcome_messages&quot;, </span>
+<span class="nc" id="L2005">                java.util.Arrays.asList(</span>
+                    &quot;&amp;6▬▬▬▬▬▬▬▬ ようこそ TofuNomicsワールドへ! ▬▬▬▬▬▬▬▬&quot;,
+                    &quot;&amp;e%player%さん、TofuNomicsワールドにようこそ！&quot;,
+                    &quot;&amp;fこのワールドでは職業に就いて経済活動を楽しむことができます。&quot;,
+                    &quot;&amp;a初期残高として &amp;f%starting_balance%%currency% &amp;aを受け取りました。&quot;,
+                    &quot;&amp;b職業システムを活用して、豊かな経済生活を送りましょう！&quot;,
+                    &quot;&amp;6▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬&quot;
+                ));
+            
+            // ウェルカムタイトル設定を確保
+<span class="nc" id="L2015">            ensureConfigPath(&quot;player_join.welcome_title&quot;, &quot;&amp;6&amp;lようこそ TofuNomicsワールドへ!&quot;);</span>
+<span class="nc" id="L2016">            ensureConfigPath(&quot;player_join.welcome_subtitle&quot;, &quot;&amp;e%player%さん、経済活動をお楽しみください!&quot;);</span>
+            
+            // 新規プレイヤーボーナス設定を確保
+<span class="nc" id="L2019">            ensureConfigPath(&quot;player_join.new_player_bonus.enabled&quot;, true);</span>
+<span class="nc" id="L2020">            ensureConfigPath(&quot;player_join.new_player_bonus.amount&quot;, 100.0);</span>
+<span class="nc" id="L2021">            ensureConfigListPath(&quot;player_join.new_player_bonus.messages&quot;,</span>
+<span class="nc" id="L2022">                java.util.Arrays.asList(</span>
+                    &quot;&amp;a初めてのご参加ありがとうございます！&quot;,
+                    &quot;&amp;f職業に就くことで収入を得ることができます。&quot;,
+                    &quot;&amp;e&amp;l/jobs join &lt;職業名&gt; &amp;rで職業に就職してみましょう！&quot;,
+                    &quot;&amp;b利用可能な職業: &amp;f鉱夫, 木こり, 農家, 釣り人, 鍛冶屋, ポーション屋, エンチャンター, 建築家&quot;,
+                    &quot;&amp;dチュートリアルクエストも用意されています。&amp;f /quest &amp;dで確認！&quot;
+                ));
+            
+            // 復帰プレイヤー設定を確保
+<span class="nc" id="L2031">            ensureConfigPath(&quot;player_join.welcome_back_message.enabled&quot;, true);</span>
+<span class="nc" id="L2032">            ensureConfigPath(&quot;player_join.welcome_back_message.message&quot;, &quot;&amp;6★ おかえりなさい、%player%さん！&quot;);</span>
+<span class="nc" id="L2033">            ensureConfigPath(&quot;player_join.welcome_back_message.days_threshold&quot;, 7);</span>
+            
+<span class="nc" id="L2035">            plugin.getLogger().info(&quot;player_join設定の確認・初期化が完了しました&quot;);</span>
+            
+<span class="nc" id="L2037">        } catch (Exception e) {</span>
+<span class="nc" id="L2038">            plugin.getLogger().severe(&quot;player_join設定初期化中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L2039">            e.printStackTrace();</span>
+<span class="nc" id="L2040">        }</span>
+<span class="nc" id="L2041">    }</span>
+    
+    /**
+     * 指定されたパスに設定が存在しない場合は追加
+     */
+    private void ensureConfigPath(String path, Object defaultValue) {
+<span class="nc bnc" id="L2047" title="All 2 branches missed.">        if (!config.contains(path)) {</span>
+<span class="nc" id="L2048">            updateConfigValue(path, defaultValue);</span>
+<span class="nc" id="L2049">            plugin.getLogger().info(&quot;設定を追加しました: &quot; + path + &quot; = &quot; + defaultValue);</span>
+        }
+<span class="nc" id="L2051">    }</span>
+    
+    /**
+     * 指定されたパスにリスト設定が存在しない場合は追加
+     */
+    private void ensureConfigListPath(String path, java.util.List&lt;?&gt; defaultList) {
+<span class="nc bnc" id="L2057" title="All 2 branches missed.">        if (!config.contains(path)) {</span>
+<span class="nc" id="L2058">            updateConfigValue(path, defaultList);</span>
+<span class="nc" id="L2059">            plugin.getLogger().info(&quot;リスト設定を追加しました: &quot; + path + &quot; (&quot; + defaultList.size() + &quot;項目)&quot;);</span>
+        }
+<span class="nc" id="L2061">    }</span>
+    
+    /**
+     * 指定された名前の取引所データをconfig.ymlから削除
+     */
+    public void removeTradingPostByName(String npcName) {
+        try {
+<span class="nc" id="L2068">            plugin.getLogger().info(&quot;取引所データ削除を開始: &quot; + npcName);</span>
+            
+<span class="nc" id="L2070">            java.util.List&lt;java.util.Map&lt;String, Object&gt;&gt; tradingPosts = new java.util.ArrayList&lt;&gt;();</span>
+<span class="nc" id="L2071">            java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; existingPosts = config.getMapList(&quot;npc_system.trading_posts&quot;);</span>
+            
+<span class="nc" id="L2073">            boolean removed = false;</span>
+<span class="nc bnc" id="L2074" title="All 2 branches missed.">            for (java.util.Map&lt;?, ?&gt; post : existingPosts) {</span>
+<span class="nc" id="L2075">                String postName = (String) post.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L2076" title="All 2 branches missed.">                if (!npcName.equals(postName)) {</span>
+                    // 削除対象でないものは保持
+                    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L2079">                    java.util.Map&lt;String, Object&gt; castedPost = (java.util.Map&lt;String, Object&gt;) post;</span>
+<span class="nc" id="L2080">                    tradingPosts.add(castedPost);</span>
+<span class="nc" id="L2081">                } else {</span>
+<span class="nc" id="L2082">                    removed = true;</span>
+<span class="nc" id="L2083">                    plugin.getLogger().info(&quot;取引所データを削除: &quot; + postName);</span>
+                }
+<span class="nc" id="L2085">            }</span>
+            
+<span class="nc bnc" id="L2087" title="All 2 branches missed.">            if (removed) {</span>
+<span class="nc" id="L2088">                updateConfigValue(&quot;npc_system.trading_posts&quot;, tradingPosts);</span>
+<span class="nc" id="L2089">                plugin.saveConfig();</span>
+<span class="nc" id="L2090">                plugin.getLogger().info(&quot;取引所データの削除が完了しました: &quot; + npcName);</span>
+            } else {
+<span class="nc" id="L2092">                plugin.getLogger().warning(&quot;削除対象の取引所データが見つかりません: &quot; + npcName);</span>
+            }
+            
+<span class="nc" id="L2095">        } catch (Exception e) {</span>
+<span class="nc" id="L2096">            plugin.getLogger().severe(&quot;取引所データ削除エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L2097">            e.printStackTrace();</span>
+<span class="nc" id="L2098">        }</span>
+<span class="nc" id="L2099">    }</span>
+    
+    /**
+     * 指定された名前の銀行NPCをconfig.ymlから削除（物理削除）
+     */
+    public void removeBankNPCByName(String npcName) {
+        try {
+<span class="nc" id="L2106">            plugin.getLogger().info(&quot;銀行NPCデータ削除を開始: &quot; + npcName);</span>
+            
+<span class="nc" id="L2108">            java.util.List&lt;java.util.Map&lt;String, Object&gt;&gt; bankNPCs = new java.util.ArrayList&lt;&gt;();</span>
+<span class="nc" id="L2109">            java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; existingNPCs = config.getMapList(&quot;npc_system.bank_npc.locations&quot;);</span>
+            
+<span class="nc" id="L2111">            plugin.getLogger().info(&quot;DEBUG: config.ymlから読み込んだ銀行NPC数: &quot; + existingNPCs.size());</span>
+<span class="nc bnc" id="L2112" title="All 2 branches missed.">            for (int i = 0; i &lt; existingNPCs.size(); i++) {</span>
+<span class="nc" id="L2113">                java.util.Map&lt;?, ?&gt; npc = existingNPCs.get(i);</span>
+<span class="nc" id="L2114">                String configName = (String) npc.get(&quot;name&quot;);</span>
+<span class="nc" id="L2115">                plugin.getLogger().info(&quot;DEBUG: 銀行NPC[&quot; + i + &quot;] = &quot; + configName + &quot; (検索対象: &quot; + npcName + &quot;)&quot;);</span>
+            }
+            
+<span class="nc" id="L2118">            boolean removed = false;</span>
+<span class="nc bnc" id="L2119" title="All 2 branches missed.">            for (java.util.Map&lt;?, ?&gt; npc : existingNPCs) {</span>
+<span class="nc" id="L2120">                String locationName = (String) npc.get(&quot;name&quot;);</span>
+<span class="nc" id="L2121">                String actualNPCName = getBankNPCName(locationName); // 実際のNPC名を取得</span>
+                
+<span class="nc" id="L2123">                plugin.getLogger().info(&quot;DEBUG: 場所=&quot; + locationName + &quot;, 実際のNPC名=&quot; + actualNPCName);</span>
+                
+                // 完全一致または表示名での一致をチェック
+<span class="nc bnc" id="L2126" title="All 2 branches missed.">                boolean shouldDelete = npcName.equals(actualNPCName) || </span>
+<span class="nc bnc" id="L2127" title="All 2 branches missed.">                                     npcName.equals(locationName) ||</span>
+<span class="nc bnc" id="L2128" title="All 2 branches missed.">                                     actualNPCName.contains(npcName) ||</span>
+<span class="nc bnc" id="L2129" title="All 2 branches missed.">                                     locationName.contains(npcName);</span>
+                
+<span class="nc bnc" id="L2131" title="All 2 branches missed.">                if (!shouldDelete) {</span>
+                    // 削除対象でないものは保持
+                    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L2134">                    java.util.Map&lt;String, Object&gt; castedNPC = (java.util.Map&lt;String, Object&gt;) npc;</span>
+<span class="nc" id="L2135">                    bankNPCs.add(castedNPC);</span>
+<span class="nc" id="L2136">                } else {</span>
+<span class="nc" id="L2137">                    removed = true;</span>
+<span class="nc" id="L2138">                    plugin.getLogger().info(&quot;銀行NPCデータを削除: &quot; + locationName + &quot; (NPC名: &quot; + actualNPCName + &quot;)&quot;);</span>
+                }
+<span class="nc" id="L2140">            }</span>
+            
+<span class="nc bnc" id="L2142" title="All 2 branches missed.">            if (removed) {</span>
+<span class="nc" id="L2143">                updateConfigValue(&quot;npc_system.bank_npc.locations&quot;, bankNPCs);</span>
+<span class="nc" id="L2144">                plugin.saveConfig();</span>
+<span class="nc" id="L2145">                plugin.getLogger().info(&quot;銀行NPCデータの削除が完了しました: &quot; + npcName);</span>
+            } else {
+<span class="nc" id="L2147">                plugin.getLogger().warning(&quot;削除対象の銀行NPCデータが見つかりません: &quot; + npcName);</span>
+            }
+            
+<span class="nc" id="L2150">        } catch (Exception e) {</span>
+<span class="nc" id="L2151">            plugin.getLogger().severe(&quot;銀行NPCデータ削除エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L2152">            e.printStackTrace();</span>
+<span class="nc" id="L2153">        }</span>
+<span class="nc" id="L2154">    }</span>
+    
+    /**
+     * 指定された名前の食料NPCをconfig.ymlから削除（物理削除）
+     */
+    public void removeFoodNPCByName(String npcName) {
+        try {
+<span class="nc" id="L2161">            plugin.getLogger().info(&quot;食料NPCデータ削除を開始: &quot; + npcName);</span>
+            
+<span class="nc" id="L2163">            java.util.List&lt;java.util.Map&lt;String, Object&gt;&gt; foodNPCs = new java.util.ArrayList&lt;&gt;();</span>
+<span class="nc" id="L2164">            java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; existingNPCs = config.getMapList(&quot;npc_system.food_npc.locations&quot;);</span>
+            
+<span class="nc" id="L2166">            plugin.getLogger().info(&quot;DEBUG: config.ymlから読み込んだ食料NPC数: &quot; + existingNPCs.size());</span>
+<span class="nc bnc" id="L2167" title="All 2 branches missed.">            for (int i = 0; i &lt; existingNPCs.size(); i++) {</span>
+<span class="nc" id="L2168">                java.util.Map&lt;?, ?&gt; npc = existingNPCs.get(i);</span>
+<span class="nc" id="L2169">                String configName = (String) npc.get(&quot;name&quot;);</span>
+<span class="nc" id="L2170">                plugin.getLogger().info(&quot;DEBUG: 食料NPC[&quot; + i + &quot;] = &quot; + configName + &quot; (検索対象: &quot; + npcName + &quot;)&quot;);</span>
+            }
+            
+<span class="nc" id="L2173">            boolean removed = false;</span>
+<span class="nc bnc" id="L2174" title="All 2 branches missed.">            for (java.util.Map&lt;?, ?&gt; npc : existingNPCs) {</span>
+<span class="nc" id="L2175">                String npcConfigName = (String) npc.get(&quot;name&quot;);</span>
+                
+<span class="nc" id="L2177">                plugin.getLogger().info(&quot;DEBUG: 食料NPC名=&quot; + npcConfigName);</span>
+                
+                // 完全一致または部分一致をチェック
+<span class="nc bnc" id="L2180" title="All 4 branches missed.">                boolean shouldDelete = npcName.equals(npcConfigName) || </span>
+<span class="nc bnc" id="L2181" title="All 2 branches missed.">                                     (npcConfigName != null &amp;&amp; npcConfigName.contains(npcName)) ||</span>
+<span class="nc bnc" id="L2182" title="All 2 branches missed.">                                     npcName.contains(npcConfigName);</span>
+                
+<span class="nc bnc" id="L2184" title="All 2 branches missed.">                if (!shouldDelete) {</span>
+                    // 削除対象でないものは保持
+                    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L2187">                    java.util.Map&lt;String, Object&gt; castedNPC = (java.util.Map&lt;String, Object&gt;) npc;</span>
+<span class="nc" id="L2188">                    foodNPCs.add(castedNPC);</span>
+<span class="nc" id="L2189">                } else {</span>
+<span class="nc" id="L2190">                    removed = true;</span>
+<span class="nc" id="L2191">                    plugin.getLogger().info(&quot;食料NPCデータを削除: &quot; + npcConfigName);</span>
+                }
+<span class="nc" id="L2193">            }</span>
+            
+<span class="nc bnc" id="L2195" title="All 2 branches missed.">            if (removed) {</span>
+<span class="nc" id="L2196">                updateConfigValue(&quot;npc_system.food_npc.locations&quot;, foodNPCs);</span>
+<span class="nc" id="L2197">                plugin.saveConfig();</span>
+<span class="nc" id="L2198">                plugin.getLogger().info(&quot;食料NPCデータの削除が完了しました: &quot; + npcName);</span>
+            } else {
+<span class="nc" id="L2200">                plugin.getLogger().warning(&quot;削除対象の食料NPCデータが見つかりません: &quot; + npcName);</span>
+            }
+            
+<span class="nc" id="L2203">        } catch (Exception e) {</span>
+<span class="nc" id="L2204">            plugin.getLogger().severe(&quot;食料NPCデータ削除エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L2205">            e.printStackTrace();</span>
+<span class="nc" id="L2206">        }</span>
+<span class="nc" id="L2207">    }</span>
+
+    /**
+     * すべての取引所データをconfig.ymlから削除
+     */
+    public void clearAllTradingPosts() {
+        try {
+<span class="nc" id="L2214">            plugin.getLogger().info(&quot;すべての取引所データを削除しています...&quot;);</span>
+<span class="nc" id="L2215">            updateConfigValue(&quot;npc_system.trading_npcs.trading_posts&quot;, new java.util.ArrayList&lt;&gt;());</span>
+<span class="nc" id="L2216">            plugin.saveConfig();</span>
+<span class="nc" id="L2217">            plugin.getLogger().info(&quot;すべての取引所データを削除しました&quot;);</span>
+<span class="nc" id="L2218">        } catch (Exception e) {</span>
+<span class="nc" id="L2219">            plugin.getLogger().severe(&quot;取引所データ全削除エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L2220">            e.printStackTrace();</span>
+<span class="nc" id="L2221">        }</span>
+<span class="nc" id="L2222">    }</span>
+    
+    /**
+     * 指定されたNPCに削除フラグを設定（論理削除）
+     */
+    public void markNPCAsDeleted(String npcName, String npcType) {
+        try {
+<span class="nc" id="L2229">            plugin.getLogger().info(&quot;NPC削除フラグ設定開始: &quot; + npcName + &quot; (&quot; + npcType + &quot;)&quot;);</span>
+            
+<span class="nc" id="L2231">            plugin.getLogger().info(&quot;=== 包括的NPC削除処理開始: &quot; + npcName + &quot; (タイプ: &quot; + npcType + &quot;) ===&quot;);</span>
+        
+<span class="nc" id="L2233">        boolean anyDeletionOccurred = false;</span>
+        
+        // 1. 指定されたタイプでの物理削除
+<span class="nc bnc" id="L2236" title="All 2 branches missed.">        if (&quot;trader&quot;.equals(npcType)) {</span>
+<span class="nc" id="L2237">            removeTradingPostByName(npcName);</span>
+<span class="nc" id="L2238">            anyDeletionOccurred = true;</span>
+<span class="nc bnc" id="L2239" title="All 2 branches missed.">        } else if (&quot;banker&quot;.equals(npcType)) {</span>
+<span class="nc" id="L2240">            removeBankNPCByName(npcName);</span>
+<span class="nc" id="L2241">            anyDeletionOccurred = true;</span>
+        }
+        
+        // 2. 他のカテゴリにも同名NPCが存在しないかチェックして削除
+        // 取引NPCカテゴリをチェック（指定タイプがtrader以外の場合）
+<span class="nc bnc" id="L2246" title="All 2 branches missed.">        if (!&quot;trader&quot;.equals(npcType)) {</span>
+<span class="nc" id="L2247">            boolean foundInTrading = getTradingPostConfigs().stream()</span>
+<span class="nc" id="L2248">                .anyMatch(post -&gt; npcName.equals(post.get(&quot;name&quot;)));</span>
+<span class="nc bnc" id="L2249" title="All 2 branches missed.">            if (foundInTrading) {</span>
+<span class="nc" id="L2250">                plugin.getLogger().warning(&quot;同名NPCが取引NPCカテゴリにも存在するため削除します: &quot; + npcName);</span>
+<span class="nc" id="L2251">                removeTradingPostByName(npcName);</span>
+<span class="nc" id="L2252">                anyDeletionOccurred = true;</span>
+            }
+        }
+        
+        // 銀行NPCカテゴリをチェック（指定タイプがbanker以外の場合）
+<span class="nc bnc" id="L2257" title="All 2 branches missed.">        if (!&quot;banker&quot;.equals(npcType)) {</span>
+<span class="nc" id="L2258">            boolean foundInBank = getBankNPCs().stream()</span>
+<span class="nc" id="L2259">                .anyMatch(npc -&gt; npcName.equals(npc.get(&quot;name&quot;)));</span>
+<span class="nc bnc" id="L2260" title="All 2 branches missed.">            if (foundInBank) {</span>
+<span class="nc" id="L2261">                plugin.getLogger().warning(&quot;同名NPCが銀行NPCカテゴリにも存在するため削除します: &quot; + npcName);</span>
+<span class="nc" id="L2262">                removeBankNPCByName(npcName);</span>
+<span class="nc" id="L2263">                anyDeletionOccurred = true;</span>
+            }
+        }
+        
+<span class="nc bnc" id="L2267" title="All 2 branches missed.">        if (anyDeletionOccurred) {</span>
+<span class="nc" id="L2268">            plugin.getLogger().info(&quot;設定ファイル保存を実行します...&quot;);</span>
+<span class="nc" id="L2269">            plugin.saveConfig();</span>
+<span class="nc" id="L2270">            plugin.getLogger().info(&quot;包括的NPC削除処理が完了しました: &quot; + npcName);</span>
+        } else {
+<span class="nc" id="L2272">            plugin.getLogger().warning(&quot;削除対象のNPCが見つかりませんでした: &quot; + npcName);</span>
+        }
+<span class="nc" id="L2274">            plugin.getLogger().info(&quot;NPC削除フラグ設定完了: &quot; + npcName);</span>
+            
+<span class="nc" id="L2276">        } catch (Exception e) {</span>
+<span class="nc" id="L2277">            plugin.getLogger().severe(&quot;NPC削除フラグ設定エラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L2278">            e.printStackTrace();</span>
+<span class="nc" id="L2279">        }</span>
+<span class="nc" id="L2280">    }</span>
+    
+
+    
+
+    
+
+    
+    /**
+     * 指定された名前の取引所データが既に存在するかチェック
+     */
+    public boolean hasTradingPostWithName(String npcName) {
+        try {
+<span class="nc" id="L2293">            java.util.List&lt;java.util.Map&lt;?, ?&gt;&gt; existingPosts = config.getMapList(&quot;npc_system.trading_posts&quot;);</span>
+<span class="nc bnc" id="L2294" title="All 2 branches missed.">            for (java.util.Map&lt;?, ?&gt; post : existingPosts) {</span>
+<span class="nc" id="L2295">                String postName = (String) post.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L2296" title="All 2 branches missed.">                if (npcName.equals(postName)) {</span>
+<span class="nc" id="L2297">                    return true;</span>
+                }
+<span class="nc" id="L2299">            }</span>
+<span class="nc" id="L2300">            return false;</span>
+<span class="nc" id="L2301">        } catch (Exception e) {</span>
+<span class="nc" id="L2302">            plugin.getLogger().warning(&quot;取引所重複チェック中にエラー: &quot; + e.getMessage());</span>
+<span class="nc" id="L2303">            return false;</span>
+        }
+    }
+    
+    /**
+     * 取引NPCの挨拶メッセージを取得
+     */
+    public String getTradingNPCGreeting(String npcName, String playerName) {
+<span class="nc" id="L2311">        String greeting = config.getString(&quot;npc_system.trading_npcs.messages.greeting&quot;,</span>
+            &quot;§6いらっしゃいませ、%player%さん！%npc_name%へようこそ。&quot;);
+<span class="nc" id="L2313">        return greeting.replace(&quot;%player%&quot;, playerName).replace(&quot;%npc_name%&quot;, npcName);</span>
+    }
+    
+    /**
+     * 取引詳細情報の表示設定を取得
+     */
+    public boolean showDetailedTradeInfo() {
+<span class="nc" id="L2320">        return config.getBoolean(&quot;npc_system.trading_npcs.messages.detailed_trade_info&quot;, true);</span>
+    }
+    
+    /**
+     * アイテムの基本価格一覧を取得
+     */
+    public Map&lt;String, Double&gt; getItemBasePrices() {
+<span class="nc" id="L2327">        Map&lt;String, Double&gt; prices = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L2328" title="All 2 branches missed.">        if (config.getConfigurationSection(&quot;npc_system.item_prices&quot;) != null) {</span>
+<span class="nc bnc" id="L2329" title="All 2 branches missed.">            for (String key : config.getConfigurationSection(&quot;npc_system.item_prices&quot;).getKeys(false)) {</span>
+<span class="nc" id="L2330">                prices.put(key, config.getDouble(&quot;npc_system.item_prices.&quot; + key));</span>
+<span class="nc" id="L2331">            }</span>
+        }
+<span class="nc" id="L2333">        return prices;</span>
+    }
+    
+    /**
+     * 特定アイテムの基本価格を取得
+     */
+    public double getItemBasePrice(String itemName) {
+<span class="nc" id="L2340">        return config.getDouble(&quot;npc_system.item_prices.&quot; + itemName.toLowerCase(), 0.0);</span>
+    }
+    
+    /**
+     * CurrencyConverterの参照を取得（循環参照回避のため、まず設定から通貨情報を取得）
+     */
+    public Object getCurrencyConverter() {
+        // 実際の実装では、TofuNomicsプラグインから取得する
+        // このメソッドは銀行GUIで使用するため仮実装
+<span class="nc" id="L2349">        return null;</span>
+    }
+    
+    /**
+     * NPCバンクでの1回あたりの最大引き出し金額を取得
+     */
+    public double getMaxWithdrawAmount() {
+<span class="nc" id="L2356">        return config.getDouble(&quot;npc_system.bank_npcs.limits.max_withdraw_amount&quot;, 10000.0);</span>
+    }
+    
+    /**
+     * NPCバンクでの1回あたりの最大預金金額を取得
+     */
+    public double getMaxDepositAmount() {
+<span class="nc" id="L2363">        return config.getDouble(&quot;npc_system.bank_npcs.limits.max_deposit_amount&quot;, 10000.0);</span>
+    }
+    
+    /**
+     * 食料NPCシステムが有効かどうか
+     */
+    public boolean isFoodNPCEnabled() {
+<span class="nc" id="L2370">        return config.getBoolean(&quot;npc_system.food_npc.enabled&quot;, false);</span>
+    }
+    
+    /**
+     * 食料NPCの営業時間制限が有効かどうか
+     */
+    public boolean isFoodNPCOperatingHoursEnabled() {
+<span class="nc" id="L2377">        return config.getBoolean(&quot;npc_system.food_npc.operating_hours.enabled&quot;, false);</span>
+    }
+    
+    /**
+     * 食料NPCの営業開始時間を取得
+     */
+    public int getFoodNPCStartHour() {
+<span class="nc" id="L2384">        return config.getInt(&quot;npc_system.food_npc.operating_hours.start_hour&quot;, 22);</span>
+    }
+    
+    /**
+     * 食料NPCの営業終了時間を取得
+     */
+    public int getFoodNPCEndHour() {
+<span class="nc" id="L2391">        return config.getInt(&quot;npc_system.food_npc.operating_hours.end_hour&quot;, 8);</span>
+    }
+    
+    /**
+     * 食料NPCの1日あたりアイテム購入上限を取得
+     */
+    public int getFoodNPCDailyLimitPerItem() {
+<span class="nc" id="L2398">        return config.getInt(&quot;npc_system.food_npc.purchase_limits.daily_limit_per_item&quot;, 32);</span>
+    }
+    
+    /**
+     * 食料NPCの1日あたり在庫上限を取得
+     */
+    public int getFoodNPCDailyStockLimit() {
+<span class="nc" id="L2405">        return config.getInt(&quot;npc_system.food_npc.inventory_system.daily_stock_limit&quot;, 64);</span>
+    }
+    
+    /**
+     * 食料NPCの設定リストを取得
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public List&lt;Map&lt;?, ?&gt;&gt; getFoodNPCConfigs() {
+<span class="nc" id="L2413">        return (List&lt;Map&lt;?, ?&gt;&gt;) config.getList(&quot;npc_system.food_npc.locations&quot;, new ArrayList&lt;&gt;());</span>
+    }
+    
+    /**
+     * 食料アイテムの価格マップを取得
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public Map&lt;String, Double&gt; getFoodItemPrices() {
+<span class="nc" id="L2421">        ConfigurationSection section = config.getConfigurationSection(&quot;npc_system.food_npc.food_items&quot;);</span>
+<span class="nc" id="L2422">        Map&lt;String, Double&gt; prices = new HashMap&lt;&gt;();</span>
+        
+<span class="nc bnc" id="L2424" title="All 2 branches missed.">        if (section != null) {</span>
+<span class="nc bnc" id="L2425" title="All 2 branches missed.">            for (String key : section.getKeys(false)) {</span>
+<span class="nc" id="L2426">                Object value = section.get(key);</span>
+<span class="nc bnc" id="L2427" title="All 2 branches missed.">                if (value instanceof Number) {</span>
+<span class="nc" id="L2428">                    prices.put(key, ((Number) value).doubleValue());</span>
+                }
+<span class="nc" id="L2430">            }</span>
+        }
+        
+<span class="nc" id="L2433">        return prices;</span>
+    }
+    
+    /**
+     * 利用可能なNPCタイプ一覧を取得
+     */
+    public Set&lt;String&gt; getFoodNPCTypes() {
+<span class="nc" id="L2440">        ConfigurationSection section = config.getConfigurationSection(&quot;npc_system.food_npc.npc_types&quot;);</span>
+<span class="nc bnc" id="L2441" title="All 2 branches missed.">        if (section != null) {</span>
+<span class="nc" id="L2442">            return section.getKeys(false);</span>
+        }
+<span class="nc" id="L2444">        return Collections.emptySet();</span>
+    }
+    
+    /**
+     * NPCタイプの設定を取得
+     */
+    public ConfigurationSection getFoodNPCTypeConfig(String npcType) {
+<span class="nc" id="L2451">        String path = &quot;npc_system.food_npc.npc_types.&quot; + npcType;</span>
+<span class="nc" id="L2452">        return config.getConfigurationSection(path);</span>
+    }
+    
+    /**
+     * NPCタイプの価格倍率を取得
+     */
+    public double getFoodNPCPriceMultiplier(String npcType) {
+<span class="nc" id="L2459">        ConfigurationSection section = getFoodNPCTypeConfig(npcType);</span>
+<span class="nc bnc" id="L2460" title="All 2 branches missed.">        if (section != null) {</span>
+<span class="nc" id="L2461">            return section.getDouble(&quot;price_multiplier&quot;, 1.0);</span>
+        }
+<span class="nc" id="L2463">        return 1.0; // デフォルト倍率</span>
+    }
+    
+    /**
+     * NPCタイプの表示名を取得
+     */
+    public String getFoodNPCTypeName(String npcType) {
+<span class="nc" id="L2470">        ConfigurationSection section = getFoodNPCTypeConfig(npcType);</span>
+<span class="nc bnc" id="L2471" title="All 2 branches missed.">        if (section != null) {</span>
+<span class="nc" id="L2472">            return section.getString(&quot;name&quot;, &quot;§6食料品店&quot;);</span>
+        }
+<span class="nc" id="L2474">        return &quot;§6食料品店&quot;; // デフォルト名</span>
+    }
+    
+    /**
+     * NPCタイプの販売アイテム一覧を取得
+     */
+    public List&lt;String&gt; getFoodNPCTypeItems(String npcType) {
+<span class="nc" id="L2481">        ConfigurationSection section = getFoodNPCTypeConfig(npcType);</span>
+        
+<span class="nc bnc" id="L2483" title="All 2 branches missed.">        if (section != null) {</span>
+<span class="nc" id="L2484">            return section.getStringList(&quot;items&quot;);</span>
+        }
+<span class="nc" id="L2486">        return Collections.emptyList();</span>
+    }
+    
+    /**
+     * NPCタイプが全商品を販売するかチェック
+     */
+    public boolean isFoodNPCTypeGeneral(String npcType) {
+<span class="nc" id="L2493">        List&lt;String&gt; items = getFoodNPCTypeItems(npcType);</span>
+<span class="nc" id="L2494">        return items.contains(&quot;all&quot;);</span>
+    }
+    
+    /**
+     * 設定ファイルをデフォルト設定で自動更新
+     * 不足している設定項目を追加し、既存の設定は保持する
+     */
+    public void updateConfigWithDefaults() {
+        try {
+            
+            // デフォルト設定をリソースから読み込み
+<span class="nc" id="L2505">            InputStream defaultConfigStream = plugin.getResource(&quot;config.yml&quot;);</span>
+<span class="nc bnc" id="L2506" title="All 2 branches missed.">            if (defaultConfigStream == null) {</span>
+<span class="nc" id="L2507">                plugin.getLogger().warning(&quot;デフォルト設定ファイルが見つかりません&quot;);</span>
+<span class="nc" id="L2508">                return;</span>
+            }
+            
+<span class="nc" id="L2511">            FileConfiguration defaultConfig = YamlConfiguration.loadConfiguration(new InputStreamReader(defaultConfigStream, StandardCharsets.UTF_8));</span>
+<span class="nc" id="L2512">            FileConfiguration currentConfig = plugin.getConfig();</span>
+            
+            // 設定バックアップ
+<span class="nc" id="L2515">            createConfigBackup();</span>
+            
+            // 不足している設定を追加
+<span class="nc" id="L2518">            boolean configUpdated = false;</span>
+<span class="nc" id="L2519">            List&lt;String&gt; addedKeys = new ArrayList&lt;&gt;();</span>
+            
+<span class="nc bnc" id="L2521" title="All 2 branches missed.">            for (String key : defaultConfig.getKeys(true)) {</span>
+<span class="nc" id="L2522">                boolean shouldUpdate = false;</span>
+                
+                // キーが存在しない場合
+<span class="nc bnc" id="L2525" title="All 2 branches missed.">                if (!currentConfig.contains(key)) {</span>
+<span class="nc" id="L2526">                    shouldUpdate = true;</span>
+                } 
+                // ConfigurationSectionが空の場合も更新対象にする
+<span class="nc bnc" id="L2529" title="All 2 branches missed.">                else if (currentConfig.isConfigurationSection(key)) {</span>
+<span class="nc" id="L2530">                    ConfigurationSection currentSection = currentConfig.getConfigurationSection(key);</span>
+<span class="nc" id="L2531">                    ConfigurationSection defaultSection = defaultConfig.getConfigurationSection(key);</span>
+                    
+<span class="nc bnc" id="L2533" title="All 4 branches missed.">                    if (currentSection != null &amp;&amp; defaultSection != null) {</span>
+                        // 現在のセクションが空で、デフォルトセクションにはデータがある場合
+<span class="nc bnc" id="L2535" title="All 2 branches missed.">                        if (currentSection.getKeys(false).isEmpty() &amp;&amp; </span>
+<span class="nc bnc" id="L2536" title="All 2 branches missed.">                            !defaultSection.getKeys(false).isEmpty()) {</span>
+<span class="nc" id="L2537">                            shouldUpdate = true;</span>
+                        }
+                    }
+                }
+                
+<span class="nc bnc" id="L2542" title="All 2 branches missed.">                if (shouldUpdate) {</span>
+<span class="nc" id="L2543">                    Object defaultValue = defaultConfig.get(key);</span>
+<span class="nc" id="L2544">                    currentConfig.set(key, defaultValue);</span>
+<span class="nc" id="L2545">                    addedKeys.add(key);</span>
+<span class="nc" id="L2546">                    configUpdated = true;</span>
+                }
+<span class="nc" id="L2548">            }</span>
+            
+            // 設定バージョンを更新
+<span class="nc" id="L2551">            String currentVersion = currentConfig.getString(&quot;config_version&quot;, &quot;1.0&quot;);</span>
+<span class="nc" id="L2552">            String defaultVersion = defaultConfig.getString(&quot;config_version&quot;, &quot;1.0&quot;);</span>
+            
+<span class="nc bnc" id="L2554" title="All 2 branches missed.">            if (!currentVersion.equals(defaultVersion)) {</span>
+<span class="nc" id="L2555">                currentConfig.set(&quot;config_version&quot;, defaultVersion);</span>
+<span class="nc" id="L2556">                configUpdated = true;</span>
+            }
+            
+            // 設定を保存
+<span class="nc bnc" id="L2560" title="All 2 branches missed.">            if (configUpdated) {</span>
+<span class="nc" id="L2561">                plugin.saveConfig();</span>
+<span class="nc" id="L2562">                plugin.getLogger().info(&quot;設定ファイルを自動更新しました。追加された設定: &quot; + addedKeys.size() + &quot;項目&quot;);</span>
+                
+<span class="nc bnc" id="L2564" title="All 2 branches missed.">                if (!addedKeys.isEmpty()) {</span>
+<span class="nc" id="L2565">                    plugin.getLogger().info(&quot;追加された設定項目:&quot;);</span>
+<span class="nc bnc" id="L2566" title="All 2 branches missed.">                    for (String key : addedKeys) {</span>
+<span class="nc" id="L2567">                        plugin.getLogger().info(&quot;  - &quot; + key);</span>
+<span class="nc" id="L2568">                    }</span>
+                }
+            }
+            
+<span class="nc" id="L2572">            defaultConfigStream.close();</span>
+            
+<span class="nc" id="L2574">        } catch (Exception e) {</span>
+<span class="nc" id="L2575">            plugin.getLogger().severe(&quot;設定ファイルの自動更新中にエラーが発生しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L2576">            e.printStackTrace();</span>
+<span class="nc" id="L2577">        }</span>
+<span class="nc" id="L2578">    }</span>
+
+    /**
+     * 完全なデフォルト設定ファイルを生成
+     * 既存の設定ファイルを上書きしてクリーンな状態にする
+     */
+    public boolean generateDefaultConfig() {
+        try {
+            // 現在の設定をバックアップ
+<span class="nc" id="L2587">            createConfigBackup();</span>
+            
+            // 既存の設定ファイルを削除
+<span class="nc" id="L2590">            File configFile = new File(plugin.getDataFolder(), &quot;config.yml&quot;);</span>
+<span class="nc bnc" id="L2591" title="All 2 branches missed.">            if (configFile.exists()) {</span>
+<span class="nc" id="L2592">                configFile.delete();</span>
+            }
+            
+            // デフォルト設定を強制的に保存
+<span class="nc" id="L2596">            plugin.saveDefaultConfig();</span>
+            
+            // 設定をリロード
+<span class="nc" id="L2599">            plugin.reloadConfig();</span>
+<span class="nc" id="L2600">            reloadConfig();</span>
+            
+<span class="nc" id="L2602">            plugin.getLogger().info(&quot;完全なデフォルト設定ファイルを生成しました。&quot;);</span>
+<span class="nc" id="L2603">            return true;</span>
+            
+<span class="nc" id="L2605">        } catch (Exception e) {</span>
+<span class="nc" id="L2606">            plugin.getLogger().severe(&quot;デフォルト設定ファイルの生成中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L2607">            e.printStackTrace();</span>
+<span class="nc" id="L2608">            return false;</span>
+        }
+    }
+    
+    /**
+     * 既存設定の問題を自動修正
+     */
+    public boolean fixConfigIssues() {
+        try {
+<span class="nc" id="L2617">            createConfigBackup();</span>
+            
+<span class="nc" id="L2619">            FileConfiguration config = plugin.getConfig();</span>
+<span class="nc" id="L2620">            boolean configChanged = false;</span>
+<span class="nc" id="L2621">            List&lt;String&gt; fixedIssues = new ArrayList&lt;&gt;();</span>
+            
+            // 1. 初期残高設定の修正
+<span class="nc bnc" id="L2624" title="All 2 branches missed.">            if (!config.contains(&quot;economy.starting_balance&quot;)) {</span>
+<span class="nc" id="L2625">                config.set(&quot;economy.starting_balance&quot;, 100.0);</span>
+<span class="nc" id="L2626">                configChanged = true;</span>
+<span class="nc" id="L2627">                fixedIssues.add(&quot;economy.starting_balance を追加&quot;);</span>
+            }
+            
+            // 2. 食料NPC営業時間の修正（深夜営業→通常営業）
+<span class="nc bnc" id="L2631" title="All 2 branches missed.">            if (config.getInt(&quot;npc_system.food_npc.operating_hours.start_hour&quot;, 6) == 22 &amp;&amp;</span>
+<span class="nc bnc" id="L2632" title="All 2 branches missed.">                config.getInt(&quot;npc_system.food_npc.operating_hours.end_hour&quot;, 22) == 8) {</span>
+<span class="nc" id="L2633">                config.set(&quot;npc_system.food_npc.operating_hours.start_hour&quot;, 6);</span>
+<span class="nc" id="L2634">                config.set(&quot;npc_system.food_npc.operating_hours.end_hour&quot;, 22);</span>
+<span class="nc" id="L2635">                configChanged = true;</span>
+<span class="nc" id="L2636">                fixedIssues.add(&quot;食料NPC営業時間を通常営業（6:00-22:00）に修正&quot;);</span>
+            }
+            
+            // 3. 制限値の修正（0から適切な値へ）
+<span class="nc bnc" id="L2640" title="All 2 branches missed.">            if (config.getInt(&quot;trade_system.limits.max_trades_per_day&quot;, 0) == 0) {</span>
+<span class="nc" id="L2641">                config.set(&quot;trade_system.limits.max_trades_per_day&quot;, 50);</span>
+<span class="nc" id="L2642">                configChanged = true;</span>
+<span class="nc" id="L2643">                fixedIssues.add(&quot;1日の最大取引回数を50に設定&quot;);</span>
+            }
+            
+<span class="nc bnc" id="L2646" title="All 2 branches missed.">            if (config.getDouble(&quot;trade_system.limits.max_earnings_per_day&quot;, 0.0) == 0.0) {</span>
+<span class="nc" id="L2647">                config.set(&quot;trade_system.limits.max_earnings_per_day&quot;, 10000.0);</span>
+<span class="nc" id="L2648">                configChanged = true;</span>
+<span class="nc" id="L2649">                fixedIssues.add(&quot;1日の最大収益を10000に設定&quot;);</span>
+            }
+            
+<span class="nc bnc" id="L2652" title="All 2 branches missed.">            if (config.getDouble(&quot;economy.pay.maximum_amount&quot;, 0.0) == 0.0) {</span>
+<span class="nc" id="L2653">                config.set(&quot;economy.pay.maximum_amount&quot;, 5000.0);</span>
+<span class="nc" id="L2654">                configChanged = true;</span>
+<span class="nc" id="L2655">                fixedIssues.add(&quot;送金上限額を5000に設定&quot;);</span>
+            }
+            
+            // 4. 空の職業制限ブロックリストの修正
+<span class="nc" id="L2659">            fixEmptyJobBlocks(config, fixedIssues);</span>
+<span class="nc bnc" id="L2660" title="All 2 branches missed.">            if (!fixedIssues.isEmpty()) {</span>
+<span class="nc" id="L2661">                configChanged = true;</span>
+            }
+            
+            // 5. 設定バージョンの更新
+<span class="nc" id="L2665">            config.set(&quot;config_version&quot;, &quot;2.1&quot;);</span>
+<span class="nc" id="L2666">            configChanged = true;</span>
+            
+<span class="nc bnc" id="L2668" title="All 2 branches missed.">            if (configChanged) {</span>
+<span class="nc" id="L2669">                plugin.saveConfig();</span>
+<span class="nc" id="L2670">                reloadConfig();</span>
+                
+<span class="nc" id="L2672">                plugin.getLogger().info(&quot;設定の問題を自動修正しました。修正項目数: &quot; + fixedIssues.size());</span>
+<span class="nc bnc" id="L2673" title="All 2 branches missed.">                for (String fix : fixedIssues) {</span>
+<span class="nc" id="L2674">                    plugin.getLogger().info(&quot;  - &quot; + fix);</span>
+<span class="nc" id="L2675">                }</span>
+            } else {
+<span class="nc" id="L2677">                plugin.getLogger().info(&quot;修正が必要な問題は見つかりませんでした。&quot;);</span>
+            }
+            
+<span class="nc" id="L2680">            return true;</span>
+            
+<span class="nc" id="L2682">        } catch (Exception e) {</span>
+<span class="nc" id="L2683">            plugin.getLogger().severe(&quot;設定の自動修正中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L2684">            e.printStackTrace();</span>
+<span class="nc" id="L2685">            return false;</span>
+        }
+    }
+    
+    /**
+     * 空の職業制限ブロックリストを修正
+     */
+    private void fixEmptyJobBlocks(FileConfiguration config, List&lt;String&gt; fixedIssues) {
+        // fishermanの制限ブロック
+<span class="nc bnc" id="L2694" title="All 2 branches missed.">        if (config.getStringList(&quot;jobs.block_restrictions.job_restricted_blocks.fisherman&quot;).isEmpty()) {</span>
+<span class="nc" id="L2695">            config.set(&quot;jobs.block_restrictions.job_restricted_blocks.fisherman&quot;, Arrays.asList(</span>
+                &quot;WATER&quot;, &quot;KELP&quot;, &quot;SEAGRASS&quot;, &quot;SEA_PICKLE&quot;, &quot;TUBE_CORAL&quot;, &quot;BRAIN_CORAL&quot;,
+                &quot;BUBBLE_CORAL&quot;, &quot;FIRE_CORAL&quot;, &quot;HORN_CORAL&quot;, &quot;DEAD_TUBE_CORAL&quot;, 
+                &quot;DEAD_BRAIN_CORAL&quot;, &quot;DEAD_BUBBLE_CORAL&quot;, &quot;DEAD_FIRE_CORAL&quot;, &quot;DEAD_HORN_CORAL&quot;
+            ));
+<span class="nc" id="L2700">            fixedIssues.add(&quot;fishermanの制限ブロックを追加&quot;);</span>
+        }
+        
+        // blacksmithの制限ブロック
+<span class="nc bnc" id="L2704" title="All 2 branches missed.">        if (config.getStringList(&quot;jobs.block_restrictions.job_restricted_blocks.blacksmith&quot;).isEmpty()) {</span>
+<span class="nc" id="L2705">            config.set(&quot;jobs.block_restrictions.job_restricted_blocks.blacksmith&quot;, Arrays.asList(</span>
+                &quot;ANVIL&quot;, &quot;CHIPPED_ANVIL&quot;, &quot;DAMAGED_ANVIL&quot;, &quot;FURNACE&quot;, &quot;BLAST_FURNACE&quot;,
+                &quot;SMITHING_TABLE&quot;, &quot;GRINDSTONE&quot;, &quot;CAULDRON&quot;, &quot;LAVA_CAULDRON&quot;
+            ));
+<span class="nc" id="L2709">            fixedIssues.add(&quot;blacksmithの制限ブロックを追加&quot;);</span>
+        }
+        
+        // alchemistの制限ブロック
+<span class="nc bnc" id="L2713" title="All 2 branches missed.">        if (config.getStringList(&quot;jobs.block_restrictions.job_restricted_blocks.alchemist&quot;).isEmpty()) {</span>
+<span class="nc" id="L2714">            config.set(&quot;jobs.block_restrictions.job_restricted_blocks.alchemist&quot;, Arrays.asList(</span>
+                &quot;BREWING_STAND&quot;, &quot;CAULDRON&quot;, &quot;WATER_CAULDRON&quot;, &quot;POWDER_SNOW_CAULDRON&quot;,
+                &quot;NETHER_WART&quot;, &quot;SOUL_SAND&quot;, &quot;SOUL_SOIL&quot;, &quot;MAGMA_BLOCK&quot;
+            ));
+<span class="nc" id="L2718">            fixedIssues.add(&quot;alchemistの制限ブロックを追加&quot;);</span>
+        }
+        
+        // enchanterの制限ブロック
+<span class="nc bnc" id="L2722" title="All 2 branches missed.">        if (config.getStringList(&quot;jobs.block_restrictions.job_restricted_blocks.enchanter&quot;).isEmpty()) {</span>
+<span class="nc" id="L2723">            config.set(&quot;jobs.block_restrictions.job_restricted_blocks.enchanter&quot;, Arrays.asList(</span>
+                &quot;ENCHANTING_TABLE&quot;, &quot;BOOKSHELF&quot;, &quot;LECTERN&quot;, &quot;LAPIS_LAZULI_BLOCK&quot;,
+                &quot;EXPERIENCE_BOTTLE&quot;
+            ));
+<span class="nc" id="L2727">            fixedIssues.add(&quot;enchanterの制限ブロックを追加&quot;);</span>
+        }
+        
+        // architectの制限ブロック
+<span class="nc bnc" id="L2731" title="All 2 branches missed.">        if (config.getStringList(&quot;jobs.block_restrictions.job_restricted_blocks.architect&quot;).isEmpty()) {</span>
+<span class="nc" id="L2732">            config.set(&quot;jobs.block_restrictions.job_restricted_blocks.architect&quot;, Arrays.asList(</span>
+                &quot;SCAFFOLDING&quot;, &quot;LADDER&quot;, &quot;CHAIN&quot;, &quot;LANTERN&quot;, &quot;SOUL_LANTERN&quot;,
+                &quot;TORCH&quot;, &quot;SOUL_TORCH&quot;, &quot;REDSTONE_TORCH&quot;, &quot;SEA_LANTERN&quot;,
+                &quot;GLOWSTONE&quot;, &quot;JACK_O_LANTERN&quot;, &quot;CAMPFIRE&quot;, &quot;SOUL_CAMPFIRE&quot;
+            ));
+<span class="nc" id="L2737">            fixedIssues.add(&quot;architectの制限ブロックを追加&quot;);</span>
+        }
+<span class="nc" id="L2739">    }</span>
+    
+    /**
+     * 設定の妥当性をチェック
+     */
+    public ConfigValidationResult validateConfigSettings() {
+<span class="nc" id="L2745">        ConfigValidationResult result = new ConfigValidationResult();</span>
+<span class="nc" id="L2746">        FileConfiguration config = plugin.getConfig();</span>
+        
+        try {
+            // 必須項目チェック
+<span class="nc" id="L2750">            checkRequiredPaths(config, result);</span>
+            
+            // 数値範囲チェック
+<span class="nc" id="L2753">            checkNumericRanges(config, result);</span>
+            
+            // 論理的整合性チェック
+<span class="nc" id="L2756">            checkLogicalConsistency(config, result);</span>
+            
+            // 職業設定チェック
+<span class="nc" id="L2759">            checkJobSettings(config, result);</span>
+            
+<span class="nc" id="L2761">        } catch (Exception e) {</span>
+<span class="nc" id="L2762">            result.addError(&quot;設定検証中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L2763">        }</span>
+        
+<span class="nc" id="L2765">        return result;</span>
+    }
+    
+    /**
+     * 必須項目の存在チェック
+     */
+    private void checkRequiredPaths(FileConfiguration config, ConfigValidationResult result) {
+<span class="nc" id="L2772">        String[] requiredPaths = {</span>
+            &quot;economy.currency.name&quot;,
+            &quot;economy.currency.symbol&quot;, 
+            &quot;economy.starting_balance&quot;,
+            &quot;database.connection_pool.max_connections&quot;,
+            &quot;jobs.general.max_jobs_per_player&quot;
+        };
+        
+<span class="nc bnc" id="L2780" title="All 2 branches missed.">        for (String path : requiredPaths) {</span>
+<span class="nc bnc" id="L2781" title="All 2 branches missed.">            if (!config.contains(path)) {</span>
+<span class="nc" id="L2782">                result.addError(&quot;必須設定項目が見つかりません: &quot; + path);</span>
+            }
+        }
+<span class="nc" id="L2785">    }</span>
+    
+    /**
+     * 数値範囲チェック
+     */
+    private void checkNumericRanges(FileConfiguration config, ConfigValidationResult result) {
+        // 正の数であるべき項目
+<span class="nc" id="L2792">        checkPositiveNumber(config, &quot;economy.starting_balance&quot;, result);</span>
+<span class="nc" id="L2793">        checkPositiveNumber(config, &quot;database.connection_pool.max_connections&quot;, result);</span>
+<span class="nc" id="L2794">        checkPositiveNumber(config, &quot;jobs.general.max_jobs_per_player&quot;, result);</span>
+        
+        // 0-1の範囲であるべき項目
+<span class="nc" id="L2797">        checkProbability(config, &quot;performance.memory_management.memory_monitoring.warning_threshold&quot;, result);</span>
+<span class="nc" id="L2798">        checkProbability(config, &quot;performance.memory_management.memory_monitoring.critical_threshold&quot;, result);</span>
+        
+        // 時間範囲チェック（0-23）
+<span class="nc" id="L2801">        checkHourRange(config, &quot;npc_system.food_npc.operating_hours.start_hour&quot;, result);</span>
+<span class="nc" id="L2802">        checkHourRange(config, &quot;npc_system.food_npc.operating_hours.end_hour&quot;, result);</span>
+<span class="nc" id="L2803">    }</span>
+    
+    /**
+     * 論理的整合性チェック
+     */
+    private void checkLogicalConsistency(FileConfiguration config, ConfigValidationResult result) {
+        // 営業時間の整合性
+<span class="nc" id="L2810">        int startHour = config.getInt(&quot;npc_system.food_npc.operating_hours.start_hour&quot;, 6);</span>
+<span class="nc" id="L2811">        int endHour = config.getInt(&quot;npc_system.food_npc.operating_hours.end_hour&quot;, 22);</span>
+        
+<span class="nc bnc" id="L2813" title="All 2 branches missed.">        if (startHour &gt;= endHour) {</span>
+<span class="nc" id="L2814">            result.addWarning(&quot;食料NPC営業時間: 開始時間(&quot; + startHour + &quot;)が終了時間(&quot; + endHour + &quot;)以降になっています&quot;);</span>
+        }
+        
+        // メモリ閾値の整合性
+<span class="nc" id="L2818">        double warningThreshold = config.getDouble(&quot;performance.memory_management.memory_monitoring.warning_threshold&quot;, 0.8);</span>
+<span class="nc" id="L2819">        double criticalThreshold = config.getDouble(&quot;performance.memory_management.memory_monitoring.critical_threshold&quot;, 0.95);</span>
+        
+<span class="nc bnc" id="L2821" title="All 2 branches missed.">        if (warningThreshold &gt;= criticalThreshold) {</span>
+<span class="nc" id="L2822">            result.addWarning(&quot;メモリ警告閾値(&quot; + warningThreshold + &quot;)が危険閾値(&quot; + criticalThreshold + &quot;)以上になっています&quot;);</span>
+        }
+<span class="nc" id="L2824">    }</span>
+    
+    /**
+     * 職業設定チェック
+     */
+    private void checkJobSettings(FileConfiguration config, ConfigValidationResult result) {
+<span class="nc" id="L2830">        ConfigurationSection jobsSection = config.getConfigurationSection(&quot;jobs.job_settings&quot;);</span>
+<span class="nc bnc" id="L2831" title="All 2 branches missed.">        if (jobsSection != null) {</span>
+<span class="nc bnc" id="L2832" title="All 2 branches missed.">            for (String jobName : jobsSection.getKeys(false)) {</span>
+<span class="nc" id="L2833">                String basePath = &quot;jobs.job_settings.&quot; + jobName;</span>
+                
+                // 最大レベルチェック
+<span class="nc" id="L2836">                int maxLevel = config.getInt(basePath + &quot;.max_level&quot;, 75);</span>
+<span class="nc bnc" id="L2837" title="All 4 branches missed.">                if (maxLevel &lt; 1 || maxLevel &gt; 100) {</span>
+<span class="nc" id="L2838">                    result.addWarning(&quot;職業 &quot; + jobName + &quot; の最大レベル(&quot; + maxLevel + &quot;)が推奨範囲(1-100)外です&quot;);</span>
+                }
+                
+                // 倍率チェック
+<span class="nc" id="L2842">                double incomeMultiplier = config.getDouble(basePath + &quot;.base_income_multiplier&quot;, 1.0);</span>
+<span class="nc bnc" id="L2843" title="All 4 branches missed.">                if (incomeMultiplier &lt; 0.1 || incomeMultiplier &gt; 5.0) {</span>
+<span class="nc" id="L2844">                    result.addWarning(&quot;職業 &quot; + jobName + &quot; の収入倍率(&quot; + incomeMultiplier + &quot;)が推奨範囲(0.1-5.0)外です&quot;);</span>
+                }
+<span class="nc" id="L2846">            }</span>
+        }
+<span class="nc" id="L2848">    }</span>
+    
+    /**
+     * 正の数チェック
+     */
+    private void checkPositiveNumber(FileConfiguration config, String path, ConfigValidationResult result) {
+<span class="nc bnc" id="L2854" title="All 2 branches missed.">        if (config.contains(path)) {</span>
+<span class="nc" id="L2855">            double value = config.getDouble(path);</span>
+<span class="nc bnc" id="L2856" title="All 2 branches missed.">            if (value &lt;= 0) {</span>
+<span class="nc" id="L2857">                result.addError(path + &quot; は正の数である必要があります。現在値: &quot; + value);</span>
+            }
+        }
+<span class="nc" id="L2860">    }</span>
+    
+    /**
+     * 確率値チェック（0-1）
+     */
+    private void checkProbability(FileConfiguration config, String path, ConfigValidationResult result) {
+<span class="nc bnc" id="L2866" title="All 2 branches missed.">        if (config.contains(path)) {</span>
+<span class="nc" id="L2867">            double value = config.getDouble(path);</span>
+<span class="nc bnc" id="L2868" title="All 4 branches missed.">            if (value &lt; 0.0 || value &gt; 1.0) {</span>
+<span class="nc" id="L2869">                result.addError(path + &quot; は0.0-1.0の範囲である必要があります。現在値: &quot; + value);</span>
+            }
+        }
+<span class="nc" id="L2872">    }</span>
+    
+    /**
+     * 時間範囲チェック（0-23）
+     */
+    private void checkHourRange(FileConfiguration config, String path, ConfigValidationResult result) {
+<span class="nc bnc" id="L2878" title="All 2 branches missed.">        if (config.contains(path)) {</span>
+<span class="nc" id="L2879">            int value = config.getInt(path);</span>
+<span class="nc bnc" id="L2880" title="All 4 branches missed.">            if (value &lt; 0 || value &gt; 23) {</span>
+<span class="nc" id="L2881">                result.addError(path + &quot; は0-23の範囲である必要があります。現在値: &quot; + value);</span>
+            }
+        }
+<span class="nc" id="L2884">    }</span>
+
+    
+    /**
+     * NPCメッセージをリロードする
+     */
+    public boolean reloadMessages() {
+        try {
+<span class="nc" id="L2892">            plugin.reloadConfig();</span>
+<span class="nc" id="L2893">            reloadConfig();</span>
+            
+<span class="nc" id="L2895">            plugin.getLogger().info(&quot;NPCメッセージを再読み込みしました。&quot;);</span>
+<span class="nc" id="L2896">            return true;</span>
+            
+<span class="nc" id="L2898">        } catch (Exception e) {</span>
+<span class="nc" id="L2899">            plugin.getLogger().severe(&quot;NPCメッセージの再読み込み中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L2900">            e.printStackTrace();</span>
+<span class="nc" id="L2901">            return false;</span>
+        }
+    }
+    
+    /**
+     * NPCメッセージの妥当性をチェック
+     */
+    public MessageValidationResult validateMessages() {
+<span class="nc" id="L2909">        MessageValidationResult result = new MessageValidationResult();</span>
+<span class="nc" id="L2910">        FileConfiguration config = plugin.getConfig();</span>
+        
+        try {
+            // NPCメッセージの存在確認
+<span class="nc" id="L2914">            checkNPCMessages(config, result);</span>
+            
+            // 色コードとプレースホルダーの検証
+<span class="nc" id="L2917">            checkMessageFormatting(config, result);</span>
+            
+            // メッセージの整合性チェック
+<span class="nc" id="L2920">            checkMessageConsistency(config, result);</span>
+            
+<span class="nc" id="L2922">        } catch (Exception e) {</span>
+<span class="nc" id="L2923">            result.addError(&quot;NPCメッセージ検証中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L2924">        }</span>
+        
+<span class="nc" id="L2926">        return result;</span>
+    }
+    
+    /**
+     * NPCメッセージの存在確認
+     */
+    private void checkNPCMessages(FileConfiguration config, MessageValidationResult result) {
+<span class="nc" id="L2933">        String[] requiredPaths = {</span>
+            &quot;messages.npc.trading.no_job&quot;,
+            &quot;messages.npc.trading.job_not_accepted&quot;,
+            &quot;messages.npc.bank.greeting&quot;,
+            &quot;npc_system.food_npc.messages.greeting&quot;,
+            &quot;npc_system.food_npc.messages.closed&quot;
+        };
+        
+<span class="nc bnc" id="L2941" title="All 2 branches missed.">        for (String path : requiredPaths) {</span>
+<span class="nc bnc" id="L2942" title="All 2 branches missed.">            if (!config.contains(path)) {</span>
+<span class="nc" id="L2943">                result.addError(&quot;必須NPCメッセージが見つかりません: &quot; + path);</span>
+            }
+        }
+<span class="nc" id="L2946">    }</span>
+    
+    /**
+     * メッセージフォーマットの検証
+     */
+    private void checkMessageFormatting(FileConfiguration config, MessageValidationResult result) {
+        // 主要なメッセージパスを検証
+<span class="nc" id="L2953">        checkMessagePath(config, &quot;messages.npc.bank.greeting&quot;, result);</span>
+<span class="nc" id="L2954">        checkMessagePath(config, &quot;npc_system.food_npc.messages.greeting&quot;, result);</span>
+<span class="nc" id="L2955">        checkMessagePath(config, &quot;npc_system.food_npc.messages.closed&quot;, result);</span>
+        
+        // リスト形式のメッセージも検証
+<span class="nc" id="L2958">        ConfigurationSection tradingNpcs = config.getConfigurationSection(&quot;messages.npc.trading.npc_specific&quot;);</span>
+<span class="nc bnc" id="L2959" title="All 2 branches missed.">        if (tradingNpcs != null) {</span>
+<span class="nc bnc" id="L2960" title="All 2 branches missed.">            for (String npcType : tradingNpcs.getKeys(false)) {</span>
+<span class="nc" id="L2961">                checkNPCSpecificMessages(config, &quot;messages.npc.trading.npc_specific.&quot; + npcType, result);</span>
+<span class="nc" id="L2962">            }</span>
+        }
+<span class="nc" id="L2964">    }</span>
+    
+    /**
+     * 個別メッセージパスの検証
+     */
+    private void checkMessagePath(FileConfiguration config, String path, MessageValidationResult result) {
+<span class="nc bnc" id="L2970" title="All 2 branches missed.">        if (config.contains(path)) {</span>
+<span class="nc" id="L2971">            Object value = config.get(path);</span>
+<span class="nc bnc" id="L2972" title="All 2 branches missed.">            if (value instanceof String) {</span>
+<span class="nc" id="L2973">                String message = (String) value;</span>
+<span class="nc" id="L2974">                checkColorCodes(message, path, result);</span>
+<span class="nc" id="L2975">                checkPlaceholders(message, path, result);</span>
+<span class="nc bnc" id="L2976" title="All 2 branches missed.">            } else if (value instanceof List) {</span>
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L2978">                List&lt;String&gt; messages = (List&lt;String&gt;) value;</span>
+<span class="nc bnc" id="L2979" title="All 2 branches missed.">                for (int i = 0; i &lt; messages.size(); i++) {</span>
+<span class="nc" id="L2980">                    String message = messages.get(i);</span>
+<span class="nc" id="L2981">                    checkColorCodes(message, path + &quot;[&quot; + i + &quot;]&quot;, result);</span>
+<span class="nc" id="L2982">                    checkPlaceholders(message, path + &quot;[&quot; + i + &quot;]&quot;, result);</span>
+                }
+            }
+        }
+<span class="nc" id="L2986">    }</span>
+    
+    /**
+     * NPC固有メッセージの検証
+     */
+    private void checkNPCSpecificMessages(FileConfiguration config, String basePath, MessageValidationResult result) {
+<span class="nc" id="L2992">        String[] messageTypes = {&quot;greeting&quot;, &quot;no_job&quot;, &quot;job_not_accepted&quot;, &quot;welcome&quot;};</span>
+        
+<span class="nc bnc" id="L2994" title="All 2 branches missed.">        for (String messageType : messageTypes) {</span>
+<span class="nc" id="L2995">            String fullPath = basePath + &quot;.&quot; + messageType;</span>
+<span class="nc" id="L2996">            checkMessagePath(config, fullPath, result);</span>
+        }
+<span class="nc" id="L2998">    }</span>
+    
+    /**
+     * 色コードの検証
+     */
+    private void checkColorCodes(String message, String path, MessageValidationResult result) {
+        // 不正な色コードパターンをチェック
+<span class="nc bnc" id="L3005" title="All 4 branches missed.">        if (message.contains(&quot;§&quot;) &amp;&amp; !message.matches(&quot;.*§[0-9a-fk-or].*&quot;)) {</span>
+<span class="nc" id="L3006">            result.addWarning(&quot;不正な色コードが含まれている可能性があります: &quot; + path);</span>
+        }
+        
+        // &amp;記号で始まる色コードもチェック
+<span class="nc bnc" id="L3010" title="All 4 branches missed.">        if (message.contains(&quot;&amp;&quot;) &amp;&amp; !message.matches(&quot;.*&amp;[0-9a-fk-or].*&quot;)) {</span>
+<span class="nc" id="L3011">            result.addWarning(&quot;&amp;形式の色コードが含まれています（自動変換されます）: &quot; + path);</span>
+        }
+<span class="nc" id="L3013">    }</span>
+    
+    /**
+     * プレースホルダーの検証
+     */
+    private void checkPlaceholders(String message, String path, MessageValidationResult result) {
+        // 一般的なプレースホルダーパターン
+<span class="nc" id="L3020">        String[] validPlaceholders = {</span>
+            &quot;%player%&quot;, &quot;%npc_name%&quot;, &quot;%job%&quot;, &quot;%amount%&quot;, &quot;%currency%&quot;, 
+            &quot;%item%&quot;, &quot;%price%&quot;, &quot;%start%&quot;, &quot;%end%&quot;, &quot;%required%&quot;
+        };
+        
+        // %で囲まれた文字列を探す
+<span class="nc" id="L3026">        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(&quot;%[^%]+%&quot;);</span>
+<span class="nc" id="L3027">        java.util.regex.Matcher matcher = pattern.matcher(message);</span>
+        
+<span class="nc bnc" id="L3029" title="All 2 branches missed.">        while (matcher.find()) {</span>
+<span class="nc" id="L3030">            String placeholder = matcher.group();</span>
+<span class="nc" id="L3031">            boolean isValid = false;</span>
+            
+<span class="nc bnc" id="L3033" title="All 2 branches missed.">            for (String valid : validPlaceholders) {</span>
+<span class="nc bnc" id="L3034" title="All 2 branches missed.">                if (placeholder.equals(valid)) {</span>
+<span class="nc" id="L3035">                    isValid = true;</span>
+<span class="nc" id="L3036">                    break;</span>
+                }
+            }
+            
+<span class="nc bnc" id="L3040" title="All 2 branches missed.">            if (!isValid) {</span>
+<span class="nc" id="L3041">                result.addWarning(&quot;未知のプレースホルダーが使用されています: &quot; + placeholder + &quot; in &quot; + path);</span>
+            }
+<span class="nc" id="L3043">        }</span>
+<span class="nc" id="L3044">    }</span>
+    
+    /**
+     * メッセージの整合性チェック
+     */
+    private void checkMessageConsistency(FileConfiguration config, MessageValidationResult result) {
+        // 営業時間メッセージと実際の営業時間設定の整合性
+<span class="nc" id="L3051">        String closedMessage = config.getString(&quot;npc_system.food_npc.messages.closed&quot;, &quot;&quot;);</span>
+<span class="nc" id="L3052">        int startHour = config.getInt(&quot;npc_system.food_npc.operating_hours.start_hour&quot;, 6);</span>
+<span class="nc" id="L3053">        int endHour = config.getInt(&quot;npc_system.food_npc.operating_hours.end_hour&quot;, 22);</span>
+        
+<span class="nc" id="L3055">        String expectedHours = startHour + &quot;:00-&quot; + endHour + &quot;:00&quot;;</span>
+<span class="nc bnc" id="L3056" title="All 2 branches missed.">        if (!closedMessage.contains(expectedHours)) {</span>
+<span class="nc" id="L3057">            result.addWarning(&quot;食料NPCの営業時間メッセージと設定値が一致していません。&quot; +</span>
+                &quot;設定: &quot; + expectedHours + &quot;, メッセージ: &quot; + closedMessage);
+        }
+<span class="nc" id="L3060">    }</span>
+    
+    /**
+     * NPCメッセージのテスト送信
+     */
+    public void testNPCMessage(org.bukkit.entity.Player player, String npcType, String messageType) {
+        try {
+<span class="nc" id="L3067">            String message = getNPCSpecificMessage(npcType, messageType, player.getName());</span>
+<span class="nc bnc" id="L3068" title="All 4 branches missed.">            if (message != null &amp;&amp; !message.isEmpty()) {</span>
+<span class="nc" id="L3069">                player.sendMessage(&quot;§7[テスト] &quot; + message);</span>
+            } else {
+<span class="nc" id="L3071">                player.sendMessage(&quot;§cメッセージが見つかりません: &quot; + npcType + &quot;.&quot; + messageType);</span>
+            }
+<span class="nc" id="L3073">        } catch (Exception e) {</span>
+<span class="nc" id="L3074">            player.sendMessage(&quot;§cメッセージテスト中にエラーが発生: &quot; + e.getMessage());</span>
+<span class="nc" id="L3075">        }</span>
+<span class="nc" id="L3076">    }</span>
+    
+    /**
+     * NPCメッセージ検証結果クラス
+     */
+<span class="nc" id="L3081">    public static class MessageValidationResult {</span>
+<span class="nc" id="L3082">        private final List&lt;String&gt; errors = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L3083">        private final List&lt;String&gt; warnings = new ArrayList&lt;&gt;();</span>
+        
+        public void addError(String error) {
+<span class="nc" id="L3086">            errors.add(error);</span>
+<span class="nc" id="L3087">        }</span>
+        
+        public void addWarning(String warning) {
+<span class="nc" id="L3090">            warnings.add(warning);</span>
+<span class="nc" id="L3091">        }</span>
+        
+        public List&lt;String&gt; getErrors() {
+<span class="nc" id="L3094">            return new ArrayList&lt;&gt;(errors);</span>
+        }
+        
+        public List&lt;String&gt; getWarnings() {
+<span class="nc" id="L3098">            return new ArrayList&lt;&gt;(warnings);</span>
+        }
+        
+        public boolean hasErrors() {
+<span class="nc bnc" id="L3102" title="All 2 branches missed.">            return !errors.isEmpty();</span>
+        }
+        
+        public boolean hasWarnings() {
+<span class="nc bnc" id="L3106" title="All 2 branches missed.">            return !warnings.isEmpty();</span>
+        }
+        
+        public boolean isValid() {
+<span class="nc" id="L3110">            return errors.isEmpty();</span>
+        }
+    }
+    
+    /**
+     * 設定検証結果クラス
+     */
+<span class="nc" id="L3117">    public static class ConfigValidationResult {</span>
+<span class="nc" id="L3118">        private final List&lt;String&gt; errors = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L3119">        private final List&lt;String&gt; warnings = new ArrayList&lt;&gt;();</span>
+        
+        public void addError(String error) {
+<span class="nc" id="L3122">            errors.add(error);</span>
+<span class="nc" id="L3123">        }</span>
+        
+        public void addWarning(String warning) {
+<span class="nc" id="L3126">            warnings.add(warning);</span>
+<span class="nc" id="L3127">        }</span>
+        
+        public List&lt;String&gt; getErrors() {
+<span class="nc" id="L3130">            return new ArrayList&lt;&gt;(errors);</span>
+        }
+        
+        public List&lt;String&gt; getWarnings() {
+<span class="nc" id="L3134">            return new ArrayList&lt;&gt;(warnings);</span>
+        }
+        
+        public boolean hasErrors() {
+<span class="nc bnc" id="L3138" title="All 2 branches missed.">            return !errors.isEmpty();</span>
+        }
+        
+        public boolean hasWarnings() {
+<span class="nc bnc" id="L3142" title="All 2 branches missed.">            return !warnings.isEmpty();</span>
+        }
+        
+        public boolean isValid() {
+<span class="nc" id="L3146">            return errors.isEmpty();</span>
+        }
+    }
+    
+    /**
+     * 取引所データを完全削除（物理削除・復元不可）
+     */
+    public void permanentlyDeleteTradingPost(String npcName) {
+<span class="nc" id="L3154">        removeTradingPostByName(npcName);</span>
+<span class="nc" id="L3155">    }</span>
+    
+    /**
+     * 銀行NPCデータを完全削除（物理削除・復元不可）
+     */
+    public void permanentlyDeleteBankNPC(String npcName) {
+<span class="nc" id="L3161">        removeBankNPCByName(npcName);</span>
+<span class="nc" id="L3162">    }</span>
+    
+    /**
+     * 食料NPCデータを完全削除（物理削除・復元不可）
+     */
+    public void permanentlyDeleteFoodNPC(String npcName) {
+<span class="nc" id="L3168">        removeFoodNPCByName(npcName);</span>
+<span class="nc" id="L3169">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GrowthEventHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.events.handlers</a> &gt; <span class="el_source">GrowthEventHandler.java</span></div><h1>GrowthEventHandler.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.events.handlers;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+import org.bukkit.event.block.BlockGrowEvent;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.events.AsyncEventUpdater;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * 作物成長イベントハンドラ
+ * 農家の作物成長処理を管理
+ */
+public class GrowthEventHandler {
+    
+    private final ConfigManager configManager;
+    private final PlayerDAO playerDAO;
+    private final JobManager jobManager;
+    private final AsyncEventUpdater asyncUpdater;
+    
+    // 作物の所有者を追跡（位置 -&gt; プレイヤーUUID）
+    private final Map&lt;Location, UUID&gt; cropOwners;
+    
+    // 作物種別による報酬
+    private final Map&lt;Material, GrowthReward&gt; growthRewards;
+    
+    public GrowthEventHandler(ConfigManager configManager, PlayerDAO playerDAO,
+<span class="nc" id="L38">                             JobManager jobManager, AsyncEventUpdater asyncUpdater) {</span>
+<span class="nc" id="L39">        this.configManager = configManager;</span>
+<span class="nc" id="L40">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L41">        this.jobManager = jobManager;</span>
+<span class="nc" id="L42">        this.asyncUpdater = asyncUpdater;</span>
+<span class="nc" id="L43">        this.cropOwners = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L44">        this.growthRewards = new HashMap&lt;&gt;();</span>
+        
+<span class="nc" id="L46">        initializeGrowthRewards();</span>
+<span class="nc" id="L47">    }</span>
+    
+    /**
+     * 成長報酬テーブルの初期化
+     */
+    private void initializeGrowthRewards() {
+        // 基本作物
+<span class="nc" id="L54">        growthRewards.put(Material.WHEAT, new GrowthReward(1.0, 1.5, &quot;小麦&quot;));</span>
+<span class="nc" id="L55">        growthRewards.put(Material.CARROTS, new GrowthReward(1.0, 1.5, &quot;ニンジン&quot;));</span>
+<span class="nc" id="L56">        growthRewards.put(Material.POTATOES, new GrowthReward(1.0, 1.5, &quot;ジャガイモ&quot;));</span>
+<span class="nc" id="L57">        growthRewards.put(Material.BEETROOTS, new GrowthReward(1.2, 2.0, &quot;ビートルート&quot;));</span>
+        
+        // 特殊作物
+<span class="nc" id="L60">        growthRewards.put(Material.PUMPKIN, new GrowthReward(3.0, 5.0, &quot;カボチャ&quot;));</span>
+<span class="nc" id="L61">        growthRewards.put(Material.MELON, new GrowthReward(2.5, 4.0, &quot;スイカ&quot;));</span>
+<span class="nc" id="L62">        growthRewards.put(Material.SUGAR_CANE, new GrowthReward(0.5, 1.0, &quot;サトウキビ&quot;));</span>
+<span class="nc" id="L63">        growthRewards.put(Material.CACTUS, new GrowthReward(0.8, 1.5, &quot;サボテン&quot;));</span>
+        
+        // 樹木
+<span class="nc" id="L66">        growthRewards.put(Material.OAK_SAPLING, new GrowthReward(5.0, 8.0, &quot;オークの苗木&quot;));</span>
+<span class="nc" id="L67">        growthRewards.put(Material.BIRCH_SAPLING, new GrowthReward(5.0, 8.0, &quot;シラカバの苗木&quot;));</span>
+<span class="nc" id="L68">        growthRewards.put(Material.SPRUCE_SAPLING, new GrowthReward(5.0, 8.0, &quot;トウヒの苗木&quot;));</span>
+<span class="nc" id="L69">        growthRewards.put(Material.JUNGLE_SAPLING, new GrowthReward(8.0, 12.0, &quot;ジャングルの苗木&quot;));</span>
+<span class="nc" id="L70">        growthRewards.put(Material.ACACIA_SAPLING, new GrowthReward(6.0, 10.0, &quot;アカシアの苗木&quot;));</span>
+<span class="nc" id="L71">        growthRewards.put(Material.DARK_OAK_SAPLING, new GrowthReward(7.0, 11.0, &quot;ダークオークの苗木&quot;));</span>
+        
+        // ネザー関連
+<span class="nc" id="L74">        growthRewards.put(Material.NETHER_WART, new GrowthReward(4.0, 6.0, &quot;ネザーウォート&quot;));</span>
+<span class="nc" id="L75">        growthRewards.put(Material.WARPED_FUNGUS, new GrowthReward(10.0, 15.0, &quot;歪んだキノコ&quot;));</span>
+<span class="nc" id="L76">        growthRewards.put(Material.CRIMSON_FUNGUS, new GrowthReward(10.0, 15.0, &quot;真紅のキノコ&quot;));</span>
+        
+        // キノコ
+<span class="nc" id="L79">        growthRewards.put(Material.BROWN_MUSHROOM, new GrowthReward(2.0, 3.0, &quot;茶キノコ&quot;));</span>
+<span class="nc" id="L80">        growthRewards.put(Material.RED_MUSHROOM, new GrowthReward(2.0, 3.0, &quot;赤キノコ&quot;));</span>
+        
+        // 1.17以降の作物（1.16.5では利用不可）
+        // growthRewards.put(Material.SWEET_BERRIES, new GrowthReward(1.5, 2.5, &quot;スイートベリー&quot;));
+<span class="nc" id="L84">    }</span>
+    
+    /**
+     * 作物成長イベントの処理
+     */
+    public void handleBlockGrow(BlockGrowEvent event) {
+<span class="nc" id="L90">        Block block = event.getBlock();</span>
+<span class="nc" id="L91">        Material material = block.getType();</span>
+<span class="nc" id="L92">        Location location = block.getLocation();</span>
+        
+        // 報酬対象の作物かチェック
+<span class="nc" id="L95">        GrowthReward reward = growthRewards.get(material);</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (reward == null) {</span>
+            // 新しく成長したブロックの種類をチェック
+<span class="nc" id="L98">            Material newMaterial = event.getNewState().getType();</span>
+<span class="nc" id="L99">            reward = growthRewards.get(newMaterial);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            if (reward == null) {</span>
+<span class="nc" id="L101">                return;</span>
+            }
+        }
+        
+        // 作物の所有者を取得
+<span class="nc" id="L106">        UUID ownerUUID = cropOwners.get(location);</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (ownerUUID == null) {</span>
+            // 近くの農家を探す
+<span class="nc" id="L109">            ownerUUID = findNearestFarmer(location);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if (ownerUUID == null) {</span>
+<span class="nc" id="L111">                return;</span>
+            }
+            // 所有者として記録
+<span class="nc" id="L114">            cropOwners.put(location, ownerUUID);</span>
+        }
+        
+<span class="nc" id="L117">        Player player = Bukkit.getPlayer(ownerUUID);</span>
+<span class="nc bnc" id="L118" title="All 4 branches missed.">        if (player == null || !player.isOnline()) {</span>
+<span class="nc" id="L119">            return;</span>
+        }
+        
+        // 農家の職業チェック
+<span class="nc" id="L123">        PlayerJob farmerJob = jobManager.getPlayerJob(player, &quot;farmer&quot;);</span>
+<span class="nc bnc" id="L124" title="All 4 branches missed.">        if (farmerJob == null || !farmerJob.isActive()) {</span>
+<span class="nc" id="L125">            return;</span>
+        }
+        
+        // 報酬を処理
+<span class="nc" id="L129">        processGrowthReward(player, farmerJob, reward, location);</span>
+<span class="nc" id="L130">    }</span>
+    
+    /**
+     * 成長報酬の処理
+     */
+    private void processGrowthReward(Player player, PlayerJob farmerJob, 
+                                    GrowthReward reward, Location location) {
+        // レベルボーナスを適用
+<span class="nc" id="L138">        double levelMultiplier = 1.0 + (farmerJob.getLevel() * 0.02); // レベル毎に2%ボーナス</span>
+        
+<span class="nc" id="L140">        double finalExperience = reward.getExperience() * levelMultiplier;</span>
+<span class="nc" id="L141">        double finalIncome = reward.getIncome() * levelMultiplier;</span>
+        
+        // 環境ボーナスをチェック
+<span class="nc" id="L144">        double bonusMultiplier = checkEnvironmentalBonuses(player, location);</span>
+<span class="nc" id="L145">        finalExperience *= bonusMultiplier;</span>
+<span class="nc" id="L146">        finalIncome *= bonusMultiplier;</span>
+        
+        // 非同期で報酬を付与
+<span class="nc" id="L149">        String playerUUID = player.getUniqueId().toString();</span>
+<span class="nc" id="L150">        asyncUpdater.updateJobExperience(playerUUID, &quot;farmer&quot;, finalExperience);</span>
+<span class="nc" id="L151">        asyncUpdater.updatePlayerBalance(playerUUID, finalIncome, &quot;作物成長報酬&quot;);</span>
+        
+        // メッセージ表示（頻繁になりすぎないように制限）
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        if (Math.random() &lt; 0.3) { // 30%の確率で表示</span>
+<span class="nc" id="L155">            String message = String.format(</span>
+                &quot;%s%sが成長しました！ §a+%.1f経験値 §6+%.1f金塊&quot;,
+                ChatColor.GREEN,
+<span class="nc" id="L158">                reward.getDisplayName(),</span>
+<span class="nc" id="L159">                finalExperience,</span>
+<span class="nc" id="L160">                finalIncome</span>
+            );
+<span class="nc" id="L162">            player.sendMessage(message);</span>
+        }
+        
+        // 農家スキル発動チェック
+<span class="nc" id="L166">        checkFarmerGrowthSkills(player, farmerJob, location, reward);</span>
+<span class="nc" id="L167">    }</span>
+    
+    /**
+     * 環境ボーナスをチェック
+     */
+    private double checkEnvironmentalBonuses(Player player, Location location) {
+<span class="nc" id="L173">        double bonusMultiplier = 1.0;</span>
+        
+        // バイオームボーナス
+<span class="nc" id="L176">        String biome = location.getBlock().getBiome().name();</span>
+<span class="nc bnc" id="L177" title="All 4 branches missed.">        if (biome.contains(&quot;PLAINS&quot;) || biome.contains(&quot;FOREST&quot;)) {</span>
+<span class="nc" id="L178">            bonusMultiplier *= 1.1; // 平原・森林は10%ボーナス</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        } else if (biome.contains(&quot;JUNGLE&quot;)) {</span>
+<span class="nc" id="L180">            bonusMultiplier *= 1.2; // ジャングルは20%ボーナス</span>
+        }
+        
+        // 天候ボーナス
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        if (player.getWorld().hasStorm()) {</span>
+<span class="nc" id="L185">            bonusMultiplier *= 1.15; // 雨天時は15%ボーナス</span>
+        }
+        
+        // 時間帯ボーナス
+<span class="nc" id="L189">        long time = player.getWorld().getTime();</span>
+<span class="nc bnc" id="L190" title="All 4 branches missed.">        if (time &gt;= 1000 &amp;&amp; time &lt;= 5000) { // 朝の時間帯</span>
+<span class="nc" id="L191">            bonusMultiplier *= 1.05; // 朝は5%ボーナス</span>
+        }
+        
+        // 月齢ボーナス（満月近くで成長ボーナス）
+<span class="nc bnc" id="L195" title="All 4 branches missed.">        if (time &gt;= 18000 &amp;&amp; location.getBlock().getLightFromSky() &gt; 10) {</span>
+<span class="nc" id="L196">            bonusMultiplier *= 1.1; // 満月の夜は10%ボーナス</span>
+        }
+        
+<span class="nc" id="L199">        return bonusMultiplier;</span>
+    }
+    
+    /**
+     * 農家の成長スキル発動チェック
+     */
+    private void checkFarmerGrowthSkills(Player player, PlayerJob job, 
+                                        Location location, GrowthReward reward) {
+<span class="nc" id="L207">        int level = job.getLevel();</span>
+        
+        // レベル20以上：連鎖成長
+<span class="nc bnc" id="L210" title="All 4 branches missed.">        if (level &gt;= 20 &amp;&amp; Math.random() &lt; 0.15) { // 15%の確率</span>
+<span class="nc" id="L211">            triggerChainGrowth(location, reward);</span>
+<span class="nc" id="L212">            player.sendMessage(ChatColor.GOLD + &quot;✦ 連鎖成長！周囲の作物も成長しました！&quot;);</span>
+        }
+        
+        // レベル35以上：豊作の恵み
+<span class="nc bnc" id="L216" title="All 4 branches missed.">        if (level &gt;= 35 &amp;&amp; Math.random() &lt; 0.1) { // 10%の確率</span>
+            // 追加報酬を付与
+<span class="nc" id="L218">            asyncUpdater.updatePlayerBalance(player.getUniqueId().toString(), </span>
+<span class="nc" id="L219">                                           reward.getIncome() * 0.5, &quot;豊作ボーナス&quot;);</span>
+<span class="nc" id="L220">            player.sendMessage(ChatColor.GOLD + &quot;✦ 豊作の恵み！追加収入を獲得しました！&quot;);</span>
+        }
+        
+        // レベル50以上：生命の祝福
+<span class="nc bnc" id="L224" title="All 4 branches missed.">        if (level &gt;= 50 &amp;&amp; Math.random() &lt; 0.05) { // 5%の確率</span>
+            // 周囲の作物の成長を促進
+<span class="nc" id="L226">            accelerateNearbyGrowth(location);</span>
+<span class="nc" id="L227">            player.sendMessage(ChatColor.GOLD + &quot;✦ 生命の祝福！周囲の作物の成長が加速されました！&quot;);</span>
+        }
+<span class="nc" id="L229">    }</span>
+    
+    /**
+     * 連鎖成長を発動
+     */
+    private void triggerChainGrowth(Location centerLocation, GrowthReward reward) {
+        // 周囲3x3の範囲で同じ作物を成長させる
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        for (int x = -1; x &lt;= 1; x++) {</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">            for (int z = -1; z &lt;= 1; z++) {</span>
+<span class="nc bnc" id="L238" title="All 4 branches missed.">                if (x == 0 &amp;&amp; z == 0) continue; // 中心は除外</span>
+                
+<span class="nc" id="L240">                Location nearbyLocation = centerLocation.clone().add(x, 0, z);</span>
+<span class="nc" id="L241">                Block nearbyBlock = nearbyLocation.getBlock();</span>
+                
+                // 同じ種類の作物があれば成長ステージを進める
+<span class="nc bnc" id="L244" title="All 2 branches missed.">                if (nearbyBlock.getType() == centerLocation.getBlock().getType()) {</span>
+                    // ブロックデータを操作して成長ステージを進める
+                    // （実際の実装はより複雑になる）
+                    // ここでは簡略化
+                }
+            }
+        }
+<span class="nc" id="L251">    }</span>
+    
+    /**
+     * 周囲の作物成長を加速
+     */
+    private void accelerateNearbyGrowth(Location centerLocation) {
+        // 5x5の範囲で作物の成長を加速
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        for (int x = -2; x &lt;= 2; x++) {</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">            for (int z = -2; z &lt;= 2; z++) {</span>
+<span class="nc" id="L260">                Location nearbyLocation = centerLocation.clone().add(x, 0, z);</span>
+<span class="nc" id="L261">                Block nearbyBlock = nearbyLocation.getBlock();</span>
+                
+                // 成長可能な作物があれば成長ステージを進める
+<span class="nc bnc" id="L264" title="All 2 branches missed.">                if (growthRewards.containsKey(nearbyBlock.getType())) {</span>
+                    // 実際の成長処理は複雑なため簡略化
+                    // ボーンミールを使用したような効果を模擬
+                }
+            }
+        }
+<span class="nc" id="L270">    }</span>
+    
+    /**
+     * 最も近い農家を探す
+     */
+    private UUID findNearestFarmer(Location location) {
+<span class="nc" id="L276">        double nearestDistance = Double.MAX_VALUE;</span>
+<span class="nc" id="L277">        UUID nearestFarmer = null;</span>
+        
+<span class="nc bnc" id="L279" title="All 2 branches missed.">        for (Player player : location.getWorld().getPlayers()) {</span>
+<span class="nc" id="L280">            double distance = player.getLocation().distance(location);</span>
+<span class="nc bnc" id="L281" title="All 4 branches missed.">            if (distance &lt; 50 &amp;&amp; distance &lt; nearestDistance) { // 50ブロック以内</span>
+<span class="nc" id="L282">                PlayerJob job = jobManager.getPlayerJob(player, &quot;farmer&quot;);</span>
+<span class="nc bnc" id="L283" title="All 4 branches missed.">                if (job != null &amp;&amp; job.isActive()) {</span>
+<span class="nc" id="L284">                    nearestDistance = distance;</span>
+<span class="nc" id="L285">                    nearestFarmer = player.getUniqueId();</span>
+                }
+            }
+<span class="nc" id="L288">        }</span>
+        
+<span class="nc" id="L290">        return nearestFarmer;</span>
+    }
+    
+    /**
+     * 作物の所有者を設定
+     */
+    public void setCropOwner(Location location, Player player) {
+<span class="nc" id="L297">        cropOwners.put(location, player.getUniqueId());</span>
+<span class="nc" id="L298">    }</span>
+    
+    /**
+     * 作物の所有者を削除
+     */
+    public void removeCropOwner(Location location) {
+<span class="nc" id="L304">        cropOwners.remove(location);</span>
+<span class="nc" id="L305">    }</span>
+    
+    /**
+     * 古い所有者データをクリーンアップ
+     */
+    public void cleanupOldOwners() {
+        // 定期的に呼び出して、古い所有者データを削除
+<span class="nc" id="L312">        cropOwners.entrySet().removeIf(entry -&gt; {</span>
+<span class="nc" id="L313">            UUID playerUUID = entry.getValue();</span>
+<span class="nc" id="L314">            Player player = Bukkit.getPlayer(playerUUID);</span>
+<span class="nc bnc" id="L315" title="All 4 branches missed.">            return player == null || !player.isOnline();</span>
+        });
+<span class="nc" id="L317">    }</span>
+    
+    /**
+     * 成長報酬クラス
+     */
+    private static class GrowthReward {
+        private final double experience;
+        private final double income;
+        private final String displayName;
+        
+<span class="nc" id="L327">        public GrowthReward(double experience, double income, String displayName) {</span>
+<span class="nc" id="L328">            this.experience = experience;</span>
+<span class="nc" id="L329">            this.income = income;</span>
+<span class="nc" id="L330">            this.displayName = displayName;</span>
+<span class="nc" id="L331">        }</span>
+        
+<span class="nc" id="L333">        public double getExperience() { return experience; }</span>
+<span class="nc" id="L334">        public double getIncome() { return income; }</span>
+<span class="nc" id="L335">        public String getDisplayName() { return displayName; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AsyncEventUpdater.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.events</a> &gt; <span class="el_source">AsyncEventUpdater.java</span></div><h1>AsyncEventUpdater.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.events;
+
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.dao.PlayerJobDAO;
+import org.tofu.tofunomics.models.PlayerJob;
+
+import java.sql.SQLException;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * 非同期更新処理システム
+ * データベース更新を非同期で実行し、メインスレッドのパフォーマンスを維持
+ */
+public class AsyncEventUpdater {
+    
+    private final JavaPlugin plugin;
+    private final PlayerDAO playerDAO;
+    private final PlayerJobDAO playerJobDAO;
+    private final Logger logger;
+    
+    // 非同期処理用のExecutorService
+    private final ExecutorService executorService;
+    
+    // 更新キュー
+    private final Queue&lt;UpdateTask&gt; updateQueue;
+    
+    // バッチ処理用のタスク
+    private BukkitRunnable batchProcessor;
+    
+    // 統計情報
+    private final AtomicInteger pendingUpdates;
+    private final AtomicInteger completedUpdates;
+    private final AtomicInteger failedUpdates;
+    
+    // 設定値
+    private static final int THREAD_POOL_SIZE = 2;
+    private static final long BATCH_INTERVAL = 100L; // 5秒（100 ticks）
+    private static final int MAX_BATCH_SIZE = 50;
+    
+<span class="nc" id="L51">    public AsyncEventUpdater(JavaPlugin plugin, PlayerDAO playerDAO, PlayerJobDAO playerJobDAO) {</span>
+<span class="nc" id="L52">        this.plugin = plugin;</span>
+<span class="nc" id="L53">        this.playerDAO = playerDAO;</span>
+<span class="nc" id="L54">        this.playerJobDAO = playerJobDAO;</span>
+<span class="nc" id="L55">        this.logger = plugin.getLogger();</span>
+        
+<span class="nc" id="L57">        this.executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);</span>
+<span class="nc" id="L58">        this.updateQueue = new ConcurrentLinkedQueue&lt;&gt;();</span>
+        
+<span class="nc" id="L60">        this.pendingUpdates = new AtomicInteger(0);</span>
+<span class="nc" id="L61">        this.completedUpdates = new AtomicInteger(0);</span>
+<span class="nc" id="L62">        this.failedUpdates = new AtomicInteger(0);</span>
+        
+<span class="nc" id="L64">        startBatchProcessor();</span>
+<span class="nc" id="L65">    }</span>
+    
+    /**
+     * バッチ処理タスクを開始
+     */
+    private void startBatchProcessor() {
+<span class="nc" id="L71">        batchProcessor = new BukkitRunnable() {</span>
+            @Override
+            public void run() {
+<span class="nc" id="L74">                processBatch();</span>
+<span class="nc" id="L75">            }</span>
+        };
+        
+        // 定期的にバッチ処理を実行
+<span class="nc" id="L79">        batchProcessor.runTaskTimerAsynchronously(plugin, BATCH_INTERVAL, BATCH_INTERVAL);</span>
+<span class="nc" id="L80">    }</span>
+    
+    /**
+     * バッチ処理を実行
+     */
+    private void processBatch() {
+<span class="nc" id="L86">        int processedCount = 0;</span>
+        
+<span class="nc bnc" id="L88" title="All 4 branches missed.">        while (!updateQueue.isEmpty() &amp;&amp; processedCount &lt; MAX_BATCH_SIZE) {</span>
+<span class="nc" id="L89">            UpdateTask task = updateQueue.poll();</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">            if (task == null) break;</span>
+            
+<span class="nc" id="L92">            pendingUpdates.decrementAndGet();</span>
+            
+            // 非同期でタスクを実行
+<span class="nc" id="L95">            executorService.submit(() -&gt; executeTask(task));</span>
+            
+<span class="nc" id="L97">            processedCount++;</span>
+<span class="nc" id="L98">        }</span>
+        
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (processedCount &gt; 0) {</span>
+<span class="nc" id="L101">            logger.fine(&quot;Processed &quot; + processedCount + &quot; update tasks in batch&quot;);</span>
+        }
+<span class="nc" id="L103">    }</span>
+    
+    /**
+     * 更新タスクを実行
+     */
+    private void executeTask(UpdateTask task) {
+        try {
+<span class="nc" id="L110">            task.execute();</span>
+<span class="nc" id="L111">            completedUpdates.incrementAndGet();</span>
+            
+            // 成功時のコールバック実行（メインスレッドで）
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            if (task.getOnSuccess() != null) {</span>
+<span class="nc" id="L115">                Bukkit.getScheduler().runTask(plugin, task.getOnSuccess());</span>
+            }
+<span class="nc" id="L117">        } catch (Exception e) {</span>
+<span class="nc" id="L118">            failedUpdates.incrementAndGet();</span>
+<span class="nc" id="L119">            logger.log(Level.WARNING, &quot;Failed to execute update task: &quot; + task.getDescription(), e);</span>
+            
+            // 失敗時のコールバック実行（メインスレッドで）
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            if (task.getOnFailure() != null) {</span>
+<span class="nc" id="L123">                Bukkit.getScheduler().runTask(plugin, () -&gt; task.getOnFailure().accept(e));</span>
+            }
+<span class="nc" id="L125">        }</span>
+<span class="nc" id="L126">    }</span>
+    
+    // ========== 更新メソッド ==========
+    
+    /**
+     * プレイヤーの残高を非同期更新
+     */
+    public void updatePlayerBalance(String playerUUID, double amount, String reason) {
+<span class="nc" id="L134">        UpdateTask task = new UpdateTask(&quot;Update balance for &quot; + playerUUID) {</span>
+            @Override
+            public void execute() throws SQLException {
+<span class="nc" id="L137">                org.tofu.tofunomics.models.Player player = playerDAO.getPlayerByUUID(playerUUID);</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">                if (player != null) {</span>
+<span class="nc" id="L139">                    player.addBankBalance(amount); // 銀行預金に加算</span>
+<span class="nc" id="L140">                    playerDAO.updatePlayerData(player);</span>
+                }
+<span class="nc" id="L142">            }</span>
+        };
+        
+<span class="nc" id="L145">        queueUpdate(task);</span>
+<span class="nc" id="L146">    }</span>
+    
+    /**
+     * プレイヤーの職業経験値を非同期更新
+     */
+    public void updateJobExperience(String playerUUID, String jobType, double experience) {
+<span class="nc" id="L152">        UpdateTask task = new UpdateTask(&quot;Update job experience for &quot; + playerUUID) {</span>
+            @Override
+            public void execute() throws SQLException {
+                // JobTypeから職業IDに変換（簡易実装）
+<span class="nc" id="L156">                int jobId = convertJobTypeToId(jobType);</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">                if (jobId == -1) {</span>
+<span class="nc" id="L158">                    logger.warning(&quot;不明な職業タイプ: &quot; + jobType);</span>
+<span class="nc" id="L159">                    return;</span>
+                }
+                
+                // PlayerJobDAOを使用して職業情報を取得
+<span class="nc" id="L163">                PlayerJob playerJob = playerJobDAO.getPlayerJob(java.util.UUID.fromString(playerUUID), jobId);</span>
+                
+<span class="nc bnc" id="L165" title="All 2 branches missed.">                if (playerJob != null) {</span>
+<span class="nc" id="L166">                    int oldLevel = playerJob.getLevel();</span>
+<span class="nc" id="L167">                    playerJob.setExperience(playerJob.getExperience() + experience);</span>
+                    
+                    // レベルアップチェック
+<span class="nc" id="L170">                    int requiredExp = calculateRequiredExperience(playerJob.getLevel());</span>
+<span class="nc bnc" id="L171" title="All 4 branches missed.">                    while (playerJob.getExperience() &gt;= requiredExp &amp;&amp; playerJob.getLevel() &lt; 100) {</span>
+<span class="nc" id="L172">                        playerJob.setExperience(playerJob.getExperience() - requiredExp);</span>
+<span class="nc" id="L173">                        playerJob.setLevel(playerJob.getLevel() + 1);</span>
+<span class="nc" id="L174">                        requiredExp = calculateRequiredExperience(playerJob.getLevel());</span>
+                    }
+                    
+<span class="nc" id="L177">                    playerJobDAO.updatePlayerJob(playerJob);</span>
+                    
+                    // レベルアップ通知（メインスレッドで）
+<span class="nc bnc" id="L180" title="All 2 branches missed.">                    if (playerJob.getLevel() &gt; oldLevel) {</span>
+<span class="nc" id="L181">                        final int newLevel = playerJob.getLevel();</span>
+<span class="nc" id="L182">                        Bukkit.getScheduler().runTask(plugin, () -&gt; {</span>
+<span class="nc" id="L183">                            Player player = Bukkit.getPlayer(java.util.UUID.fromString(playerUUID));</span>
+<span class="nc bnc" id="L184" title="All 4 branches missed.">                            if (player != null &amp;&amp; player.isOnline()) {</span>
+<span class="nc" id="L185">                                player.sendMessage(&quot;§6レベルアップ！ &quot; + jobType + &quot; がレベル &quot; + newLevel + &quot; になりました！&quot;);</span>
+                            }
+<span class="nc" id="L187">                        });</span>
+                    }
+                }
+<span class="nc" id="L190">            }</span>
+        };
+        
+<span class="nc" id="L193">        queueUpdate(task);</span>
+<span class="nc" id="L194">    }</span>
+    
+    /**
+     * バッチ残高更新
+     */
+    public void batchUpdateBalances(java.util.Map&lt;String, Double&gt; balanceUpdates) {
+<span class="nc" id="L200">        UpdateTask task = new UpdateTask(&quot;Batch update balances&quot;) {</span>
+            @Override
+            public void execute() throws SQLException {
+<span class="nc bnc" id="L203" title="All 2 branches missed.">                for (java.util.Map.Entry&lt;String, Double&gt; entry : balanceUpdates.entrySet()) {</span>
+<span class="nc" id="L204">                    org.tofu.tofunomics.models.Player player = playerDAO.getPlayerByUUID(entry.getKey());</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">                    if (player != null) {</span>
+<span class="nc" id="L206">                        player.addBankBalance(entry.getValue()); // 銀行預金に加算</span>
+<span class="nc" id="L207">                        playerDAO.updatePlayerData(player);</span>
+                    }
+<span class="nc" id="L209">                }</span>
+<span class="nc" id="L210">            }</span>
+        };
+        
+<span class="nc" id="L213">        queueUpdate(task);</span>
+<span class="nc" id="L214">    }</span>
+    
+    // ========== ユーティリティメソッド ==========
+    
+    /**
+     * 更新タスクをキューに追加
+     */
+    private void queueUpdate(UpdateTask task) {
+<span class="nc" id="L222">        updateQueue.offer(task);</span>
+<span class="nc" id="L223">        pendingUpdates.incrementAndGet();</span>
+        
+        // キューが大きくなりすぎた場合は即座に処理
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (pendingUpdates.get() &gt; MAX_BATCH_SIZE * 2) {</span>
+<span class="nc" id="L227">            executorService.submit(this::processBatch);</span>
+        }
+<span class="nc" id="L229">    }</span>
+    
+    /**
+     * 必要経験値を計算
+     */
+    private int calculateRequiredExperience(int level) {
+<span class="nc" id="L235">        return level * level * 100;</span>
+    }
+    
+    /**
+     * 職業タイプから職業IDに変換
+     * 実際の実装では、JobManagerまたは設定ファイルから取得すべき
+     */
+    private int convertJobTypeToId(String jobType) {
+<span class="nc bnc" id="L243" title="All 9 branches missed.">        switch (jobType.toLowerCase()) {</span>
+<span class="nc" id="L244">            case &quot;farmer&quot;: return 1;</span>
+<span class="nc" id="L245">            case &quot;miner&quot;: return 2;</span>
+<span class="nc" id="L246">            case &quot;builder&quot;: return 3;</span>
+<span class="nc" id="L247">            case &quot;hunter&quot;: return 4;</span>
+<span class="nc" id="L248">            case &quot;fisher&quot;: return 5;</span>
+<span class="nc" id="L249">            case &quot;trader&quot;: return 6;</span>
+<span class="nc" id="L250">            case &quot;brewer&quot;: return 7;</span>
+<span class="nc" id="L251">            case &quot;enchanter&quot;: return 8;</span>
+<span class="nc" id="L252">            default: return -1; // 不明な職業タイプ</span>
+        }
+    }
+    
+    /**
+     * シャットダウン処理
+     */
+    public void shutdown() {
+        // バッチプロセッサを停止
+<span class="nc bnc" id="L261" title="All 2 branches missed.">        if (batchProcessor != null) {</span>
+<span class="nc" id="L262">            batchProcessor.cancel();</span>
+        }
+        
+        // 残りのタスクを処理
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        while (!updateQueue.isEmpty()) {</span>
+<span class="nc" id="L267">            processBatch();</span>
+        }
+        
+        // ExecutorServiceをシャットダウン
+<span class="nc" id="L271">        executorService.shutdown();</span>
+        try {
+<span class="nc bnc" id="L273" title="All 2 branches missed.">            if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {</span>
+<span class="nc" id="L274">                executorService.shutdownNow();</span>
+            }
+<span class="nc" id="L276">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L277">            executorService.shutdownNow();</span>
+<span class="nc" id="L278">        }</span>
+        
+<span class="nc" id="L280">        logger.info(&quot;AsyncEventUpdater shutdown completed. &quot; +</span>
+<span class="nc" id="L281">                   &quot;Completed: &quot; + completedUpdates.get() + &quot;, &quot; +</span>
+<span class="nc" id="L282">                   &quot;Failed: &quot; + failedUpdates.get());</span>
+<span class="nc" id="L283">    }</span>
+    
+    // ========== 統計情報メソッド ==========
+    
+    public int getPendingUpdates() {
+<span class="nc" id="L288">        return pendingUpdates.get();</span>
+    }
+    
+    public int getCompletedUpdates() {
+<span class="nc" id="L292">        return completedUpdates.get();</span>
+    }
+    
+    public int getFailedUpdates() {
+<span class="nc" id="L296">        return failedUpdates.get();</span>
+    }
+    
+    public String getStatistics() {
+<span class="nc" id="L300">        return String.format(</span>
+            &quot;AsyncEventUpdater Statistics: Pending=%d, Completed=%d, Failed=%d&quot;,
+<span class="nc" id="L302">            getPendingUpdates(),</span>
+<span class="nc" id="L303">            getCompletedUpdates(),</span>
+<span class="nc" id="L304">            getFailedUpdates()</span>
+        );
+    }
+    
+    // ========== 内部クラス ==========
+    
+    /**
+     * 更新タスクの抽象クラス
+     */
+    private static abstract class UpdateTask {
+        private final String description;
+        private Runnable onSuccess;
+        private java.util.function.Consumer&lt;Exception&gt; onFailure;
+        
+<span class="nc" id="L318">        public UpdateTask(String description) {</span>
+<span class="nc" id="L319">            this.description = description;</span>
+<span class="nc" id="L320">        }</span>
+        
+        public abstract void execute() throws Exception;
+        
+<span class="nc" id="L324">        public String getDescription() { return description; }</span>
+<span class="nc" id="L325">        public Runnable getOnSuccess() { return onSuccess; }</span>
+<span class="nc" id="L326">        public java.util.function.Consumer&lt;Exception&gt; getOnFailure() { return onFailure; }</span>
+        
+        public UpdateTask onSuccess(Runnable callback) {
+<span class="nc" id="L329">            this.onSuccess = callback;</span>
+<span class="nc" id="L330">            return this;</span>
+        }
+        
+        public UpdateTask onFailure(java.util.function.Consumer&lt;Exception&gt; callback) {
+<span class="nc" id="L334">            this.onFailure = callback;</span>
+<span class="nc" id="L335">            return this;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

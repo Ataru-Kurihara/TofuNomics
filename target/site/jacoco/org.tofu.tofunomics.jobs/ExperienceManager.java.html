@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExperienceManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.jobs</a> &gt; <span class="el_source">ExperienceManager.java</span></div><h1>ExperienceManager.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.jobs;
+
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerJobDAO;
+import org.tofu.tofunomics.models.PlayerJob;
+
+public class ExperienceManager {
+    
+    private final ConfigManager configManager;
+    private final PlayerJobDAO playerJobDAO;
+    
+<span class="nc" id="L13">    public ExperienceManager(ConfigManager configManager, PlayerJobDAO playerJobDAO) {</span>
+<span class="nc" id="L14">        this.configManager = configManager;</span>
+<span class="nc" id="L15">        this.playerJobDAO = playerJobDAO;</span>
+<span class="nc" id="L16">    }</span>
+    
+    public double calculateRequiredExperience(int level) {
+<span class="nc bnc" id="L19" title="All 2 branches missed.">        if (level &lt;= 1) {</span>
+<span class="nc" id="L20">            return 0.0;</span>
+        }
+<span class="nc" id="L22">        return Math.pow(level, 2.2) * 100;</span>
+    }
+    
+    public double calculateRequiredExperienceForNextLevel(int currentLevel) {
+<span class="nc" id="L26">        return calculateRequiredExperience(currentLevel + 1);</span>
+    }
+    
+    public double getExperienceToNextLevel(PlayerJob playerJob) {
+<span class="nc bnc" id="L30" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L31">            return 0.0;</span>
+        }
+        
+<span class="nc" id="L34">        double requiredForNext = calculateRequiredExperienceForNextLevel(playerJob.getLevel());</span>
+<span class="nc" id="L35">        return Math.max(0, requiredForNext - playerJob.getExperience());</span>
+    }
+    
+    public int getMaxLevelForJob(String jobName) {
+<span class="nc" id="L39">        return configManager.getJobMaxLevel(jobName);</span>
+    }
+    
+    public boolean isMaxLevel(PlayerJob playerJob, String jobName) {
+<span class="nc bnc" id="L43" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L44">            return false;</span>
+        }
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        return playerJob.getLevel() &gt;= getMaxLevelForJob(jobName);</span>
+    }
+    
+<span class="nc" id="L49">    public enum ExperienceAddResult {</span>
+<span class="nc" id="L50">        SUCCESS,</span>
+<span class="nc" id="L51">        LEVEL_UP,</span>
+<span class="nc" id="L52">        MAX_LEVEL_REACHED,</span>
+<span class="nc" id="L53">        INVALID_AMOUNT,</span>
+<span class="nc" id="L54">        DATABASE_ERROR</span>
+    }
+    
+    public ExperienceAddResult addExperience(PlayerJob playerJob, String jobName, double amount) {
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L59">            return ExperienceAddResult.INVALID_AMOUNT;</span>
+        }
+        
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L63">            return ExperienceAddResult.DATABASE_ERROR;</span>
+        }
+        
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (isMaxLevel(playerJob, jobName)) {</span>
+<span class="nc" id="L67">            return ExperienceAddResult.MAX_LEVEL_REACHED;</span>
+        }
+        
+<span class="nc" id="L70">        double multiplier = configManager.getJobExpMultiplier(jobName);</span>
+<span class="nc" id="L71">        double adjustedAmount = amount * multiplier;</span>
+        
+<span class="nc" id="L73">        double oldExperience = playerJob.getExperience();</span>
+<span class="nc" id="L74">        int oldLevel = playerJob.getLevel();</span>
+        
+<span class="nc" id="L76">        playerJob.addExperience(adjustedAmount);</span>
+        
+<span class="nc" id="L78">        int newLevel = calculateLevelFromExperience(playerJob.getExperience());</span>
+<span class="nc" id="L79">        int maxLevel = getMaxLevelForJob(jobName);</span>
+        
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (newLevel &gt; maxLevel) {</span>
+<span class="nc" id="L82">            newLevel = maxLevel;</span>
+<span class="nc" id="L83">            playerJob.setExperience(calculateRequiredExperience(maxLevel));</span>
+        }
+        
+<span class="nc" id="L86">        playerJob.setLevel(newLevel);</span>
+        
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (!playerJobDAO.updatePlayerJobData(playerJob)) {</span>
+<span class="nc" id="L89">            return ExperienceAddResult.DATABASE_ERROR;</span>
+        }
+        
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (newLevel &gt; oldLevel) {</span>
+<span class="nc" id="L93">            return ExperienceAddResult.LEVEL_UP;</span>
+        } else {
+<span class="nc" id="L95">            return ExperienceAddResult.SUCCESS;</span>
+        }
+    }
+    
+    public int calculateLevelFromExperience(double experience) {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (experience &lt;= 0) {</span>
+<span class="nc" id="L101">            return 1;</span>
+        }
+        
+<span class="nc" id="L104">        int level = 1;</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        while (calculateRequiredExperience(level + 1) &lt;= experience) {</span>
+<span class="nc" id="L106">            level++;</span>
+        }
+        
+<span class="nc" id="L109">        return level;</span>
+    }
+    
+    public double getExperienceProgress(PlayerJob playerJob) {
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L114">            return 0.0;</span>
+        }
+        
+<span class="nc" id="L117">        int currentLevel = playerJob.getLevel();</span>
+<span class="nc" id="L118">        double currentExp = playerJob.getExperience();</span>
+<span class="nc" id="L119">        double expForCurrentLevel = calculateRequiredExperience(currentLevel);</span>
+<span class="nc" id="L120">        double expForNextLevel = calculateRequiredExperience(currentLevel + 1);</span>
+        
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        if (expForNextLevel &lt;= expForCurrentLevel) {</span>
+<span class="nc" id="L123">            return 1.0;</span>
+        }
+        
+<span class="nc" id="L126">        double progress = (currentExp - expForCurrentLevel) / (expForNextLevel - expForCurrentLevel);</span>
+<span class="nc" id="L127">        return Math.max(0.0, Math.min(1.0, progress));</span>
+    }
+    
+    public String getExperienceProgressBar(PlayerJob playerJob, int barLength) {
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L132">            return &quot;[]&quot;;</span>
+        }
+        
+<span class="nc" id="L135">        double progress = getExperienceProgress(playerJob);</span>
+<span class="nc" id="L136">        int filledLength = (int) (progress * barLength);</span>
+        
+<span class="nc" id="L138">        StringBuilder bar = new StringBuilder(&quot;[&quot;);</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        for (int i = 0; i &lt; barLength; i++) {</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">            if (i &lt; filledLength) {</span>
+<span class="nc" id="L141">                bar.append(&quot;=&quot;);</span>
+            } else {
+<span class="nc" id="L143">                bar.append(&quot;-&quot;);</span>
+            }
+        }
+<span class="nc" id="L146">        bar.append(&quot;]&quot;);</span>
+        
+<span class="nc" id="L148">        return bar.toString();</span>
+    }
+    
+    public String getFormattedExperienceInfo(PlayerJob playerJob, String jobName) {
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L153">            return &quot;職業情報が見つかりません&quot;;</span>
+        }
+        
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (isMaxLevel(playerJob, jobName)) {</span>
+<span class="nc" id="L157">            return String.format(&quot;レベル %d (最大レベル) - 経験値: %.0f&quot;,</span>
+<span class="nc" id="L158">                    playerJob.getLevel(), playerJob.getExperience());</span>
+        }
+        
+<span class="nc" id="L161">        double expToNext = getExperienceToNextLevel(playerJob);</span>
+<span class="nc" id="L162">        String progressBar = getExperienceProgressBar(playerJob, 20);</span>
+        
+<span class="nc" id="L164">        return String.format(&quot;レベル %d - 経験値: %.0f (次のレベルまで: %.0f) %s&quot;,</span>
+<span class="nc" id="L165">                playerJob.getLevel(), playerJob.getExperience(), expToNext, progressBar);</span>
+    }
+    
+    public boolean setExperience(PlayerJob playerJob, String jobName, double experience) {
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        if (experience &lt; 0) {</span>
+<span class="nc" id="L170">            return false;</span>
+        }
+        
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if (playerJob == null) {</span>
+<span class="nc" id="L174">            return false;</span>
+        }
+        
+<span class="nc" id="L177">        int newLevel = calculateLevelFromExperience(experience);</span>
+<span class="nc" id="L178">        int maxLevel = getMaxLevelForJob(jobName);</span>
+        
+<span class="nc bnc" id="L180" title="All 2 branches missed.">        if (newLevel &gt; maxLevel) {</span>
+<span class="nc" id="L181">            newLevel = maxLevel;</span>
+<span class="nc" id="L182">            experience = calculateRequiredExperience(maxLevel);</span>
+        }
+        
+<span class="nc" id="L185">        playerJob.setLevel(newLevel);</span>
+<span class="nc" id="L186">        playerJob.setExperience(experience);</span>
+        
+<span class="nc" id="L188">        return playerJobDAO.updatePlayerJobData(playerJob);</span>
+    }
+    
+    public boolean setLevel(PlayerJob playerJob, String jobName, int level) {
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (level &lt; 1) {</span>
+<span class="nc" id="L193">            return false;</span>
+        }
+        
+<span class="nc" id="L196">        int maxLevel = getMaxLevelForJob(jobName);</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        if (level &gt; maxLevel) {</span>
+<span class="nc" id="L198">            level = maxLevel;</span>
+        }
+        
+<span class="nc" id="L201">        double experience = calculateRequiredExperience(level);</span>
+<span class="nc" id="L202">        return setExperience(playerJob, jobName, experience);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

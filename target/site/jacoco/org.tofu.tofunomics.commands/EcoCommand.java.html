@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EcoCommand.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.commands</a> &gt; <span class="el_source">EcoCommand.java</span></div><h1>EcoCommand.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.commands;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.economy.CurrencyConverter;
+
+public class EcoCommand implements CommandExecutor {
+    
+    private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
+    private final PlayerDAO playerDAO;
+    
+<span class="fc" id="L19">    public EcoCommand(ConfigManager configManager, CurrencyConverter currencyConverter, PlayerDAO playerDAO) {</span>
+<span class="fc" id="L20">        this.configManager = configManager;</span>
+<span class="fc" id="L21">        this.currencyConverter = currencyConverter;</span>
+<span class="fc" id="L22">        this.playerDAO = playerDAO;</span>
+<span class="fc" id="L23">    }</span>
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (args.length == 0) {</span>
+<span class="fc" id="L28">            sendHelpMessage(sender);</span>
+<span class="fc" id="L29">            return true;</span>
+        }
+        
+<span class="fc" id="L32">        String subcommand = args[0].toLowerCase();</span>
+        
+<span class="pc bpc" id="L34" title="4 of 8 branches missed.">        switch (subcommand) {</span>
+            case &quot;give&quot;:
+<span class="fc" id="L36">                return handleGive(sender, args);</span>
+            case &quot;take&quot;:
+<span class="fc" id="L38">                return handleTake(sender, args);</span>
+            case &quot;set&quot;:
+<span class="fc" id="L40">                return handleSet(sender, args);</span>
+            case &quot;setcoinvalue&quot;:
+<span class="nc" id="L42">                return handleSetCoinValue(sender, args);</span>
+            case &quot;getcoinvalue&quot;:
+<span class="nc" id="L44">                return handleGetCoinValue(sender);</span>
+            case &quot;resetcoinvalue&quot;:
+<span class="nc" id="L46">                return handleResetCoinValue(sender);</span>
+            case &quot;reload&quot;:
+<span class="nc" id="L48">                return handleReload(sender);</span>
+            default:
+<span class="fc" id="L50">                sendHelpMessage(sender);</span>
+<span class="fc" id="L51">                return true;</span>
+        }
+    }
+    
+    private boolean handleGive(CommandSender sender, String[] args) {
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (args.length != 3) {</span>
+<span class="fc" id="L57">            sender.sendMessage(ChatColor.RED + &quot;使用法: /eco give &lt;プレイヤー名&gt; &lt;金額&gt;&quot;);</span>
+<span class="fc" id="L58">            return true;</span>
+        }
+        
+<span class="fc" id="L61">        String targetPlayerName = args[1];</span>
+<span class="fc" id="L62">        String amountString = args[2];</span>
+        
+<span class="fc" id="L64">        Player targetPlayer = Bukkit.getPlayer(targetPlayerName);</span>
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">        if (targetPlayer == null) {</span>
+<span class="nc" id="L66">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L67">                configManager.getMessagePrefix() + configManager.getMessage(&quot;player_not_found&quot;)));</span>
+<span class="nc" id="L68">            return true;</span>
+        }
+        
+        double amount;
+        try {
+<span class="fc" id="L73">            amount = Double.parseDouble(amountString);</span>
+<span class="fc" id="L74">        } catch (NumberFormatException e) {</span>
+<span class="fc" id="L75">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="fc" id="L76">                configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="fc" id="L77">            return true;</span>
+<span class="fc" id="L78">        }</span>
+        
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L81">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L82">                configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L83">            return true;</span>
+        }
+        
+<span class="fc" id="L86">        String uuid = targetPlayer.getUniqueId().toString();</span>
+<span class="fc" id="L87">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);</span>
+        
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if (tofuPlayer == null) {</span>
+<span class="fc" id="L90">            tofuPlayer = new org.tofu.tofunomics.models.Player();</span>
+<span class="fc" id="L91">            tofuPlayer.setUuid(uuid);</span>
+<span class="fc" id="L92">            tofuPlayer.setBalance(0.0); // 持ち歩き現金は0に設定</span>
+<span class="fc" id="L93">            tofuPlayer.setBankBalance(amount); // 銀行預金を設定</span>
+            
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            if (playerDAO.insertPlayer(tofuPlayer)) {</span>
+<span class="fc" id="L96">                String formattedAmount = currencyConverter.formatCurrency(amount);</span>
+<span class="fc" id="L97">                String currencySymbol = configManager.getCurrencySymbol();</span>
+                
+<span class="fc" id="L99">                sender.sendMessage(ChatColor.GREEN + targetPlayer.getName() + &quot; に &quot; + </span>
+                    formattedAmount + &quot; &quot; + currencySymbol + &quot; を付与しました。&quot;);
+                    
+<span class="fc" id="L102">                targetPlayer.sendMessage(ChatColor.GREEN + &quot;管理者により &quot; + </span>
+                    formattedAmount + &quot; &quot; + currencySymbol + &quot; が付与されました。&quot;);
+<span class="fc" id="L104">            } else {</span>
+<span class="nc" id="L105">                sender.sendMessage(ChatColor.RED + &quot;データベースエラーが発生しました。&quot;);</span>
+            }
+        } else {
+<span class="fc" id="L108">            tofuPlayer.addBankBalance(amount); // 銀行預金に追加</span>
+            
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">            if (playerDAO.updatePlayerData(tofuPlayer)) {</span>
+<span class="fc" id="L111">                String formattedAmount = currencyConverter.formatCurrency(amount);</span>
+<span class="fc" id="L112">                String currencySymbol = configManager.getCurrencySymbol();</span>
+                
+<span class="fc" id="L114">                sender.sendMessage(ChatColor.GREEN + targetPlayer.getName() + &quot; に &quot; + </span>
+                    formattedAmount + &quot; &quot; + currencySymbol + &quot; を付与しました。&quot;);
+                    
+<span class="fc" id="L117">                targetPlayer.sendMessage(ChatColor.GREEN + &quot;管理者により &quot; + </span>
+                    formattedAmount + &quot; &quot; + currencySymbol + &quot; が付与されました。&quot;);
+<span class="fc" id="L119">            } else {</span>
+<span class="nc" id="L120">                sender.sendMessage(ChatColor.RED + &quot;データベースエラーが発生しました。&quot;);</span>
+            }
+        }
+        
+<span class="fc" id="L124">        return true;</span>
+    }
+    
+    private boolean handleTake(CommandSender sender, String[] args) {
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        if (args.length != 3) {</span>
+<span class="nc" id="L129">            sender.sendMessage(ChatColor.RED + &quot;使用法: /eco take &lt;プレイヤー名&gt; &lt;金額&gt;&quot;);</span>
+<span class="nc" id="L130">            return true;</span>
+        }
+        
+<span class="fc" id="L133">        String targetPlayerName = args[1];</span>
+<span class="fc" id="L134">        String amountString = args[2];</span>
+        
+<span class="fc" id="L136">        Player targetPlayer = Bukkit.getPlayer(targetPlayerName);</span>
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">        if (targetPlayer == null) {</span>
+<span class="nc" id="L138">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L139">                configManager.getMessagePrefix() + configManager.getMessage(&quot;player_not_found&quot;)));</span>
+<span class="nc" id="L140">            return true;</span>
+        }
+        
+        double amount;
+        try {
+<span class="fc" id="L145">            amount = Double.parseDouble(amountString);</span>
+<span class="nc" id="L146">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L147">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L148">                configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L149">            return true;</span>
+<span class="fc" id="L150">        }</span>
+        
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        if (amount &lt;= 0) {</span>
+<span class="nc" id="L153">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L154">                configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L155">            return true;</span>
+        }
+        
+<span class="fc" id="L158">        String uuid = targetPlayer.getUniqueId().toString();</span>
+<span class="fc" id="L159">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);</span>
+        
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        if (tofuPlayer == null) {</span>
+<span class="fc" id="L162">            sender.sendMessage(ChatColor.RED + &quot;対象プレイヤーのデータが見つかりません。&quot;);</span>
+<span class="fc" id="L163">            return true;</span>
+        }
+        
+<span class="fc" id="L166">        tofuPlayer.removeBankBalance(amount); // 銀行預金から減算</span>
+        
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">        if (playerDAO.updatePlayerData(tofuPlayer)) {</span>
+<span class="fc" id="L169">            String formattedAmount = currencyConverter.formatCurrency(amount);</span>
+<span class="fc" id="L170">            String currencySymbol = configManager.getCurrencySymbol();</span>
+            
+<span class="fc" id="L172">            sender.sendMessage(ChatColor.GREEN + targetPlayer.getName() + &quot; から &quot; + </span>
+                formattedAmount + &quot; &quot; + currencySymbol + &quot; を取り上げました。&quot;);
+                
+<span class="fc" id="L175">            targetPlayer.sendMessage(ChatColor.YELLOW + &quot;管理者により &quot; + </span>
+                formattedAmount + &quot; &quot; + currencySymbol + &quot; が取り上げられました。&quot;);
+<span class="fc" id="L177">        } else {</span>
+<span class="nc" id="L178">            sender.sendMessage(ChatColor.RED + &quot;データベースエラーが発生しました。&quot;);</span>
+        }
+        
+<span class="fc" id="L181">        return true;</span>
+    }
+    
+    private boolean handleSet(CommandSender sender, String[] args) {
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">        if (args.length != 3) {</span>
+<span class="nc" id="L186">            sender.sendMessage(ChatColor.RED + &quot;使用法: /eco set &lt;プレイヤー名&gt; &lt;金額&gt;&quot;);</span>
+<span class="nc" id="L187">            return true;</span>
+        }
+        
+<span class="fc" id="L190">        String targetPlayerName = args[1];</span>
+<span class="fc" id="L191">        String amountString = args[2];</span>
+        
+<span class="fc" id="L193">        Player targetPlayer = Bukkit.getPlayer(targetPlayerName);</span>
+<span class="pc bpc" id="L194" title="1 of 2 branches missed.">        if (targetPlayer == null) {</span>
+<span class="nc" id="L195">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L196">                configManager.getMessagePrefix() + configManager.getMessage(&quot;player_not_found&quot;)));</span>
+<span class="nc" id="L197">            return true;</span>
+        }
+        
+        double amount;
+        try {
+<span class="fc" id="L202">            amount = Double.parseDouble(amountString);</span>
+<span class="nc" id="L203">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L204">            sender.sendMessage(ChatColor.translateAlternateColorCodes('&amp;', </span>
+<span class="nc" id="L205">                configManager.getMessagePrefix() + configManager.getMessage(&quot;invalid_amount&quot;)));</span>
+<span class="nc" id="L206">            return true;</span>
+<span class="fc" id="L207">        }</span>
+        
+<span class="fc bfc" id="L209" title="All 2 branches covered.">        if (amount &lt; 0) {</span>
+<span class="fc" id="L210">            sender.sendMessage(ChatColor.RED + &quot;残高は負の値にできません。&quot;);</span>
+<span class="fc" id="L211">            return true;</span>
+        }
+        
+<span class="fc" id="L214">        String uuid = targetPlayer.getUniqueId().toString();</span>
+<span class="fc" id="L215">        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);</span>
+        
+<span class="fc bfc" id="L217" title="All 2 branches covered.">        if (tofuPlayer == null) {</span>
+<span class="fc" id="L218">            tofuPlayer = new org.tofu.tofunomics.models.Player();</span>
+<span class="fc" id="L219">            tofuPlayer.setUuid(uuid);</span>
+<span class="fc" id="L220">            tofuPlayer.setBalance(0.0); // 持ち歩き現金は0に設定</span>
+<span class="fc" id="L221">            tofuPlayer.setBankBalance(amount); // 銀行預金を設定</span>
+            
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">            if (playerDAO.insertPlayer(tofuPlayer)) {</span>
+<span class="fc" id="L224">                String formattedAmount = currencyConverter.formatCurrency(amount);</span>
+<span class="fc" id="L225">                String currencySymbol = configManager.getCurrencySymbol();</span>
+                
+<span class="fc" id="L227">                sender.sendMessage(ChatColor.GREEN + targetPlayer.getName() + &quot; の残高を &quot; + </span>
+                    formattedAmount + &quot; &quot; + currencySymbol + &quot; に設定しました。&quot;);
+<span class="fc" id="L229">            } else {</span>
+<span class="nc" id="L230">                sender.sendMessage(ChatColor.RED + &quot;データベースエラーが発生しました。&quot;);</span>
+            }
+        } else {
+<span class="fc" id="L233">            tofuPlayer.setBankBalance(amount); // 銀行預金を設定</span>
+            
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">            if (playerDAO.updatePlayerData(tofuPlayer)) {</span>
+<span class="fc" id="L236">                String formattedAmount = currencyConverter.formatCurrency(amount);</span>
+<span class="fc" id="L237">                String currencySymbol = configManager.getCurrencySymbol();</span>
+                
+<span class="fc" id="L239">                sender.sendMessage(ChatColor.GREEN + targetPlayer.getName() + &quot; の残高を &quot; + </span>
+                    formattedAmount + &quot; &quot; + currencySymbol + &quot; に設定しました。&quot;);
+<span class="fc" id="L241">            } else {</span>
+<span class="nc" id="L242">                sender.sendMessage(ChatColor.RED + &quot;データベースエラーが発生しました。&quot;);</span>
+            }
+        }
+        
+<span class="fc" id="L246">        return true;</span>
+    }
+    
+    private boolean handleReload(CommandSender sender) {
+        try {
+<span class="nc" id="L251">            configManager.reloadConfig();</span>
+<span class="nc" id="L252">            sender.sendMessage(ChatColor.GREEN + &quot;設定ファイルをリロードしました。&quot;);</span>
+<span class="nc" id="L253">        } catch (Exception e) {</span>
+<span class="nc" id="L254">            sender.sendMessage(ChatColor.RED + &quot;設定ファイルのリロードに失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L255">        }</span>
+        
+<span class="nc" id="L257">        return true;</span>
+    }
+
+    
+    private boolean handleSetCoinValue(CommandSender sender, String[] args) {
+<span class="nc bnc" id="L262" title="All 2 branches missed.">        if (args.length != 2) {</span>
+<span class="nc" id="L263">            sender.sendMessage(&quot;§c使用法: /eco setcoinvalue &lt;価値&gt;&quot;);</span>
+<span class="nc" id="L264">            return true;</span>
+        }
+        
+        try {
+<span class="nc" id="L268">            double newValue = Double.parseDouble(args[1]);</span>
+            
+<span class="nc bnc" id="L270" title="All 2 branches missed.">            if (!configManager.isDynamicValueEnabled()) {</span>
+<span class="nc" id="L271">                sender.sendMessage(&quot;§c通貨価値の変更は無効になっています。&quot;);</span>
+<span class="nc" id="L272">                return true;</span>
+            }
+            
+<span class="nc bnc" id="L275" title="All 4 branches missed.">            if (newValue &lt; configManager.getMinCoinValue() || newValue &gt; configManager.getMaxCoinValue()) {</span>
+<span class="nc" id="L276">                sender.sendMessage(String.format(&quot;§c通貨価値は %.1f から %.1f の範囲内である必要があります。&quot;, </span>
+<span class="nc" id="L277">                    configManager.getMinCoinValue(), configManager.getMaxCoinValue()));</span>
+<span class="nc" id="L278">                return true;</span>
+            }
+            
+<span class="nc" id="L281">            configManager.setCoinValue(newValue);</span>
+<span class="nc" id="L282">            sender.sendMessage(String.format(&quot;§a通貨価値を %.1f に設定しました。（1コイン = $%.1f）&quot;, </span>
+<span class="nc" id="L283">                newValue, newValue));</span>
+            
+<span class="nc" id="L285">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L286">            sender.sendMessage(&quot;§c無効な数値です。&quot;);</span>
+<span class="nc" id="L287">        } catch (Exception e) {</span>
+<span class="nc" id="L288">            sender.sendMessage(&quot;§c設定の更新に失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L289">        }</span>
+        
+<span class="nc" id="L291">        return true;</span>
+    }
+    
+    private boolean handleGetCoinValue(CommandSender sender) {
+<span class="nc" id="L295">        double currentValue = configManager.getCoinValue();</span>
+<span class="nc" id="L296">        sender.sendMessage(&quot;§6=== 通貨価値情報 ===&quot;);</span>
+<span class="nc" id="L297">        sender.sendMessage(String.format(&quot;§e現在の価値: §f1コイン = $%.1f&quot;, currentValue));</span>
+<span class="nc" id="L298">        sender.sendMessage(String.format(&quot;§e最小価値: §f$%.1f&quot;, configManager.getMinCoinValue()));</span>
+<span class="nc" id="L299">        sender.sendMessage(String.format(&quot;§e最大価値: §f$%.1f&quot;, configManager.getMaxCoinValue()));</span>
+<span class="nc" id="L300">        sender.sendMessage(String.format(&quot;§e変更可能: §f%s&quot;, </span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">            configManager.isDynamicValueEnabled() ? &quot;有効&quot; : &quot;無効&quot;));</span>
+<span class="nc" id="L302">        return true;</span>
+    }
+    
+    private boolean handleResetCoinValue(CommandSender sender) {
+<span class="nc bnc" id="L306" title="All 2 branches missed.">        if (!configManager.isDynamicValueEnabled()) {</span>
+<span class="nc" id="L307">            sender.sendMessage(&quot;§c通貨価値の変更は無効になっています。&quot;);</span>
+<span class="nc" id="L308">            return true;</span>
+        }
+        
+        try {
+<span class="nc" id="L312">            configManager.setCoinValue(10.0); // デフォルト値</span>
+<span class="nc" id="L313">            sender.sendMessage(&quot;§a通貨価値をデフォルト値（1コイン = $10.0）にリセットしました。&quot;);</span>
+<span class="nc" id="L314">        } catch (Exception e) {</span>
+<span class="nc" id="L315">            sender.sendMessage(&quot;§c設定のリセットに失敗しました: &quot; + e.getMessage());</span>
+<span class="nc" id="L316">        }</span>
+        
+<span class="nc" id="L318">        return true;</span>
+    }
+    
+    private void sendHelpMessage(CommandSender sender) {
+<span class="fc" id="L322">        sender.sendMessage(&quot;§6=== TofuNomics 経済コマンド ===&quot;);</span>
+<span class="fc" id="L323">        sender.sendMessage(&quot;§e/eco give &lt;プレイヤー&gt; &lt;金額&gt; §7- プレイヤーに金額を付与&quot;);</span>
+<span class="fc" id="L324">        sender.sendMessage(&quot;§e/eco take &lt;プレイヤー&gt; &lt;金額&gt; §7- プレイヤーから金額を減額&quot;);</span>
+<span class="fc" id="L325">        sender.sendMessage(&quot;§e/eco set &lt;プレイヤー&gt; &lt;金額&gt; §7- プレイヤーの残高を設定&quot;);</span>
+<span class="fc" id="L326">        sender.sendMessage(&quot;§e/eco setcoinvalue &lt;価値&gt; §7- 通貨価値を設定&quot;);</span>
+<span class="fc" id="L327">        sender.sendMessage(&quot;§e/eco getcoinvalue §7- 現在の通貨価値を表示&quot;);</span>
+<span class="fc" id="L328">        sender.sendMessage(&quot;§e/eco resetcoinvalue §7- 通貨価値をデフォルトに戻す&quot;);</span>
+<span class="fc" id="L329">        sender.sendMessage(&quot;§e/eco reload §7- 設定ファイルを再読み込み&quot;);</span>
+<span class="fc" id="L330">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

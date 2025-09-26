@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TradeChest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">TofuNomics</a> &gt; <a href="index.source.html" class="el_package">org.tofu.tofunomics.models</a> &gt; <span class="el_source">TradeChest.java</span></div><h1>TradeChest.java</h1><pre class="source lang-java linenums">package org.tofu.tofunomics.models;
+
+import java.sql.Timestamp;
+
+/**
+ * 取引チェストデータモデル
+ */
+public class TradeChest {
+    
+    private int id;
+    private String worldName;
+    private int x;
+    private int y;
+    private int z;
+    private String jobType;
+    private boolean active;
+    private String createdBy;
+    private Timestamp createdAt;
+    
+<span class="nc" id="L20">    public TradeChest() {</span>
+<span class="nc" id="L21">        this.active = true;</span>
+<span class="nc" id="L22">        this.createdAt = new Timestamp(System.currentTimeMillis());</span>
+<span class="nc" id="L23">    }</span>
+    
+    public TradeChest(String worldName, int x, int y, int z, String jobType, String createdBy) {
+<span class="nc" id="L26">        this();</span>
+<span class="nc" id="L27">        this.worldName = worldName;</span>
+<span class="nc" id="L28">        this.x = x;</span>
+<span class="nc" id="L29">        this.y = y;</span>
+<span class="nc" id="L30">        this.z = z;</span>
+<span class="nc" id="L31">        this.jobType = jobType;</span>
+<span class="nc" id="L32">        this.createdBy = createdBy;</span>
+<span class="nc" id="L33">    }</span>
+    
+    // Getters
+<span class="nc" id="L36">    public int getId() { return id; }</span>
+<span class="nc" id="L37">    public String getWorldName() { return worldName; }</span>
+<span class="nc" id="L38">    public int getX() { return x; }</span>
+<span class="nc" id="L39">    public int getY() { return y; }</span>
+<span class="nc" id="L40">    public int getZ() { return z; }</span>
+<span class="nc" id="L41">    public String getJobType() { return jobType; }</span>
+<span class="nc" id="L42">    public boolean isActive() { return active; }</span>
+<span class="nc" id="L43">    public String getCreatedBy() { return createdBy; }</span>
+<span class="nc" id="L44">    public Timestamp getCreatedAt() { return createdAt; }</span>
+    
+    // Setters
+<span class="nc" id="L47">    public void setId(int id) { this.id = id; }</span>
+<span class="nc" id="L48">    public void setWorldName(String worldName) { this.worldName = worldName; }</span>
+<span class="nc" id="L49">    public void setX(int x) { this.x = x; }</span>
+<span class="nc" id="L50">    public void setY(int y) { this.y = y; }</span>
+<span class="nc" id="L51">    public void setZ(int z) { this.z = z; }</span>
+<span class="nc" id="L52">    public void setJobType(String jobType) { this.jobType = jobType; }</span>
+<span class="nc" id="L53">    public void setActive(boolean active) { this.active = active; }</span>
+<span class="nc" id="L54">    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }</span>
+<span class="nc" id="L55">    public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }</span>
+    
+    /**
+     * 座標文字列を取得
+     */
+    public String getLocationString() {
+<span class="nc" id="L61">        return String.format(&quot;%s:%d,%d,%d&quot;, worldName, x, y, z);</span>
+    }
+    
+    /**
+     * 指定座標と一致するかチェック
+     */
+    public boolean matchesLocation(String worldName, int x, int y, int z) {
+<span class="nc bnc" id="L68" title="All 8 branches missed.">        return this.worldName.equals(worldName) &amp;&amp; </span>
+               this.x == x &amp;&amp; this.y == y &amp;&amp; this.z == z;
+    }
+    
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (this == obj) return true;</span>
+<span class="nc bnc" id="L75" title="All 4 branches missed.">        if (obj == null || getClass() != obj.getClass()) return false;</span>
+        
+<span class="nc" id="L77">        TradeChest that = (TradeChest) obj;</span>
+<span class="nc bnc" id="L78" title="All 6 branches missed.">        return x == that.x &amp;&amp; y == that.y &amp;&amp; z == that.z &amp;&amp; </span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">               worldName.equals(that.worldName);</span>
+    }
+    
+    @Override
+    public int hashCode() {
+<span class="nc" id="L84">        return java.util.Objects.hash(worldName, x, y, z);</span>
+    }
+    
+    @Override
+    public String toString() {
+<span class="nc" id="L89">        return String.format(&quot;TradeChest{id=%d, location=%s, jobType=%s, active=%s}&quot;, </span>
+<span class="nc" id="L90">                           id, getLocationString(), jobType, active);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
