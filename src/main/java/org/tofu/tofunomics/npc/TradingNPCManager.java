@@ -69,7 +69,10 @@ public class TradingNPCManager {
         }
         
         public boolean acceptsJob(String jobType) {
-            return acceptedJobTypes.isEmpty() || acceptedJobTypes.contains(jobType);
+            // 空配列または"all"が含まれている場合は全職業対応
+            return acceptedJobTypes.isEmpty() || 
+                   acceptedJobTypes.contains("all") || 
+                   acceptedJobTypes.contains(jobType);
         }
         
         public double getItemPrice(Material material) {
@@ -126,7 +129,19 @@ public class TradingNPCManager {
                     continue;
                 }
                 
-                Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5);
+                // yaw/pitchをconfigから取得（デフォルト値: 0.0f）
+                float yaw = 0.0f;
+                float pitch = 0.0f;
+                
+                if (config.containsKey("yaw") && config.get("yaw") != null) {
+                    yaw = ((Number) config.get("yaw")).floatValue();
+                }
+                
+                if (config.containsKey("pitch") && config.get("pitch") != null) {
+                    pitch = ((Number) config.get("pitch")).floatValue();
+                }
+                
+                Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
                 plugin.getLogger().info("取引NPCを生成中: " + name + " at [" + x + ", " + y + ", " + z + "] (world: " + world + ")");
                 Villager tradingNPC = npcManager.createNPC(location, "trader", name);
                 
@@ -261,7 +276,7 @@ public class TradingNPCManager {
             }
             
             // 取引サービスGUIを開く
-            openTradingServiceGUI(player, tradingPost);
+            openTradingServiceGUI(player, tradingPost, npcData);
             
             // 挨拶メッセージ
             String greetingMessage = configManager.getTradingNPCGreeting(tradingPost.getName(), player.getName());
@@ -299,7 +314,25 @@ public class TradingNPCManager {
         return result;
     }
     
-    private void openTradingServiceGUI(Player player, TradingPost tradingPost) {
+    /**
+     * プレイヤーが木こりかどうかを判定
+     */
+    private boolean isWoodcutter(Player player) {
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        return "woodcutter".equals(playerJob);
+    }
+    
+    /**
+     * 原木アイテムかどうかを判定
+     */
+    private boolean isLogItem(Material material) {
+        String materialName = material.toString();
+        return materialName.endsWith("_LOG") || 
+               materialName.equals("CRIMSON_STEM") || 
+               materialName.equals("WARPED_STEM");
+    }
+    
+    private void openTradingServiceGUI(Player player, TradingPost tradingPost, NPCManager.NPCData npcData) {
         plugin.getLogger().info("Step 5: GUI表示処理開始");
         
         try {
@@ -330,42 +363,36 @@ public class TradingNPCManager {
                 return;
             }
             
-            // TradingGUIを開く（職業がある場合）
-            org.tofu.tofunomics.npc.gui.TradingGUI tradingGUI = plugin.getTradingGUI();
+            // 遅延してからTradingGUIを開く（職業がある場合）
+            int delayTicks = configManager.getNPCGUIDelayTicks();
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                // プレイヤーがまだオンラインで、NPCの近くにいて、営業時間内かチェック
+                if (player.isOnline() && isPlayerNearNPC(player, npcData) && isWithinTradingHours()) {
+                    org.tofu.tofunomics.npc.gui.TradingGUI tradingGUI = plugin.getTradingGUI();
+                    
+                    if (tradingGUI != null) {
+                        plugin.getLogger().info("TradingGUIでの処理");
+                        tradingGUI.openTradingGUI(player, tradingPost);
+                    } else {
+                        plugin.getLogger().info("TradingGUI null - フォールバック処理で価格表示");
+                        showTradingMenu(player, tradingPost);
+                    }
+                } else {
+                    if (!player.isOnline()) {
+                        plugin.getLogger().info("プレイヤー " + player.getName() + " がオフラインのため、GUIを開かませんでした");
+                    } else if (!isPlayerNearNPC(player, npcData)) {
+                        plugin.getLogger().info("プレイヤー " + player.getName() + " がNPCから離れたため、GUIを開かませんでした");
+                    } else if (!isWithinTradingHours()) {
+                        plugin.getLogger().info("営業時間外のため、GUIを開かませんでした");
+                        // 営業時間外メッセージを送信
+                        int startHour = configManager.getTradingStartHour();
+                        int endHour = configManager.getTradingEndHour();
+                        player.sendMessage("§c申し訳ありません。営業時間は" + startHour + ":00~" + endHour + ":00です。");
+                    }
+                }
+            }, delayTicks);
             
-            if (tradingGUI != null) {
-                plugin.getLogger().info("TradingGUIでの処理");
-                tradingGUI.openTradingGUI(player, tradingPost);
-            } else {
-                plugin.getLogger().info("TradingGUI null - フォールバック処理で価格表示");
-                
-                // 取引可能職業のチェック
-                if (!tradingPost.acceptsJob(playerJob)) {
-                    plugin.getLogger().info("職業不対応: " + playerJob);
-                    String npcType = getNPCTypeFromTradingPost(tradingPost);
-                    String acceptedJobsStr = String.join(", ", tradingPost.getAcceptedJobTypes());
-                    configManager.sendNPCSpecificMessageList(player, npcType, "job_not_accepted", 
-                        "player", player.getName(), 
-                        "job", playerJob, 
-                        "accepted_jobs", acceptedJobsStr);
-                    return;
-                }
-                
-                // 取引可能アイテムと価格を表示
-                player.sendMessage("§a=== 買取価格表 ===");
-                for (Map.Entry<Material, Double> entry : tradingPost.getItemPrices().entrySet()) {
-                    Material material = entry.getKey();
-                    double price = entry.getValue();
-                    
-                    // 職業ボーナスを適用
-                    double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, price);
-                    String formattedPrice = currencyConverter.formatCurrency(finalPrice);
-                    
-                    player.sendMessage("§f• " + material.toString().toLowerCase() + ": §a" + formattedPrice);
-                }
-                
-                player.sendMessage("§e手持ちのアイテムを持って再度話しかけると売却できます");
-            }
+
         } catch (Exception e) {
             plugin.getLogger().severe("取引GUI開起中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("エラー発生場所: TradingNPCManager.openTradingServiceGUI");
@@ -399,6 +426,13 @@ public class TradingNPCManager {
             if (basePrice > 0) {
                 int amount = item.getAmount();
                 double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, basePrice);
+                
+                // 木こりが原木を売る場合は価格を2倍に
+                if (isWoodcutter(player) && isLogItem(material)) {
+                    finalPrice *= 2.0;
+                    plugin.getLogger().info("木こりボーナス適用: " + material + " の価格を2倍に");
+                }
+                
                 double itemTotal = finalPrice * amount;
                 
                 totalEarnings += itemTotal;
@@ -581,9 +615,203 @@ public class TradingNPCManager {
             npcManager.removeNPC(npc.getEntityId());
         }
         
-        // 残りのNPCについて設定を再適用
-        spawnTradingNPCs();
+        // tradingPostsマップを更新（既存NPCは再スポーンしない）
+        updateTradingPostsFromConfig();
         
         plugin.getLogger().info("取引所データの再読み込みが完了しました");
+    }
+    
+    /**
+     * 設定ファイルからtradingPostsマップを更新（既存NPCは再スポーンしない）
+     */
+    private void updateTradingPostsFromConfig() {
+        plugin.getLogger().info("=== 取引所マップ更新開始 ===");
+        
+        // 既存の取引所データをクリア
+        tradingPosts.clear();
+        
+        List<Map<?, ?>> tradingPostConfigs = configManager.getTradingPostConfigs();
+        plugin.getLogger().info("設定から " + tradingPostConfigs.size() + " 個の取引所を読み込み");
+        
+        for (Map<?, ?> config : tradingPostConfigs) {
+            try {
+                String id = (String) config.get("id");
+                String name = (String) config.get("name");
+                String world = (String) config.get("world");
+                int x = (Integer) config.get("x");
+                int y = (Integer) config.get("y");
+                int z = (Integer) config.get("z");
+                
+                Object acceptedJobsObj = config.get("accepted_jobs");
+                List<String> acceptedJobs;
+                if (acceptedJobsObj instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<String> tempList = (List<String>) acceptedJobsObj;
+                    acceptedJobs = tempList;
+                } else {
+                    acceptedJobs = new ArrayList<String>();
+                }
+                
+                if (id == null || name == null || world == null) {
+                    plugin.getLogger().warning("取引NPCの設定が不完全です: " + config);
+                    continue;
+                }
+                
+                // yaw/pitchをconfigから取得
+                float yaw = 0.0f;
+                float pitch = 0.0f;
+                
+                if (config.containsKey("yaw") && config.get("yaw") != null) {
+                    yaw = ((Number) config.get("yaw")).floatValue();
+                }
+                
+                if (config.containsKey("pitch") && config.get("pitch") != null) {
+                    pitch = ((Number) config.get("pitch")).floatValue();
+                }
+                
+                Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
+                
+                // 既存のスポーン済みNPCを名前で検索
+                UUID npcId = findExistingNPCIdByName(name);
+                
+                if (npcId != null) {
+                    // 既存NPCが見つかった場合、データのみ登録
+                    Map<Material, Double> prices = buildItemPrices(acceptedJobs);
+                    TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, npcId);
+                    tradingPosts.put(id, tradingPost);
+                    
+                    plugin.getLogger().info("取引所データ登録: " + name + " (既存NPC: " + npcId + ")");
+                } else {
+                    plugin.getLogger().warning("取引所 " + name + " に対応するNPCが見つかりません");
+                }
+                
+            } catch (Exception e) {
+                plugin.getLogger().warning("取引所データ更新中にエラーが発生しました: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        
+        plugin.getLogger().info("=== 取引所マップ更新完了: " + tradingPosts.size() + "個 ===");
+    }
+    
+    /**
+     * 名前から既存のNPCのUUIDを検索
+     */
+    private UUID findExistingNPCIdByName(String name) {
+        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
+        // 色コードを除去した検索名
+        String searchName = org.bukkit.ChatColor.stripColor(name);
+        
+        for (NPCManager.NPCData npcData : allNPCs) {
+            if ("trader".equals(npcData.getNpcType())) {
+                // NPCの名前からも色コードを除去して比較
+                String npcName = org.bukkit.ChatColor.stripColor(npcData.getName());
+                if (searchName.equals(npcName)) {
+                    return npcData.getEntityId();
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * TradingGUIが利用できない場合のフォールバック表示メソッド
+     */
+    private void showTradingMenu(Player player, TradingPost tradingPost) {
+        try {
+            // プレイヤーの職業を取得
+            String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+            // 取引可能職業のチェック
+            if (!tradingPost.acceptsJob(playerJob)) {
+                plugin.getLogger().info("職業不対応: " + playerJob);
+                String npcType = getNPCTypeFromTradingPost(tradingPost);
+                String acceptedJobsStr = String.join(", ", tradingPost.getAcceptedJobTypes());
+                configManager.sendNPCSpecificMessageList(player, npcType, "job_not_accepted", 
+                    "player", player.getName(), 
+                    "job", playerJob, 
+                    "accepted_jobs", acceptedJobsStr);
+                return;
+            }
+            
+            // 取引可能アイテムと価格を表示
+            player.sendMessage("§a=== 買取価格表 ===");
+            for (Map.Entry<Material, Double> entry : tradingPost.getItemPrices().entrySet()) {
+                Material material = entry.getKey();
+                double price = entry.getValue();
+                
+                // 職業ボーナスを適用
+                double finalPrice = Math.ceil(tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, price));
+                String formattedPrice = currencyConverter.formatCurrency(finalPrice);
+                
+                player.sendMessage("§f• " + material.toString().toLowerCase() + ": §a" + formattedPrice);
+            }
+            
+            player.sendMessage("§e手持ちのアイテムを持って再度話しかけると売却できます");
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("取引メニュー表示中にエラーが発生しました: " + e.getMessage());
+            player.sendMessage("§c取引情報の表示でエラーが発生しました。");
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * プレイヤーがNPCの近くにいるかどうかをチェック
+     */
+    private boolean isPlayerNearNPC(Player player, NPCManager.NPCData npcData) {
+        try {
+            // NPCエンティティを取得
+            Villager npcEntity = null;
+            for (Villager villager : player.getWorld().getEntitiesByClass(Villager.class)) {
+                if (villager.getUniqueId().equals(npcData.getEntityId())) {
+                    npcEntity = villager;
+                    break;
+                }
+            }
+            
+            if (npcEntity == null) {
+                return false; // NPCが見つからない場合
+            }
+            
+            // 距離をチェック（設定可能な範囲内）
+            double distance = player.getLocation().distance(npcEntity.getLocation());
+            int accessRange = configManager.getNPCAccessRange();
+            
+            return distance <= accessRange;
+            
+        } catch (Exception e) {
+            plugin.getLogger().warning("プレイヤーとNPCの距離チェック中にエラーが発生: " + e.getMessage());
+            return false; // エラーの場合は安全のためfalseを返す
+        }
+    }
+    
+    /**
+     * 取引営業時間内かどうかをチェック
+     */
+    private boolean isWithinTradingHours() {
+        if (!configManager.isTradingHoursEnabled()) {
+            return true;
+        }
+        
+        // 現在の時間を取得（Minecraft時間）
+        long worldTime = plugin.getServer().getWorlds().get(0).getTime();
+        // 正しいMinecraft時間計算: 0=朝6:00, 6000=正午12:00, 12000=夕方18:00, 18000=深夜0:00
+        int currentHour = (int) (((worldTime + 6000) / 1000) % 24);
+        
+        int startHour = configManager.getTradingStartHour();
+        int endHour = configManager.getTradingEndHour();
+        
+        plugin.getLogger().info("営業時間チェック - worldTime: " + worldTime + ", 現在時刻: " + currentHour + ":00, 営業時間: " + startHour + ":00-" + endHour + ":00");
+        
+        if (startHour <= endHour) {
+            boolean result = currentHour >= startHour && currentHour < endHour;
+            plugin.getLogger().info("営業時間判定結果: " + result);
+            return result;
+        } else {
+            // 日をまたぐ場合
+            boolean result = currentHour >= startHour || currentHour < endHour;
+            plugin.getLogger().info("営業時間判定結果（日またぎ): " + result);
+            return result;
+        }
     }
 }

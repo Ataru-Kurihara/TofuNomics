@@ -28,6 +28,8 @@ public class NPCManager {
         private final String name;
         private final Location location;
         private final Villager entity;
+        private final float yaw;
+        private final float pitch;
         
         public NPCData(UUID entityId, String npcType, String name, Location location, Villager entity) {
             this.entityId = entityId;
@@ -35,6 +37,8 @@ public class NPCManager {
             this.name = name;
             this.location = location;
             this.entity = entity;
+            this.yaw = location.getYaw();
+            this.pitch = location.getPitch();
         }
         
         public UUID getEntityId() { return entityId; }
@@ -42,6 +46,8 @@ public class NPCManager {
         public String getName() { return name; }
         public Location getLocation() { return location; }
         public Villager getEntity() { return entity; }
+        public float getYaw() { return yaw; }
+        public float getPitch() { return pitch; }
     }
     
     public Villager createNPC(Location location, String npcType, String name) {
@@ -63,6 +69,12 @@ public class NPCManager {
             villager.setInvulnerable(true);
             villager.setRemoveWhenFarAway(false);
             
+            // NPCの向きを設定（Locationからyaw/pitchを取得）
+            Location npcLocation = villager.getLocation();
+            npcLocation.setYaw(location.getYaw());
+            npcLocation.setPitch(location.getPitch());
+            villager.teleport(npcLocation);
+            
             // システムNPC識別用のメタデータを設定
             villager.setMetadata("tofunomics_system_npc", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
             villager.setMetadata("tofunomics_npc_type", new org.bukkit.metadata.FixedMetadataValue(plugin, npcType));
@@ -76,7 +88,8 @@ public class NPCManager {
             npcs.put(villager.getUniqueId(), npcData);
             
             plugin.getLogger().info("NPCを生成しました: " + name + " (" + npcType + ") at " + 
-                location.getX() + ", " + location.getY() + ", " + location.getZ());
+                location.getX() + ", " + location.getY() + ", " + location.getZ() + 
+                " (yaw: " + location.getYaw() + ", pitch: " + location.getPitch() + ")");
             
             return villager;
         } catch (Exception e) {
@@ -87,18 +100,9 @@ public class NPCManager {
     }
     
     private Villager.Profession getNPCProfession(String npcType) {
-        switch (npcType.toLowerCase()) {
-            case "banker":
-                return Villager.Profession.LIBRARIAN;
-            case "trader":
-                return Villager.Profession.WEAPONSMITH;
-            case "merchant":
-                return Villager.Profession.TOOLSMITH;
-            case "food_merchant":
-                return Villager.Profession.BUTCHER;
-            default:
-                return Villager.Profession.NITWIT;
-        }
+        // すべてのNPCをNITWIT（無職）に設定して取引GUIを完全に無効化
+        // 見た目の区別は名前やメタデータで行う
+        return Villager.Profession.NITWIT;
     }
     
     public boolean removeNPC(UUID npcId) {
@@ -181,9 +185,14 @@ public class NPCManager {
             return false;
         }
         
-        // メタデータでの判定
+        // メタデータでの判定（優先）
         if (entity.hasMetadata("tofunomics_system_npc")) {
             return entity.getMetadata("tofunomics_system_npc").get(0).asBoolean();
+        }
+        
+        // NPCタイプメタデータが存在する場合もシステムNPCと判定
+        if (entity.hasMetadata("tofunomics_npc_type")) {
+            return true;
         }
         
         // カスタムネームでの判定（フォールバック）
@@ -195,7 +204,18 @@ public class NPCManager {
                    customName.contains("木材市場") || 
                    customName.contains("農産物市場") || 
                    customName.contains("漁港") ||
-                   customName.contains("ATM");
+                   customName.contains("ATM") ||
+                   // 食料NPC関連の名前を追加
+                   customName.contains("食料品") ||
+                   customName.contains("商人") ||
+                   customName.contains("パン屋") ||
+                   customName.contains("肉屋") ||
+                   customName.contains("精肉") ||
+                   customName.contains("魚屋") ||
+                   customName.contains("八百屋") ||
+                   customName.contains("特産品") ||
+                   customName.contains("総合") ||
+                   customName.contains("加工職人");
         }
         
         return false;
@@ -230,6 +250,24 @@ public class NPCManager {
             int z = (Integer) npcConfig.get("z");
             String name = (String) npcConfig.get("name");
             
+            // yaw/pitchをconfigから取得（デフォルト値: 0.0f）
+            float yaw = 0.0f;
+            float pitch = 0.0f;
+            
+            if (npcConfig.containsKey("yaw")) {
+                Object yawObj = npcConfig.get("yaw");
+                if (yawObj instanceof Number) {
+                    yaw = ((Number) yawObj).floatValue();
+                }
+            }
+            
+            if (npcConfig.containsKey("pitch")) {
+                Object pitchObj = npcConfig.get("pitch");
+                if (pitchObj instanceof Number) {
+                    pitch = ((Number) pitchObj).floatValue();
+                }
+            }
+            
             if (world == null || name == null) {
                 plugin.getLogger().warning("NPC設定が不完全です: " + npcConfig);
                 return;
@@ -244,7 +282,7 @@ public class NPCManager {
                 return;
             }
             
-            Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5);
+            Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
             createNPC(location, npcType, name);
             
         } catch (Exception e) {

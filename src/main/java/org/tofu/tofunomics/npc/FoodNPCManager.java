@@ -129,7 +129,19 @@ public class FoodNPCManager {
                     continue;
                 }
                 
-                Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5);
+                // yaw/pitchをconfigから取得（デフォルト値: 0.0f）
+                float yaw = 0.0f;
+                float pitch = 0.0f;
+                
+                if (config.containsKey("yaw") && config.get("yaw") != null) {
+                    yaw = ((Number) config.get("yaw")).floatValue();
+                }
+                
+                if (config.containsKey("pitch") && config.get("pitch") != null) {
+                    pitch = ((Number) config.get("pitch")).floatValue();
+                }
+                
+                Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
                 plugin.getLogger().info("食料NPCを生成中: " + name + " at [" + x + ", " + y + ", " + z + "] (world: " + world + ")");
                 
                 Villager foodNPC = npcManager.createNPC(location, "food_merchant", name);
@@ -137,7 +149,17 @@ public class FoodNPCManager {
                 if (foodNPC != null) {
                     setupFoodNPC(foodNPC);
                     
+                    // config.ymlからnpc_typeを読み込む（存在しない場合はデフォルト）
                     String npcType = "general_store"; // デフォルトタイプ
+                    if (config.containsKey("npc_type")) {
+                        Object npcTypeObj = config.get("npc_type");
+                        if (npcTypeObj instanceof String) {
+                            npcType = (String) npcTypeObj;
+                            plugin.getLogger().info("config.ymlからNPCタイプを読み込みました: " + npcType);
+                        }
+                    } else {
+                        plugin.getLogger().info("config.ymlにnpc_typeがないため、デフォルト値を使用: " + npcType);
+                    }
                     Map<Material, Double> prices = buildFoodItemPrices(npcType);
                     FoodStore foodStore = new FoodStore(foodNPC.getUniqueId(), name, location, prices, npcType);
                     foodStores.put(foodNPC.getUniqueId(), foodStore);
@@ -196,7 +218,7 @@ public class FoodNPCManager {
             
             if (isAllowed) {
                 // 価格倍率を適用
-                double finalPrice = basePrice * priceMultiplier;
+                double finalPrice = Math.ceil(basePrice * priceMultiplier);
                 filteredPrices.put(material, finalPrice);
             }
         }
@@ -264,24 +286,36 @@ public class FoodNPCManager {
             
             // 営業時間チェック
             if (!isOperatingHours()) {
-                player.sendMessage("§c「申し訳ありません。営業時間は22:00-8:00です」");
+                int startHour = configManager.getFoodNPCStartHour();
+                int endHour = configManager.getFoodNPCEndHour();
+                String startTime = String.format("%d:00", startHour);
+                String endTime = String.format("%d:00", endHour);
+                player.sendMessage("§c「申し訳ありません。営業時間は" + startTime + "-" + endTime + "です」");
                 return true;
             }
             
             // 日次リセットチェック
             checkDailyReset();
             
-            // 挨拶メッセージ
-            player.sendMessage("§6「夜分にすみません、" + player.getName() + "さん」");
-            player.sendMessage("§e「緊急時の食料でしたら、こちらで調達できますよ」");
+            // 挨拶メッセージ（時間帯に応じて変化）
+            player.sendMessage(getTimeOfDayGreeting(player.getName()));
             
-            // 購入GUIを表示
-            if (plugin.getFoodGUI() != null) {
-                plugin.getFoodGUI().openFoodGUI(player, npcId, foodStore.getName());
-            } else {
-                // フォールバック: チャットメニュー
-                showFoodMenu(player, foodStore);
-            }
+            // 遅延してからGUIを開く
+            int delayTicks = configManager.getNPCGUIDelayTicks();
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                // プレイヤーがまだオンラインで、NPCの近くにいるかチェック
+                if (player.isOnline() && isPlayerNearNPC(player, npcId)) {
+                    // 購入GUIを表示
+                    if (plugin.getFoodGUI() != null) {
+                        plugin.getFoodGUI().openFoodGUI(player, npcId, foodStore.getName());
+                    } else {
+                        // フォールバック: チャットメニュー
+                        showFoodMenu(player, foodStore);
+                    }
+                } else {
+                    plugin.getLogger().info("プレイヤー " + player.getName() + " がNPCから離れたため、GUIを開かませんでした");
+                }
+            }, delayTicks);
             
             return true;
             
@@ -294,6 +328,32 @@ public class FoodNPCManager {
     }
     
     /**
+     * 時間帯に応じた挨拶メッセージを取得
+     */
+    private String getTimeOfDayGreeting(String playerName) {
+        // Minecraft時間を取得
+        long worldTime = plugin.getServer().getWorlds().get(0).getTime();
+        int currentHour = (int) (((worldTime + 6000) / 1000) % 24);
+        
+        String greeting;
+        if (currentHour >= 6 && currentHour < 12) {
+            // 朝（6:00-11:59）
+            greeting = "おはようございます";
+        } else if (currentHour >= 12 && currentHour < 18) {
+            // 昼（12:00-17:59）
+            greeting = "こんにちは";
+        } else if (currentHour >= 18 && currentHour < 22) {
+            // 夕方（18:00-21:59）
+            greeting = "こんばんは";
+        } else {
+            // 夜（22:00-5:59）
+            greeting = "夜分にすみません";
+        }
+        
+        return "§6「" + greeting + "、" + playerName + "さん」";
+    }
+    
+    /**
      * 営業時間チェック
      */
     private boolean isOperatingHours() {
@@ -301,16 +361,26 @@ public class FoodNPCManager {
             return true;
         }
         
-        LocalDateTime now = LocalDateTime.now();
-        int currentHour = now.getHour();
+        // Minecraft時間を取得（TradingNPCManagerと同じ方式）
+        long worldTime = plugin.getServer().getWorlds().get(0).getTime();
+        // Minecraft時間計算: 0=朝6:00, 6000=正午12:00, 12000=夕方18:00, 18000=深夜0:00
+        int currentHour = (int) (((worldTime + 6000) / 1000) % 24);
+        
         int startHour = configManager.getFoodNPCStartHour();
         int endHour = configManager.getFoodNPCEndHour();
         
-        // 22:00-8:00の場合の処理
+        plugin.getLogger().info("食料NPC営業時間チェック - worldTime: " + worldTime + ", 現在時刻: " + currentHour + ":00, 営業時間: " + startHour + ":00-" + endHour + ":00");
+        
+        // 日をまたぐ営業時間の場合（例：22:00-8:00）
         if (startHour > endHour) {
-            return currentHour >= startHour || currentHour <= endHour;
+            boolean result = currentHour >= startHour || currentHour < endHour;
+            plugin.getLogger().info("営業時間判定結果（日またぎ）: " + result);
+            return result;
         } else {
-            return currentHour >= startHour && currentHour <= endHour;
+            // 通常の営業時間の場合（例：6:00-22:00）
+            boolean result = currentHour >= startHour && currentHour < endHour;
+            plugin.getLogger().info("営業時間判定結果: " + result);
+            return result;
         }
     }
     
@@ -354,7 +424,10 @@ public class FoodNPCManager {
         
         // 営業時間チェック
         if (!isOperatingHours()) {
-            return new PurchaseResult(false, "営業時間外です（22:00-8:00）", 0.0);
+            int startHour = configManager.getFoodNPCStartHour();
+            int endHour = configManager.getFoodNPCEndHour();
+            return new PurchaseResult(false, 
+                String.format("営業時間外です（%d:00-%d:00）", startHour, endHour), 0.0);
         }
         
         // アイテム販売チェック
@@ -494,6 +567,13 @@ public class FoodNPCManager {
     }
 
     /**
+     * 指定されたNPCの食料店データを取得
+     */
+    public FoodStore getFoodStore(UUID npcId) {
+        return foodStores.get(npcId);
+    }
+
+    /**
      * 手動スポーンされたNPCをFoodNPCManagerに登録
      */
     public void registerFoodNPC(Villager villager, String name, String npcType) {
@@ -536,6 +616,36 @@ public class FoodNPCManager {
         } catch (Exception e) {
             plugin.getLogger().severe("食料NPC登録中にエラーが発生しました: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+    
+    /**
+     * プレイヤーがNPCの近くにいるかどうかをチェック
+     */
+    private boolean isPlayerNearNPC(Player player, UUID npcId) {
+        try {
+            // NPCエンティティを取得
+            Villager npcEntity = null;
+            for (Villager villager : player.getWorld().getEntitiesByClass(Villager.class)) {
+                if (villager.getUniqueId().equals(npcId)) {
+                    npcEntity = villager;
+                    break;
+                }
+            }
+            
+            if (npcEntity == null) {
+                return false; // NPCが見つからない場合
+            }
+            
+            // 距離をチェック（設定可能な範囲内）
+            double distance = player.getLocation().distance(npcEntity.getLocation());
+            int accessRange = configManager.getNPCAccessRange();
+            
+            return distance <= accessRange;
+            
+        } catch (Exception e) {
+            plugin.getLogger().warning("プレイヤーとNPCの距離チェック中にエラーが発生: " + e.getMessage());
+            return false; // エラーの場合は安全のためfalseを返す
         }
     }
 }

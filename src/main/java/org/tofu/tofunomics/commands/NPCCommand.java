@@ -13,6 +13,7 @@ import org.tofu.tofunomics.npc.BankNPCManager;
 import org.tofu.tofunomics.npc.NPCManager;
 import org.tofu.tofunomics.npc.TradingNPCManager;
 import org.tofu.tofunomics.npc.FoodNPCManager;
+import org.tofu.tofunomics.npc.ProcessingNPCManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
     private final BankNPCManager bankNPCManager;
     private final TradingNPCManager tradingNPCManager;
     private final FoodNPCManager foodNPCManager;
+    private final ProcessingNPCManager processingNPCManager;
     
     private static final String[] VALID_JOBS = {
         "miner", "woodcutter", "farmer", "fisherman",
@@ -36,13 +38,14 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
     
     public NPCCommand(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
                     BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager,
-                    FoodNPCManager foodNPCManager) {
+                    FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.npcManager = npcManager;
         this.bankNPCManager = bankNPCManager;
         this.tradingNPCManager = tradingNPCManager;
         this.foodNPCManager = foodNPCManager;
+        this.processingNPCManager = processingNPCManager;
     }
     
     @Override
@@ -121,30 +124,32 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             case "food_merchant":
             case "food":
                 return handleSpawnFoodMerchant(player, args, spawnLocation);
+            case "processing":
+                return handleSpawnProcessing(player, args, spawnLocation);
             default:
                 sender.sendMessage("§c無効なNPCタイプです: " + npcType);
-                sender.sendMessage("§7有効なタイプ: trader, banker, food_merchant");
+                sender.sendMessage("§7有効なタイプ: trader, banker, food_merchant, processing");
                 return true;
         }
     }
     
     private boolean handleSpawnTrader(Player player, String[] args, Location spawnLocation) {
         if (args.length < 3) {
-            player.sendMessage("§c使用法: /npc spawn trader <職業名> [NPC名]");
-            player.sendMessage("§7職業: " + String.join(", ", VALID_JOBS));
+            player.sendMessage("§c使用法: /npc spawn trader <職業名|all> [NPC名]");
+            player.sendMessage("§7職業: " + String.join(", ", VALID_JOBS) + ", all");
             return true;
         }
         
         String jobType = args[2].toLowerCase();
         if (!isValidJobType(jobType)) {
             player.sendMessage("§c無効な職業名です: " + jobType);
-            player.sendMessage("§7有効な職業: " + String.join(", ", VALID_JOBS));
+            player.sendMessage("§7有効な職業: " + String.join(", ", VALID_JOBS) + ", all");
             return true;
         }
         
         String npcName = args.length > 3 ? 
             String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : 
-            "§6" + configManager.getJobDisplayName(jobType) + "取引商人";
+            ("all".equalsIgnoreCase(jobType) ? "§6総合取引所" : "§6" + configManager.getJobDisplayName(jobType) + "取引商人");
         
         // 重複チェック
         if (configManager.hasTradingPostWithName(npcName)) {
@@ -172,7 +177,8 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                         tradingNPCManager.reloadTradingPosts();
                     }
                     
-                    player.sendMessage("§a" + jobType + "専用取引NPC「" + npcName + "」をスポーンし、取引所データを追加しました。");
+                    String typeDesc = "all".equalsIgnoreCase(jobType) ? "全職業対応" : jobType + "専用";
+                    player.sendMessage("§a" + typeDesc + "取引NPC「" + npcName + "」をスポーンし、取引所データを追加しました。");
                     player.sendMessage("§7座標: " + formatLocation(spawnLocation));
                     player.sendMessage("§e取引所データがconfig.ymlに自動追加され、即座に利用可能になりました。");
                 } catch (Exception configError) {
@@ -272,7 +278,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                     
                     // 食料NPCデータをconfig.ymlに自動追加
                     try {
-                        configManager.addFoodNPC(npcName, spawnLocation);
+                        configManager.addFoodNPC(npcName, spawnLocation, npcType);
                         
                         player.sendMessage("§a食料NPCを生成し、データを追加しました！");
                         player.sendMessage("§7タイプ: " + npcType + " (" + configManager.getFoodNPCTypeName(npcType) + ")");
@@ -289,7 +295,9 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                         player.sendMessage("§7場所: " + formatLocation(spawnLocation));
                         player.sendMessage("§7UUID: " + foodNPC.getUniqueId());
                     }
-                    player.sendMessage("§e営業時間: 22:00-8:00");
+                    int startHour = configManager.getFoodNPCStartHour();
+                    int endHour = configManager.getFoodNPCEndHour();
+                    player.sendMessage(String.format("§e営業時間: %d:00-%d:00", startHour, endHour));
                     player.sendMessage("§e§l右クリックで取引開始");
                     
                     plugin.getLogger().info("=== 食料NPCスポーン処理完了 ===");
@@ -306,6 +314,59 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             player.sendMessage("§c食料NPC生成中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("食料NPC生成エラー: " + e.getMessage());
+            e.printStackTrace();
+            return true;
+        }
+    }
+    
+    private boolean handleSpawnProcessing(Player player, String[] args, Location spawnLocation) {
+        String npcName = args.length > 2 ? 
+            String.join(" ", Arrays.copyOfRange(args, 2, args.length)) : 
+            "§6木材加工職人";
+            
+        try {
+            plugin.getLogger().info("=== 加工NPCスポーン処理開始 ===");
+            plugin.getLogger().info("プレイヤー: " + player.getName() + ", NPC名: " + npcName);
+            
+            // 加工NPCを生成
+            Villager processingNPC = npcManager.createNPC(spawnLocation, "processing", npcName);
+            
+            if (processingNPC != null) {
+                plugin.getLogger().info("NPCManagerでの作成成功: UUID=" + processingNPC.getUniqueId());
+                
+                // 加工NPCデータをconfig.ymlに自動追加
+                try {
+                    configManager.addProcessingNPC(npcName, spawnLocation);
+                    
+                    // ProcessingNPCManagerに即座に反映
+                    if (processingNPCManager != null) {
+                        processingNPCManager.reloadProcessingNPCs();
+                    }
+                    
+                    player.sendMessage("§a加工NPCを生成し、データを追加しました！");
+                    player.sendMessage("§7名前: " + npcName);
+                    player.sendMessage("§7場所: " + formatLocation(spawnLocation));
+                    player.sendMessage("§7UUID: " + processingNPC.getUniqueId());
+                    player.sendMessage("§e加工NPCデータがconfig.ymlに自動追加されました。");
+                    player.sendMessage("§e§l右クリックで加工メニューを開く");
+                } catch (Exception configError) {
+                    plugin.getLogger().severe("加工NPCデータの追加に失敗しました: " + configError.getMessage());
+                    player.sendMessage("§a加工NPCを生成しました！");
+                    player.sendMessage("§c加工NPCデータの自動追加に失敗しました。手動でconfig.ymlを編集してください。");
+                    player.sendMessage("§7名前: " + npcName);
+                    player.sendMessage("§7場所: " + formatLocation(spawnLocation));
+                    player.sendMessage("§7UUID: " + processingNPC.getUniqueId());
+                }
+                
+                plugin.getLogger().info("=== 加工NPCスポーン処理完了 ===");
+                return true;
+            } else {
+                player.sendMessage("§c加工NPCの生成に失敗しました");
+                return true;
+            }
+        } catch (Exception e) {
+            player.sendMessage("§c加工NPC生成中にエラーが発生しました: " + e.getMessage());
+            plugin.getLogger().severe("加工NPC生成エラー: " + e.getMessage());
             e.printStackTrace();
             return true;
         }
@@ -1036,6 +1097,10 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
      * ユーティリティメソッド群
      */
     private boolean isValidJobType(String jobType) {
+        // "all"は全職業対応の特別な職業タイプとして許可
+        if ("all".equalsIgnoreCase(jobType)) {
+            return true;
+        }
         for (String validJob : VALID_JOBS) {
             if (validJob.equalsIgnoreCase(jobType)) {
                 return true;
@@ -1064,7 +1129,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "spawn":
-                    String[] npcTypes = {"trader", "banker"};
+                    String[] npcTypes = {"trader", "banker", "food_merchant", "processing"};
                     for (String npcType : npcTypes) {
                         if (npcType.startsWith(args[1].toLowerCase())) {
                             completions.add(npcType);
@@ -1086,7 +1151,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                     // 実際の実装では、NPCの名前やショートカット（m1, w1, f1等）を補完
                     break;
                 case "setup-location":
-                    String[] setupTypes = {"trader", "banker", "food"};
+                    String[] setupTypes = {"trader", "banker", "food", "processing"};
                     for (String setupType : setupTypes) {
                         if (setupType.startsWith(args[1].toLowerCase())) {
                             completions.add(setupType);
@@ -1096,12 +1161,20 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             }
         } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("spawn") && args[1].equalsIgnoreCase("trader")) {
+                // "all"を最初に追加
+                if ("all".startsWith(args[2].toLowerCase())) {
+                    completions.add("all");
+                }
                 for (String job : VALID_JOBS) {
                     if (job.startsWith(args[2].toLowerCase())) {
                         completions.add(job);
                     }
                 }
             } else if (args[0].equalsIgnoreCase("setup-location") && args[1].equalsIgnoreCase("trader")) {
+                // "all"を最初に追加
+                if ("all".startsWith(args[2].toLowerCase())) {
+                    completions.add("all");
+                }
                 for (String job : VALID_JOBS) {
                     if (job.startsWith(args[2].toLowerCase())) {
                         completions.add(job);

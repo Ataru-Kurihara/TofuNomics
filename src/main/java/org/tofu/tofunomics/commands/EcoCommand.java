@@ -44,6 +44,8 @@ public class EcoCommand implements CommandExecutor {
                 return handleGetCoinValue(sender);
             case "resetcoinvalue":
                 return handleResetCoinValue(sender);
+            case "reset":
+                return handleReset(sender, args);
             case "reload":
                 return handleReload(sender);
             default:
@@ -246,6 +248,53 @@ public class EcoCommand implements CommandExecutor {
         return true;
     }
     
+    private boolean handleReset(CommandSender sender, String[] args) {
+        if (args.length != 2) {
+            sender.sendMessage(ChatColor.RED + "使用法: /eco reset <プレイヤー名>");
+            return true;
+        }
+        
+        String targetPlayerName = args[1];
+        
+        Player targetPlayer = Bukkit.getPlayer(targetPlayerName);
+        if (targetPlayer == null) {
+            sender.sendMessage(ChatColor.translateAlternateColorCodes('&', 
+                configManager.getMessagePrefix() + configManager.getMessage("player_not_found")));
+            return true;
+        }
+        
+        String uuid = targetPlayer.getUniqueId().toString();
+        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);
+        
+        if (tofuPlayer == null) {
+            tofuPlayer = new org.tofu.tofunomics.models.Player();
+            tofuPlayer.setUuid(uuid);
+            tofuPlayer.setBalance(0.0);
+            tofuPlayer.setBankBalance(0.0);
+            
+            if (playerDAO.insertPlayer(tofuPlayer)) {
+                String currencySymbol = configManager.getCurrencySymbol();
+                sender.sendMessage(ChatColor.GREEN + targetPlayer.getName() + " の所持金と預金をリセットしました。（残高: 0.0 " + currencySymbol + "）");
+                targetPlayer.sendMessage(ChatColor.YELLOW + "管理者により所持金と預金がリセットされました。");
+            } else {
+                sender.sendMessage(ChatColor.RED + "データベースエラーが発生しました。");
+            }
+        } else {
+            tofuPlayer.setBalance(0.0);
+            tofuPlayer.setBankBalance(0.0);
+            
+            if (playerDAO.updatePlayerData(tofuPlayer)) {
+                String currencySymbol = configManager.getCurrencySymbol();
+                sender.sendMessage(ChatColor.GREEN + targetPlayer.getName() + " の所持金と預金をリセットしました。（残高: 0.0 " + currencySymbol + "）");
+                targetPlayer.sendMessage(ChatColor.YELLOW + "管理者により所持金と預金がリセットされました。");
+            } else {
+                sender.sendMessage(ChatColor.RED + "データベースエラーが発生しました。");
+            }
+        }
+        
+        return true;
+    }
+
     private boolean handleReload(CommandSender sender) {
         try {
             configManager.reloadConfig();
@@ -326,6 +375,7 @@ public class EcoCommand implements CommandExecutor {
         sender.sendMessage("§e/eco setcoinvalue <価値> §7- 通貨価値を設定");
         sender.sendMessage("§e/eco getcoinvalue §7- 現在の通貨価値を表示");
         sender.sendMessage("§e/eco resetcoinvalue §7- 通貨価値をデフォルトに戻す");
+        sender.sendMessage("§e/eco reset <プレイヤー> §7- プレイヤーの所持金と預金をリセット");
         sender.sendMessage("§e/eco reload §7- 設定ファイルを再読み込み");
     }
 }

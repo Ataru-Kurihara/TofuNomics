@@ -63,6 +63,13 @@ public class FoodGUI implements Listener {
      */
     public void openFoodGUI(Player player, UUID npcId, String npcName) {
         try {
+            // 既存のセッションチェック
+            FoodGUISession existingSession = activeSessions.get(player.getUniqueId());
+            if (existingSession != null) {
+                plugin.getLogger().warning("プレイヤー " + player.getName() + " は既に食料GUIを開いています。重複開起を防止しました。");
+                return;
+            }
+            
             // NPCタイプに応じたタイトル表示
             String npcType = getNPCType(npcId);
             String typeDisplayName = configManager.getFoodNPCTypeName(npcType);
@@ -112,12 +119,15 @@ public class FoodGUI implements Listener {
         double balance = currencyConverter.getBalance(player.getUniqueId());
         String balanceText = currencyConverter.formatCurrency(balance);
         
+        int startHour = configManager.getFoodNPCStartHour();
+        int endHour = configManager.getFoodNPCEndHour();
+        
         ItemStack balanceItem = createGUIItem(
             Material.GOLD_INGOT,
             "§6現在の残高",
             Arrays.asList(
                 "§f残高: §a" + balanceText,
-                "§7営業時間: §e22:00-8:00"
+                String.format("§7営業時間: §e%d:00-%d:00", startHour, endHour)
             )
         );
         gui.setItem(4, balanceItem);
@@ -246,14 +256,14 @@ public class FoodGUI implements Listener {
      * NPCのタイプを取得
      */
     private String getNPCType(UUID npcId) {
-        // FoodNPCManagerからFoodStoreデータを取得してNPCタイプを確認
-        Map<Material, Integer> storeInventory = foodNPCManager.getStoreInventory(npcId);
-        if (storeInventory != null) {
-            // 実装上は、FoodNPCManagerのfoodStoresからFoodStoreを取得してgetNpcType()を呼ぶ
-            // ここでは一時的にgeneral_storeを返す
-            return "general_store";
+        FoodNPCManager.FoodStore foodStore = foodNPCManager.getFoodStore(npcId);
+        if (foodStore != null) {
+            String npcType = foodStore.getNpcType();
+            plugin.getLogger().info("FoodGUI: NPCタイプ取得 - NPC ID: " + npcId + ", タイプ: " + npcType);
+            return npcType;
         }
-        return "general_store";
+        plugin.getLogger().warning("FoodGUI: FoodStoreが見つかりません - NPC ID: " + npcId + ", デフォルトタイプを使用");
+        return "general_store"; // フォールバック
     }
     
     /**
@@ -276,7 +286,7 @@ public class FoodGUI implements Listener {
                 // 商品フィルタリング
                 if (isGeneral || allowedItems.contains(entry.getKey().toLowerCase())) {
                     // 価格倍率を適用
-                    double finalPrice = basePrice * priceMultiplier;
+                    double finalPrice = Math.ceil(basePrice * priceMultiplier);
                     prices.put(material, finalPrice);
                 }
             } catch (IllegalArgumentException e) {

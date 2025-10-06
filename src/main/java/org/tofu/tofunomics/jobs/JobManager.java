@@ -34,7 +34,7 @@ public class JobManager {
         SUCCESS,
         ALREADY_HAS_JOB,
         JOB_NOT_FOUND,
-        DAILY_LIMIT_EXCEEDED,
+        LEVEL_TOO_LOW,
         MAX_JOBS_REACHED,
         DATABASE_ERROR
     }
@@ -47,13 +47,22 @@ public class JobManager {
             return JobJoinResult.JOB_NOT_FOUND;
         }
         
-        if (configManager.isDailyJobChangeLimitEnabled() && 
-            !jobChangeDAO.canPlayerChangeJobToday(uuid)) {
-            return JobJoinResult.DAILY_LIMIT_EXCEEDED;
-        }
-        
         List<PlayerJob> currentJobs = playerJobDAO.getPlayerJobsByUUID(uuid);
         int maxJobs = configManager.getMaxJobsPerPlayer();
+        
+        // 既に職業を持っている場合、転職にはレベル50以上が必要
+        if (!currentJobs.isEmpty()) {
+            boolean hasLevel50Job = false;
+            for (PlayerJob existingJob : currentJobs) {
+                if (existingJob.getLevel() >= 50) {
+                    hasLevel50Job = true;
+                    break;
+                }
+            }
+            if (!hasLevel50Job) {
+                return JobJoinResult.LEVEL_TOO_LOW;
+            }
+        }
         
         if (currentJobs.size() >= maxJobs) {
             return JobJoinResult.MAX_JOBS_REACHED;
@@ -75,10 +84,6 @@ public class JobManager {
         
         if (!playerJobDAO.insertPlayerJob(playerJob)) {
             return JobJoinResult.DATABASE_ERROR;
-        }
-        
-        if (configManager.isDailyJobChangeLimitEnabled()) {
-            jobChangeDAO.recordJobChangeToday(uuid);
         }
         
         return JobJoinResult.SUCCESS;

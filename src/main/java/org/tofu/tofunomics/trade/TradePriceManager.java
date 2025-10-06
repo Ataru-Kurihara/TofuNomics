@@ -383,7 +383,7 @@ public class TradePriceManager {
      */
     public double calculateFinalPrice(String itemName, String jobType, double basePrice) {
         if (jobType == null || jobType.isEmpty()) {
-            return basePrice;
+            return Math.ceil(basePrice);
         }
         
         // 職業倍率を適用
@@ -394,6 +394,7 @@ public class TradePriceManager {
         double globalMultiplier = configManager.getTradePriceMultiplier();
         finalPrice *= globalMultiplier;
         
-        return finalPrice;
+        // 価格を整数に切り上げ
+        return Math.ceil(finalPrice);
     }
 }

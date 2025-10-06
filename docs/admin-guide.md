@@ -177,7 +177,7 @@ jobs:
   general:
     max_jobs_per_player: 1        # プレイヤー当たりの最大職業数
     keep_level_on_change: true    # 転職時レベル保持
-    job_change_cooldown: 86400    # 転職クールダウン（秒）
+    # 転職にはレベル50以上が必要（コードで制御）
   
   # 職業別設定
   job_settings:

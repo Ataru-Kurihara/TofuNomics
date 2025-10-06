@@ -1,5 +1,6 @@
 package org.tofu.tofunomics.npc;
 
+import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
@@ -10,6 +11,8 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
@@ -25,19 +28,21 @@ public class NPCListener implements Listener {
     private final BankNPCManager bankNPCManager;
     private final TradingNPCManager tradingNPCManager;
     private final FoodNPCManager foodNPCManager;
+    private final ProcessingNPCManager processingNPCManager;
     
     // プレイヤーの取引状態を管理
     private final Map<UUID, TradingSession> activeTradingSessions = new ConcurrentHashMap<>();
     
     public NPCListener(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
                      BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager, 
-                     FoodNPCManager foodNPCManager) {
+                     FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.npcManager = npcManager;
         this.bankNPCManager = bankNPCManager;
         this.tradingNPCManager = tradingNPCManager;
         this.foodNPCManager = foodNPCManager;
+        this.processingNPCManager = processingNPCManager;
     }
     
     private static class TradingSession {
@@ -60,7 +65,7 @@ public class NPCListener implements Listener {
         }
     }
     
-    @EventHandler(priority = EventPriority.NORMAL)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         if (event.getRightClicked().getType() != EntityType.VILLAGER) {
             return;
@@ -89,6 +94,11 @@ public class NPCListener implements Listener {
             
             plugin.getLogger().info("NPCタイプを確認: " + npcData.getNpcType() + " (名前: " + npcData.getName() + ")");
             
+            // プレイヤーの方を向く機能（設定で有効な場合）
+            if (configManager.isLookAtPlayerEnabled()) {
+                makeNPCLookAtPlayer(villager, player);
+            }
+            
             switch (npcData.getNpcType()) {
                 case "banker":
                     plugin.getLogger().info("銀行NPCとの相互作用を開始: " + npcData.getName());
@@ -103,6 +113,11 @@ public class NPCListener implements Listener {
                 case "food_merchant":
                     plugin.getLogger().info("食料NPCとの相互作用を開始: " + npcData.getName());
                     handleFoodNPCInteraction(player, npcId);
+                    break;
+                    
+                case "processing":
+                    plugin.getLogger().info("加工NPCとの相互作用を開始: " + npcData.getName());
+                    handleProcessingNPCInteraction(player, npcId);
                     break;
                     
                 default:
@@ -168,15 +183,58 @@ public class NPCListener implements Listener {
     }
     
     /**
+     * 加工NPC相互作用の処理
+     */
+    private void handleProcessingNPCInteraction(Player player, UUID npcId) {
+        // クールダウンチェック
+        if (hasRecentInteraction(player.getUniqueId(), "processing")) {
+            player.sendMessage("§c少し待ってからもう一度お試しください。");
+            return;
+        }
+        
+        try {
+            plugin.getLogger().info("加工NPC相互作用処理開始: " + player.getName() + ", NPC ID: " + npcId);
+            
+            if (processingNPCManager != null) {
+                boolean handled = processingNPCManager.handleProcessingNPCInteraction(player, npcId);
+                if (handled) {
+                    // 取引セッションを記録
+                    activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "processing"));
+                } else {
+                    plugin.getLogger().warning("加工NPC相互作用の処理に失敗: " + npcId);
+                    player.sendMessage("§c加工NPCとの処理中にエラーが発生しました。");
+                }
+            } else {
+                plugin.getLogger().severe("ProcessingNPCManagerが初期化されていません");
+                player.sendMessage("§c加工NPCシステムが利用できません。管理者にお知らせください。");
+            }
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("加工NPC相互作用処理中に例外が発生しました: " + e.getMessage());
+            player.sendMessage("§c処理中にエラーが発生しました。管理者にお知らせください。");
+            e.printStackTrace();
+        }
+    }
+    
+    /**
      * 食料NPC相互作用の処理
      */
     private void handleFoodNPCInteraction(Player player, UUID npcId) {
+        // クールダウンチェック
+        if (hasRecentInteraction(player.getUniqueId(), "food_merchant")) {
+            player.sendMessage("§c少し待ってからもう一度お試しください。");
+            return;
+        }
+        
         try {
             plugin.getLogger().info("食料NPC相互作用処理開始: " + player.getName() + ", NPC ID: " + npcId);
             
             if (foodNPCManager != null) {
                 boolean handled = foodNPCManager.handleFoodNPCInteraction(player, npcId);
-                if (!handled) {
+                if (handled) {
+                    // 取引セッションを記録
+                    activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "food_merchant"));
+                } else {
                     plugin.getLogger().warning("食料NPC相互作用の処理に失敗: " + npcId);
                     plugin.getLogger().warning("NPCがFoodNPCManagerに登録されていない可能性があります");
                     player.sendMessage("§c食料NPCとの取引中にエラーが発生しました。");
@@ -321,11 +379,57 @@ public class NPCListener implements Listener {
         }
     }
     
+    /**
+     * NPCをプレイヤーの方に向ける
+     */
+    private void makeNPCLookAtPlayer(Villager npc, Player player) {
+        Location npcLoc = npc.getLocation();
+        Location playerLoc = player.getLocation();
+        
+        // プレイヤーの方向を計算
+        double dx = playerLoc.getX() - npcLoc.getX();
+        double dz = playerLoc.getZ() - npcLoc.getZ();
+        double dy = playerLoc.getY() - npcLoc.getY();
+        
+        // yaw（水平方向の向き）を計算
+        double yaw = Math.toDegrees(Math.atan2(-dx, dz));
+        
+        // pitch（垂直方向の向き）を計算
+        double distance = Math.sqrt(dx * dx + dz * dz);
+        double pitch = Math.toDegrees(Math.atan(-dy / distance));
+        
+        // NPCの向きを設定
+        Location newLoc = npcLoc.clone();
+        newLoc.setYaw((float) yaw);
+        newLoc.setPitch((float) pitch);
+        npc.teleport(newLoc);
+    }
+    
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         // プレイヤーがログアウトしたら取引セッションを削除
         UUID playerId = event.getPlayer().getUniqueId();
         activeTradingSessions.remove(playerId);
+    }
+
+    /**
+     * 村人インベントリが開くのを防ぐ（システムNPCの場合）
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onInventoryOpen(org.bukkit.event.inventory.InventoryOpenEvent event) {
+        // MERCHANTタイプ（村人取引）のインベントリをチェック
+        if (event.getInventory().getType() == org.bukkit.event.inventory.InventoryType.MERCHANT) {
+            // インベントリのホルダーが村人かチェック
+            if (event.getInventory().getHolder() instanceof Villager) {
+                Villager villager = (Villager) event.getInventory().getHolder();
+                
+                // システムNPCかチェック
+                if (npcManager.isNPCEntity(villager.getUniqueId())) {
+                    event.setCancelled(true);
+                    plugin.getLogger().fine("システムNPCの村人取引インベントリをブロックしました: " + villager.getUniqueId());
+                }
+            }
+        }
     }
     
     // 定期的にタイムアウトしたセッションをクリーンアップ

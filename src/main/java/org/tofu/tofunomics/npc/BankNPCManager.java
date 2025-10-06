@@ -65,13 +65,25 @@ public class BankNPCManager {
                     String npcName = (String) npcData.get("name");
                     String npcType = npcData.get("type") != null ? (String) npcData.get("type") : "bank";
                     
-
+                    // yaw/pitchをconfigから取得（デフォルト値: 0.0f）
+                    float yaw = 0.0f;
+                    float pitch = 0.0f;
+                    
+                    if (npcData.containsKey("yaw") && npcData.get("yaw") != null) {
+                        yaw = ((Number) npcData.get("yaw")).floatValue();
+                    }
+                    
+                    if (npcData.containsKey("pitch") && npcData.get("pitch") != null) {
+                        pitch = ((Number) npcData.get("pitch")).floatValue();
+                    }
                     
                     Location npcLocation = new Location(
                         plugin.getServer().getWorld(worldName),
                         x + 0.5,
                         y,
-                        z + 0.5
+                        z + 0.5,
+                        yaw,
+                        pitch
                     );
                     
                     Villager bankNPC = npcManager.createNPC(npcLocation, "banker", npcName);
@@ -175,8 +187,17 @@ public class BankNPCManager {
         // ウェルカムメッセージを送信
         player.sendMessage(configManager.getMessage("npc.bank.welcome", "player", player.getName()));
         
-        // 銀行GUIを開く
-        bankGUI.openBankGUI(player, npcData);
+        // 遅延してからGUIを開く
+        int delayTicks = configManager.getNPCGUIDelayTicks();
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            // プレイヤーがまだオンラインで、NPCの近くにいるかチェック
+            if (player.isOnline() && isPlayerNearNPC(player, npcData)) {
+                // 銀行GUIを開く
+                bankGUI.openBankGUI(player, npcData);
+            } else {
+                plugin.getLogger().info("プレイヤー " + player.getName() + " がNPCから離れたため、GUIを開かませんでした");
+            }
+        }, delayTicks);
     }
     
     public void removeBankNPCs() {
@@ -217,5 +238,22 @@ public class BankNPCManager {
             loc.getY(),
             loc.getZ()
         );
+    }
+    
+    /**
+     * プレイヤーがNPCの近くにいるかどうかをチェック
+     */
+    private boolean isPlayerNearNPC(Player player, NPCManager.NPCData npcData) {
+        try {
+            // 距離をチェック（設定可能な範囲内）
+            double distance = player.getLocation().distance(npcData.getLocation());
+            int accessRange = configManager.getBankAccessRange();
+            
+            return distance <= accessRange;
+            
+        } catch (Exception e) {
+            plugin.getLogger().warning("プレイヤーとNPCの距離チェック中にエラーが発生: " + e.getMessage());
+            return false; // エラーの場合は安全のためfalseを返す
+        }
     }
 }
