@@ -1,5 +1,6 @@
 package org.tofu.tofunomics;
 
+import org.bukkit.Material;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.tofu.tofunomics.database.DatabaseManager;
 import org.tofu.tofunomics.dao.PlayerDAO;
@@ -49,6 +50,12 @@ public final class TofuNomics extends JavaPlugin {
     // Phase 6 クラフト制限システム
     private org.tofu.tofunomics.jobs.JobCraftPermissionManager jobCraftPermissionManager;
     
+    // 住居賃貸システム
+    private org.tofu.tofunomics.housing.HousingRentalManager housingRentalManager;
+    private org.tofu.tofunomics.housing.SelectionManager selectionManager;
+    private org.tofu.tofunomics.housing.HousingListener housingListener;
+    private org.tofu.tofunomics.integration.WorldGuardIntegration worldGuardIntegration;
+    
     // Phase 4 取引システムマネージャー
     private org.tofu.tofunomics.trade.TradeChestManager tradeChestManager;
     private org.tofu.tofunomics.trade.TradePriceManager tradePriceManager;
@@ -71,10 +78,16 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.npc.BankNPCManager bankNPCManager;
     private org.tofu.tofunomics.npc.TradingNPCManager tradingNPCManager;
     private org.tofu.tofunomics.npc.FoodNPCManager foodNPCManager;
+    private org.tofu.tofunomics.npc.ProcessingNPCManager processingNPCManager;
     private org.tofu.tofunomics.npc.NPCListener npcListener;
     private org.tofu.tofunomics.npc.gui.BankGUI bankGUI;
     private org.tofu.tofunomics.npc.gui.TradingGUI tradingGUI;
     private org.tofu.tofunomics.npc.gui.FoodGUI foodGUI;
+    private org.tofu.tofunomics.npc.gui.ProcessingGUI processingGUI;
+
+    // エリアシステム
+    private org.tofu.tofunomics.area.AreaManager areaManager;
+    private org.tofu.tofunomics.area.AreaListener areaListener;
 
     @Override
     public void onEnable() {
@@ -87,6 +100,9 @@ public final class TofuNomics extends JavaPlugin {
         
         // ConfigManagerの初期化
         this.configManager = new ConfigManager(this);
+        
+        // 設定ファイルの自動マイグレーション
+        configManager.migrateConfig();
         
         // 設定の自動初期化を実行
         initializeAutoConfig();
@@ -121,7 +137,13 @@ public final class TofuNomics extends JavaPlugin {
         
         // NPCシステムの初期化（新機能）
         initializeNPCSystem();
-        
+
+        // エリアシステムの初期化
+        initializeAreaSystem();
+
+        // 住居賃貸システムの初期化
+        initializeHousingSystem();
+
         // イベントリスナーの登録
         registerEventListeners();
         
@@ -147,7 +169,13 @@ public final class TofuNomics extends JavaPlugin {
         
         // NPCシステムのクリーンアップ
         cleanupNPCSystem();
-        
+
+        // エリアシステムのクリーンアップ
+        cleanupAreaSystem();
+
+        // 住居賃貸システムのクリーンアップ
+        cleanupHousingSystem();
+
         // データベース接続を閉じる
         if (databaseManager != null) {
             databaseManager.disconnect();
@@ -493,7 +521,19 @@ public final class TofuNomics extends JavaPlugin {
             
             // NPCシステムリスナーの登録
             registerNPCEventListeners();
-            
+
+            // エリアシステムリスナーの登録
+            if (areaListener != null) {
+                getServer().getPluginManager().registerEvents(areaListener, this);
+                getLogger().info("エリアシステムリスナーを登録しました");
+            }
+
+            // 住居賃貸システムリスナーの登録
+            if (housingListener != null) {
+                getServer().getPluginManager().registerEvents(housingListener, this);
+                getLogger().info("住居賃貸システムリスナーを登録しました");
+            }
+
             getLogger().info("全てのイベントリスナーを登録しました");
         } catch (Exception e) {
             getLogger().severe("イベントリスナー登録中にエラーが発生しました: " + e.getMessage());
@@ -530,10 +570,22 @@ public final class TofuNomics extends JavaPlugin {
                     new org.tofu.tofunomics.commands.ScoreboardCommand(scoreboardManager, configManager));
             }
             
+            // 住居賃貸系コマンド
+            if (housingRentalManager != null) {
+                org.tofu.tofunomics.commands.HousingCommand housingCommand = 
+                    new org.tofu.tofunomics.commands.HousingCommand(
+                        this,
+                        housingRentalManager,
+                        selectionManager
+                    );
+                getCommand("housing").setExecutor(housingCommand);
+                getCommand("housing").setTabCompleter(housingCommand);
+            }
+            
             // メインコマンド（NPC管理機能含む）
             if (npcManager != null) {
                 org.tofu.tofunomics.commands.TofuNomicsCommand mainCommand = 
-                    new org.tofu.tofunomics.commands.TofuNomicsCommand(this, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager);
+                    new org.tofu.tofunomics.commands.TofuNomicsCommand(this, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager, processingNPCManager);
                 getCommand("tofunomics").setExecutor(mainCommand);
                 getCommand("tofunomics").setTabCompleter(mainCommand);
             }
@@ -647,6 +699,15 @@ public final class TofuNomics extends JavaPlugin {
                 playerDAO
             );
             
+            // 加工NPCマネージャーの初期化
+            processingNPCManager = new org.tofu.tofunomics.npc.ProcessingNPCManager(
+                this,
+                configManager,
+                npcManager,
+                currencyConverter,
+                jobManager
+            );
+            
             // NPCリスナーの初期化
             npcListener = new org.tofu.tofunomics.npc.NPCListener(
                 this, 
@@ -654,7 +715,8 @@ public final class TofuNomics extends JavaPlugin {
                 npcManager, 
                 bankNPCManager, 
                 tradingNPCManager,
-                foodNPCManager
+                foodNPCManager,
+                processingNPCManager
             );
             
             getLogger().info("TradingGUIインスタンス作成開始...");
@@ -678,6 +740,17 @@ public final class TofuNomics extends JavaPlugin {
             );
             getLogger().info("FoodGUIインスタンス作成完了: " + (foodGUI != null ? "成功" : "失敗"));
             
+            // ProcessingGUIの初期化
+            getLogger().info("ProcessingGUIインスタンス作成開始...");
+            processingGUI = new org.tofu.tofunomics.npc.gui.ProcessingGUI(
+                this, 
+                configManager, 
+                currencyConverter, 
+                processingNPCManager,
+                jobManager
+            );
+            getLogger().info("ProcessingGUIインスタンス作成完了: " + (processingGUI != null ? "成功" : "失敗"));
+            
             // 既存のシステムNPCを削除（重複防止）
             npcManager.removeExistingSystemNPCs();
             
@@ -688,6 +761,9 @@ public final class TofuNomics extends JavaPlugin {
             
             // 食料NPCマネージャーの初期化
             foodNPCManager.initializeFoodNPCs();
+            
+            // 加工NPCマネージャーの初期化
+            processingNPCManager.initializeProcessingNPCs();
             
             getLogger().info("NPCシステムを初期化しました");
         } catch (Exception e) {
@@ -709,6 +785,10 @@ public final class TofuNomics extends JavaPlugin {
             
             if (foodGUI != null) {
                 foodGUI.closeAllGUIs();
+            }
+            
+            if (processingGUI != null) {
+                processingGUI.closeAllGUIs();
             }
             
             if (npcManager != null) {
@@ -742,6 +822,11 @@ public final class TofuNomics extends JavaPlugin {
             getServer().getPluginManager().registerEvents(foodGUI, this);
             getLogger().info("食料GUIリスナーを登録しました");
         }
+        
+        if (processingGUI != null) {
+            getServer().getPluginManager().registerEvents(processingGUI, this);
+            getLogger().info("加工GUIリスナーを登録しました");
+        }
     }
     
     // NPCシステムのGetter メソッド
@@ -761,6 +846,10 @@ public final class TofuNomics extends JavaPlugin {
         return foodNPCManager;
     }
     
+    public org.tofu.tofunomics.npc.ProcessingNPCManager getProcessingNPCManager() {
+        return processingNPCManager;
+    }
+    
     public org.tofu.tofunomics.npc.gui.BankGUI getBankGUI() {
         return bankGUI;
     }
@@ -777,8 +866,149 @@ public final class TofuNomics extends JavaPlugin {
         return foodGUI;
     }
     
+    public org.tofu.tofunomics.npc.gui.ProcessingGUI getProcessingGUI() {
+        return processingGUI;
+    }
+    
     // Phase 6 クラフト制限システムGetter
     public org.tofu.tofunomics.jobs.JobCraftPermissionManager getJobCraftPermissionManager() {
         return jobCraftPermissionManager;
+    }
+
+    /**
+     * エリアシステムの初期化
+     */
+    private void initializeAreaSystem() {
+        try {
+            if (!getConfig().getBoolean("area_system.enabled", true)) {
+                getLogger().info("エリアシステムは無効化されています");
+                return;
+            }
+
+            getLogger().info("エリアシステムを初期化しています...");
+
+            // AreaManagerの初期化
+            this.areaManager = new org.tofu.tofunomics.area.AreaManager(
+                this,
+                configManager,
+                getLogger()
+            );
+
+            // AreaListenerの初期化
+            this.areaListener = new org.tofu.tofunomics.area.AreaListener(
+                this,
+                areaManager
+            );
+
+            getLogger().info("エリアシステムを正常に初期化しました（エリア数: " + areaManager.getAreaCount() + "）");
+        } catch (Exception e) {
+            getLogger().severe("エリアシステムの初期化中にエラーが発生しました: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * エリアシステムのクリーンアップ
+     */
+    private void cleanupAreaSystem() {
+        if (areaListener != null) {
+            areaListener.cleanup();
+        }
+        if (areaManager != null) {
+            areaManager.cleanup();
+        }
+        getLogger().info("エリアシステムをクリーンアップしました");
+    }
+
+    private void initializeHousingSystem() {
+        try {
+            if (!getConfig().getBoolean("housing_rental.enabled", true)) {
+                getLogger().info("住居賃貸システムは無効化されています");
+                return;
+            }
+            
+            getLogger().info("住居賃貸システムを初期化しています...");
+            
+            // WorldGuard統合の初期化
+            this.worldGuardIntegration = new org.tofu.tofunomics.integration.WorldGuardIntegration(this);
+            
+            // HousingRentalManager の初期化
+            this.housingRentalManager = new org.tofu.tofunomics.housing.HousingRentalManager(
+                this,
+                configManager,
+                databaseManager,
+                worldGuardIntegration
+            );
+            
+            // SelectionManager の初期化
+            this.selectionManager = new org.tofu.tofunomics.housing.SelectionManager();
+            
+            // 選択ツールの設定
+            String toolName = getConfig().getString("housing_rental.selection_tool", "WOODEN_AXE");
+            try {
+                Material tool = Material.valueOf(toolName);
+                selectionManager.setSelectionTool(tool);
+            } catch (IllegalArgumentException e) {
+                getLogger().warning("無効な選択ツール: " + toolName + " - WOODEN_AXEを使用します");
+            }
+            
+            // HousingListener の初期化
+            this.housingListener = new org.tofu.tofunomics.housing.HousingListener(this, selectionManager);
+            
+            // 期限切れチェックタスクの開始
+            startHousingExpiryTask();
+            
+            getLogger().info("住居賃貸システムを正常に初期化しました");
+        } catch (Exception e) {
+            getLogger().severe("住居賃貸システムの初期化中にエラーが発生しました: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void cleanupHousingSystem() {
+        if (selectionManager != null) {
+            selectionManager.clearAllSelections();
+        }
+        getLogger().info("住居賃貸システムをクリーンアップしました");
+    }
+    
+    private void startHousingExpiryTask() {
+        if (housingRentalManager == null) {
+            return;
+        }
+        
+        int intervalSeconds = getConfig().getInt("housing_rental.expire_check_interval", 3600);
+        long intervalTicks = intervalSeconds * 20L; // 秒をTickに変換
+        
+        getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+            try {
+                housingRentalManager.processExpiredRentals();
+            } catch (Exception e) {
+                getLogger().warning("賃貸契約期限切れチェック中にエラーが発生しました: " + e.getMessage());
+            }
+        }, intervalTicks, intervalTicks);
+        
+        getLogger().info("賃貸契約期限切れチェックタスクを開始しました（" + intervalSeconds + "秒ごと）");
+    }
+    
+    /**
+     * HousingRentalManagerの取得
+     */
+    public org.tofu.tofunomics.housing.HousingRentalManager getHousingRentalManager() {
+        return housingRentalManager;
+    }
+
+    /**
+     * SelectionManagerの取得
+     */
+    public org.tofu.tofunomics.housing.SelectionManager getSelectionManager() {
+        return selectionManager;
+    }
+
+    /**
+     * AreaManagerの取得
+     */
+    public org.tofu.tofunomics.area.AreaManager getAreaManager() {
+        return areaManager;
     }
 }
