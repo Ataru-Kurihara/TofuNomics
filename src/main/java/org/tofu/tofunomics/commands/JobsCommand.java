@@ -133,8 +133,8 @@ public class JobsCommand implements CommandExecutor {
                     configManager.getMessagePrefix() + configManager.getMessage("jobs.job_not_found")));
                 break;
                 
-            case DAILY_LIMIT_EXCEEDED:
-                player.sendMessage(ChatColor.RED + "職業変更は1日1回までです。明日になったら再度お試しください。");
+            case LEVEL_TOO_LOW:
+                player.sendMessage(ChatColor.RED + "転職するには現在の職業レベルが50以上必要です。");
                 break;
                 
             case MAX_JOBS_REACHED:

@@ -59,6 +59,11 @@ commands:
     usage: /scoreboard [toggle|on|off]
     aliases: [sb]
     permission: tofunomics.scoreboard.toggle
+  housing:
+    description: 住居賃貸システム
+    usage: /housing <list|info|rent|myrentals|extend|cancel|admin> [args]
+    aliases: [house]
+    permission: tofunomics.housing.use
 
 permissions:
   tofunomics.*:
@@ -200,4 +205,19 @@ permissions:
   
   tofunomics.npc.admin:
     description: NPC管理コマンド使用権限
+    default: op
+  
+  tofunomics.housing.*:
+    description: 住居賃貸関連権限（全て）
+    children:
+      tofunomics.housing.use: true
+      tofunomics.housing.admin: false
+    default: true
+  
+  tofunomics.housing.use:
+    description: 住居賃貸基本機能
+    default: true
+  
+  tofunomics.housing.admin:
+    description: 住居物件管理権限
     default: op

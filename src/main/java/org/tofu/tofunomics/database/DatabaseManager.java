@@ -155,6 +155,57 @@ public class DatabaseManager {
             "    traded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
             "    FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE," +
             "    FOREIGN KEY (trade_chest_id) REFERENCES trade_chests(id) ON DELETE CASCADE" +
+            ");",
+
+            // 住居物件マスタテーブル
+            "CREATE TABLE IF NOT EXISTS housing_properties (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    property_name TEXT NOT NULL," +
+            "    world_name TEXT NOT NULL," +
+            "    x1 INTEGER," +
+            "    y1 INTEGER," +
+            "    z1 INTEGER," +
+            "    x2 INTEGER," +
+            "    y2 INTEGER," +
+            "    z2 INTEGER," +
+            "    worldguard_region_id TEXT," +
+            "    description TEXT," +
+            "    daily_rent REAL NOT NULL," +
+            "    weekly_rent REAL," +
+            "    monthly_rent REAL," +
+            "    is_available BOOLEAN DEFAULT TRUE," +
+            "    owner_uuid TEXT," +
+            "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+            ");",
+
+            // 住居賃貸契約テーブル
+            "CREATE TABLE IF NOT EXISTS housing_rentals (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    property_id INTEGER NOT NULL," +
+            "    tenant_uuid TEXT NOT NULL," +
+            "    rental_period TEXT NOT NULL," +
+            "    rental_days INTEGER NOT NULL," +
+            "    total_cost REAL NOT NULL," +
+            "    start_date TIMESTAMP NOT NULL," +
+            "    end_date TIMESTAMP NOT NULL," +
+            "    status TEXT NOT NULL," +
+            "    auto_renew BOOLEAN DEFAULT FALSE," +
+            "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    FOREIGN KEY (property_id) REFERENCES housing_properties(id) ON DELETE CASCADE," +
+            "    FOREIGN KEY (tenant_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
+            ");",
+
+            // 住居賃貸履歴テーブル
+            "CREATE TABLE IF NOT EXISTS housing_rental_history (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    rental_id INTEGER NOT NULL," +
+            "    property_id INTEGER NOT NULL," +
+            "    tenant_uuid TEXT NOT NULL," +
+            "    action_type TEXT NOT NULL," +
+            "    amount REAL," +
+            "    action_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    FOREIGN KEY (rental_id) REFERENCES housing_rentals(id) ON DELETE CASCADE" +
             ");"
         };
 

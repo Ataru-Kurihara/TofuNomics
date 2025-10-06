@@ -10,6 +10,7 @@ import org.tofu.tofunomics.npc.BankNPCManager;
 import org.tofu.tofunomics.npc.NPCManager;
 import org.tofu.tofunomics.npc.TradingNPCManager;
 import org.tofu.tofunomics.npc.FoodNPCManager;
+import org.tofu.tofunomics.npc.ProcessingNPCManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,10 +23,10 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
     private final NPCCommand npcCommand;
     
     public TofuNomicsCommand(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager, 
-                        BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager, FoodNPCManager foodNPCManager) {
+                        BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager, FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager) {
     this.plugin = plugin;
     this.configManager = configManager;
-    this.npcCommand = new NPCCommand(plugin, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager);
+    this.npcCommand = new NPCCommand(plugin, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager, processingNPCManager);
 }
     
     @Override

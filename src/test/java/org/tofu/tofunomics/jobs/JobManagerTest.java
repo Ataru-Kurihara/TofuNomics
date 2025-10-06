@@ -94,18 +94,25 @@ public class JobManagerTest {
     }
 
     @Test
-    public void testJoinJobDailyLimitExceeded() {
+    public void testJoinJobLevelTooLow() {
         String jobName = "farmer";
         Job job = new Job(jobName, "農家", 100, 15.0);
         job.setId(1);
         
+        // 既存の職業があるが、レベルが50未満の場合
+        PlayerJob existingJob = new PlayerJob();
+        existingJob.setJobId(2);
+        existingJob.setLevel(30); // レベル30（50未満）
+        List<PlayerJob> currentJobs = new ArrayList<>();
+        currentJobs.add(existingJob);
+        
         when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
-        when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(true);
-        when(jobChangeDAO.canPlayerChangeJobToday(playerUuidString)).thenReturn(false);
+        when(playerJobDAO.getPlayerJobsByUUID(playerUuidString)).thenReturn(currentJobs);
+        when(configManager.getMaxJobsPerPlayer()).thenReturn(2);
         
         JobJoinResult result = jobManager.joinJob(player, jobName);
         
-        assertEquals("1日制限超過で失敗するべき", JobJoinResult.DAILY_LIMIT_EXCEEDED, result);
+        assertEquals("レベル50未満で転職失敗するべき", JobJoinResult.LEVEL_TOO_LOW, result);
         verify(playerJobDAO, never()).insertPlayerJob(any(PlayerJob.class));
     }
 

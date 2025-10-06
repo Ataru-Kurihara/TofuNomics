@@ -31,7 +31,9 @@ public class CurrencyConverter {
     }
     
     public String formatCurrency(double amount) {
-        return formatter.format(amount);
+        // 価格を整数に丸める
+        double roundedAmount = Math.ceil(amount);
+        return formatter.format(roundedAmount);
     }
     
     public boolean depositGoldNuggets(Player player, int nuggetAmount) {

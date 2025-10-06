@@ -20,32 +20,32 @@ economy:
     name: "金塊"
     symbol: "G"
     # 小数点以下の桁数（0-2）
-    decimal_places: 2
+    decimal_places: 0
     
     # 豆腐コイン価値設定
-    coin_value: 10.0          # 1コインの価値（デフォルト: $10）
+    coin_value: 10          # 1コインの価値（デフォルト: $10）
     dynamic_value: true       # 価値変更の可否
-    min_value: 0.1           # 最小価値制限
-    max_value: 1000.0        # 最大価値制限
+    min_value: 1           # 最小価値制限
+    max_value: 1000        # 最大価値制限        # 最大価値制限
   
   # 初期残高（新規プレイヤーの開始残高）
-  starting_balance: 100.0
+  starting_balance: 100
 
   # 送金設定
   pay:
     # 最低送金額
-    minimum_amount: 1.0
+    minimum_amount: 1
     # 最高送金額（適切な制限値を設定）
-    maximum_amount: 5000.0
+    maximum_amount: 5000
     # 送金手数料（パーセンテージ）
-    fee_percentage: 0.0
+    fee_percentage: 0
 
   # 金塊引き出し・預け入れ設定
   withdraw_deposit:
     # 一度に引き出し可能な最大金額
-    max_withdraw: 10000.0
+    max_withdraw: 10000
     # 一度に預け入れ可能な最大金額
-    max_deposit: 10000.0
+    max_deposit: 10000
   
   # 銀行・ATMアクセス制限設定
   location_restrictions:
@@ -94,8 +94,7 @@ jobs:
     max_jobs_per_player: 1
     # 転職時のレベル保持（true: 保持, false: リセット）
     keep_level_on_change: true
-    # 転職クールダウン（秒）- 86400秒 = 24時間
-    job_change_cooldown: 86400
+
   
   # 職業ブロック制限システム設定
   block_restrictions:
@@ -308,6 +307,10 @@ npc_system:
     session_timeout_ms: 300000  # 5分
     # NPCへのアクセス範囲（ブロック）
     access_range: 5
+    # セリフ表示後のGUI開封遅延（ticks）- 20 ticks = 1秒
+    gui_delay_ticks: 40
+    # NPCがプレイヤーの方を向くかどうか（true: 向く、false: 固定）
+    look_at_player: true
   
   # 銀行NPC設定
   bank_npcs:
@@ -322,6 +325,8 @@ npc_system:
         z: -100
         name: "§bATM案内係"
         type: "atm_assistant"
+        yaw: 0.0    # 水平方向の向き（-180.0 〜 180.0）
+        pitch: 0.0  # 垂直方向の向き（-90.0 〜 90.0）
     
     # 銀行NPCの利用制限
     limits:
@@ -362,11 +367,11 @@ npc_system:
     # 食料NPCシステムの有効化
     enabled: true
     
-    # 営業時間制限（夜間・早朝のみ営業で協力プレイ促進）
+    # 営業時間制限（通常営業時間での食料供給）
     operating_hours:
       enabled: true
       start_hour: 6   # 6:00から
-      end_hour: 22    # 22:00まで営業（通常営業）
+      end_hour: 22    # 22:00まで営業（通常営業時間）
     
     # 食料NPC配置
     locations: []
@@ -395,75 +400,75 @@ npc_system:
       general_store:    # オールマイティー店（価格1.5倍）
         name: "§6総合食料品店"
         items: ["all"]
-        price_multiplier: 1.5  # 専門店より50%高い
+        price_multiplier: 2  # 専門店より50%高い
       
       bakery:          # パン屋（基本価格）
         name: "§e村のパン屋"
-        items: ["bread", "baked_potato", "cookie", "cake"]
-        price_multiplier: 1.0
+        items: ["bread", "cookie", "cake", "pumpkin_pie"]
+        price_multiplier: 1
       
       butcher:         # 肉屋（基本価格）
         name: "§c精肉店"
         items: ["cooked_beef", "cooked_pork", "cooked_chicken", "cooked_mutton", "cooked_rabbit"]
-        price_multiplier: 1.0
+        price_multiplier: 1
       
       fishmonger:      # 魚屋（基本価格）
         name: "§b魚屋"
         items: ["cooked_cod", "cooked_salmon", "dried_kelp", "kelp"]
-        price_multiplier: 1.0
+        price_multiplier: 1
       
       greengrocer:     # 八百屋（基本価格）
         name: "§a八百屋"
-        items: ["carrot", "potato", "beetroot", "apple", "sweet_berries", "melon_slice", "pumpkin_pie"]
-        price_multiplier: 1.0
+        items: ["carrot", "potato", "beetroot", "apple", "sweet_berries", "melon_slice", "baked_potato"]
+        price_multiplier: 1
       
       specialty:       # 特殊食品店（基本価格）
         name: "§d特産品店"
         items: ["mushroom_stew", "rabbit_stew", "suspicious_stew"]
-        price_multiplier: 1.0
+        price_multiplier: 1
     
     # 販売アイテムと価格（基本価格 - NPCタイプ別に倍率適用）
     food_items:
       # 基本食料品
-      bread: 2.5              # パン（通常価格の1.5倍）
-      baked_potato: 1.8       # ベイクドポテト
-      carrot: 1.5             # ニンジン  
-      apple: 2.0              # リンゴ
+      bread: 3              # パン（通常価格の1.5倍）
+      baked_potato: 2       # ベイクドポテト
+      carrot: 2             # ニンジン  
+      apple: 2              # リンゴ              # リンゴ
       
       # 調理済み肉類
-      cooked_beef: 5.2        # 調理済み牛肉
-      cooked_pork: 4.8        # 調理済み豚肉
-      cooked_chicken: 4.2     # 調理済み鶏肉
-      cooked_mutton: 4.5      # 調理済み羊肉
+      cooked_beef: 6        # 調理済み牛肉
+      cooked_pork: 5        # 調理済み豚肉
+      cooked_chicken: 5     # 調理済み鶏肉
+      cooked_mutton: 5      # 調理済み羊肉      # 調理済み羊肉
       
       # 特殊食品
-      mushroom_stew: 3.5      # キノコシチュー
-      rabbit_stew: 4.0        # ウサギシチュー
+      mushroom_stew: 4      # キノコシチュー
+      rabbit_stew: 4        # ウサギシチュー        # ウサギシチュー
       
       # 緊急食料
-      dried_kelp: 0.8         # 乾燥昆布
-      sweet_berries: 1.2      # スイートベリー
+      dried_kelp: 1         # 乾燥昆布
+      sweet_berries: 2      # スイートベリー      # スイートベリー
       
       # 魚屋用商品
-      cooked_cod: 3.0         # 焼いた鱈
-      cooked_salmon: 3.5      # 焼いた鮭
-      kelp: 0.5               # 昆布
+      cooked_cod: 3         # 焼いた鱈
+      cooked_salmon: 4      # 焼いた鮭
+      kelp: 1               # 昆布               # 昆布
       
       # 八百屋用商品
-      potato: 1.0             # じゃがいも
-      beetroot: 1.2           # ビートルート
-      melon_slice: 1.5        # スイカ
-      pumpkin_pie: 4.0        # パンプキンパイ
+      potato: 1             # じゃがいも
+      beetroot: 2           # ビートルート
+      melon_slice: 2        # スイカ
+      pumpkin_pie: 4        # パンプキンパイ        # パンプキンパイ
       
       # パン屋用商品
-      cookie: 1.8             # クッキー
-      cake: 8.0               # ケーキ
+      cookie: 2             # クッキー
+      cake: 8               # ケーキ               # ケーキ
       
       # 肉屋用追加商品
-      cooked_rabbit: 4.0      # 焼いたウサギ肉
+      cooked_rabbit: 4      # 焼いたウサギ肉
       
       # 特殊食品店用商品
-      suspicious_stew: 5.0    # 怪しげなシチュー
+      suspicious_stew: 5    # 怪しげなシチュー    # 怪しげなシチュー
     
     # メッセージ設定
     messages:
@@ -474,6 +479,54 @@ npc_system:
       daily_limit_reached: "§c「%item%は本日の購入上限に達しています」"
       purchase_success: "§a%item% x%amount%を %price% で購入しました"
       insufficient_funds: "§c残高が不足しています。必要: %required%"
+
+  # 加工NPCシステム設定
+  processing_npc:
+    # 加工NPCシステムの有効化
+    enabled: true
+    
+    # 加工料金設定
+    fees:
+      base_fee_per_log: 1.0        # 一般プレイヤーの加工料金（1原木あたり）
+      woodcutter_fee: 0.0          # 木こりの加工料金（無料）
+    
+    # 制限設定
+    limits:
+      max_logs_per_process: 64     # 1回の加工で処理できる最大原木数
+    
+    # 加工NPCの配置
+    locations: []
+    # 設定例:
+    # - world: "tofunomics"
+    #   x: -150
+    #   y: 70
+    #   z: -150
+    #   name: "§6木材加工職人"
+    #   yaw: 0.0
+    #   pitch: 0.0
+    
+    # 加工対応木材設定（原木→板材の対応）
+    wood_types:
+      oak_log: "oak_planks"
+      birch_log: "birch_planks"
+      spruce_log: "spruce_planks"
+      jungle_log: "jungle_planks"
+      acacia_log: "acacia_planks"
+      dark_oak_log: "dark_oak_planks"
+      crimson_stem: "crimson_planks"
+      warped_stem: "warped_planks"
+    
+    # メッセージ設定
+    messages:
+      greeting: "§6いらっしゃいませ、%player%さん！木材加工サービスへようこそ。"
+      service_start: "§a原木を板材に加工いたします。"
+      woodcutter_special: "§e木こりの方は加工料金が無料です！"
+      insufficient_funds: "§c残高が不足しています。必要: %amount%"
+      no_logs: "§c加工できる原木が見つかりません。"
+      no_space: "§cインベントリに空きがありません。"
+      success: "§a%log_amount%個の原木を%plank_amount%個の板材に加工しました。"
+      fee_charged: "§e加工料金: %fee%"
+      outside_hours: "§c申し訳ありませんが、営業時間外です。"
 
   # 取引所の設定
   trading_posts: []
@@ -488,69 +541,80 @@ npc_system:
   #   accepted_jobs:
   #     - miner
   #     - woodcutter
+  # 
+  # 全職業対応の総合取引所の設定例:
+  # - world: world_name
+  #   name: 総合取引所
+  #   x: 0
+  #   y: 64
+  #   z: 0
+  #   id: general_trading_post
+  #   description: "全職業対応の総合取引所"
+  #   accepted_jobs:
+  #     - all  # "all"で全職業が利用可能
 # アイテム買取価格設定（基準価格）
   item_prices:
     # 鉱物系（tofunomicsワールド向け価格調整）
-    coal: 2.5
-    iron_ingot: 6.0
-    gold_ingot: 12.0
-    diamond: 60.0
-    emerald: 30.0
-    redstone: 1.8
-    lapis_lazuli: 4.0
-    copper_ingot: 3.5
+    coal: 3
+    iron_ingot: 6
+    gold_ingot: 12
+    diamond: 60
+    emerald: 30
+    redstone: 2
+    lapis_lazuli: 4
+    copper_ingot: 4
     # 原石系
-    iron_ore: 4.5
-    gold_ore: 9.0
-    diamond_ore: 45.0
-    emerald_ore: 22.0
-    coal_ore: 2.0
-    copper_ore: 2.8
+    iron_ore: 5
+    gold_ore: 9
+    diamond_ore: 45
+    emerald_ore: 22
+    coal_ore: 2
+    copper_ore: 3
     # 木材系（tofunomicsワールド向け価格調整）
-    oak_log: 1.8
-    birch_log: 1.8
-    spruce_log: 1.8
-    jungle_log: 2.2
-    acacia_log: 2.2
-    dark_oak_log: 2.2
-    mangrove_log: 2.5
-    cherry_log: 2.8
+    oak_log: 2
+    birch_log: 2
+    spruce_log: 2
+    jungle_log: 3
+    acacia_log: 3
+    dark_oak_log: 3
+    mangrove_log: 3
+    cherry_log: 3
     # 木材製品
-    oak_planks: 0.5
-    birch_planks: 0.5
-    spruce_planks: 0.5
+    oak_planks: 1
+    birch_planks: 1
+    spruce_planks: 1
     # 農作物系（tofunomicsワールド向け価格調整）
-    wheat: 1.2
-    potato: 1.0
-    carrot: 1.0
-    beetroot: 1.5
-    pumpkin: 2.0
-    melon: 1.8
-    sugar_cane: 0.8
-    cocoa_beans: 2.5
+    wheat: 2
+    potato: 1
+    carrot: 1
+    beetroot: 2
+    pumpkin: 2
+    melon: 2
+    sugar_cane: 1
+    cocoa_beans: 3
     # 畜産物
-    beef: 3.5
-    pork: 3.2
-    chicken: 2.8
-    mutton: 3.0
-    leather: 2.5
-    milk_bucket: 4.0
-    egg: 1.5
+    beef: 4
+    pork: 4
+    chicken: 3
+    mutton: 3
+    leather: 3
+    milk_bucket: 4
+    egg: 2
     # 魚類（tofunomicsワールド向け価格調整）
-    cod: 3.5
-    salmon: 4.5
-    tropical_fish: 7.0
-    pufferfish: 9.5
+    cod: 4
+    salmon: 5
+    tropical_fish: 7
+    pufferfish: 10
     # 宝物・レア素材
-    prismarine_shard: 8.0
-    prismarine_crystals: 12.0
-    nautilus_shell: 25.0
-    heart_of_the_sea: 150.0
+    prismarine_shard: 8
+    prismarine_crystals: 12
+    nautilus_shell: 25
+    heart_of_the_sea: 150
     # エンチャント材料
-    experience_bottle: 15.0
-    blaze_rod: 20.0
-    ender_pearl: 18.0
-    ghast_tear: 35.0
+    experience_bottle: 15
+    blaze_rod: 20
+    ender_pearl: 18
+    ghast_tear: 35
 
 # 土地保護システム設定
 land_protection:
@@ -558,7 +622,7 @@ land_protection:
   worldguard_integration: true
   
   # 都市部での土地価格（1ブロックあたり）
-  urban_land_price: 100.0
+  urban_land_price: 100
   
   # 土地購入制限
   max_lands_per_player: 5
@@ -1507,9 +1571,123 @@ player_join:
     z: -247                # Z座標
     teleport_delay: 60     # 遅延時間（tick、3秒）
 
+# 住居賃貸システム設定
+housing_rental:
+  # 住居賃貸システムの有効化
+  enabled: true
+  
+  # プレイヤーあたりの最大賃貸契約数
+  max_rentals_per_player: 3
+  
+  # 範囲選択ツール（WorldEditライク）
+  selection_tool: WOODEN_AXE
+  
+  # 賃貸期間設定
+  rental_periods:
+    daily:
+      enabled: true
+      min_days: 1
+      max_days: 30
+    weekly:
+      enabled: true
+      multiplier: 6.5  # 週額 = 日額 × 6.5（割引）
+    monthly:
+      enabled: true
+      multiplier: 25.0  # 月額 = 日額 × 25（割引）
+  
+  # WorldGuard連携
+  worldguard_integration: true
+  
+  # 自動期限チェック
+  expire_check_interval: 3600  # 1時間毎（秒単位）
+  
+  # 期限前通知
+  expire_notification_days: 3  # 期限3日前に通知
+  
+  # メッセージ設定
+  messages:
+    list_header: "&6========= 賃貸可能物件一覧 ========="
+    list_footer: "&6====================================="
+    property_format: "&e#%id% &f%name% &7- 日額: &a%daily% &7/ 週額: &a%weekly% &7/ 月額: &a%monthly%"
+    rent_success: "&a%property%の賃貸契約を締結しました"
+    rent_failed: "&c賃貸契約に失敗しました: %reason%"
+    extend_success: "&a契約を%days%日延長しました"
+    cancel_success: "&a契約をキャンセルしました"
+    expired_notification: "&c賃貸契約が%days%日後に期限切れになります (物件: %property%)"
+
 # デバッグ設定
 debug:
   # デバッグログの有効化
   enabled: false
   # 詳細ログの有効化
   verbose: false
+
+# エリアシステム設定
+area_system:
+  # エリアシステムの有効化
+  enabled: true
+
+  # 再進入クールダウン（秒）
+  cooldown_seconds: 60
+
+  # エリア定義
+  areas:
+    # 北エリア
+    north:
+      name: "北エリア"
+      world: "tofuNomics"
+      min_x: -500
+      min_y: 0
+      min_z: -500
+      max_x: 500
+      max_y: 256
+      max_z: -100
+      title: "&b&l北の大地"
+      subtitle: "&f寒冷な気候が広がる"
+      message: "&e北エリアへようこそ！"
+      sound: "BLOCK_NOTE_BLOCK_BELL"
+
+    # 南エリア
+    south:
+      name: "南エリア"
+      world: "tofuNomics"
+      min_x: -500
+      min_y: 0
+      min_z: 100
+      max_x: 500
+      max_y: 256
+      max_z: 500
+      title: "&6&l南の楽園"
+      subtitle: "&f温暖な気候が広がる"
+      message: "&e南エリアへようこそ！"
+      sound: "BLOCK_NOTE_BLOCK_BELL"
+
+    # 東エリア
+    east:
+      name: "東エリア"
+      world: "tofuNomics"
+      min_x: 100
+      min_y: 0
+      min_z: -500
+      max_x: 500
+      max_y: 256
+      max_z: 500
+      title: "&a&l東の森林"
+      subtitle: "&f緑豊かな森が広がる"
+      message: "&e東エリアへようこそ！"
+      sound: "BLOCK_NOTE_BLOCK_BELL"
+
+    # 西エリア
+    west:
+      name: "西エリア"
+      world: "tofuNomics"
+      min_x: -500
+      min_y: 0
+      min_z: -500
+      max_x: -100
+      max_y: 256
+      max_z: 500
+      title: "&c&l西の山岳"
+      subtitle: "&f険しい山々が広がる"
+      message: "&e西エリアへようこそ！"
+      sound: "BLOCK_NOTE_BLOCK_BELL"

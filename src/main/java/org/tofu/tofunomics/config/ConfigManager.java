@@ -1611,6 +1611,18 @@ public class ConfigManager {
         return config.getInt("npc_system.interaction.access_range", 5);
     }
     
+    /**
+     * NPCとの相互作用時のGUI表示遅延時間（ticks）を取得
+     * @return GUI表示遅延時間（ticks）デフォルト: 40 ticks (2秒)
+     */
+    public int getNPCGUIDelayTicks() {
+        return config.getInt("npc_system.interaction.gui_delay_ticks", 40);
+    }
+    
+    public boolean isLookAtPlayerEnabled() {
+        return config.getBoolean("npc_system.interaction.look_at_player", true);
+    }
+    
     // ========== 銀行NPC設定 ==========
     
     /**
@@ -1723,7 +1735,8 @@ public class ConfigManager {
             newPost.put("y", location.getBlockY());
             newPost.put("z", location.getBlockZ());
             newPost.put("accepted_jobs", java.util.Arrays.asList(jobType));
-            newPost.put("description", jobType + "専用の取引所");
+            String description = "all".equals(jobType) ? "全職業対応の総合取引所" : jobType + "専用の取引所";
+            newPost.put("description", description);
             
             // リストに追加
             tradingPosts.add(newPost);
@@ -1825,7 +1838,7 @@ public class ConfigManager {
     /**
      * 新しい食料NPCをconfig.ymlに追加
      */
-    public void addFoodNPC(String npcName, org.bukkit.Location location) {
+    public void addFoodNPC(String npcName, org.bukkit.Location location, String npcType) {
         try {
             // 既存の食料NPCリスト取得
             java.util.List<java.util.Map<String, Object>> foodNPCs = new java.util.ArrayList<>();
@@ -1838,6 +1851,7 @@ public class ConfigManager {
             newNPC.put("y", location.getBlockY());
             newNPC.put("z", location.getBlockZ());
             newNPC.put("name", npcName);
+            newNPC.put("npc_type", npcType != null ? npcType : "general_store");
             newNPC.put("description", "基本的な食料品を販売");
             
             // 重複チェック: 同じ座標に既存NPCがないか確認
@@ -2381,14 +2395,14 @@ public class ConfigManager {
      * 食料NPCの営業開始時間を取得
      */
     public int getFoodNPCStartHour() {
-        return config.getInt("npc_system.food_npc.operating_hours.start_hour", 22);
+        return config.getInt("food_npc.operating_hours.start_hour", 6);
     }
     
     /**
      * 食料NPCの営業終了時間を取得
      */
     public int getFoodNPCEndHour() {
-        return config.getInt("npc_system.food_npc.operating_hours.end_hour", 8);
+        return config.getInt("food_npc.operating_hours.end_hour", 22);
     }
     
     /**
@@ -3166,5 +3180,296 @@ public class ConfigManager {
      */
     public void permanentlyDeleteFoodNPC(String npcName) {
         removeFoodNPCByName(npcName);
+    }
+    
+    // ========================================
+    // 加工NPCシステム設定メソッド
+    // ========================================
+    
+    /**
+     * 加工NPCシステムが有効かどうか
+     */
+    public boolean isProcessingNPCEnabled() {
+        return config.getBoolean("npc_system.processing_npc.enabled", true);
+    }
+    
+    /**
+     * 加工NPCの設定リストを取得
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<?, ?>> getProcessingNPCConfigs() {
+        return (List<Map<?, ?>>) config.getList("npc_system.processing_npc.locations", new ArrayList<>());
+    }
+    
+    /**
+     * 加工の基本料金を取得（一般プレイヤー）
+     */
+    public double getProcessingBaseFee() {
+        return config.getDouble("npc_system.processing_npc.pricing.base_fee_per_log", 1.0);
+    }
+    
+    /**
+     * 木こりの加工料金を取得
+     */
+    public double getProcessingWoodcutterFee() {
+        return config.getDouble("npc_system.processing_npc.pricing.woodcutter_fee", 0.0);
+    }
+    
+    /**
+     * 一度に加工可能な最大原木数を取得
+     */
+    public int getProcessingMaxLogsPerProcess() {
+        return config.getInt("npc_system.processing_npc.pricing.max_logs_per_process", 64);
+    }
+    
+    /**
+     * 加工NPCメッセージを取得
+     */
+    public String getProcessingNPCMessage(String messageKey) {
+        String path = "npc_system.processing_npc.messages." + messageKey;
+        String message = config.getString(path, null);
+        
+        if (message == null) {
+            // フォールバックメッセージ
+            switch (messageKey) {
+                case "greeting":
+                    return "§6「いらっしゃいませ！木材加工所へようこそ」";
+                case "woodcutter_greeting":
+                    return "§a「木こりさんですね！加工は無料でご案内します」";
+                case "processing_success":
+                    return "§a原木の加工が完了しました！";
+                case "processing_success_with_fee":
+                    return "§a原木の加工が完了しました！（料金: %fee%G）";
+                case "insufficient_funds":
+                    return "§c加工料金が不足しています。必要: %required%G";
+                case "no_logs":
+                    return "§c加工する原木がありません";
+                case "inventory_full":
+                    return "§cインベントリに空きがありません";
+                case "invalid_item":
+                    return "§c原木以外のアイテムは加工できません";
+                default:
+                    return "§7メッセージが見つかりません: " + messageKey;
+            }
+        }
+        
+        return org.bukkit.ChatColor.translateAlternateColorCodes('&', message);
+    }
+    
+    /**
+     * 加工NPCをconfig.ymlに追加
+     */
+    public void addProcessingNPC(String npcName, org.bukkit.Location location) {
+        try {
+            // 既存の加工NPCリスト取得
+            java.util.List<java.util.Map<String, Object>> processingNPCs = new java.util.ArrayList<>();
+            java.util.List<java.util.Map<?, ?>> existingNPCs = config.getMapList("npc_system.processing_npc.locations");
+            
+            // 新しい加工NPCデータ作成
+            java.util.Map<String, Object> newNPC = new java.util.HashMap<>();
+            newNPC.put("world", location.getWorld().getName());
+            newNPC.put("x", location.getBlockX());
+            newNPC.put("y", location.getBlockY());
+            newNPC.put("z", location.getBlockZ());
+            newNPC.put("id", "processing_" + System.currentTimeMillis()); // 一意のID生成
+            newNPC.put("name", npcName);
+            newNPC.put("yaw", location.getYaw());
+            newNPC.put("pitch", location.getPitch());
+            
+            // 重複チェック: 同じ座標に既存NPCがないか確認
+            int newX = location.getBlockX();
+            int newY = location.getBlockY();
+            int newZ = location.getBlockZ();
+            String newWorld = location.getWorld().getName();
+            boolean alreadyAdded = false;
+            
+            // 既存NPCをチェックして、重複しないものだけをリストに追加
+            for (java.util.Map<?, ?> npc : existingNPCs) {
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> existingNPC = (java.util.Map<String, Object>) npc;
+                
+                if (newWorld.equals(existingNPC.get("world")) &&
+                    newX == ((Number) existingNPC.get("x")).intValue() &&
+                    newY == ((Number) existingNPC.get("y")).intValue() &&
+                    newZ == ((Number) existingNPC.get("z")).intValue()) {
+                    // 同じ座標の既存NPCを発見
+                    if (!alreadyAdded) {
+                        // 初回の重複のみ新しいNPCで置換
+                        processingNPCs.add(newNPC);
+                        alreadyAdded = true;
+                        plugin.getLogger().info("同じ座標の加工NPCを更新しました: " + npcName);
+                    }
+                } else {
+                    // 重複していない既存NPCは保持
+                    processingNPCs.add(existingNPC);
+                }
+            }
+            
+            // 新しいNPCがまだ追加されていない場合（重複がなかった場合）
+            if (!alreadyAdded) {
+                processingNPCs.add(newNPC);
+            }
+            
+            // config.ymlに保存
+            config.set("npc_system.processing_npc.locations", processingNPCs);
+            plugin.saveConfig();
+            
+            plugin.getLogger().info("加工NPC「" + npcName + "」をconfig.ymlに追加しました");
+            plugin.getLogger().info("  座標: " + newWorld + " (" + newX + ", " + newY + ", " + newZ + ")");
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("加工NPCデータの追加に失敗しました: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 加工NPCデータを完全削除（物理削除・復元不可）
+     */
+    public void permanentlyDeleteProcessingNPC(String npcName) {
+        removeProcessingNPCByName(npcName);
+    }
+    
+    /**
+     * 加工NPCを名前で削除
+     */
+    private void removeProcessingNPCByName(String npcName) {
+        List<Map<?, ?>> processingNPCs = getProcessingNPCConfigs();
+        
+        processingNPCs.removeIf(npcConfig -> {
+            String name = (String) npcConfig.get("name");
+            return name != null && name.equals(npcName);
+        });
+        
+        config.set("npc_system.processing_npc.locations", processingNPCs);
+        plugin.saveConfig();
+        
+        plugin.getLogger().info("加工NPC「" + npcName + "」のデータを削除しました");
+    }
+
+    /**
+     * 設定ファイルの自動マイグレーション
+     * テンプレートから欠落している設定項目を追加し、既存の設定は保持
+     */
+    public void migrateConfig() {
+        try {
+            plugin.getLogger().info("設定ファイルのマイグレーションチェックを開始します...");
+            
+            // 既存のconfig.ymlのバージョンを取得
+            String currentVersion = config.getString("config_version", "1.0");
+            
+            // resources/config.yml（テンプレート）を読み込み
+            InputStream defaultConfigStream = plugin.getResource("config.yml");
+            if (defaultConfigStream == null) {
+                plugin.getLogger().warning("テンプレートconfig.ymlが見つかりません");
+                return;
+            }
+            
+            FileConfiguration defaultConfig = YamlConfiguration.loadConfiguration(
+                new InputStreamReader(defaultConfigStream, StandardCharsets.UTF_8)
+            );
+            String templateVersion = defaultConfig.getString("config_version", "1.0");
+            
+            // バージョン比較または欠落項目チェック
+            boolean needsMigration = !currentVersion.equals(templateVersion) || 
+                                   hasMissingKeys(config, defaultConfig);
+            
+            if (!needsMigration) {
+                plugin.getLogger().info("設定ファイルは最新です（バージョン: " + currentVersion + "）");
+                return;
+            }
+            
+            plugin.getLogger().info("設定ファイルをマイグレーションします: " + currentVersion + " → " + templateVersion);
+            
+            // バックアップを作成
+            if (!createConfigBackup()) {
+                plugin.getLogger().warning("バックアップの作成に失敗しましたが、マイグレーションを続行します");
+            }
+            
+            // 欠落している設定をマージ
+            int addedKeys = mergeConfigurations(config, defaultConfig, "");
+            
+            // config_versionを更新
+            config.set("config_version", templateVersion);
+            
+            // 設定を保存
+            plugin.saveConfig();
+            
+            // 設定を再読み込み
+            reloadConfig();
+            
+            plugin.getLogger().info("設定ファイルのマイグレーションが完了しました（" + addedKeys + "個の設定を追加）");
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("設定ファイルのマイグレーション中にエラーが発生しました: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 2つの設定を比較して欠落しているキーがあるかチェック
+     */
+    private boolean hasMissingKeys(FileConfiguration current, FileConfiguration template) {
+        Set<String> templateKeys = template.getKeys(true);
+        Set<String> currentKeys = current.getKeys(true);
+        
+        for (String key : templateKeys) {
+            // ConfigurationSectionはスキップ（値を持たない親キー）
+            if (template.isConfigurationSection(key)) {
+                continue;
+            }
+            
+            if (!currentKeys.contains(key)) {
+                return true; // 欠落しているキーが見つかった
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * テンプレートから欠落している設定を既存の設定にマージ
+     * 既存の設定値は保持される
+     * 
+     * @return 追加された設定項目の数
+     */
+    private int mergeConfigurations(FileConfiguration current, FileConfiguration template, String parentPath) {
+        int addedCount = 0;
+        Set<String> templateKeys = new HashSet<>();
+        
+        // テンプレートの全キーを取得
+        if (parentPath.isEmpty()) {
+            templateKeys = template.getKeys(false);
+        } else {
+            ConfigurationSection section = template.getConfigurationSection(parentPath);
+            if (section != null) {
+                templateKeys = section.getKeys(false);
+            }
+        }
+        
+        for (String key : templateKeys) {
+            String fullPath = parentPath.isEmpty() ? key : parentPath + "." + key;
+            
+            // テンプレートの値を取得
+            Object templateValue = template.get(fullPath);
+            
+            if (templateValue instanceof ConfigurationSection) {
+                // ConfigurationSectionの場合は再帰的にマージ
+                if (!current.isConfigurationSection(fullPath)) {
+                    // セクションが存在しない場合は作成
+                    current.createSection(fullPath);
+                }
+                addedCount += mergeConfigurations(current, template, fullPath);
+            } else {
+                // 既存の設定に存在しない場合のみ追加
+                if (!current.contains(fullPath)) {
+                    current.set(fullPath, templateValue);
+                    addedCount++;
+                    plugin.getLogger().fine("設定を追加: " + fullPath + " = " + templateValue);
+                }
+            }
+        }
+        
+        return addedCount;
     }
 }
