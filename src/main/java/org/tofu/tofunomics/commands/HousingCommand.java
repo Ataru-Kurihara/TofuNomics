@@ -457,9 +457,14 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
 
         try {
             int propertyId = Integer.parseInt(args[1]);
-            // TODO: rentalManager.removeProperty(propertyId) を実装
-
-            sender.sendMessage("§a物件#" + propertyId + "を削除しました");
+            
+            HousingRentalManager.RentalResult result = rentalManager.removeProperty(propertyId);
+            
+            if (result.isSuccess()) {
+                sender.sendMessage("§a" + result.getMessage());
+            } else {
+                sender.sendMessage("§c" + result.getMessage());
+            }
 
         } catch (NumberFormatException e) {
             sender.sendMessage("§c物件IDは数字で指定してください");

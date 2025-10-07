@@ -76,6 +76,51 @@ public class HousingRentalManager {
     }
 
     /**
+     * 物件を削除（運営用）
+     */
+    public RentalResult removeProperty(int propertyId) {
+        try {
+            // 物件が存在するか確認
+            HousingProperty property = propertyDAO.getProperty(propertyId);
+            if (property == null) {
+                return new RentalResult(false, "物件が見つかりません");
+            }
+            
+            // 賃貸中の契約があるかチェック
+            HousingRental activeRental = rentalDAO.getActiveRentalByProperty(propertyId);
+            if (activeRental != null) {
+                return new RentalResult(false, "この物件は現在賃貸中のため削除できません");
+            }
+            
+            // WorldGuard領域が設定されている場合は削除
+            if (property.hasWorldGuardRegion() && worldGuardIntegration != null && worldGuardIntegration.isEnabled()) {
+                World world = Bukkit.getWorld(property.getWorldName());
+                if (world != null) {
+                    boolean regionRemoved = worldGuardIntegration.removeRegion(
+                        property.getWorldguardRegionId(), 
+                        world
+                    );
+                    if (regionRemoved) {
+                        logger.info("WorldGuard領域 " + property.getWorldguardRegionId() + " を削除しました");
+                    } else {
+                        logger.warning("WorldGuard領域 " + property.getWorldguardRegionId() + " の削除に失敗しました");
+                    }
+                }
+            }
+            
+            // データベースから物件を削除
+            propertyDAO.deleteProperty(propertyId);
+            
+            logger.info("物件を削除しました: " + property.getPropertyName() + " (ID: " + propertyId + ")");
+            return new RentalResult(true, "物件を削除しました");
+            
+        } catch (SQLException e) {
+            logger.severe("物件削除に失敗しました: " + e.getMessage());
+            return new RentalResult(false, "データベースエラーが発生しました");
+        }
+    }
+
+    /**
      * WorldGuard領域を作成
      */
     public boolean createWorldGuardRegion(String regionId, World world, Location pos1, Location pos2) {
