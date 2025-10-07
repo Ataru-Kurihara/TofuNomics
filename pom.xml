@@ -119,7 +119,7 @@
       <dependency>
           <groupId>com.zaxxer</groupId>
           <artifactId>HikariCP</artifactId>
-          <version>3.4.5</version>
+          <version>6.3.0</version>
       </dependency>
       
       <!-- テスト用依存関係 -->
