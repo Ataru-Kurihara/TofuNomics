@@ -172,9 +172,26 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                     // メッセージ設定も自動確認・追加
                     configManager.ensureNPCMessagesExist();
                     
-                    // TradingNPCManagerに即座に反映
+                    // TradingNPCManagerに即座に反映（reloadを使わず直接登録）
                     if (tradingNPCManager != null) {
-                        tradingNPCManager.reloadTradingPosts();
+                        // 取引所IDを生成（jobType_market形式）
+                        String tradingPostId = ("all".equalsIgnoreCase(jobType)) ? 
+                            "central_market" : jobType + "_market";
+                        
+                        // accepted_jobsリストを作成
+                        List<String> acceptedJobs = ("all".equalsIgnoreCase(jobType)) ? 
+                            Arrays.asList("all") : Arrays.asList(jobType);
+                        
+                        // NPCをTradingNPCManagerに即座に登録
+                        tradingNPCManager.registerTradingNPC(
+                            npc.getUniqueId(), 
+                            tradingPostId, 
+                            npcName, 
+                            spawnLocation, 
+                            acceptedJobs
+                        );
+                        
+                        plugin.getLogger().info("取引NPCをTradingNPCManagerに即座に登録: " + npcName);
                     }
                     
                     String typeDesc = "all".equalsIgnoreCase(jobType) ? "全職業対応" : jobType + "専用";
@@ -214,11 +231,6 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                 // 銀行NPCデータをconfig.ymlに自動追加
                 try {
                     configManager.addBankNPC(npcName, spawnLocation, "bank");
-                    
-                    // BankNPCManagerに即座に反映
-                    if (bankNPCManager != null) {
-                        bankNPCManager.reloadBankNPCs();
-                    }
                     
                     player.sendMessage("§a銀行NPC「" + npcName + "」をスポーンし、データを追加しました。");
                     player.sendMessage("§7座標: " + formatLocation(spawnLocation));
@@ -338,9 +350,20 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                 try {
                     configManager.addProcessingNPC(npcName, spawnLocation);
                     
-                    // ProcessingNPCManagerに即座に反映
+                    // ProcessingNPCManagerに即座に反映（reloadを使わず直接登録）
                     if (processingNPCManager != null) {
-                        processingNPCManager.reloadProcessingNPCs();
+                        // 加工所IDを生成（processing_station形式）
+                        String stationId = "processing_station_" + System.currentTimeMillis();
+                        
+                        // NPCをProcessingNPCManagerに即座に登録
+                        processingNPCManager.registerProcessingNPC(
+                            processingNPC.getUniqueId(),
+                            stationId,
+                            npcName,
+                            spawnLocation
+                        );
+                        
+                        plugin.getLogger().info("加工NPCをProcessingNPCManagerに即座に登録: " + npcName);
                     }
                     
                     player.sendMessage("§a加工NPCを生成し、データを追加しました！");

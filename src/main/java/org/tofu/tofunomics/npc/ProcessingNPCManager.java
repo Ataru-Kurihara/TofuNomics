@@ -276,11 +276,11 @@ public class ProcessingNPCManager {
         // 加工料金計算
         totalFee = calculateProcessingFee(player, totalLogs);
         
-        // 残高チェック
-        double currentBalance = currencyConverter.getBalance(player.getUniqueId());
+        // 残高チェック（現金残高）
+        double currentBalance = currencyConverter.getCashBalance(player);
         if (currentBalance < totalFee) {
             String message = configManager.getProcessingNPCMessage("insufficient_funds")
-                .replace("%required%", String.format("%.0f", totalFee));
+                .replace("%amount%", String.format("%.0f", totalFee));
             return new ProcessingResult(false, message, totalLogs, 0, totalFee);
         }
         
@@ -290,9 +290,9 @@ public class ProcessingNPCManager {
             return new ProcessingResult(false, configManager.getProcessingNPCMessage("inventory_full"), totalLogs, 0, totalFee);
         }
         
-        // 料金徴収
+        // 料金徴収（現金から）
         if (totalFee > 0) {
-            if (!currencyConverter.subtractBalance(player.getUniqueId(), totalFee)) {
+            if (!currencyConverter.payWithCash(player, totalFee)) {
                 return new ProcessingResult(false, "§c料金の引き落としに失敗しました", totalLogs, 0, totalFee);
             }
         }
@@ -331,6 +331,107 @@ public class ProcessingNPCManager {
         }
         
         return new ProcessingResult(true, message, totalLogs, totalPlanks, totalFee);
+    }
+    
+    /**
+     * 指定数量の原木を板材に加工する処理（数量選択対応版）
+     */
+    public ProcessingResult processWoodConversionWithQuantity(Player player, UUID npcId, int quantity, List<ItemStack> logItems) {
+        ProcessingStation station = getProcessingStationByNPCId(npcId);
+        if (station == null) {
+            return new ProcessingResult(false, "加工所が見つかりません", 0, 0, 0.0);
+        }
+        
+        if (quantity <= 0) {
+            return new ProcessingResult(false, "§c加工数量は1以上を指定してください", 0, 0, 0.0);
+        }
+        
+        // 加工可能な原木をカウント
+        Map<Material, Integer> availableLogs = new HashMap<>();
+        int totalAvailableLogs = 0;
+        
+        for (ItemStack item : logItems) {
+            if (item == null || item.getType() == Material.AIR) continue;
+            
+            Material logType = item.getType();
+            if (logToPlanksMap.containsKey(logType)) {
+                int amount = item.getAmount();
+                availableLogs.put(logType, availableLogs.getOrDefault(logType, 0) + amount);
+                totalAvailableLogs += amount;
+            }
+        }
+        
+        if (totalAvailableLogs == 0) {
+            return new ProcessingResult(false, configManager.getProcessingNPCMessage("no_logs"), 0, 0, 0.0);
+        }
+        
+        // 実際に加工する数量（所持数を超えないように調整）
+        int actualQuantity = Math.min(quantity, totalAvailableLogs);
+        
+        // 加工料金計算
+        double totalFee = calculateProcessingFee(player, actualQuantity);
+        
+        // 残高チェック（現金残高）
+        double currentBalance = currencyConverter.getCashBalance(player);
+        if (currentBalance < totalFee) {
+            String message = configManager.getProcessingNPCMessage("insufficient_funds")
+                .replace("%amount%", String.format("%.0f", totalFee));
+            return new ProcessingResult(false, message, actualQuantity, 0, totalFee);
+        }
+        
+        // インベントリ空き容量チェック（板材は原木の4倍になる）
+        int requiredSlots = (int) Math.ceil((actualQuantity * 4) / 64.0);
+        if (!hasEnoughInventorySpace(player, requiredSlots)) {
+            return new ProcessingResult(false, configManager.getProcessingNPCMessage("inventory_full"), actualQuantity, 0, totalFee);
+        }
+        
+        // 料金徴収（現金から）
+        if (totalFee > 0) {
+            if (!currencyConverter.payWithCash(player, totalFee)) {
+                return new ProcessingResult(false, "§c料金の引き落としに失敗しました", actualQuantity, 0, totalFee);
+            }
+        }
+        
+        // 指定数量の原木を削除して板材を付与
+        int remainingToProcess = actualQuantity;
+        int totalPlanks = 0;
+        
+        for (ItemStack item : logItems) {
+            if (remainingToProcess <= 0) break;
+            if (item == null || item.getType() == Material.AIR) continue;
+            
+            Material logType = item.getType();
+            Material planksType = logToPlanksMap.get(logType);
+            
+            if (planksType != null) {
+                int itemAmount = item.getAmount();
+                int toProcess = Math.min(remainingToProcess, itemAmount);
+                
+                // 原木を削除
+                item.setAmount(itemAmount - toProcess);
+                
+                // 板材を付与
+                int planksAmount = toProcess * 4;
+                ItemStack planks = new ItemStack(planksType, planksAmount);
+                player.getInventory().addItem(planks);
+                
+                totalPlanks += planksAmount;
+                remainingToProcess -= toProcess;
+            }
+        }
+        
+        // 成功メッセージ
+        String message;
+        if (totalFee > 0) {
+            message = configManager.getProcessingNPCMessage("processing_success_with_fee")
+                .replace("%amount%", String.valueOf(actualQuantity))
+                .replace("%fee%", String.format("%.0f", totalFee));
+        } else {
+            message = configManager.getProcessingNPCMessage("processing_success")
+                .replace("%amount%", String.valueOf(actualQuantity));
+        }
+        
+        return new ProcessingResult(true, message, actualQuantity, totalPlanks, totalFee);
     }
     
     /**
@@ -453,6 +554,34 @@ public class ProcessingNPCManager {
         removeProcessingNPCs();
         spawnProcessingNPCs();
         plugin.getLogger().info("加工NPCのリロードが完了しました");
+    }
+
+    
+    /**
+     * コマンドで生成されたNPCを即座に登録（リロードなし）
+     * NPCCommandからの直接呼び出し用
+     */
+    public void registerProcessingNPC(UUID npcId, String id, String name, Location location) {
+        try {
+            plugin.getLogger().info("=== 加工NPC即座登録開始 ===");
+            plugin.getLogger().info("  NPC UUID: " + npcId);
+            plugin.getLogger().info("  加工所ID: " + id);
+            plugin.getLogger().info("  NPC名: " + name);
+            
+            // ProcessingStationオブジェクトを作成
+            ProcessingStation station = new ProcessingStation(id, name, location, npcId);
+            
+            // processingStationsマップに登録
+            processingStations.put(id, station);
+            
+            plugin.getLogger().info("加工NPCを即座に登録完了: " + name + " (UUID: " + npcId + ")");
+            plugin.getLogger().info("登録済み加工所数: " + processingStations.size());
+            plugin.getLogger().info("=== 加工NPC即座登録完了 ===");
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("加工NPC即座登録中にエラーが発生: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     /**
