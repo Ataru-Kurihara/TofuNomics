@@ -595,21 +595,39 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         
-        sender.sendMessage("§eNPCシステムをリロード中...");
+        sender.sendMessage("§eNPCデータをリロード中（既存NPCは保持）...");
         
         try {
-            // 既存NPCを削除
-            npcManager.removeExistingSystemNPCs();
+            // 既存NPCを削除せずに、内部データのみリロード
+            plugin.getLogger().info("=== NPCデータリロード開始 ===");
             
-            // 新しいNPCを生成
-            npcManager.spawnConfiguredNPCs();
+            int reloadedCount = 0;
             
-            // 銀行NPCと取引NPCの初期化は直接呼び出せないため、メッセージで案内
-            sender.sendMessage("§aNPCシステムのリロードが完了しました。");
-            sender.sendMessage("§e注意: 完全なリロードには §f/tofunomics reload §eを使用してください。");
+            // 取引NPCデータをリロード
+            if (tradingNPCManager != null) {
+                tradingNPCManager.reloadTradingPosts();
+                reloadedCount++;
+                sender.sendMessage("§a取引NPCデータをリロードしました");
+            }
+            
+            // 加工NPCデータをリロード
+            if (processingNPCManager != null) {
+                processingNPCManager.reloadProcessingStations();
+                reloadedCount++;
+                sender.sendMessage("§a加工NPCデータをリロードしました");
+            }
+            
+            plugin.getLogger().info("=== NPCデータリロード完了 (" + reloadedCount + "種類) ===");
+            
+            sender.sendMessage("§aNPCデータのリロードが完了しました。");
+            sender.sendMessage("§7既存のNPCは保持され、config.ymlの設定と照合されました。");
+            sender.sendMessage("§e詳細はサーバーログを確認してください。");
+            sender.sendMessage("§7ヒント: NPCが見つからない場合は、同じ位置に再作成するか、config.ymlから削除してください。");
+            
         } catch (Exception e) {
             sender.sendMessage("§cNPCリロード中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("NPCリロード中にエラーが発生: " + e.getMessage());
+            e.printStackTrace();
         }
         
         return true;

@@ -773,6 +773,18 @@ public class TradingNPCManager {
         // 既存の取引所データをクリア
         tradingPosts.clear();
         
+        // デバッグ: 現在スポーンしている全NPCを確認
+        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
+        plugin.getLogger().info("現在スポーン中のNPC総数: " + allNPCs.size());
+        int traderCount = 0;
+        for (NPCManager.NPCData npc : allNPCs) {
+            if ("trader".equals(npc.getNpcType())) {
+                traderCount++;
+                plugin.getLogger().info("  取引NPC: " + npc.getName() + " (UUID: " + npc.getEntityId() + ", タイプ: " + npc.getNpcType() + ")");
+            }
+        }
+        plugin.getLogger().info("取引NPCの数: " + traderCount);
+        
         List<Map<?, ?>> tradingPostConfigs = configManager.getTradingPostConfigs();
         plugin.getLogger().info("設定から " + tradingPostConfigs.size() + " 個の取引所を読み込み");
         
@@ -814,6 +826,11 @@ public class TradingNPCManager {
                 
                 Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
                 
+                plugin.getLogger().info("--- 取引所設定処理: " + name + " ---");
+                plugin.getLogger().info("  設定ID: " + id);
+                plugin.getLogger().info("  名前（色コード付き）: " + name);
+                plugin.getLogger().info("  名前（色コード除去）: " + org.bukkit.ChatColor.stripColor(name));
+                
                 // 既存のスポーン済みNPCを名前で検索
                 UUID npcId = findExistingNPCIdByName(name);
                 
@@ -823,9 +840,13 @@ public class TradingNPCManager {
                     TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, npcId);
                     tradingPosts.put(id, tradingPost);
                     
-                    plugin.getLogger().info("取引所データ登録: " + name + " (既存NPC: " + npcId + ")");
+                    plugin.getLogger().info("  ✓ 取引所データ登録成功: " + name + " (既存NPC UUID: " + npcId + ")");
                 } else {
-                    plugin.getLogger().warning("取引所 " + name + " に対応するNPCが見つかりません");
+                    plugin.getLogger().warning("  ✗ 取引所 " + name + " に対応するNPCが見つかりません");
+                    plugin.getLogger().warning("  - config.ymlに設定はあるが、スポーン済みNPCが見つからない");
+                    plugin.getLogger().warning("  - NPCを手動削除した、またはワールドがロードされていない可能性");
+                    plugin.getLogger().warning("  - 解決方法1: /npc spawn trader コマンドで再作成");
+                    plugin.getLogger().warning("  - 解決方法2: config.ymlから該当の設定を削除");
                 }
                 
             } catch (Exception e) {
@@ -845,15 +866,27 @@ public class TradingNPCManager {
         // 色コードを除去した検索名
         String searchName = org.bukkit.ChatColor.stripColor(name);
         
+        plugin.getLogger().info("  NPCを検索中: " + name + " → " + searchName);
+        plugin.getLogger().info("  検索対象NPC総数: " + allNPCs.size());
+        
+        int matchAttempts = 0;
         for (NPCManager.NPCData npcData : allNPCs) {
             if ("trader".equals(npcData.getNpcType())) {
+                matchAttempts++;
                 // NPCの名前からも色コードを除去して比較
                 String npcName = org.bukkit.ChatColor.stripColor(npcData.getName());
+                plugin.getLogger().info("    比較 #" + matchAttempts + ": [" + npcData.getName() + "] → [" + npcName + "]");
+                
                 if (searchName.equals(npcName)) {
+                    plugin.getLogger().info("    ✓ マッチ成功！UUID: " + npcData.getEntityId());
                     return npcData.getEntityId();
+                } else {
+                    plugin.getLogger().info("    ✗ マッチ失敗: [" + searchName + "] != [" + npcName + "]");
                 }
             }
         }
+        
+        plugin.getLogger().warning("  検索結果: NPCが見つかりませんでした（" + matchAttempts + "個の取引NPCを確認）");
         return null;
     }
     
