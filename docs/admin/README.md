@@ -29,6 +29,8 @@
 | **[NPC管理](npc-management.md)** | NPC設置・管理・トラブル対応 | ⭐⭐ |
 | **[職業システム](job-system.md)** | 8職業の管理・レベル・スキル | ⭐⭐ |
 | **[経済システム](economy.md)** | 通貨・価格・取引システム管理 | ⭐⭐ |
+| **[住居賃貸システム](housing-rental.md)** | 賃貸物件管理・契約・料金設定 | ⭐⭐ |
+| **[都市保護設定](housing-protection.md)** | WorldGuard連携・都市全体保護 | ⭐⭐ |
 
 ### 🚨 運用・保守
 | ドキュメント | 内容 | 重要度 |
@@ -41,8 +43,9 @@
 ### 🆕 新規サーバー立ち上げ
 1. [インストールガイド](../install-guide.md)
 2. [基本設定](configuration.md#基本設定)
-3. [NPC初期配置](npc-management.md#初期セットアップ)
-4. [取引所設置](economy.md#取引システム設定)
+3. [都市保護設定](housing-protection.md) - WorldGuard連携
+4. [NPC初期配置](npc-management.md#初期セットアップ)
+5. [取引所設置](economy.md#取引システム設定)
 
 ### 📈 既存サーバーへの導入
 1. [バックアップ手順](troubleshooting.md#バックアップ・復旧手順)

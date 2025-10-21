@@ -23,10 +23,10 @@ economy:
     decimal_places: 0
     
     # 豆腐コイン価値設定
-    coin_value: 10          # 1コインの価値（デフォルト: $10）
+    coin_value: 1          # 1コインの価値（デフォルト: $10）
     dynamic_value: true       # 価値変更の可否
     min_value: 1           # 最小価値制限
-    max_value: 1000        # 最大価値制限        # 最大価値制限
+    max_value: 1000        # 最大価値制限
   
   # 初期残高（新規プレイヤーの開始残高）
   starting_balance: 100
@@ -116,6 +116,13 @@ jobs:
       - "NETHERRACK"
       - "END_STONE"
       - "OBSIDIAN"
+      # 原木類（建築基本素材として無職でも採取可能）
+      - "OAK_LOG"
+      - "BIRCH_LOG"
+      - "SPRUCE_LOG"
+      - "JUNGLE_LOG"
+      - "ACACIA_LOG"
+      - "DARK_OAK_LOG"
     
     # 職業専用ブロック（Phase1: 鉱夫のみ実装）
     job_restricted_blocks:
@@ -132,13 +139,6 @@ jobs:
       
       # 木こり専用ブロック（木材類）- Minecraft 1.16.5対応
       woodcutter:
-        # 原木類
-        - "OAK_LOG"
-        - "BIRCH_LOG"
-        - "SPRUCE_LOG"
-        - "JUNGLE_LOG"
-        - "ACACIA_LOG"
-        - "DARK_OAK_LOG"
         # 葉ブロック類
         - "OAK_LEAVES"
         - "BIRCH_LEAVES"
@@ -169,62 +169,62 @@ jobs:
         - "HAY_BLOCK"
         - "DRIED_KELP_BLOCK"
       fisherman:
-      - WATER
-      - KELP
-      - SEAGRASS
-      - SEA_PICKLE
-      - TUBE_CORAL
-      - BRAIN_CORAL
-      - BUBBLE_CORAL
-      - FIRE_CORAL
-      - HORN_CORAL
-      - DEAD_TUBE_CORAL
-      - DEAD_BRAIN_CORAL
-      - DEAD_BUBBLE_CORAL
-      - DEAD_FIRE_CORAL
-      - DEAD_HORN_CORAL
+        - "WATER"
+        - "KELP"
+        - "SEAGRASS"
+        - "SEA_PICKLE"
+        - "TUBE_CORAL"
+        - "BRAIN_CORAL"
+        - "BUBBLE_CORAL"
+        - "FIRE_CORAL"
+        - "HORN_CORAL"
+        - "DEAD_TUBE_CORAL"
+        - "DEAD_BRAIN_CORAL"
+        - "DEAD_BUBBLE_CORAL"
+        - "DEAD_FIRE_CORAL"
+        - "DEAD_HORN_CORAL"
 
       blacksmith:
-      - ANVIL
-      - CHIPPED_ANVIL
-      - DAMAGED_ANVIL
-      - FURNACE
-      - BLAST_FURNACE
-      - SMITHING_TABLE
-      - GRINDSTONE
-      - CAULDRON
-      - LAVA_CAULDRON
+        - "ANVIL"
+        - "CHIPPED_ANVIL"
+        - "DAMAGED_ANVIL"
+        - "FURNACE"
+        - "BLAST_FURNACE"
+        - "SMITHING_TABLE"
+        - "GRINDSTONE"
+        - "CAULDRON"
+        - "LAVA_CAULDRON"
 
       alchemist:
-      - BREWING_STAND
-      - CAULDRON
-      - WATER_CAULDRON
-      - POWDER_SNOW_CAULDRON
-      - NETHER_WART
-      - SOUL_SAND
-      - SOUL_SOIL
-      - MAGMA_BLOCK
+        - "BREWING_STAND"
+        - "CAULDRON"
+        - "WATER_CAULDRON"
+        - "POWDER_SNOW_CAULDRON"
+        - "NETHER_WART"
+        - "SOUL_SAND"
+        - "SOUL_SOIL"
+        - "MAGMA_BLOCK"
 
       enchanter:
-      - ENCHANTING_TABLE
-      - BOOKSHELF
-      - LECTERN
-      - LAPIS_LAZULI_BLOCK
+        - "ENCHANTING_TABLE"
+        - "BOOKSHELF"
+        - "LECTERN"
+        - "LAPIS_LAZULI_BLOCK"
 
       architect:
-      - SCAFFOLDING
-      - LADDER
-      - CHAIN
-      - LANTERN
-      - SOUL_LANTERN
-      - TORCH
-      - SOUL_TORCH
-      - REDSTONE_TORCH
-      - SEA_LANTERN
-      - GLOWSTONE
-      - JACK_O_LANTERN
-      - CAMPFIRE
-      - SOUL_CAMPFIRE
+        - "SCAFFOLDING"
+        - "LADDER"
+        - "CHAIN"
+        - "LANTERN"
+        - "SOUL_LANTERN"
+        - "TORCH"
+        - "SOUL_TORCH"
+        - "REDSTONE_TORCH"
+        - "SEA_LANTERN"
+        - "GLOWSTONE"
+        - "JACK_O_LANTERN"
+        - "CAMPFIRE"
+        - "SOUL_CAMPFIRE"
 
   # 各職業の設定
   job_settings:
@@ -319,7 +319,7 @@ npc_system:
     
     # 銀行NPCの配置
     locations:
-      - world: "tofunomics"
+      - world: "tofuNomics"
         x: -200
         y: 70
         z: -100
@@ -629,9 +629,9 @@ land_protection:
   
   # 保護対象ワールド
   protected_worlds:
-    - "tofunomics"
-    - "tofunomics_nether"  
-    - "tofunomics_the_end"
+    - "tofuNomics"
+    - "tofuNomics_nether"  
+    - "tofuNomics_the_end"
 
 # スコアボード設定
 scoreboard:
@@ -667,6 +667,10 @@ scoreboard:
     show_experience: true
     # オンライン時間表示
     show_online_time: true
+    # 現在時刻表示
+    show_current_time: true
+    # 取引時間表示
+    show_trading_hours: true
 
 # メッセージ設定
 messages:
@@ -677,34 +681,6 @@ messages:
   invalid_amount: "&c無効な金額です。"
   insufficient_balance: "&c残高が不足しています。"
   
-  # NPCシステム関連メッセージ
-  npc:
-    unknown_type: "&cNPCの種類が不明です。"
-    service_error: "&cサービス処理中にエラーが発生しました。しばらく経ってから再度お試しください。"
-    
-    # 取引NPC関連メッセージ
-    trading:
-      no_job: "&c職業に就いていません。/jobs join <職業名> で職業に就いてからご利用ください。"
-      job_not_accepted: "&c申し訳ありませんが、あなたの職業（%job%）では当店をご利用いただけません。"
-      
-      # NPC固有メッセージ
-      npc_specific:
-        central_market:
-          no_job:
-            - "&6「いらっしゃい、お客さん！」"
-            - "&e「まずは何か職業に就いてからお越しください」"
-            - "&7コマンド: &f/jobs join <職業名>"
-          greeting:
-            - "&6「いらっしゃいませ！中央市場へようこそ！」"
-            - "&e「何でも買い取りますよ～」"
-        
-        mining_post:
-          no_job:
-            - "&8「ここは鉱夫の取引所だ」"
-            - "&7「まずは /jobs join miner で鉱夫になってくれ」"
-          greeting:
-            - "&8「よう、同志よ。今日はどんな鉱石を掘ってきた？」"
-
   # 経済関連メッセージ
   economy:
     balance_self: "&a残高: &f%amount% %currency%"
@@ -813,6 +789,18 @@ messages:
             - "&7「&f/jobs join woodcutter&7 で木こりに、"
             - "&7または他の職業に就いてからおいで」"
 
+
+  # ルール確認システムメッセージ
+  rules:
+    book_name: "§6§lTofuNomicsルールブック"
+    book_given: "§aルールブックを受け取りました。右クリックで確認できます。"
+    gui_title: "§6TofuNomics サーバールール"
+    must_agree: "§c§lルールに同意するまでプレイできません。§r§c /rules でルールを確認してください。"
+    agreed: "§a§l✔ ルールに同意しました！§r§a 楽しいサーバーライフを送ってください！"
+    disagreed: "§cルールに同意しませんでした。§e/rules §cでもう一度確認してください。"
+    action_blocked: "§cルールに同意するまで、この操作はできません。§e/rules §cでルールを確認してください。"
+    reset_success: "§aルール同意状態をリセットしました。次回ログイン時にルールが表示されます。"
+    reset_no_permission: "§cこのコマンドを実行する権限がありません。"
 # デバッグ設定
 debug:
   # デバッグログの有効化（詳細なログ出力）
@@ -1542,7 +1530,7 @@ player_join:
     - "&6▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
   
   # ウェルカムタイトル設定
-  welcome_title: "&6&lようこそ TofuNomicsワールドへ!"
+  welcome_title: "&6&lTofuNomicsへようこそ!"
   welcome_subtitle: "&e%player%さん、経済活動をお楽しみください!"
   
   # 新規プレイヤー特典設定
@@ -1598,11 +1586,23 @@ housing_rental:
   # WorldGuard連携
   worldguard_integration: true
   
+  # TofuNomicsワールド名（ゲーム内時間の基準）
+  world_name: tofuNomics
+  
   # 自動期限チェック
   expire_check_interval: 3600  # 1時間毎（秒単位）
   
   # 期限前通知
   expire_notification_days: 3  # 期限3日前に通知
+  
+  # 都市保護設定
+  city_protection:
+    # 都市保護の有効化
+    enabled: false
+    # 親リージョン名（/housing admin createcityregionで作成）
+    region_name: ""
+    # 対象ワールド
+    world_name: "tofuNomics"
   
   # メッセージ設定
   messages:
@@ -1615,12 +1615,99 @@ housing_rental:
     cancel_success: "&a契約をキャンセルしました"
     expired_notification: "&c賃貸契約が%days%日後に期限切れになります (物件: %property%)"
 
-# デバッグ設定
-debug:
-  # デバッグログの有効化
-  enabled: false
-  # 詳細ログの有効化
-  verbose: false
+# 時刻放送システム設定
+time_announcement:
+  # 時刻放送システムの有効化
+  enabled: true
+  
+  # 放送間隔（Minecraft時間：分単位）
+  # 60分 = Minecraftの1時間 = リアル時間の50秒
+  interval_minutes: 60
+  
+  # 取引開始・終了時刻に特別メッセージを送信
+  announce_trading_hours: true
+  
+  # 放送メッセージ
+  messages:
+    # 通常の時刻放送（%time%：現在時刻、%trading_status%：営業中/閉店中）
+    regular: "&e[時報] &f現在時刻：%time% &7- 取引所：%trading_status%"
+    
+    # 取引所開店メッセージ（6:00）
+    trading_open: "&a🌅 &6[お知らせ] &aおはようございます！取引所が開店しました（営業時間：6:00-22:00）"
+    
+    # 取引所閉店メッセージ（22:00）
+    trading_close: "&c🌙 &6[お知らせ] &c取引所は閉店しました。また明日お越しください（営業時間：6:00-22:00）"
+    
+    # 取引所閉店1時間前の警告（21:00）
+    trading_close_warning: "&e⚠ &6[お知らせ] &e取引所は1時間後に閉店します。お早めにお取引ください"
+    
+    # 営業中表示
+    status_open: "&a営業中"
+    
+    # 閉店中表示
+    status_closed: "&c閉店中"
+
+# 時計アイテムシステム設定
+clock_item:
+  # 時計アイテムシステムの有効化
+  enabled: true
+  
+  # 時計の購入価格
+  purchase_price: 500.0
+  
+  # 時計の販売NPC（空の場合は全NPCから購入可能）
+  seller_npcs: []
+  
+  # アクションバー表示設定
+  action_bar:
+    # アクションバー表示の有効化
+    enabled: true
+    # 表示更新間隔（tick）- 20 ticks = 1秒
+    update_interval: 20
+    # 表示フォーマット（%time%：現在時刻、%trading_status%：営業中/閉店中、%time_until%：次の開店/閉店までの時間）
+    format: "&e⏰ %time% &7| %trading_status% %time_until%"
+    # 営業中表示
+    status_open: "&a💼 営業中"
+    # 閉店中表示
+    status_closed: "&c💼 閉店中"
+  
+  # 右クリック時の詳細情報
+  details:
+    # タイトル
+    title: "&6&l=== TofuNomics時計 ==="
+    # 内容（複数行）
+    content:
+      - "&e現在時刻: &f%time%"
+      - "&e取引所: %trading_status%"
+      - "&e営業時間: &f%trading_hours%"
+      - "&e%next_event%: &f%time_until%"
+    # フッター
+    footer: "&6&l====================="
+  
+  # 時計アイテムの設定
+  item:
+    # アイテムタイプ
+    material: "CLOCK"
+    # アイテム名
+    name: "&6&lTofuNomics時計"
+    # Lore（説明文）
+    lore:
+      - "&7TofuNomicsワールドの公式時計"
+      - "&7現在時刻と取引所の営業状況を確認できます"
+      - ""
+      - "&e右クリック: &f詳細情報を表示"
+      - "&e所持中: &fアクションバーに時刻表示"
+    # エンチャントグロウ効果
+    enchanted: true
+  
+  # メッセージ
+  messages:
+    purchase_success: "&a時計を購入しました！所持しているとアクションバーに時刻が表示されます。"
+    purchase_failed: "&c時計の購入に失敗しました: %reason%"
+    insufficient_funds: "&c残高が不足しています。必要: %amount%"
+    already_owned: "&e既に時計を所持しています。"
+
+
 
 # エリアシステム設定
 area_system:
@@ -1691,3 +1778,112 @@ area_system:
       subtitle: "&f険しい山々が広がる"
       message: "&e西エリアへようこそ！"
       sound: "BLOCK_NOTE_BLOCK_BELL"
+# ========================================
+# ルール確認システム設定
+# ========================================
+rules:
+  # ルール確認機能の有効化
+  enabled: true
+  
+  # ルール同意を必須にするか
+  require_agreement: true
+  
+  # ページ内容
+  pages:
+    # ページ1: 初心者ガイド
+    1:
+      title: "§6§l【TofuNomicsへようこそ！】"
+      content:
+        - "§7このサーバーは経済とジョブシステムを"
+        - "§7楽しむことができるサーバーです。"
+        - ""
+        - "§e▼ 最初にやること"
+        - "§f1. §b/jobs §fコマンドでジョブを選ぶ"
+        - "§f2. 選んだジョブで活動して経験値を稼ぐ"
+        - "§f3. レベルアップして新しいスキルを習得"
+        - "§f4. 稼いだお金を銀行に預ける"
+        - ""
+        - "§e▼ ジョブの選び方"
+        - "§f・§b/jobs §fでジョブ一覧を確認"
+        - "§f・自分のプレイスタイルに合ったジョブを選択"
+        - "§f・ジョブは1日1回まで変更可能"
+        - ""
+        - "§e▼ 困ったときは"
+        - "§f・§b/rules §fでこのルールを再確認"
+        - "§f・管理者やベテランプレイヤーに相談"
+    
+    # ページ2: 経済システム
+    2:
+      title: "§6§l【経済システム】"
+      content:
+        - "§e▼ 通貨システム"
+        - "§f通貨: §6金塊 (G)"
+        - "§f新規プレイヤーは100Gからスタート"
+        - ""
+        - "§e▼ 銀行システム"
+        - "§f・§b/balance §f- 残高確認"
+        - "§f・§b/deposit <金額> §f- 金塊を預ける"
+        - "§f・§b/withdraw <金額> §f- 金塊を引き出す"
+        - "§f・銀行NPC周辺でのみ取引可能"
+        - ""
+        - "§e▼ 送金"
+        - "§f・§b/pay <プレイヤー名> <金額>"
+        - "§f・他のプレイヤーにお金を送れます"
+        - ""
+        - "§e▼ NPCとの取引"
+        - "§f・取引NPCで物を売買できます"
+        - "§f・ジョブレベルで価格ボーナスあり"
+        - "§f・食料NPCで食べ物を購入できます"
+    
+    # ページ3: ジョブ・スキルシステム
+    3:
+      title: "§6§l【ジョブ・スキルシステム】"
+      content:
+        - "§e▼ ジョブの種類"
+        - "§f・農業（Farmer） - 作物栽培で経験値"
+        - "§f・採掘（Miner） - 鉱石採掘で経験値"
+        - "§f・狩猟（Hunter） - モンスター狩りで経験値"
+        - "§f・建築（Builder） - ブロック設置で経験値"
+        - "§f・木こり（Lumberjack） - 木の伐採で経験値"
+        - "§f・漁師（Fisherman） - 釣りで経験値"
+        - ""
+        - "§e▼ レベルアップ"
+        - "§f・ジョブ関連の作業で経験値を獲得"
+        - "§f・レベルが上がるとスキルを習得"
+        - "§f・最大レベル: 75"
+        - ""
+        - "§e▼ スキル"
+        - "§f・各ジョブ専用のスキルが習得可能"
+        - "§f・作業効率アップや特殊能力を獲得"
+        - ""
+        - "§e▼ ジョブ変更"
+        - "§f・§b/jobs leave §fで現在のジョブを辞める"
+        - "§f・§b/jobs join <ジョブ名> §fで新しいジョブに就く"
+        - "§f・変更は1日1回まで"
+    
+    # ページ4: 禁止事項・ペナルティ
+    4:
+      title: "§c§l【禁止事項・ルール】"
+      content:
+        - "§c§l以下の行為は禁止されています"
+        - ""
+        - "§e▼ 不正行為"
+        - "§f・チート・ハックツールの使用"
+        - "§f・バグやグリッチの悪用"
+        - "§f・不正な金銭・アイテム取得"
+        - "§c→ 永久BAN"
+        - ""
+        - "§e▼ 迷惑行為"
+        - "§f・他プレイヤーへの嫌がらせ"
+        - "§f・暴言・差別発言"
+        - "§f・他プレイヤーの建築物の破壊"
+        - "§c→ 警告〜一時BAN"
+        - ""
+        - "§e▼ その他の注意事項"
+        - "§f・他プレイヤーとの取引は慎重に"
+        - "§f・詐欺行為は厳禁"
+        - "§f・AFK（放置）での経験値稼ぎ禁止"
+        - "§c→ 警告〜アカウント停止"
+        - ""
+        - "§6§l楽しく、フェアにプレイしましょう！"
+  

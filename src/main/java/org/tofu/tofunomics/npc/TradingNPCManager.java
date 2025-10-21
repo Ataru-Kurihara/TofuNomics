@@ -110,8 +110,30 @@ public class TradingNPCManager {
         tradingPosts.clear();
         plugin.getLogger().info("既存の取引所データをクリアしました");
         
+        // 現在スポーン中の全NPCを取得（座標ベースでの重複チェック用）
+        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
+        Map<String, UUID> existingNPCsByLocation = new HashMap<>();
+        Map<String, String> existingNPCsNameByLocation = new HashMap<>();
+        
+        for (NPCManager.NPCData npc : allNPCs) {
+            if ("trader".equals(npc.getNpcType())) {
+                Location loc = npc.getLocation();
+                String locationKey = loc.getWorld().getName() + "," + 
+                                   (int)loc.getX() + "," + 
+                                   (int)loc.getY() + "," + 
+                                   (int)loc.getZ();
+                existingNPCsByLocation.put(locationKey, npc.getEntityId());
+                existingNPCsNameByLocation.put(locationKey, npc.getName());
+            }
+        }
+        
+        plugin.getLogger().info("既存の取引NPC数: " + existingNPCsByLocation.size());
+        
         List<Map<?, ?>> tradingPostConfigs = configManager.getTradingPostConfigs();
         plugin.getLogger().info("設定から " + tradingPostConfigs.size() + " 個の取引所を読み込み");
+        
+        // config.ymlに記載されている座標を記録（警告用）
+        Set<String> configLocationKeys = new HashSet<>();
         
         for (Map<?, ?> config : tradingPostConfigs) {
             try {
@@ -150,33 +172,95 @@ public class TradingNPCManager {
                 }
                 
                 Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
-                plugin.getLogger().info("取引NPCを生成中: " + name + " at [" + x + ", " + y + ", " + z + "] (world: " + world + ")");
-                Villager tradingNPC = npcManager.createNPC(location, "trader", name);
                 
-                if (tradingNPC != null) {
-                    setupTradingNPC(tradingNPC);
+                // 座標キーを生成
+                String locationKey = world + "," + x + "," + y + "," + z;
+                configLocationKeys.add(locationKey);
+                
+                UUID npcId;
+                Villager tradingNPC = null;
+                
+                // 既存NPCチェック
+                if (existingNPCsByLocation.containsKey(locationKey)) {
+                    // 既存NPCを再利用
+                    npcId = existingNPCsByLocation.get(locationKey);
+                    NPCManager.NPCData existingNPC = npcManager.getNPCData(npcId);
                     
-                    Map<Material, Double> prices = buildItemPrices(acceptedJobs);
-                    TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, tradingNPC.getUniqueId());
-                    tradingPosts.put(id, tradingPost);
-                    
-                    plugin.getLogger().info("========================================");
-                    plugin.getLogger().info("取引NPC配置成功:");
-                    plugin.getLogger().info("  名前: " + name);
-                    plugin.getLogger().info("  ID: " + id);
-                    plugin.getLogger().info("  UUID: " + tradingNPC.getUniqueId());
-                    plugin.getLogger().info("  座標: [" + x + ", " + y + ", " + z + "]");
-                    plugin.getLogger().info("  ワールド: " + world);
-                    plugin.getLogger().info("========================================");
+                    if (existingNPC != null) {
+                        tradingNPC = existingNPC.getEntity();
+                        plugin.getLogger().info("既存の取引NPCを再利用: " + name + " (UUID: " + npcId + ")");
+                        
+                        // 名前が変更されている場合は更新
+                        if (!name.equals(existingNPC.getName())) {
+                            tradingNPC.setCustomName(name);
+                            plugin.getLogger().info("  NPC名を更新: " + existingNPC.getName() + " -> " + name);
+                        }
+                    } else {
+                        // NPCDataが見つからない場合は新規作成
+                        plugin.getLogger().warning("既存NPCのデータが見つからないため、新規作成します: " + locationKey);
+                        tradingNPC = npcManager.createNPC(location, "trader", name);
+                        if (tradingNPC != null) {
+                            npcId = tradingNPC.getUniqueId();
+                            setupTradingNPC(tradingNPC);
+                        } else {
+                            plugin.getLogger().severe("取引NPCの生成に失敗しました: " + name);
+                            continue;
+                        }
+                    }
                 } else {
-                    plugin.getLogger().severe("取引NPCの生成に失敗しました: " + name + " at [" + x + ", " + y + ", " + z + "]");
+                    // 新規作成
+                    plugin.getLogger().info("取引NPCを新規生成中: " + name + " at [" + x + ", " + y + ", " + z + "]");
+                    tradingNPC = npcManager.createNPC(location, "trader", name);
+                    
+                    if (tradingNPC != null) {
+                        npcId = tradingNPC.getUniqueId();
+                        setupTradingNPC(tradingNPC);
+                    } else {
+                        plugin.getLogger().severe("取引NPCの生成に失敗しました: " + name);
+                        continue;
+                    }
                 }
                 
+                // 取引所データを登録
+                Map<Material, Double> prices = buildItemPrices(acceptedJobs);
+                TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, npcId);
+                tradingPosts.put(id, tradingPost);
+                
+                plugin.getLogger().info("========================================");
+                plugin.getLogger().info("取引所登録成功:");
+                plugin.getLogger().info("  名前: " + name);
+                plugin.getLogger().info("  ID: " + id);
+                plugin.getLogger().info("  UUID: " + npcId);
+                plugin.getLogger().info("  座標: [" + x + ", " + y + ", " + z + "]");
+                plugin.getLogger().info("========================================");
+                
             } catch (Exception e) {
-                plugin.getLogger().warning("取引NPC生成中にエラーが発生しました: " + e.getMessage());
+                plugin.getLogger().warning("取引NPC処理中にエラーが発生しました: " + e.getMessage());
                 e.printStackTrace();
             }
         }
+        
+        // config.ymlに記載されていないNPCを検出して警告
+        plugin.getLogger().info("=== config.yml未登録NPCチェック ===");
+        int orphanedCount = 0;
+        for (Map.Entry<String, UUID> entry : existingNPCsByLocation.entrySet()) {
+            String locationKey = entry.getKey();
+            if (!configLocationKeys.contains(locationKey)) {
+                String npcName = existingNPCsNameByLocation.get(locationKey);
+                UUID npcId = entry.getValue();
+                plugin.getLogger().warning("警告: config.ymlに記載されていない取引NPCを発見: " + npcName + " at " + locationKey + " (UUID: " + npcId + ")");
+                plugin.getLogger().warning("  このNPCを削除する場合は /npc delete コマンドを使用してください");
+                orphanedCount++;
+            }
+        }
+        
+        if (orphanedCount > 0) {
+            plugin.getLogger().warning("config.yml未登録の取引NPC: " + orphanedCount + "体");
+        } else {
+            plugin.getLogger().info("全ての取引NPCがconfig.ymlに登録されています");
+        }
+        
+        plugin.getLogger().info("=== 取引NPC生成完了 ===");
     }
     
     private void setupTradingNPC(Villager npc) {

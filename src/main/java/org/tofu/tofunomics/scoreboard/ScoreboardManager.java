@@ -167,20 +167,76 @@ public class ScoreboardManager implements Listener {
             long onlineTime = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) / 20 / 60; // tick -> minutes
             String onlineTimeText = formatTime(onlineTime);
             
+            // Minecraft時間を取得して表示用にフォーマット
+            String currentTimeText = "";
+            String tradingStatusText = "";
+            boolean showCurrentTime = configManager.isScoreboardShowCurrentTime();
+            boolean showTradingHours = configManager.isScoreboardShowTradingHours();
+            
+            if (showCurrentTime || showTradingHours) {
+                long worldTime = player.getWorld().getTime();
+                int currentHour = (int) (((worldTime + 6000) / 1000) % 24);
+                int currentMinute = (int) (((worldTime + 6000) % 1000) / 1000.0 * 60);
+                currentTimeText = String.format("%02d:%02d", currentHour, currentMinute);
+                
+                // 取引時間の判定
+                if (showTradingHours && configManager.isTradingHoursEnabled()) {
+                    int startHour = configManager.getTradingStartHour();
+                    int endHour = configManager.getTradingEndHour();
+                    boolean isWithinTradingHours;
+                    
+                    if (startHour <= endHour) {
+                        isWithinTradingHours = currentHour >= startHour && currentHour < endHour;
+                    } else {
+                        isWithinTradingHours = currentHour >= startHour || currentHour < endHour;
+                    }
+                    
+                    if (isWithinTradingHours) {
+                        tradingStatusText = ChatColor.GREEN + "営業中";
+                    } else {
+                        tradingStatusText = ChatColor.RED + "閉店中";
+                    }
+                }
+            }
+            
             // スコアを設定（下から上の順番で表示される）
             int score = 15;
+            
+            // 時刻表示を追加する場合はスコアを増やす
+            if (showCurrentTime) {
+                score += 3; // 時刻表示で3行追加
+            }
+            if (showTradingHours && !tradingStatusText.isEmpty()) {
+                score += 2; // 取引状態で2行追加
+            }
         
             // 空行を追加してレイアウトを整える
             objective.getScore(ChatColor.WHITE + " ").setScore(score--);
             
-            // オンライン時間
-            objective.getScore(ChatColor.AQUA + "プレイ時間:").setScore(score--);
-            objective.getScore(ChatColor.WHITE + onlineTimeText).setScore(score--);
+            // 時刻表示
+            if (showCurrentTime) {
+                objective.getScore(ChatColor.AQUA + "⏰ 時刻:").setScore(score--);
+                objective.getScore(ChatColor.WHITE + currentTimeText).setScore(score--);
+                objective.getScore(ChatColor.WHITE + "  ").setScore(score--);
+            }
             
-            objective.getScore(ChatColor.WHITE + "  ").setScore(score--);
+            // 取引時間表示
+            if (showTradingHours && !tradingStatusText.isEmpty()) {
+                objective.getScore(ChatColor.GOLD + "💼 取引:").setScore(score--);
+                objective.getScore(tradingStatusText).setScore(score--);
+                objective.getScore(ChatColor.WHITE + "   ").setScore(score--);
+            }
+            
+            // オンライン時間
+            if (configManager.isScoreboardShowOnlineTime()) {
+                objective.getScore(ChatColor.AQUA + "プレイ時間:").setScore(score--);
+                objective.getScore(ChatColor.WHITE + onlineTimeText).setScore(score--);
+                objective.getScore(ChatColor.WHITE + "    ").setScore(score--);
+            }
+            
             
             // 職業経験値情報
-            if (!experienceInfo.isEmpty()) {
+            if (configManager.isScoreboardShowExperience() && !experienceInfo.isEmpty()) {
                 objective.getScore(ChatColor.YELLOW + "次レベル:").setScore(score--);
                 objective.getScore(ChatColor.WHITE + experienceInfo).setScore(score--);
                 
@@ -188,32 +244,36 @@ public class ScoreboardManager implements Listener {
             }
             
             // 職業レベル
-            if (!levelInfo.isEmpty()) {
+            if (configManager.isScoreboardShowJobLevel() && !levelInfo.isEmpty()) {
                 objective.getScore(ChatColor.GREEN + levelInfo).setScore(score--);
-                
                 objective.getScore(ChatColor.WHITE + "    ").setScore(score--);
             }
             
             // 職業名
-            objective.getScore(ChatColor.GOLD + "職業:").setScore(score--);
-            objective.getScore(ChatColor.WHITE + jobInfo).setScore(score--);
-            
-            objective.getScore(ChatColor.WHITE + "     ").setScore(score--);
+            if (configManager.isScoreboardShowJob()) {
+                objective.getScore(ChatColor.GOLD + "職業:").setScore(score--);
+                objective.getScore(ChatColor.WHITE + jobInfo).setScore(score--);
+                objective.getScore(ChatColor.WHITE + "     ").setScore(score--);
+            }
             
             // 預金残高
-            objective.getScore(ChatColor.GOLD + "預金:").setScore(score--);
-            objective.getScore(ChatColor.WHITE + bankText).setScore(score--);
-            
-            objective.getScore(ChatColor.WHITE + "      ").setScore(score--);
+            if (configManager.isScoreboardShowBalance()) {
+                objective.getScore(ChatColor.GOLD + "預金:").setScore(score--);
+                objective.getScore(ChatColor.WHITE + bankText).setScore(score--);
+                objective.getScore(ChatColor.WHITE + "      ").setScore(score--);
+            }
             
             // 現金残高（金塊）
-            objective.getScore(ChatColor.GREEN + "現金:").setScore(score--);
-            objective.getScore(ChatColor.WHITE + cashText).setScore(score--);
-            
-            objective.getScore(ChatColor.WHITE + "       ").setScore(score--);
+            if (configManager.isScoreboardShowBalance()) {
+                objective.getScore(ChatColor.GREEN + "現金:").setScore(score--);
+                objective.getScore(ChatColor.WHITE + cashText).setScore(score--);
+                objective.getScore(ChatColor.WHITE + "       ").setScore(score--);
+            }
         
             // プレイヤー名
-            objective.getScore(ChatColor.YELLOW + player.getName()).setScore(score--);
+            if (configManager.isScoreboardShowPlayerName()) {
+                objective.getScore(ChatColor.YELLOW + player.getName()).setScore(score--);
+            }
             
             player.setScoreboard(scoreboard);
             

@@ -109,8 +109,30 @@ public class ProcessingNPCManager {
         
         processingStations.clear();
         
+        // 現在スポーン中の全NPCを取得（座標ベースでの重複チェック用）
+        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
+        Map<String, UUID> existingNPCsByLocation = new HashMap<>();
+        Map<String, String> existingNPCsNameByLocation = new HashMap<>();
+        
+        for (NPCManager.NPCData npc : allNPCs) {
+            if ("processing".equals(npc.getNpcType())) {
+                Location loc = npc.getLocation();
+                String locationKey = loc.getWorld().getName() + "," + 
+                                   (int)loc.getX() + "," + 
+                                   (int)loc.getY() + "," + 
+                                   (int)loc.getZ();
+                existingNPCsByLocation.put(locationKey, npc.getEntityId());
+                existingNPCsNameByLocation.put(locationKey, npc.getName());
+            }
+        }
+        
+        plugin.getLogger().info("既存の加工NPC数: " + existingNPCsByLocation.size());
+        
         List<Map<?, ?>> processingConfigs = configManager.getProcessingNPCConfigs();
         plugin.getLogger().info("設定から " + processingConfigs.size() + " 個の加工所を読み込み");
+        
+        // config.ymlに記載されている座標を記録（警告用）
+        Set<String> configLocationKeys = new HashSet<>();
         
         for (Map<?, ?> config : processingConfigs) {
             try {
@@ -139,31 +161,94 @@ public class ProcessingNPCManager {
                 }
                 
                 Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
-                plugin.getLogger().info("加工NPCを生成中: " + name + " at [" + x + ", " + y + ", " + z + "]");
                 
-                Villager processingNPC = npcManager.createNPC(location, "processing", name);
+                // 座標キーを生成
+                String locationKey = world + "," + x + "," + y + "," + z;
+                configLocationKeys.add(locationKey);
                 
-                if (processingNPC != null) {
-                    setupProcessingNPC(processingNPC);
+                UUID npcId;
+                Villager processingNPC = null;
+                
+                // 既存NPCチェック
+                if (existingNPCsByLocation.containsKey(locationKey)) {
+                    // 既存NPCを再利用
+                    npcId = existingNPCsByLocation.get(locationKey);
+                    NPCManager.NPCData existingNPC = npcManager.getNPCData(npcId);
                     
-                    ProcessingStation station = new ProcessingStation(id, name, location, processingNPC.getUniqueId());
-                    processingStations.put(id, station);
-                    
-                    plugin.getLogger().info("========================================");
-                    plugin.getLogger().info("加工NPC配置成功:");
-                    plugin.getLogger().info("  名前: " + name);
-                    plugin.getLogger().info("  ID: " + id);
-                    plugin.getLogger().info("  UUID: " + processingNPC.getUniqueId());
-                    plugin.getLogger().info("========================================");
+                    if (existingNPC != null) {
+                        processingNPC = existingNPC.getEntity();
+                        plugin.getLogger().info("既存の加工NPCを再利用: " + name + " (UUID: " + npcId + ")");
+                        
+                        // 名前が変更されている場合は更新
+                        if (!name.equals(existingNPC.getName())) {
+                            processingNPC.setCustomName(name);
+                            plugin.getLogger().info("  NPC名を更新: " + existingNPC.getName() + " -> " + name);
+                        }
+                    } else {
+                        // NPCDataが見つからない場合は新規作成
+                        plugin.getLogger().warning("既存NPCのデータが見つからないため、新規作成します: " + locationKey);
+                        processingNPC = npcManager.createNPC(location, "processing", name);
+                        if (processingNPC != null) {
+                            npcId = processingNPC.getUniqueId();
+                            setupProcessingNPC(processingNPC);
+                        } else {
+                            plugin.getLogger().severe("加工NPCの生成に失敗しました: " + name);
+                            continue;
+                        }
+                    }
                 } else {
-                    plugin.getLogger().severe("加工NPCの生成に失敗しました: " + name);
+                    // 新規作成
+                    plugin.getLogger().info("加工NPCを新規生成中: " + name + " at [" + x + ", " + y + ", " + z + "]");
+                    processingNPC = npcManager.createNPC(location, "processing", name);
+                    
+                    if (processingNPC != null) {
+                        npcId = processingNPC.getUniqueId();
+                        setupProcessingNPC(processingNPC);
+                    } else {
+                        plugin.getLogger().severe("加工NPCの生成に失敗しました: " + name);
+                        continue;
+                    }
                 }
                 
+                // 加工所データを登録
+                ProcessingStation station = new ProcessingStation(id, name, location, npcId);
+                processingStations.put(id, station);
+                
+                plugin.getLogger().info("========================================");
+                plugin.getLogger().info("加工所登録成功:");
+                plugin.getLogger().info("  名前: " + name);
+                plugin.getLogger().info("  ID: " + id);
+                plugin.getLogger().info("  UUID: " + npcId);
+                plugin.getLogger().info("  座標: [" + x + ", " + y + ", " + z + "]");
+                plugin.getLogger().info("========================================");
+                
             } catch (Exception e) {
-                plugin.getLogger().warning("加工NPC生成中にエラーが発生しました: " + e.getMessage());
+                plugin.getLogger().warning("加工NPC処理中にエラーが発生しました: " + e.getMessage());
                 e.printStackTrace();
             }
         }
+        
+        // config.ymlに記載されていないNPCを検出して警告
+        plugin.getLogger().info("=== config.yml未登録NPCチェック ===");
+        int orphanedCount = 0;
+        for (Map.Entry<String, UUID> entry : existingNPCsByLocation.entrySet()) {
+            String locationKey = entry.getKey();
+            if (!configLocationKeys.contains(locationKey)) {
+                String npcName = existingNPCsNameByLocation.get(locationKey);
+                UUID npcId = entry.getValue();
+                plugin.getLogger().warning("警告: config.ymlに記載されていない加工NPCを発見: " + npcName + " at " + locationKey + " (UUID: " + npcId + ")");
+                plugin.getLogger().warning("  このNPCを削除する場合は /npc delete コマンドを使用してください");
+                orphanedCount++;
+            }
+        }
+        
+        if (orphanedCount > 0) {
+            plugin.getLogger().warning("config.yml未登録の加工NPC: " + orphanedCount + "体");
+        } else {
+            plugin.getLogger().info("全ての加工NPCがconfig.ymlに登録されています");
+        }
+        
+        plugin.getLogger().info("=== 加工NPC生成完了 ===");
     }
     
     /**

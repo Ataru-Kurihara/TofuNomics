@@ -102,6 +102,9 @@ public final class TofuNomics extends JavaPlugin {
     
     // 時計アイテムシステム
     private org.tofu.tofunomics.items.ClockItemManager clockItemManager;
+    
+    // ルール確認システム
+    private org.tofu.tofunomics.rules.RulesManager rulesManager;
 
     @Override
     public void onEnable() {
@@ -145,6 +148,9 @@ public final class TofuNomics extends JavaPlugin {
         
         // スコアボードシステムの初期化
         initializeScoreboardSystem();
+        
+        // ルール確認システムの初期化（PlayerJoinHandlerの前に初期化）
+        initializeRulesSystem();
         
         // プレイヤー参加時処理の初期化
         initializePlayerJoinHandler();
@@ -495,7 +501,8 @@ public final class TofuNomics extends JavaPlugin {
                 configManager,
                 playerDAO,
                 scoreboardManager,
-                inventoryManager
+                inventoryManager,
+                rulesManager
             );
 
             getLogger().info("プレイヤー参加時処理を初期化しました");
@@ -586,6 +593,13 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(worldGuardTestModeListener, this);
                 getLogger().info("WorldGuardテストモードリスナーを登録しました");
             }
+            
+            // ルール確認システムリスナーの登録
+            if (rulesManager != null) {
+                getServer().getPluginManager().registerEvents(rulesManager, this);
+                getServer().getPluginManager().registerEvents(rulesManager.getRulesGUI(), this);
+                getLogger().info("ルール確認システムリスナーを登録しました");
+            }
 
             getLogger().info("全てのイベントリスナーを登録しました");
         } catch (Exception e) {
@@ -658,6 +672,13 @@ public final class TofuNomics extends JavaPlugin {
                     new org.tofu.tofunomics.commands.TofuNomicsCommand(this, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager, processingNPCManager);
                 getCommand("tofunomics").setExecutor(mainCommand);
                 getCommand("tofunomics").setTabCompleter(mainCommand);
+            }
+            
+            // ルール確認コマンド
+            if (rulesManager != null) {
+                org.tofu.tofunomics.commands.RulesCommand rulesCommand = 
+                    new org.tofu.tofunomics.commands.RulesCommand(rulesManager);
+                getCommand("rules").setExecutor(rulesCommand);
             }
             
             getLogger().info("コマンドハンドラーを登録しました");
@@ -1222,11 +1243,65 @@ public final class TofuNomics extends JavaPlugin {
     public org.tofu.tofunomics.items.ClockItemManager getClockItemManager() {
         return clockItemManager;
     }
+    
+    /**
+     * ルール確認システムの初期化
+     */
+    private void initializeRulesSystem() {
+        try {
+            getLogger().info("ルール確認システムを初期化しています...");
+            
+            // RulesManagerの初期化
+            rulesManager = new org.tofu.tofunomics.rules.RulesManager(
+                this,
+                configManager,
+                playerDAO
+            );
+            
+            getLogger().info("ルール確認システムの初期化が完了しました");
+            
+            // 既存のオンラインプレイヤーに対してルール同意チェック
+            getServer().getScheduler().runTaskLater(this, () -> {
+                for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
+                    boolean hasAgreed = rulesManager.hasAgreedToRules(player.getUniqueId());
+                    if (!hasAgreed) {
+                        getLogger().info("オンラインプレイヤー " + player.getName() + " はルール未同意です");
+                        rulesManager.markAsUnagreed(player.getUniqueId());
+                        player.sendMessage(configManager.getMessage("rules.messages.must_agree"));
+                        
+                        // 2秒後にルールGUIを表示
+                        getServer().getScheduler().runTaskLater(this, () -> {
+                            rulesManager.getRulesGUI().openRulesGUI(player, 1);
+                        }, 40L); // 2秒後
+                    }
+                }
+            }, 60L); // 3秒後に実行（プラグイン初期化完了を待つ）
+            
+        } catch (Exception e) {
+            getLogger().severe("ルール確認システムの初期化に失敗しました: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * RulesManagerの取得
+     */
+    public org.tofu.tofunomics.rules.RulesManager getRulesManager() {
+        return rulesManager;
+    }
 
     /**
      * TestModeManagerの取得
      */
     public org.tofu.tofunomics.testing.TestModeManager getTestModeManager() {
         return testModeManager;
+    }
+
+
+    /**
+     * WorldGuard統合を取得
+     */
+    public org.tofu.tofunomics.integration.WorldGuardIntegration getWorldGuardIntegration() {
+        return worldGuardIntegration;
     }
 }

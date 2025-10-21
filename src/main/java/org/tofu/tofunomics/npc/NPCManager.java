@@ -156,12 +156,68 @@ public class NPCManager {
      */
     public void removeExistingSystemNPCs() {
         int removedCount = 0;
+        
+        // config.ymlから全NPC名を取得
+        java.util.Set<String> configuredNPCNames = new java.util.HashSet<>();
+        
+        try {
+            // 取引NPC名
+            java.util.List<java.util.Map<?, ?>> tradingConfigs = configManager.getTradingPostConfigs();
+            for (java.util.Map<?, ?> config : tradingConfigs) {
+                String name = (String) config.get("name");
+                if (name != null) {
+                    configuredNPCNames.add(name);
+                }
+            }
+            
+            // 加工NPC名
+            java.util.List<java.util.Map<?, ?>> processingConfigs = configManager.getProcessingNPCConfigs();
+            for (java.util.Map<?, ?> config : processingConfigs) {
+                String name = (String) config.get("name");
+                if (name != null) {
+                    configuredNPCNames.add(name);
+                }
+            }
+            
+            // 銀行NPC名
+            java.util.List<java.util.Map<?, ?>> bankConfigs = configManager.getBankNPCLocations();
+            for (java.util.Map<?, ?> config : bankConfigs) {
+                String name = (String) config.get("name");
+                if (name != null) {
+                    configuredNPCNames.add(name);
+                }
+            }
+            
+            plugin.getLogger().info("config.ymlから " + configuredNPCNames.size() + " 個のNPC名を読み込み（削除対象判定用）");
+            
+        } catch (Exception e) {
+            plugin.getLogger().warning("config.yml読み込み中にエラー（NPC削除は継続）: " + e.getMessage());
+        }
+        
+        // 全ワールドのVillagerをチェック
         for (org.bukkit.World world : plugin.getServer().getWorlds()) {
             try {
                 for (org.bukkit.entity.Entity entity : world.getEntitiesByClass(org.bukkit.entity.Villager.class)) {
+                    boolean shouldRemove = false;
+                    String reason = "";
+                    
+                    // 既存の判定（メタデータ）
                     if (isSystemNPC(entity)) {
-                        plugin.getLogger().info("既存システムNPCを削除: " + entity.getCustomName() + " at " + 
-                            entity.getLocation().getX() + ", " + entity.getLocation().getY() + ", " + entity.getLocation().getZ());
+                        shouldRemove = true;
+                        reason = "メタデータ検出";
+                    }
+                    // 新規判定（config.yml登録名）
+                    else if (entity.getCustomName() != null && 
+                             configuredNPCNames.contains(entity.getCustomName())) {
+                        shouldRemove = true;
+                        reason = "config.yml登録名一致";
+                    }
+                    
+                    if (shouldRemove) {
+                        plugin.getLogger().info("既存システムNPCを削除: " + entity.getCustomName() + 
+                            " at " + entity.getLocation().getX() + ", " + 
+                            entity.getLocation().getY() + ", " + 
+                            entity.getLocation().getZ() + " (" + reason + ")");
                         entity.remove();
                         removedCount++;
                     }

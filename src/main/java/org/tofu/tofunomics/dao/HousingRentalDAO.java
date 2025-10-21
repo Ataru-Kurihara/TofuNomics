@@ -24,8 +24,8 @@ public class HousingRentalDAO {
     public int createRental(HousingRental rental) throws SQLException {
         String query = "INSERT INTO housing_rentals " +
                       "(property_id, tenant_uuid, rental_period, rental_days, total_cost, " +
-                      "start_date, end_date, status, auto_renew, created_at) " +
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                      "start_date, end_date, start_tick, end_tick, status, auto_renew, created_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         try (PreparedStatement statement = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
             statement.setInt(1, rental.getPropertyId());
@@ -35,9 +35,11 @@ public class HousingRentalDAO {
             statement.setDouble(5, rental.getTotalCost());
             statement.setTimestamp(6, rental.getStartDate());
             statement.setTimestamp(7, rental.getEndDate());
-            statement.setString(8, rental.getStatus());
-            statement.setBoolean(9, rental.isAutoRenew());
-            statement.setTimestamp(10, rental.getCreatedAt());
+            statement.setLong(8, rental.getStartTick());
+            statement.setLong(9, rental.getEndTick());
+            statement.setString(10, rental.getStatus());
+            statement.setBoolean(11, rental.isAutoRenew());
+            statement.setTimestamp(12, rental.getCreatedAt());
             
             statement.executeUpdate();
             
@@ -139,13 +141,14 @@ public class HousingRentalDAO {
 
     /**
      * 期限切れの賃貸契約を取得
+     * @param currentTick 現在のゲーム内時間（tick数）
      */
-    public List<HousingRental> getExpiredRentals() throws SQLException {
-        String query = "SELECT * FROM housing_rentals WHERE status = 'active' AND end_date <= ?";
+    public List<HousingRental> getExpiredRentals(long currentTick) throws SQLException {
+        String query = "SELECT * FROM housing_rentals WHERE status = 'active' AND end_tick <= ?";
         List<HousingRental> rentals = new ArrayList<>();
         
         try (PreparedStatement statement = connection.prepareStatement(query)) {
-            statement.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
+            statement.setLong(1, currentTick);
             ResultSet rs = statement.executeQuery();
             
             while (rs.next()) {
@@ -161,7 +164,8 @@ public class HousingRentalDAO {
     public void updateRental(HousingRental rental) throws SQLException {
         String query = "UPDATE housing_rentals SET " +
                       "rental_period = ?, rental_days = ?, total_cost = ?, " +
-                      "start_date = ?, end_date = ?, status = ?, auto_renew = ? " +
+                      "start_date = ?, end_date = ?, start_tick = ?, end_tick = ?, " +
+                      "status = ?, auto_renew = ? " +
                       "WHERE id = ?";
         
         try (PreparedStatement statement = connection.prepareStatement(query)) {
@@ -170,9 +174,11 @@ public class HousingRentalDAO {
             statement.setDouble(3, rental.getTotalCost());
             statement.setTimestamp(4, rental.getStartDate());
             statement.setTimestamp(5, rental.getEndDate());
-            statement.setString(6, rental.getStatus());
-            statement.setBoolean(7, rental.isAutoRenew());
-            statement.setInt(8, rental.getId());
+            statement.setLong(6, rental.getStartTick());
+            statement.setLong(7, rental.getEndTick());
+            statement.setString(8, rental.getStatus());
+            statement.setBoolean(9, rental.isAutoRenew());
+            statement.setInt(10, rental.getId());
             
             statement.executeUpdate();
         }
@@ -259,6 +265,17 @@ public class HousingRentalDAO {
         rental.setTotalCost(rs.getDouble("total_cost"));
         rental.setStartDate(rs.getTimestamp("start_date"));
         rental.setEndDate(rs.getTimestamp("end_date"));
+        
+        // tick数を読み込み（存在する場合）
+        try {
+            rental.setStartTick(rs.getLong("start_tick"));
+            rental.setEndTick(rs.getLong("end_tick"));
+        } catch (SQLException e) {
+            // カラムが存在しない場合（後方互換性のため）
+            rental.setStartTick(0);
+            rental.setEndTick(0);
+        }
+        
         rental.setStatus(rs.getString("status"));
         rental.setAutoRenew(rs.getBoolean("auto_renew"));
         rental.setCreatedAt(rs.getTimestamp("created_at"));

@@ -206,6 +206,16 @@ public class DatabaseManager {
             "    amount REAL," +
             "    action_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
             "    FOREIGN KEY (rental_id) REFERENCES housing_rentals(id) ON DELETE CASCADE" +
+            ");",
+
+            // プレイヤーインベントリ保存テーブル
+            "CREATE TABLE IF NOT EXISTS player_inventories (" +
+            "    player_uuid TEXT PRIMARY KEY," +
+            "    inventory_data TEXT," +
+            "    armor_data TEXT," +
+            "    offhand_data TEXT," +
+            "    last_saved TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    FOREIGN KEY (player_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
             ");"
         };
 
@@ -276,6 +286,28 @@ public class DatabaseManager {
                 statement.executeUpdate("UPDATE jobs SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL");
                 
                 logger.info("jobs テーブルのマイグレーションが完了しました");
+            }
+            
+            // rules_agreed カラムが存在するかチェック
+            try {
+                statement.executeQuery("SELECT rules_agreed FROM players LIMIT 1");
+            } catch (SQLException e) {
+                // カラムが存在しない場合、追加する
+                logger.info("players テーブルに rules_agreed カラムを追加しています...");
+                statement.executeUpdate("ALTER TABLE players ADD COLUMN rules_agreed BOOLEAN DEFAULT FALSE");
+                
+                logger.info("players テーブルに rules_agreed カラムを追加しました");
+            }
+            
+            // rules_agreed_at カラムが存在するかチェック
+            try {
+                statement.executeQuery("SELECT rules_agreed_at FROM players LIMIT 1");
+            } catch (SQLException e) {
+                // カラムが存在しない場合、追加する
+                logger.info("players テーブルに rules_agreed_at カラムを追加しています...");
+                statement.executeUpdate("ALTER TABLE players ADD COLUMN rules_agreed_at TIMESTAMP");
+                
+                logger.info("players テーブルに rules_agreed_at カラムを追加しました");
             }
         } catch (SQLException e) {
             logger.warning("マイグレーション処理に失敗しました: " + e.getMessage());

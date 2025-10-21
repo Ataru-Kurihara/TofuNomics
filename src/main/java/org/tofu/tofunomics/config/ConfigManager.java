@@ -1,6 +1,7 @@
 package org.tofu.tofunomics.config;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -741,6 +742,10 @@ public class ConfigManager {
     }
     
     public double getJobPriceMultiplier(String jobType) {
+        // 無職の場合はデフォルト値1.0を返す（職業ボーナスなし）
+        if (jobType == null) {
+            return 1.0;
+        }
         return config.getDouble("trade_system.job_price_multipliers." + jobType.toLowerCase(), 1.0);
     }
     
@@ -1362,7 +1367,7 @@ public class ConfigManager {
      * ウェルカムタイトルを取得
      */
     public String getWelcomeTitle() {
-        return config.getString("player_join.welcome_title", "&6&lようこそ TofuNomicsワールドへ!");
+        return config.getString("player_join.welcome_title", "&6&lTofuNomicsへようこそ!");
     }
     
     /**
@@ -1526,6 +1531,234 @@ public class ConfigManager {
      */
     public boolean isScoreboardShowOnlineTime() {
         return (Boolean) getCachedValue("scoreboard.display_settings.show_online_time", true);
+    }
+    
+    /**
+     * スコアボードで現在時刻を表示するかどうか
+     */
+    public boolean isScoreboardShowCurrentTime() {
+        return (Boolean) getCachedValue("scoreboard.display_settings.show_current_time", true);
+    }
+    
+    /**
+     * スコアボードで取引時間を表示するかどうか
+     */
+    public boolean isScoreboardShowTradingHours() {
+        return (Boolean) getCachedValue("scoreboard.display_settings.show_trading_hours", true);
+    }
+    
+    // ==================== 時刻放送システム設定 ====================
+    
+    /**
+     * 時刻放送システムが有効かどうか
+     */
+    public boolean isTimeAnnouncementEnabled() {
+        return (Boolean) getCachedValue("time_announcement.enabled", true);
+    }
+    
+    /**
+     * 時刻放送の間隔（Minecraft分単位）
+     */
+    public int getTimeAnnouncementInterval() {
+        return (Integer) getCachedValue("time_announcement.interval_minutes", 60);
+    }
+    
+    /**
+     * 取引時間の特別メッセージを放送するかどうか
+     */
+    public boolean isAnnounceTradingHours() {
+        return (Boolean) getCachedValue("time_announcement.announce_trading_hours", true);
+    }
+    
+    /**
+     * 通常の時刻放送メッセージ
+     */
+    public String getTimeAnnouncementRegularMessage() {
+        return ChatColor.translateAlternateColorCodes('&', 
+            config.getString("time_announcement.messages.regular", "&e[時報] &f現在時刻：%time% &7- 取引所：%trading_status%"));
+    }
+    
+    /**
+     * 取引所開店メッセージ
+     */
+    public String getTimeAnnouncementTradingOpenMessage() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("time_announcement.messages.trading_open", "&a🌅 &6[お知らせ] &aおはようございます！取引所が開店しました"));
+    }
+    
+    /**
+     * 取引所閉店メッセージ
+     */
+    public String getTimeAnnouncementTradingCloseMessage() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("time_announcement.messages.trading_close", "&c🌙 &6[お知らせ] &c取引所は閉店しました"));
+    }
+    
+    /**
+     * 取引所閉店警告メッセージ
+     */
+    public String getTimeAnnouncementTradingCloseWarningMessage() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("time_announcement.messages.trading_close_warning", "&e⚠ &6[お知らせ] &e取引所は1時間後に閉店します"));
+    }
+    
+    /**
+     * 営業中ステータステキスト
+     */
+    public String getTimeAnnouncementStatusOpen() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("time_announcement.messages.status_open", "&a営業中"));
+    }
+    
+    /**
+     * 閉店中ステータステキスト
+     */
+    public String getTimeAnnouncementStatusClosed() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("time_announcement.messages.status_closed", "&c閉店中"));
+    }
+    
+    // ==================== 時計アイテムシステム設定 ====================
+    
+    /**
+     * 時計アイテムシステムが有効かどうか
+     */
+    public boolean isClockItemEnabled() {
+        return (Boolean) getCachedValue("clock_item.enabled", true);
+    }
+    
+    /**
+     * 時計の購入価格
+     */
+    public double getClockItemPurchasePrice() {
+        return config.getDouble("clock_item.purchase_price", 500.0);
+    }
+    
+    /**
+     * アクションバー表示が有効かどうか
+     */
+    public boolean isClockItemActionBarEnabled() {
+        return (Boolean) getCachedValue("clock_item.action_bar.enabled", true);
+    }
+    
+    /**
+     * アクションバー更新間隔（tick）
+     */
+    public int getClockItemActionBarUpdateInterval() {
+        return (Integer) getCachedValue("clock_item.action_bar.update_interval", 20);
+    }
+    
+    /**
+     * アクションバー表示フォーマット
+     */
+    public String getClockItemActionBarFormat() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.action_bar.format", "&e⏰ %time% &7| %trading_status% %time_until%"));
+    }
+    
+    /**
+     * アクションバー営業中表示
+     */
+    public String getClockItemActionBarStatusOpen() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.action_bar.status_open", "&a💼 営業中"));
+    }
+    
+    /**
+     * アクションバー閉店中表示
+     */
+    public String getClockItemActionBarStatusClosed() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.action_bar.status_closed", "&c💼 閉店中"));
+    }
+    
+    /**
+     * 時計詳細情報のタイトル
+     */
+    public String getClockItemDetailsTitle() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.details.title", "&6&l=== TofuNomics時計 ==="));
+    }
+    
+    /**
+     * 時計詳細情報の内容
+     */
+    public java.util.List<String> getClockItemDetailsContent() {
+        java.util.List<String> content = config.getStringList("clock_item.details.content");
+        java.util.List<String> translated = new java.util.ArrayList<>();
+        for (String line : content) {
+            translated.add(ChatColor.translateAlternateColorCodes('&', line));
+        }
+        return translated;
+    }
+    
+    /**
+     * 時計詳細情報のフッター
+     */
+    public String getClockItemDetailsFooter() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.details.footer", "&6&l====================="));
+    }
+    
+    /**
+     * 時計アイテムの名前
+     */
+    public String getClockItemName() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.item.name", "&6&lTofuNomics時計"));
+    }
+    
+    /**
+     * 時計アイテムのLore
+     */
+    public java.util.List<String> getClockItemLore() {
+        java.util.List<String> lore = config.getStringList("clock_item.item.lore");
+        java.util.List<String> translated = new java.util.ArrayList<>();
+        for (String line : lore) {
+            translated.add(ChatColor.translateAlternateColorCodes('&', line));
+        }
+        return translated;
+    }
+    
+    /**
+     * 時計アイテムがエンチャントグロウ効果を持つかどうか
+     */
+    public boolean isClockItemEnchanted() {
+        return (Boolean) getCachedValue("clock_item.item.enchanted", true);
+    }
+    
+    /**
+     * 時計購入成功メッセージ
+     */
+    public String getClockItemPurchaseSuccessMessage() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.messages.purchase_success", "&a時計を購入しました！"));
+    }
+    
+    /**
+     * 時計購入失敗メッセージ
+     */
+    public String getClockItemPurchaseFailedMessage(String reason) {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.messages.purchase_failed", "&c時計の購入に失敗しました"))
+            .replace("%reason%", reason);
+    }
+    
+    /**
+     * 残高不足メッセージ
+     */
+    public String getClockItemInsufficientFundsMessage(double amount) {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.messages.insufficient_funds", "&c残高が不足しています"))
+            .replace("%amount%", String.valueOf(amount));
+    }
+    
+    /**
+     * 時計を既に所持しているメッセージ
+     */
+    public String getClockItemAlreadyOwnedMessage() {
+        return ChatColor.translateAlternateColorCodes('&',
+            config.getString("clock_item.messages.already_owned", "&e既に時計を所持しています。"));
     }
     
     /**
@@ -3205,14 +3438,14 @@ public class ConfigManager {
      * 加工の基本料金を取得（一般プレイヤー）
      */
     public double getProcessingBaseFee() {
-        return config.getDouble("npc_system.processing_npc.pricing.base_fee_per_log", 1.0);
+        return config.getDouble("npc_system.processing_npc.fees.base_fee_per_log", 1.0);
     }
     
     /**
      * 木こりの加工料金を取得
      */
     public double getProcessingWoodcutterFee() {
-        return config.getDouble("npc_system.processing_npc.pricing.woodcutter_fee", 0.0);
+        return config.getDouble("npc_system.processing_npc.fees.woodcutter_fee", 0.0);
     }
     
     /**

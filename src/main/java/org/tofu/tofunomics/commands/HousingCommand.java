@@ -10,6 +10,7 @@ import org.tofu.tofunomics.housing.HousingRentalManager;
 import org.tofu.tofunomics.housing.SelectionManager;
 import org.tofu.tofunomics.models.HousingProperty;
 import org.tofu.tofunomics.models.HousingRental;
+import org.tofu.tofunomics.testing.TestModeManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,11 +23,13 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
     private final TofuNomics plugin;
     private final HousingRentalManager rentalManager;
     private final SelectionManager selectionManager;
+    private final TestModeManager testModeManager;
 
-    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager) {
+    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager) {
         this.plugin = plugin;
         this.rentalManager = rentalManager;
         this.selectionManager = selectionManager;
+        this.testModeManager = testModeManager;
     }
 
     @Override
@@ -40,7 +43,14 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
 
         // 管理者コマンド
         if (subCommand.equals("admin")) {
-            if (!sender.hasPermission("tofunomics.housing.admin")) {
+            // テストモードを考慮した権限チェック
+            if (sender instanceof Player) {
+                Player player = (Player) sender;
+                if (!testModeManager.hasEffectivePermission(player, "tofunomics.housing.admin")) {
+                    sender.sendMessage("§c権限がありません");
+                    return true;
+                }
+            } else if (!sender.hasPermission("tofunomics.housing.admin")) {
                 sender.sendMessage("§c権限がありません");
                 return true;
             }
@@ -200,6 +210,10 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // TofuNomicsワールドを取得
+        String worldName = plugin.getConfig().getString("housing_rental.world_name", "world");
+        org.bukkit.World world = org.bukkit.Bukkit.getWorld(worldName);
+        
         player.sendMessage("§6========= 賃貸契約一覧 =========");
         for (HousingRental rental : rentals) {
             HousingProperty property = rentalManager.getProperty(rental.getPropertyId());
@@ -209,11 +223,20 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                     property.getPropertyName(),
                     property.getId()
                 ));
-                player.sendMessage(String.format(
-                    "  §7残り: §e%d日 §7| 費用: §a%.1f",
-                    rental.getRemainingDays(),
-                    rental.getTotalCost()
-                ));
+                
+                if (world != null) {
+                    String formattedTime = rental.getFormattedRemainingTime(world);
+                    player.sendMessage(String.format(
+                        "  §7残り: §e%s §7| 費用: §a%.1f",
+                        formattedTime,
+                        rental.getTotalCost()
+                    ));
+                } else {
+                    player.sendMessage(String.format(
+                        "  §7費用: §a%.1f",
+                        rental.getTotalCost()
+                    ));
+                }
             }
         }
         player.sendMessage("§6================================");
@@ -300,6 +323,10 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                 return handleAdminSetRent(sender, args);
             case "remove":
                 return handleAdminRemove(sender, args);
+            case "createcityregion":
+                return handleAdminCreateCityRegion(sender, args);
+            case "setparent":
+                return handleAdminSetParent(sender, args);
             default:
                 sendAdminUsage(sender);
                 return true;
@@ -457,12 +484,155 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
 
         try {
             int propertyId = Integer.parseInt(args[1]);
-            // TODO: rentalManager.removeProperty(propertyId) を実装
-
-            sender.sendMessage("§a物件#" + propertyId + "を削除しました");
+            
+            HousingRentalManager.RentalResult result = rentalManager.removeProperty(propertyId);
+            
+            if (result.isSuccess()) {
+                sender.sendMessage("§a" + result.getMessage());
+            } else {
+                sender.sendMessage("§c" + result.getMessage());
+            }
 
         } catch (NumberFormatException e) {
             sender.sendMessage("§c物件IDは数字で指定してください");
+        }
+
+        return true;
+    }
+
+
+    /**
+     * 管理者: 都市保護リージョン作成
+     */
+    private boolean handleAdminCreateCityRegion(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        if (args.length < 2) {
+            player.sendMessage("§c使用法: /housing admin createcityregion <リージョン名>");
+            player.sendMessage("§7事前に木の斧で範囲選択してください");
+            player.sendMessage("§7このリージョンが都市全体を保護します（ブロック破壊・設置禁止）");
+            return true;
+        }
+
+        if (!selectionManager.hasCompleteSelection(player)) {
+            player.sendMessage("§c範囲選択が完了していません");
+            player.sendMessage("§7木の斧で2点を選択してください");
+            return true;
+        }
+
+        String regionName = args[1];
+        org.bukkit.Location pos1 = selectionManager.getFirstPosition(player.getUniqueId());
+        org.bukkit.Location pos2 = selectionManager.getSecondPosition(player.getUniqueId());
+
+        // WorldGuardリージョンを作成
+        boolean regionCreated = rentalManager.createWorldGuardRegion(
+            regionName,
+            player.getWorld(),
+            pos1,
+            pos2
+        );
+
+        if (!regionCreated) {
+            player.sendMessage("§cWorldGuardリージョンの作成に失敗しました");
+            return true;
+        }
+
+        // BUILDフラグとUSEフラグをDENYに設定
+        org.tofu.tofunomics.integration.WorldGuardIntegration wgIntegration = 
+            plugin.getWorldGuardIntegration();
+        
+        if (wgIntegration != null && wgIntegration.isEnabled()) {
+            boolean buildFlagSet = wgIntegration.setRegionFlag(regionName, player.getWorld(), "build", "deny");
+            boolean useFlagSet = wgIntegration.setRegionFlag(regionName, player.getWorld(), "use", "deny");
+            
+            if (buildFlagSet && useFlagSet) {
+                player.sendMessage("§a都市保護リージョン '" + regionName + "' を作成しました");
+                player.sendMessage("§aBUILDフラグとUSEフラグをDENYに設定しました");
+                player.sendMessage("§7次に '/housing admin setparent " + regionName + "' で既存物件を子リージョンに設定してください");
+                selectionManager.clearSelection(player);
+            } else {
+                player.sendMessage("§cリージョンは作成されましたが、フラグの設定に失敗しました");
+            }
+        } else {
+            player.sendMessage("§cWorldGuard統合が無効です");
+        }
+
+        return true;
+    }
+
+    /**
+     * 管理者: 既存物件を親リージョンの子に設定
+     */
+    private boolean handleAdminSetParent(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("§c使用法: /housing admin setparent <親リージョン名>");
+            sender.sendMessage("§7全ての既存賃貸物件のリージョンを指定した親リージョンの子に設定します");
+            return true;
+        }
+
+        String parentRegionName = args[1];
+
+        // config.ymlから親リージョン設定を確認
+        String configParent = plugin.getConfig().getString("housing_rental.city_protection.region_name", "");
+        if (!configParent.isEmpty() && !configParent.equals(parentRegionName)) {
+            sender.sendMessage("§e警告: config.ymlの設定と異なる親リージョン名です");
+            sender.sendMessage("§7config.yml: " + configParent);
+            sender.sendMessage("§7指定値: " + parentRegionName);
+        }
+
+        // 全物件を取得
+        List<HousingProperty> properties = rentalManager.getAvailableProperties();
+        
+        if (properties.isEmpty()) {
+            sender.sendMessage("§e設定可能な物件がありません");
+            return true;
+        }
+
+        org.tofu.tofunomics.integration.WorldGuardIntegration wgIntegration = 
+            plugin.getWorldGuardIntegration();
+
+        if (wgIntegration == null || !wgIntegration.isEnabled()) {
+            sender.sendMessage("§cWorldGuard統合が無効です");
+            return true;
+        }
+
+        int successCount = 0;
+        int skipCount = 0;
+
+        for (HousingProperty property : properties) {
+            if (!property.hasWorldGuardRegion()) {
+                skipCount++;
+                continue;
+            }
+
+            org.bukkit.World world = org.bukkit.Bukkit.getWorld(property.getWorldName());
+            if (world == null) {
+                skipCount++;
+                continue;
+            }
+
+            boolean result = wgIntegration.setParentRegion(
+                property.getWorldguardRegionId(),
+                parentRegionName,
+                world
+            );
+
+            if (result) {
+                successCount++;
+            } else {
+                skipCount++;
+            }
+        }
+
+        sender.sendMessage("§a親リージョン設定完了");
+        sender.sendMessage("§7成功: " + successCount + " 件");
+        if (skipCount > 0) {
+            sender.sendMessage("§7スキップ: " + skipCount + " 件 (WorldGuardリージョン未設定またはエラー)");
         }
 
         return true;
@@ -479,7 +649,14 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/housing myrentals §7- 自分の契約一覧");
         sender.sendMessage("§e/housing extend <ID> <日数> §7- 契約延長");
         sender.sendMessage("§e/housing cancel <ID> §7- 契約キャンセル");
-        if (sender.hasPermission("tofunomics.housing.admin")) {
+        // テストモードを考慮した権限チェック
+        boolean hasAdminPerm = false;
+        if (sender instanceof Player) {
+            hasAdminPerm = testModeManager.hasEffectivePermission((Player) sender, "tofunomics.housing.admin");
+        } else {
+            hasAdminPerm = sender.hasPermission("tofunomics.housing.admin");
+        }
+        if (hasAdminPerm) {
             sender.sendMessage("§e/housing admin §7- 管理者コマンド");
         }
         sender.sendMessage("§6===========================");
@@ -494,6 +671,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/housing admin list §7- 全物件一覧");
         sender.sendMessage("§e/housing admin setrent <ID> <日額> §7- 賃料変更");
         sender.sendMessage("§e/housing admin remove <ID> §7- 物件削除");
+        sender.sendMessage("§e/housing admin createcityregion <名前> §7- 都市保護リージョン作成");
+        sender.sendMessage("§e/housing admin setparent <親リージョン名> §7- 全物件を子リージョンに設定");
         sender.sendMessage("§6===========================");
     }
 
@@ -503,7 +682,14 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             completions.addAll(Arrays.asList("list", "info", "rent", "myrentals", "extend", "cancel"));
-            if (sender.hasPermission("tofunomics.housing.admin")) {
+            // テストモードを考慮した権限チェック
+            boolean hasAdminPerm = false;
+            if (sender instanceof Player) {
+                hasAdminPerm = testModeManager.hasEffectivePermission((Player) sender, "tofunomics.housing.admin");
+            } else {
+                hasAdminPerm = sender.hasPermission("tofunomics.housing.admin");
+            }
+            if (hasAdminPerm) {
                 completions.add("admin");
             }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {

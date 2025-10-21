@@ -431,6 +431,29 @@ public class NPCListener implements Listener {
             }
         }
     }
+
+    /**
+     * カスタムGUIが閉じられた時にセッションをクリーンアップ
+     */
+    @EventHandler
+    public void onCustomGUIClose(org.bukkit.event.inventory.InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player)) {
+            return;
+        }
+        
+        Player player = (Player) event.getPlayer();
+        String title = event.getView().getTitle();
+        
+        // カスタムGUI（取引、食料品店、加工所、銀行）が閉じられた場合、セッションをクリア
+        if (title != null && (title.contains("取引") || title.contains("食料品店") || 
+            title.contains("加工所") || title.contains("銀行"))) {
+            
+            TradingSession session = activeTradingSessions.remove(player.getUniqueId());
+            if (session != null) {
+                plugin.getLogger().fine("NPCセッションをクリーンアップしました: " + player.getName() + " (GUI: " + title + ")");
+            }
+        }
+    }
     
     // 定期的にタイムアウトしたセッションをクリーンアップ
     public void cleanupExpiredSessions() {
