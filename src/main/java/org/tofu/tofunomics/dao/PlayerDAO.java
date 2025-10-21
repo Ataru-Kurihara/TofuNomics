@@ -46,8 +46,16 @@ public class PlayerDAO {
                 } catch (SQLException e) {
                     player.setBankBalance(0.0);
                 }
-                player.setCreatedAt(resultSet.getTimestamp("created_at"));
-                player.setUpdatedAt(resultSet.getTimestamp("updated_at"));
+                try {
+                    player.setCreatedAt(resultSet.getTimestamp("created_at"));
+                } catch (SQLException e) {
+                    player.setCreatedAt(null);
+                }
+                try {
+                    player.setUpdatedAt(resultSet.getTimestamp("updated_at"));
+                } catch (SQLException e) {
+                    player.setUpdatedAt(null);
+                }
                 return player;
             }
         }
@@ -120,8 +128,16 @@ public class PlayerDAO {
                 } catch (SQLException e) {
                     player.setBankBalance(0.0);
                 }
-                player.setCreatedAt(resultSet.getTimestamp("created_at"));
-                player.setUpdatedAt(resultSet.getTimestamp("updated_at"));
+                try {
+                    player.setCreatedAt(resultSet.getTimestamp("created_at"));
+                } catch (SQLException e) {
+                    player.setCreatedAt(null);
+                }
+                try {
+                    player.setUpdatedAt(resultSet.getTimestamp("updated_at"));
+                } catch (SQLException e) {
+                    player.setUpdatedAt(null);
+                }
                 players.add(player);
             }
         }
@@ -266,6 +282,37 @@ public class PlayerDAO {
             statement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
             statement.setString(3, uuid.toString());
             statement.executeUpdate();
+        }
+    }
+    
+    /**
+     * プレイヤーがルールに同意しているか確認
+     */
+    public boolean hasAgreedToRules(UUID uuid) {
+        String query = "SELECT rules_agreed FROM players WHERE uuid = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, uuid.toString());
+            ResultSet result = statement.executeQuery();
+            if (result.next()) {
+                return result.getBoolean("rules_agreed");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    /**
+     * プレイヤーのルール同意状態を設定
+     */
+    public void setRulesAgreed(UUID uuid, boolean agreed) {
+        String query = "UPDATE players SET rules_agreed = ?, rules_agreed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE uuid = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setBoolean(1, agreed);
+            statement.setString(2, uuid.toString());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 }

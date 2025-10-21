@@ -9,6 +9,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.testing.TestModeManager;
 
 /**
  * 住居賃貸システムのイベントリスナー
@@ -16,10 +17,12 @@ import org.tofu.tofunomics.TofuNomics;
 public class HousingListener implements Listener {
     private final TofuNomics plugin;
     private final SelectionManager selectionManager;
+    private final TestModeManager testModeManager;
 
-    public HousingListener(TofuNomics plugin, SelectionManager selectionManager) {
+    public HousingListener(TofuNomics plugin, SelectionManager selectionManager, TestModeManager testModeManager) {
         this.plugin = plugin;
         this.selectionManager = selectionManager;
+        this.testModeManager = testModeManager;
     }
 
     /**
@@ -29,8 +32,8 @@ public class HousingListener implements Listener {
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         
-        // 管理者権限チェック
-        if (!player.hasPermission("tofunomics.housing.admin")) {
+        // 管理者権限チェック（テストモードを考慮）
+        if (!testModeManager.hasEffectivePermission(player, "tofunomics.housing.admin")) {
             return;
         }
 

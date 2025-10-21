@@ -29,6 +29,7 @@ public class HousingRentalManager {
     private final DatabaseManager databaseManager;
     private final Logger logger;
     private final WorldGuardIntegration worldGuardIntegration;
+    private final org.tofu.tofunomics.economy.CurrencyConverter currencyConverter;
     
     private HousingPropertyDAO propertyDAO;
     private HousingRentalDAO rentalDAO;
@@ -40,6 +41,7 @@ public class HousingRentalManager {
         this.databaseManager = databaseManager;
         this.logger = plugin.getLogger();
         this.worldGuardIntegration = worldGuardIntegration;
+        this.currencyConverter = plugin.getCurrencyConverter();
         
         initializeDAOs();
     }
@@ -77,6 +79,7 @@ public class HousingRentalManager {
 
     /**
      * WorldGuard領域を作成
+     * config.ymlで親リージョンが設定されている場合、自動的に子リージョンとして設定
      */
     public boolean createWorldGuardRegion(String regionId, World world, Location pos1, Location pos2) {
         if (worldGuardIntegration == null || !worldGuardIntegration.isEnabled()) {
@@ -84,7 +87,29 @@ public class HousingRentalManager {
             return false;
         }
         
-        return worldGuardIntegration.createRegion(regionId, world, pos1, pos2);
+        boolean regionCreated = worldGuardIntegration.createRegion(regionId, world, pos1, pos2);
+        
+        if (!regionCreated) {
+            return false;
+        }
+        
+        // config.ymlから親リージョン設定を確認
+        boolean cityProtectionEnabled = plugin.getConfig().getBoolean("housing_rental.city_protection.enabled", false);
+        String parentRegionName = plugin.getConfig().getString("housing_rental.city_protection.region_name", "");
+        
+        if (cityProtectionEnabled && !parentRegionName.isEmpty()) {
+            // 親リージョンを設定
+            boolean parentSet = worldGuardIntegration.setParentRegion(regionId, parentRegionName, world);
+            
+            if (parentSet) {
+                logger.info("リージョン " + regionId + " を親リージョン " + parentRegionName + " の子として設定しました");
+            } else {
+                logger.warning("リージョン " + regionId + " は作成されましたが、親リージョンの設定に失敗しました");
+                logger.warning("親リージョン '" + parentRegionName + "' が存在することを確認してください");
+            }
+        }
+        
+        return true;
     }
 
     /**
@@ -119,20 +144,62 @@ public class HousingRentalManager {
             int rentalDays = calculateDays(period, units);
             double totalCost = calculateTotalCost(property, period, units);
             
-            // 残高チェックと支払い
-            org.tofu.tofunomics.models.Player player = playerDAO.getOrCreatePlayer(tenantUuid);
-            if (player.getBankBalance() < totalCost) {
-                return new RentalResult(false, "残高が不足しています (必要: " + totalCost + ")");
+            // オンラインプレイヤーを取得（インベントリアクセスのため）
+            org.bukkit.entity.Player onlinePlayer = Bukkit.getPlayer(tenantUuid);
+            if (onlinePlayer == null) {
+                return new RentalResult(false, "オンライン状態で契約してください");
             }
             
+            // 総資産（銀行残高+現金）をチェック
+            double totalBalance = currencyConverter.getTotalBalance(onlinePlayer);
+            if (totalBalance < totalCost) {
+                return new RentalResult(false, "残高が不足しています (必要: " + 
+                    currencyConverter.formatCurrency(totalCost) + ", 所持: " + 
+                    currencyConverter.formatCurrency(totalBalance) + ")");
+            }
+            
+            // TofuNomicsワールドの時間を取得
+            String worldName = plugin.getConfig().getString("housing_rental.world_name", "world");
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                return new RentalResult(false, "TofuNomicsワールドが見つかりません");
+            }
+            long startTick = world.getFullTime();
+            
             // 契約作成
-            HousingRental rental = new HousingRental(propertyId, tenantUuid, period, rentalDays, totalCost);
+            HousingRental rental = new HousingRental(propertyId, tenantUuid, period, rentalDays, totalCost, startTick);
             int rentalId = rentalDAO.createRental(rental);
             
             if (rentalId > 0) {
-                // 支払い処理
-                player.removeBankBalance(totalCost);
-                playerDAO.updatePlayer(player);
+                // 支払い処理（銀行残高優先、足りない分を現金から）
+                org.tofu.tofunomics.models.Player player = playerDAO.getOrCreatePlayer(tenantUuid);
+                double bankBalance = player.getBankBalance();
+                
+                if (bankBalance >= totalCost) {
+                    // 銀行残高のみで支払い可能
+                    player.removeBankBalance(totalCost);
+                    playerDAO.updatePlayer(player);
+                } else {
+                    // 銀行残高+現金で支払い
+                    double remainingCost = totalCost;
+                    
+                    if (bankBalance > 0) {
+                        // 銀行残高を全額使用
+                        player.removeBankBalance(bankBalance);
+                        playerDAO.updatePlayer(player);
+                        remainingCost -= bankBalance;
+                    }
+                    
+                    // 残りを現金から支払い
+                    if (!currencyConverter.payWithCash(onlinePlayer, remainingCost)) {
+                        // 支払い失敗時はロールバック（銀行残高を戻す）
+                        if (bankBalance > 0) {
+                            player.addBankBalance(bankBalance);
+                            playerDAO.updatePlayer(player);
+                        }
+                        return new RentalResult(false, "支払い処理に失敗しました");
+                    }
+                }
                 
                 // 物件を利用不可に
                 propertyDAO.updateAvailability(propertyId, false);
@@ -145,11 +212,11 @@ public class HousingRentalManager {
                 
                 // WorldGuard領域が設定されている場合、プレイヤーをメンバーに追加
                 if (property.hasWorldGuardRegion() && worldGuardIntegration != null && worldGuardIntegration.isEnabled()) {
-                    World world = Bukkit.getWorld(property.getWorldName());
-                    if (world != null) {
+                    World propertyWorld = Bukkit.getWorld(property.getWorldName());
+                    if (propertyWorld != null) {
                         boolean memberAdded = worldGuardIntegration.addMember(
                             property.getWorldguardRegionId(), 
-                            world, 
+                            propertyWorld, 
                             tenantUuid
                         );
                         if (memberAdded) {
@@ -160,11 +227,11 @@ public class HousingRentalManager {
                 
                 logger.info("賃貸契約を締結しました: " + player.getUuid() + " -> 物件ID: " + propertyId);
                 
-                // プレイヤーに通知
-                org.bukkit.entity.Player onlinePlayer = Bukkit.getPlayer(tenantUuid);
+                // プレイヤーに通知（ゲーム内時間表示）
                 if (onlinePlayer != null) {
+                    long realMinutes = rentalDays * 20; // 1ゲーム内日 = 20分
                     onlinePlayer.sendMessage("§a" + property.getPropertyName() + "の賃貸契約を締結しました");
-                    onlinePlayer.sendMessage("§e期間: " + rentalDays + "日間 | 費用: " + totalCost);
+                    onlinePlayer.sendMessage("§e期間: " + rentalDays + "日(" + realMinutes + "分) | 費用: " + totalCost);
                 }
                 
                 return new RentalResult(true, "賃貸契約を締結しました (契約ID: " + rentalId + ")");
@@ -201,19 +268,56 @@ public class HousingRentalManager {
             // 追加料金計算
             double additionalCost = property.getDailyRent() * additionalDays;
             
-            // 残高チェック
-            org.tofu.tofunomics.models.Player player = playerDAO.getOrCreatePlayer(tenantUuid);
-            if (player.getBankBalance() < additionalCost) {
-                return new RentalResult(false, "残高が不足しています (必要: " + additionalCost + ")");
+            // オンラインプレイヤーを取得（インベントリアクセスのため）
+            org.bukkit.entity.Player onlinePlayer = Bukkit.getPlayer(tenantUuid);
+            if (onlinePlayer == null) {
+                return new RentalResult(false, "オンライン状態で契約延長してください");
+            }
+            
+            // 総資産（銀行残高+現金）をチェック
+            double totalBalance = currencyConverter.getTotalBalance(onlinePlayer);
+            if (totalBalance < additionalCost) {
+                return new RentalResult(false, "残高が不足しています (必要: " + 
+                    currencyConverter.formatCurrency(additionalCost) + ", 所持: " + 
+                    currencyConverter.formatCurrency(totalBalance) + ")");
             }
             
             // 契約延長
             rental.extend(additionalDays, additionalCost);
             rentalDAO.updateRental(rental);
             
-            // 支払い処理
-            player.removeBankBalance(additionalCost);
-            playerDAO.updatePlayer(player);
+            // 支払い処理（銀行残高優先、足りない分を現金から）
+            org.tofu.tofunomics.models.Player player = playerDAO.getOrCreatePlayer(tenantUuid);
+            double bankBalance = player.getBankBalance();
+            
+            if (bankBalance >= additionalCost) {
+                // 銀行残高のみで支払い可能
+                player.removeBankBalance(additionalCost);
+                playerDAO.updatePlayer(player);
+            } else {
+                // 銀行残高+現金で支払い
+                double remainingCost = additionalCost;
+                
+                if (bankBalance > 0) {
+                    // 銀行残高を全額使用
+                    player.removeBankBalance(bankBalance);
+                    playerDAO.updatePlayer(player);
+                    remainingCost -= bankBalance;
+                }
+                
+                // 残りを現金から支払い
+                if (!currencyConverter.payWithCash(onlinePlayer, remainingCost)) {
+                    // 支払い失敗時はロールバック（銀行残高と契約状態を戻す）
+                    if (bankBalance > 0) {
+                        player.addBankBalance(bankBalance);
+                        playerDAO.updatePlayer(player);
+                    }
+                    // 契約延長を元に戻す
+                    rental.extend(-additionalDays, -additionalCost);
+                    rentalDAO.updateRental(rental);
+                    return new RentalResult(false, "支払い処理に失敗しました");
+                }
+            }
             
             // 履歴追加
             HousingRentalHistory history = new HousingRentalHistory(
@@ -223,7 +327,8 @@ public class HousingRentalManager {
             
             logger.info("契約を延長しました: 契約ID " + rental.getId() + " -> +" + additionalDays + "日");
             
-            return new RentalResult(true, "契約を" + additionalDays + "日延長しました (費用: " + additionalCost + ")");
+            long realMinutes = additionalDays * 20; // 1ゲーム内日 = 20分
+            return new RentalResult(true, "契約を" + additionalDays + "日(" + realMinutes + "分)延長しました (費用: " + additionalCost + ")");
             
         } catch (SQLException e) {
             logger.severe("契約延長に失敗しました: " + e.getMessage());
@@ -290,7 +395,16 @@ public class HousingRentalManager {
      */
     public void processExpiredRentals() {
         try {
-            List<HousingRental> expiredRentals = rentalDAO.getExpiredRentals();
+            // TofuNomicsワールドを取得
+            String worldName = plugin.getConfig().getString("housing_rental.world_name", "world");
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                logger.warning("TofuNomicsワールドが見つかりません: " + worldName);
+                return;
+            }
+            
+            long currentTick = world.getFullTime();
+            List<HousingRental> expiredRentals = rentalDAO.getExpiredRentals(currentTick);
             
             for (HousingRental rental : expiredRentals) {
                 rental.expire();
@@ -302,11 +416,11 @@ public class HousingRentalManager {
                 // WorldGuard領域からプレイヤーを削除
                 HousingProperty property = propertyDAO.getProperty(rental.getPropertyId());
                 if (property != null && property.hasWorldGuardRegion() && worldGuardIntegration != null && worldGuardIntegration.isEnabled()) {
-                    World world = Bukkit.getWorld(property.getWorldName());
-                    if (world != null) {
+                    World propertyWorld = Bukkit.getWorld(property.getWorldName());
+                    if (propertyWorld != null) {
                         boolean memberRemoved = worldGuardIntegration.removeMember(
                             property.getWorldguardRegionId(), 
-                            world, 
+                            propertyWorld, 
                             rental.getTenantUuid()
                         );
                         if (memberRemoved) {
@@ -400,6 +514,50 @@ public class HousingRentalManager {
                 return property.getMonthlyRent() * units;
             default:
                 return property.getDailyRent() * units;
+        }
+    }
+
+    /**
+     * 物件を削除
+     */
+    public RentalResult removeProperty(int propertyId) {
+        try {
+            // 物件の確認
+            HousingProperty property = propertyDAO.getProperty(propertyId);
+            if (property == null) {
+                return new RentalResult(false, "物件が見つかりません");
+            }
+            
+            // アクティブな賃貸契約を確認
+            HousingRental activeRental = rentalDAO.getActiveRentalByProperty(propertyId);
+            if (activeRental != null) {
+                return new RentalResult(false, "この物件は現在賃貸中のため削除できません。先に契約をキャンセルしてください。");
+            }
+            
+            // WorldGuard領域が設定されている場合は削除
+            if (property.hasWorldGuardRegion() && worldGuardIntegration != null && worldGuardIntegration.isEnabled()) {
+                World world = Bukkit.getWorld(property.getWorldName());
+                if (world != null) {
+                    boolean regionRemoved = worldGuardIntegration.removeRegion(
+                        property.getWorldguardRegionId(),
+                        world
+                    );
+                    if (!regionRemoved) {
+                        logger.warning("WorldGuard領域 " + property.getWorldguardRegionId() + " の削除に失敗しました");
+                    }
+                }
+            }
+            
+            // データベースから物件を削除
+            propertyDAO.deleteProperty(propertyId);
+            
+            logger.info("物件を削除しました: ID " + propertyId + " (" + property.getPropertyName() + ")");
+            
+            return new RentalResult(true, "物件 '" + property.getPropertyName() + "' を削除しました");
+            
+        } catch (SQLException e) {
+            logger.severe("物件の削除に失敗しました: " + e.getMessage());
+            return new RentalResult(false, "データベースエラーが発生しました");
         }
     }
 

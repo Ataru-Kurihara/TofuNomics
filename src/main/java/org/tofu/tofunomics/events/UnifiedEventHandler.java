@@ -119,24 +119,7 @@ public class UnifiedEventHandler implements Listener {
         System.out.println("プレイヤー: " + player.getName());
         System.out.println("ブロック: " + blockType.name());
         
-        // 無職プレイヤーの専門ブロック制限チェック（フェールセーフ）
-        List<PlayerJob> playerJobs = jobManager.getPlayerJobs(player);
-        boolean hasAnyJob = playerJobs != null && !playerJobs.isEmpty();
         
-        System.out.println("職業の保有状況: " + (hasAnyJob ? "職業あり（" + playerJobs.size() + "個）" : "無職"));
-        
-        if (!hasAnyJob) {
-            // 無職プレイヤーの場合、専門ブロックは即座に拒否
-            if (!blockPermissionManager.getBasicBlocks().contains(blockType)) {
-                System.out.println("無職プレイヤーが専門ブロックを破壊しようとしました - 拒否");
-                event.setCancelled(true);
-                player.sendMessage("§c職業に就いていないため、このブロックは破壊できません。");
-                player.sendMessage("§7/jobs join <職業名> で職業に就職してください。");
-                return;
-            } else {
-                System.out.println("無職プレイヤーが基本ブロックを破壊 - 許可");
-            }
-        }
         
         // 職業ブロック制限チェック（優先度HIGHで早期チェック）
         if (!blockPermissionManager.canPlayerBreakBlock(player, blockType)) {

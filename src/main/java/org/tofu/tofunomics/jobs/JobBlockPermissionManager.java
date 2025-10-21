@@ -51,7 +51,14 @@ public class JobBlockPermissionManager {
             Material.NETHERRACK,
             Material.END_STONE,
             Material.OBSIDIAN,
-            Material.BEDROCK
+            Material.BEDROCK,
+            // 原木類（建築基本素材として無職でも採取可能）
+            Material.OAK_LOG,
+            Material.BIRCH_LOG,
+            Material.SPRUCE_LOG,
+            Material.JUNGLE_LOG,
+            Material.ACACIA_LOG,
+            Material.DARK_OAK_LOG
         ));
     }
     
@@ -74,14 +81,7 @@ public class JobBlockPermissionManager {
         
         // 木こり専用ブロック（木材類）- Minecraft 1.16.5対応
         Set<Material> woodcutterBlocks = new HashSet<>(Arrays.asList(
-            // 原木類
-            Material.OAK_LOG,
-            Material.BIRCH_LOG,
-            Material.SPRUCE_LOG,
-            Material.JUNGLE_LOG,
-            Material.ACACIA_LOG,
-            Material.DARK_OAK_LOG,
-            // 葉ブロック類
+// 葉ブロック類
             Material.OAK_LEAVES,
             Material.BIRCH_LEAVES,
             Material.SPRUCE_LEAVES,

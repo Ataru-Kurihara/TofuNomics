@@ -64,6 +64,24 @@ commands:
     usage: /housing <list|info|rent|myrentals|extend|cancel|admin> [args]
     aliases: [house]
     permission: tofunomics.housing.use
+  testmode:
+    description: テストモード（権限なしユーザーの挙動をテスト）
+    usage: /testmode <on|off|status>
+    aliases: [tm]
+    permission: tofunomics.testmode
+  clock:
+    description: 時計アイテム関連コマンド
+    usage: /clock <buy|info>
+    aliases: [time]
+    permission: tofunomics.clock.use
+  npc:
+    description: NPC管理コマンド
+    usage: /npc <spawn|remove|list|tp|cleanup|reload|info|status> [args]
+    permission: tofunomics.npc.admin
+  rules:
+    description: サーバールールを確認する
+    usage: /rules [reset]
+    permission: tofunomics.rules.view
 
 permissions:
   tofunomics.*:
@@ -220,4 +238,33 @@ permissions:
   
   tofunomics.housing.admin:
     description: 住居物件管理権限
+    default: op
+  
+  tofunomics.testmode:
+    description: テストモード切り替え権限
+    default: op
+  
+  tofunomics.clock.*:
+    description: 時計アイテム関連権限（全て）
+    children:
+      tofunomics.clock.use: true
+    default: true
+  
+  tofunomics.clock.use:
+    description: 時計アイテムの購入と使用
+    default: true
+  
+  tofunomics.rules.*:
+    description: ルール確認関連権限（全て）
+    children:
+      tofunomics.rules.view: true
+      tofunomics.rules.reset: false
+    default: true
+  
+  tofunomics.rules.view:
+    description: ルール確認権限
+    default: true
+  
+  tofunomics.rules.reset:
+    description: ルール同意状態をリセット（テスト用）
     default: op

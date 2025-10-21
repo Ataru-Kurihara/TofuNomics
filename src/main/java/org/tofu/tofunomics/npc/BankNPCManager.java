@@ -50,6 +50,9 @@ public class BankNPCManager {
     private void spawnBankNPCs() {
         plugin.getLogger().info("銀行NPCをスポーンしています...");
         
+        // 既にスポーンした座標を記録するSet（重複防止用）
+        java.util.Set<String> spawnedLocations = new java.util.HashSet<>();
+        
         // config.ymlから銀行NPCの位置情報を取得してスポーン
         java.util.List<java.util.Map<?, ?>> bankNPCLocations = configManager.getBankNPCLocations();
         
@@ -64,6 +67,10 @@ public class BankNPCManager {
                     int z = ((Number) npcData.get("z")).intValue();
                     String npcName = (String) npcData.get("name");
                     String npcType = npcData.get("type") != null ? (String) npcData.get("type") : "bank";
+                    
+                    // 座標をキーとして記録
+                    String locationKey = worldName + "," + x + "," + y + "," + z;
+                    spawnedLocations.add(locationKey);
                     
                     // yaw/pitchをconfigから取得（デフォルト値: 0.0f）
                     float yaw = 0.0f;
@@ -106,6 +113,18 @@ public class BankNPCManager {
         
         // 既存のBankLocationManagerベースの処理も保持（後方互換性）
         for (BankLocationManager.BankLocation bankLocation : bankLocationManager.getBankLocations()) {
+            String worldName = bankLocation.getWorld();
+            int x = (int) bankLocation.getX();
+            int y = (int) bankLocation.getY();
+            int z = (int) bankLocation.getZ();
+            String locationKey = worldName + "," + x + "," + y + "," + z;
+            
+            // 重複チェック：既にconfig.ymlから同じ座標にスポーンしている場合はスキップ
+            if (spawnedLocations.contains(locationKey)) {
+                plugin.getLogger().warning("銀行NPC重複検出: " + bankLocation.getName() + " (" + locationKey + ") - config.ymlの設定を優先してスキップします");
+                continue;
+            }
+            
             String npcName = configManager.getBankNPCName(bankLocation.getName());
             
             // 削除フラグをチェック
@@ -122,12 +141,25 @@ public class BankNPCManager {
             
             if (bankNPC != null) {
                 setupBankNPC(bankNPC);
+                spawnedLocations.add(locationKey);
                 plugin.getLogger().info("銀行NPCを配置しました: " + npcName + " at " + bankLocation.getName());
             }
         }
         
         // ATM場所にもNPCを配置
         for (BankLocationManager.BankLocation atmLocation : bankLocationManager.getAtmLocations()) {
+            String worldName = atmLocation.getWorld();
+            int x = (int) atmLocation.getX();
+            int y = (int) atmLocation.getY();
+            int z = (int) atmLocation.getZ();
+            String locationKey = worldName + "," + x + "," + y + "," + z;
+            
+            // 重複チェック：既にconfig.ymlから同じ座標にスポーンしている場合はスキップ
+            if (spawnedLocations.contains(locationKey)) {
+                plugin.getLogger().warning("ATM NPC重複検出: " + atmLocation.getName() + " (" + locationKey + ") - config.ymlの設定を優先してスキップします");
+                continue;
+            }
+            
             String npcName = configManager.getATMNPCName(atmLocation.getName());
             
             // 削除フラグをチェック
@@ -144,6 +176,7 @@ public class BankNPCManager {
             
             if (atmNPC != null) {
                 setupBankNPC(atmNPC);
+                spawnedLocations.add(locationKey);
                 plugin.getLogger().info("ATM NPCを配置しました: " + npcName + " at " + atmLocation.getName());
             }
         }

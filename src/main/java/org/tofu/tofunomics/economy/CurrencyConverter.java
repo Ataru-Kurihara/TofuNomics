@@ -29,6 +29,10 @@ public class CurrencyConverter {
         }
         this.formatter = new DecimalFormat(pattern.toString());
     }
+
+    public ItemManager getItemManager() {
+        return itemManager;
+    }
     
     public String formatCurrency(double amount) {
         // 価格を整数に丸める
@@ -113,16 +117,16 @@ public class CurrencyConverter {
         if (balance <= 0) {
             return 0;
         }
-        double coinValue = configManager.getCoinValue();
-        return (int) Math.floor(balance / coinValue);
+        // 1:1の単純な換算（coin_value = 1）
+        return (int) Math.round(balance);
     }
     
     public double convertNuggetsToBalance(int nuggets) {
         if (nuggets <= 0) {
             return 0.0;
         }
-        double coinValue = configManager.getCoinValue();
-        return nuggets * coinValue;
+        // 1:1の単純な換算（coin_value = 1）
+        return (double) nuggets;
     }
 
     
@@ -269,6 +273,33 @@ public class CurrencyConverter {
         
         // 金塊をインベントリに追加
         return itemManager.addGoldNuggetsToInventory(player, nuggetAmount);
+    }
+
+    // 所持金での受取り処理（金塊をインベントリに追加）- スペースチェックスキップオプション付き
+    public boolean receiveCash(Player player, double amount, boolean skipSpaceCheck) {
+        org.bukkit.Bukkit.getLogger().info("[CurrencyConverter] receiveCash called with amount: " + amount + ", skipSpaceCheck: " + skipSpaceCheck);
+        
+        if (amount <= 0) {
+            return false;
+        }
+        
+        int nuggetAmount = convertBalanceToNuggets(amount);
+        
+        // スペースチェックをスキップしない場合のみチェックを実行
+        if (!skipSpaceCheck) {
+            boolean hasSpace = itemManager.hasInventorySpace(player, nuggetAmount);
+            org.bukkit.Bukkit.getLogger().info("[CurrencyConverter] Space check result: " + hasSpace + " (nuggetAmount: " + nuggetAmount + ")");
+            if (!hasSpace) {
+                return false;
+            }
+        } else {
+            org.bukkit.Bukkit.getLogger().info("[CurrencyConverter] Skipping space check as requested");
+        }
+        
+        // 金塊をインベントリに追加
+        boolean result = itemManager.addGoldNuggetsToInventory(player, nuggetAmount);
+        org.bukkit.Bukkit.getLogger().info("[CurrencyConverter] addGoldNuggetsToInventory result: " + result);
+        return result;
     }
     
     // 所持金で支払い可能かチェック

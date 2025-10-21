@@ -32,14 +32,17 @@ public class ProcessingGUI implements Listener {
     private final JobManager jobManager;
     
     private final Map<UUID, ProcessingGUISession> activeSessions = new ConcurrentHashMap<>();
+    private final QuantitySelectorGUI quantitySelectorGUI;
     
     public ProcessingGUI(TofuNomics plugin, ConfigManager configManager, CurrencyConverter currencyConverter, 
-                        ProcessingNPCManager processingNPCManager, JobManager jobManager) {
+                        ProcessingNPCManager processingNPCManager, JobManager jobManager,
+                        QuantitySelectorGUI quantitySelectorGUI) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.currencyConverter = currencyConverter;
         this.processingNPCManager = processingNPCManager;
         this.jobManager = jobManager;
+        this.quantitySelectorGUI = quantitySelectorGUI;
     }
     
     public static class ProcessingGUISession {
@@ -114,8 +117,8 @@ public class ProcessingGUI implements Listener {
      * ヘッダーアイテムのセットアップ
      */
     private void setupHeaderItems(Inventory gui, Player player) {
-        // 残高表示
-        double balance = currencyConverter.getBalance(player.getUniqueId());
+        // 残高表示（現金残高）
+        double balance = currencyConverter.getCashBalance(player);
         String balanceText = currencyConverter.formatCurrency(balance);
         
         boolean isWoodcutter = isWoodcutter(player);
@@ -196,8 +199,61 @@ public class ProcessingGUI implements Listener {
             configManager.getProcessingWoodcutterFee() : 
             configManager.getProcessingBaseFee();
         double totalFee = feePerLog * totalLogs;
-        double balance = currencyConverter.getBalance(player.getUniqueId());
+        double balance = currencyConverter.getCashBalance(player);
         
+        // 数量選択ボタン（slot 38）
+        setupQuantitySelectorButton(gui, player, totalLogs, feePerLog, balance);
+        
+        // 全て加工ボタン（slot 40）
+        setupProcessAllButton(gui, player, totalLogs, totalFee, balance);
+        
+        // 装飾
+        ItemStack glassPane = createGUIItem(Material.YELLOW_STAINED_GLASS_PANE, "§7", Arrays.asList());
+        for (int i = 36; i < 45; i++) {
+            if (i != 38 && i != 40) {
+                gui.setItem(i, glassPane);
+            }
+        }
+    }
+    
+    /**
+     * 数量選択ボタンのセットアップ
+     */
+    private void setupQuantitySelectorButton(Inventory gui, Player player, int totalLogs, double feePerLog, double balance) {
+        Material buttonMaterial;
+        String buttonName;
+        List<String> buttonLore = new ArrayList<>();
+        
+        if (totalLogs == 0) {
+            buttonMaterial = Material.ORANGE_DYE;
+            buttonName = "§7数量選択";
+            buttonLore.add("§7原木がありません");
+        } else {
+            // 残高で加工できる最大数を計算
+            int maxAffordable = feePerLog > 0 ? (int)(balance / feePerLog) : totalLogs;
+            int maxQuantity = Math.min(totalLogs, maxAffordable);
+            
+            buttonMaterial = Material.YELLOW_DYE;
+            buttonName = "§e数量を選択して加工";
+            buttonLore.add("§f所持原木: §e" + totalLogs + "個");
+            
+            if (maxQuantity > 0) {
+                buttonLore.add("§f最大加工可能: §a" + maxQuantity + "個");
+                buttonLore.add("");
+                buttonLore.add("§eクリックして数量を選択");
+            } else {
+                buttonLore.add("§c残高不足で加工不可");
+            }
+        }
+        
+        ItemStack quantitySelectorButton = createGUIItem(buttonMaterial, buttonName, buttonLore);
+        gui.setItem(38, quantitySelectorButton);
+    }
+    
+    /**
+     * 全て加工ボタンのセットアップ
+     */
+    private void setupProcessAllButton(Inventory gui, Player player, int totalLogs, double totalFee, double balance) {
         Material buttonMaterial;
         String buttonName;
         List<String> buttonLore = new ArrayList<>();
@@ -228,16 +284,8 @@ public class ProcessingGUI implements Listener {
         
         ItemStack processButton = createGUIItem(buttonMaterial, buttonName, buttonLore);
         gui.setItem(40, processButton);
-        
-        // 装飾
-        ItemStack glassPane = createGUIItem(Material.YELLOW_STAINED_GLASS_PANE, "§7", Arrays.asList());
-        for (int i = 36; i < 45; i++) {
-            if (i != 40) {
-                gui.setItem(i, glassPane);
-            }
-        }
     }
-    
+
     /**
      * フッターアイテムのセットアップ
      */
@@ -362,10 +410,104 @@ public class ProcessingGUI implements Listener {
             return;
         }
         
+        if (slot == 38) { // 数量選択ボタン
+            handleQuantitySelectorClick(player, session);
+            return;
+        }
+        
         if (slot == 40) { // 加工ボタン
             handleProcessingClick(player, session);
             return;
         }
+    }
+    
+    /**
+     * 数量選択ボタンクリック処理
+     */
+    private void handleQuantitySelectorClick(Player player, ProcessingGUISession session) {
+        // プレイヤーのインベントリから原木を収集
+        List<ItemStack> logItems = new ArrayList<>();
+        int totalLogs = 0;
+        
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && processingNPCManager.isProcessableLog(item.getType())) {
+                logItems.add(item);
+                totalLogs += item.getAmount();
+            }
+        }
+        
+        if (logItems.isEmpty()) {
+            player.sendMessage("§c加工する原木がありません。");
+            return;
+        }
+        
+        // 残高で加工できる最大数を計算
+        boolean isWoodcutter = isWoodcutter(player);
+        double feePerLog = isWoodcutter ? 
+            configManager.getProcessingWoodcutterFee() : 
+            configManager.getProcessingBaseFee();
+        double balance = currencyConverter.getCashBalance(player);
+        
+        int maxAffordable = feePerLog > 0 ? (int)(balance / feePerLog) : totalLogs;
+        int maxQuantity = Math.min(totalLogs, maxAffordable);
+        
+        if (maxQuantity <= 0) {
+            player.sendMessage("§c残高が不足しているため、加工できません。");
+            return;
+        }
+        
+        // 追加情報
+        List<String> additionalInfo = new ArrayList<>();
+        additionalInfo.add("§f所持原木: §e" + totalLogs + "個");
+        additionalInfo.add("§f加工料金: §e" + String.format("%.0f", feePerLog) + "G/個");
+        if (feePerLog > 0) {
+            additionalInfo.add("§f現在残高: §a" + currencyConverter.formatCurrency(balance));
+        } else {
+            additionalInfo.add("§a加工料金: 無料（木こり特典）");
+        }
+        
+        // GUIを一旦閉じる
+        player.closeInventory();
+        
+        // 数量選択GUIを開く
+        quantitySelectorGUI.openQuantitySelector(
+            player,
+            "§6加工数量を選択",
+            "原木",
+            Material.OAK_LOG,
+            maxQuantity, // 初期値は最大値
+            1, // 最小1個
+            maxQuantity, // 最大は所持数または残高で加工可能な数
+            additionalInfo,
+            // 確定時のコールバック
+            (p, selectedQuantity) -> {
+                plugin.getLogger().info("数量選択加工開始: " + p.getName() + " - " + selectedQuantity + "個");
+                
+                // 原木を再収集（GUIを閉じている間に変わっている可能性がある）
+                List<ItemStack> currentLogItems = new ArrayList<>();
+                for (ItemStack item : p.getInventory().getContents()) {
+                    if (item != null && processingNPCManager.isProcessableLog(item.getType())) {
+                        currentLogItems.add(item);
+                    }
+                }
+                
+                // 加工処理実行
+                ProcessingNPCManager.ProcessingResult result = processingNPCManager.processWoodConversionWithQuantity(
+                    p, session.getNpcId(), selectedQuantity, currentLogItems
+                );
+                
+                if (result.isSuccess()) {
+                    p.sendMessage(result.getMessage());
+                    p.sendMessage("§a原木 " + result.getLogsProcessed() + "個 → 板材 " + result.getPlanksCreated() + "個");
+                } else {
+                    p.sendMessage("§c" + result.getMessage());
+                }
+            },
+            // キャンセル時のコールバック
+            () -> {
+                plugin.getLogger().info("数量選択がキャンセルされました: " + player.getName());
+            }
+        );
     }
     
     /**

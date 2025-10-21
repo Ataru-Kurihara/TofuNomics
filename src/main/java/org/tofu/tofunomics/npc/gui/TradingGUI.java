@@ -101,24 +101,36 @@ public class TradingGUI implements Listener {
             String playerJob = jobManager.getPlayerJob(player.getUniqueId());
             plugin.getLogger().info("TradingGUI内での職業確認: " + (playerJob != null ? playerJob : "職業なし"));
             
+            // 無職の場合、この取引所が無職を受け入れるかチェック
             if (playerJob == null) {
-                plugin.getLogger().info("TradingGUI: 職業なしのため処理中断");
-                String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());
-                configManager.sendNPCSpecificMessageList(player, npcType, "no_job");
-                return;
-            }
-            
-            plugin.getLogger().info("TradingGUI: 職業対応チェック - プレイヤー職業=" + playerJob + ", 対応職業=" + String.join(", ", tradingPost.getAcceptedJobTypes()));
-            
-            if (!tradingPost.acceptsJob(playerJob)) {
-                plugin.getLogger().info("TradingGUI: 職業不対応のため処理中断");
-                String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());
-                String acceptedJobsStr = String.join(", ", tradingPost.getAcceptedJobTypes());
-                configManager.sendNPCSpecificMessageList(player, npcType, "job_not_accepted", 
-                    "player", player.getName(), 
-                    "job", playerJob, 
-                    "accepted_jobs", acceptedJobsStr);
-                return;
+                plugin.getLogger().info("TradingGUI: 無職プレイヤーの受け入れ判定中...");
+                boolean acceptsNoJob = tradingPost.acceptsJob(null);
+                plugin.getLogger().info("TradingGUI: 取引所「" + tradingPost.getName() + "」の無職受け入れ: " + (acceptsNoJob ? "可能" : "不可"));
+                
+                if (!acceptsNoJob) {
+                    // この取引所は無職を受け入れない
+                    plugin.getLogger().info("TradingGUI: 職業なしのため処理中断");
+                    String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());
+                    configManager.sendNPCSpecificMessageList(player, npcType, "no_job");
+                    return;
+                }
+                
+                // この取引所は無職も受け入れる
+                plugin.getLogger().info("TradingGUI: この取引所は無職も受け入れます。GUI作成を続行");
+            } else {
+                // 職業がある場合、職業対応チェック
+                plugin.getLogger().info("TradingGUI: 職業対応チェック - プレイヤー職業=" + playerJob + ", 対応職業=" + String.join(", ", tradingPost.getAcceptedJobTypes()));
+                
+                if (!tradingPost.acceptsJob(playerJob)) {
+                    plugin.getLogger().info("TradingGUI: 職業不対応のため処理中断");
+                    String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());
+                    String acceptedJobsStr = String.join(", ", tradingPost.getAcceptedJobTypes());
+                    configManager.sendNPCSpecificMessageList(player, npcType, "job_not_accepted", 
+                        "player", player.getName(), 
+                        "job", playerJob, 
+                        "accepted_jobs", acceptedJobsStr);
+                    return;
+                }
             }
             
             String title = "§6" + tradingPost.getName() + " - アイテム取引";
@@ -204,8 +216,8 @@ public class TradingGUI implements Listener {
             "§6取引情報",
             Arrays.asList(
                 "§f現在の残高: §a" + currencyConverter.formatCurrency(balance),
-                "§f職業: §e" + playerJob,
-                "§f職業ボーナス: §a" + String.format("%.0f%%", (configManager.getJobPriceMultiplier(playerJob) - 1.0) * 100),
+                "§f職業: §e" + (playerJob != null ? playerJob : "無職"),
+                "§f職業ボーナス: §a" + (playerJob != null ? String.format("%.0f%%", (configManager.getJobPriceMultiplier(playerJob) - 1.0) * 100) : "なし"),
                 "",
                 "§7アイテムをクリックして売却"
             )
@@ -413,6 +425,16 @@ public class TradingGUI implements Listener {
         
         return materialName.contains(filter) || displayName.contains(filter);
     }
+
+    /**
+     * 原木アイテムかどうかを判定
+     */
+    private boolean isLogItem(Material material) {
+        String materialName = material.toString();
+        return materialName.endsWith("_LOG") || 
+               materialName.equals("CRIMSON_STEM") || 
+               materialName.equals("WARPED_STEM");
+    }
     
     // カテゴリ判定メソッド群
     private boolean isMiningItem(String materialName) {
@@ -610,18 +632,85 @@ public class TradingGUI implements Listener {
             player.sendMessage(configManager.getMessage("npc.trading.no_items_to_sell"));
             return;
         }
+
+        // 事前にスペースをチェック（売却金額を計算して必要なスロット数を確認）
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        double totalEarnings = 0.0;
+
+        // 売却金額の合計を計算（木こりボーナスも考慮）
+        for (ItemStack sellItem : itemsToSell) {
+            Material mat = sellItem.getType();
+            double basePrice = tradingPost.getItemPrice(mat);
+            if (basePrice > 0) {
+                double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), playerJob, basePrice);
+                
+                // 木こりが原木を売る場合は価格を2倍に
+                if ("woodcutter".equals(playerJob) && isLogItem(mat)) {
+                    finalPrice *= 2.0;
+                }
+                
+                totalEarnings += finalPrice * sellItem.getAmount();
+            }
+        }
+
+        // 必要な金塊数を計算
+        int requiredNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
         
-        // 売却処理を実行
+        // デバッグログ
+        plugin.getLogger().info("[TradingGUI] 事前チェック - totalEarnings: " + totalEarnings + ", requiredNuggets: " + requiredNuggets);
+        
+        // ItemManager.hasInventorySpaceを使用（既存の金塊スタックの空きスペースも考慮される）
+        boolean hasSpace = currencyConverter.getItemManager().hasInventorySpace(player, requiredNuggets);
+        plugin.getLogger().info("[TradingGUI] 事前チェック - hasInventorySpace result: " + hasSpace);
+        
+        if (!hasSpace) {
+            player.sendMessage("§cインベントリに空きがありません。金塊を受け取るスペースを確保してください。");
+            return;
+        }
+
+        // 先にインベントリからアイテムを削除（ロールバック用に記録）
+        Map<Integer, ItemStack> removedItems = new HashMap<>();
+        for (ItemStack sellItem : itemsToSell) {
+            int remainingToRemove = sellItem.getAmount();
+            Material sellMaterial = sellItem.getType();
+            
+            for (int i = 0; i < player.getInventory().getSize(); i++) {
+                ItemStack item = player.getInventory().getItem(i);
+                if (item != null && item.getType() == sellMaterial && remainingToRemove > 0) {
+                    int removeAmount = Math.min(item.getAmount(), remainingToRemove);
+                    
+                    // バックアップ
+                    removedItems.put(i, item.clone());
+                    
+                    // 削除（0個になる場合はスロットをnullに設定）
+                    if (item.getAmount() <= removeAmount) {
+                        player.getInventory().setItem(i, null);
+                    } else {
+                        item.setAmount(item.getAmount() - removeAmount);
+                        player.getInventory().setItem(i, item);
+                    }
+                    remainingToRemove -= removeAmount;
+                }
+            }
+        }
+        
+        // 売却処理を実行（スペースチェックはスキップ - 事前にチェック済み）
         TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(
             player, 
             tradingPost.getNpcId(), 
-            itemsToSell
+            itemsToSell,
+            true  // skipSpaceCheck = true
         );
         
         if (result.isSuccess()) {
+            // 成功 - アイテムは既に削除済み
             String earnings = currencyConverter.formatCurrency(result.getTotalEarnings());
             player.sendMessage(configManager.getMessage("npc.trading.sale_success", "total", earnings));
         } else {
+            // 失敗 - アイテムをロールバック
+            for (Map.Entry<Integer, ItemStack> entry : removedItems.entrySet()) {
+                player.getInventory().setItem(entry.getKey(), entry.getValue());
+            }
             player.sendMessage(result.getMessage());
         }
     }
@@ -639,19 +728,87 @@ public class TradingGUI implements Listener {
             player.sendMessage(configManager.getMessage("npc.trading.no_sellable_items"));
             return;
         }
+
+        // 事前にスペースをチェック（売却金額を計算して必要なスロット数を確認）
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        double totalEarnings = 0.0;
+
+        // 売却金額の合計を計算（木こりボーナスも考慮）
+        for (ItemStack sellItem : allItems) {
+            Material mat = sellItem.getType();
+            double basePrice = tradingPost.getItemPrice(mat);
+            if (basePrice > 0) {
+                double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), playerJob, basePrice);
+                
+                // 木こりが原木を売る場合は価格を2倍に
+                if ("woodcutter".equals(playerJob) && isLogItem(mat)) {
+                    finalPrice *= 2.0;
+                }
+                
+                totalEarnings += finalPrice * sellItem.getAmount();
+            }
+        }
+
+        // 必要な金塊数を計算
+        int requiredNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
         
+        // デバッグログ
+        plugin.getLogger().info("[TradingGUI] 事前チェック - totalEarnings: " + totalEarnings + ", requiredNuggets: " + requiredNuggets);
+        
+        // ItemManager.hasInventorySpaceを使用（既存の金塊スタックの空きスペースも考慮される）
+        boolean hasSpace = currencyConverter.getItemManager().hasInventorySpace(player, requiredNuggets);
+        plugin.getLogger().info("[TradingGUI] 事前チェック - hasInventorySpace result: " + hasSpace);
+        
+        if (!hasSpace) {
+            player.sendMessage("§cインベントリに空きがありません。金塊を受け取るスペースを確保してください。");
+            return;
+        }
+
+        // 先にインベントリからアイテムを削除（ロールバック用に記録）
+        Map<Integer, ItemStack> removedItems = new HashMap<>();
+        for (ItemStack sellItem : allItems) {
+            int remainingToRemove = sellItem.getAmount();
+            Material sellMaterial = sellItem.getType();
+            
+            for (int i = 0; i < player.getInventory().getSize(); i++) {
+                ItemStack item = player.getInventory().getItem(i);
+                if (item != null && item.getType() == sellMaterial && remainingToRemove > 0) {
+                    int removeAmount = Math.min(item.getAmount(), remainingToRemove);
+                    
+                    // バックアップ
+                    removedItems.put(i, item.clone());
+                    
+                    // 削除（0個になる場合はスロットをnullに設定）
+                    if (item.getAmount() <= removeAmount) {
+                        player.getInventory().setItem(i, null);
+                    } else {
+                        item.setAmount(item.getAmount() - removeAmount);
+                        player.getInventory().setItem(i, item);
+                    }
+                    remainingToRemove -= removeAmount;
+                }
+            }
+        }
+        
+        // 売却処理を実行（スペースチェックはスキップ - 事前にチェック済み）
         TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(
             player, 
             tradingPost.getNpcId(), 
-            allItems
+            allItems,
+            true  // skipSpaceCheck = true
         );
         
         if (result.isSuccess()) {
+            // 成功 - アイテムは既に削除済み
             String earnings = currencyConverter.formatCurrency(result.getTotalEarnings());
             player.sendMessage(configManager.getMessage("npc.trading.sell_all_success", 
                 "total", earnings,
                 "count", String.valueOf(result.getSoldItems().values().stream().mapToInt(Integer::intValue).sum())));
         } else {
+            // 失敗 - アイテムをロールバック
+            for (Map.Entry<Integer, ItemStack> entry : removedItems.entrySet()) {
+                player.getInventory().setItem(entry.getKey(), entry.getValue());
+            }
             player.sendMessage(result.getMessage());
         }
     }

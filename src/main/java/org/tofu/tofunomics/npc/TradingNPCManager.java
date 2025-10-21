@@ -69,10 +69,18 @@ public class TradingNPCManager {
         }
         
         public boolean acceptsJob(String jobType) {
-            // 空配列または"all"が含まれている場合は全職業対応
-            return acceptedJobTypes.isEmpty() || 
-                   acceptedJobTypes.contains("all") || 
-                   acceptedJobTypes.contains(jobType);
+            // 空配列または"all"が含まれている場合は全職業対応（無職も含む）
+            if (acceptedJobTypes.isEmpty() || acceptedJobTypes.contains("all")) {
+                return true;
+            }
+            
+            // jobTypeがnull（無職）の場合、上記の条件を満たさない限りfalse
+            if (jobType == null) {
+                return false;
+            }
+            
+            // 指定された職業が含まれているかチェック
+            return acceptedJobTypes.contains(jobType);
         }
         
         public double getItemPrice(Material material) {
@@ -102,8 +110,30 @@ public class TradingNPCManager {
         tradingPosts.clear();
         plugin.getLogger().info("既存の取引所データをクリアしました");
         
+        // 現在スポーン中の全NPCを取得（座標ベースでの重複チェック用）
+        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
+        Map<String, UUID> existingNPCsByLocation = new HashMap<>();
+        Map<String, String> existingNPCsNameByLocation = new HashMap<>();
+        
+        for (NPCManager.NPCData npc : allNPCs) {
+            if ("trader".equals(npc.getNpcType())) {
+                Location loc = npc.getLocation();
+                String locationKey = loc.getWorld().getName() + "," + 
+                                   (int)loc.getX() + "," + 
+                                   (int)loc.getY() + "," + 
+                                   (int)loc.getZ();
+                existingNPCsByLocation.put(locationKey, npc.getEntityId());
+                existingNPCsNameByLocation.put(locationKey, npc.getName());
+            }
+        }
+        
+        plugin.getLogger().info("既存の取引NPC数: " + existingNPCsByLocation.size());
+        
         List<Map<?, ?>> tradingPostConfigs = configManager.getTradingPostConfigs();
         plugin.getLogger().info("設定から " + tradingPostConfigs.size() + " 個の取引所を読み込み");
+        
+        // config.ymlに記載されている座標を記録（警告用）
+        Set<String> configLocationKeys = new HashSet<>();
         
         for (Map<?, ?> config : tradingPostConfigs) {
             try {
@@ -142,33 +172,95 @@ public class TradingNPCManager {
                 }
                 
                 Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
-                plugin.getLogger().info("取引NPCを生成中: " + name + " at [" + x + ", " + y + ", " + z + "] (world: " + world + ")");
-                Villager tradingNPC = npcManager.createNPC(location, "trader", name);
                 
-                if (tradingNPC != null) {
-                    setupTradingNPC(tradingNPC);
+                // 座標キーを生成
+                String locationKey = world + "," + x + "," + y + "," + z;
+                configLocationKeys.add(locationKey);
+                
+                UUID npcId;
+                Villager tradingNPC = null;
+                
+                // 既存NPCチェック
+                if (existingNPCsByLocation.containsKey(locationKey)) {
+                    // 既存NPCを再利用
+                    npcId = existingNPCsByLocation.get(locationKey);
+                    NPCManager.NPCData existingNPC = npcManager.getNPCData(npcId);
                     
-                    Map<Material, Double> prices = buildItemPrices(acceptedJobs);
-                    TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, tradingNPC.getUniqueId());
-                    tradingPosts.put(id, tradingPost);
-                    
-                    plugin.getLogger().info("========================================");
-                    plugin.getLogger().info("取引NPC配置成功:");
-                    plugin.getLogger().info("  名前: " + name);
-                    plugin.getLogger().info("  ID: " + id);
-                    plugin.getLogger().info("  UUID: " + tradingNPC.getUniqueId());
-                    plugin.getLogger().info("  座標: [" + x + ", " + y + ", " + z + "]");
-                    plugin.getLogger().info("  ワールド: " + world);
-                    plugin.getLogger().info("========================================");
+                    if (existingNPC != null) {
+                        tradingNPC = existingNPC.getEntity();
+                        plugin.getLogger().info("既存の取引NPCを再利用: " + name + " (UUID: " + npcId + ")");
+                        
+                        // 名前が変更されている場合は更新
+                        if (!name.equals(existingNPC.getName())) {
+                            tradingNPC.setCustomName(name);
+                            plugin.getLogger().info("  NPC名を更新: " + existingNPC.getName() + " -> " + name);
+                        }
+                    } else {
+                        // NPCDataが見つからない場合は新規作成
+                        plugin.getLogger().warning("既存NPCのデータが見つからないため、新規作成します: " + locationKey);
+                        tradingNPC = npcManager.createNPC(location, "trader", name);
+                        if (tradingNPC != null) {
+                            npcId = tradingNPC.getUniqueId();
+                            setupTradingNPC(tradingNPC);
+                        } else {
+                            plugin.getLogger().severe("取引NPCの生成に失敗しました: " + name);
+                            continue;
+                        }
+                    }
                 } else {
-                    plugin.getLogger().severe("取引NPCの生成に失敗しました: " + name + " at [" + x + ", " + y + ", " + z + "]");
+                    // 新規作成
+                    plugin.getLogger().info("取引NPCを新規生成中: " + name + " at [" + x + ", " + y + ", " + z + "]");
+                    tradingNPC = npcManager.createNPC(location, "trader", name);
+                    
+                    if (tradingNPC != null) {
+                        npcId = tradingNPC.getUniqueId();
+                        setupTradingNPC(tradingNPC);
+                    } else {
+                        plugin.getLogger().severe("取引NPCの生成に失敗しました: " + name);
+                        continue;
+                    }
                 }
                 
+                // 取引所データを登録
+                Map<Material, Double> prices = buildItemPrices(acceptedJobs);
+                TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, npcId);
+                tradingPosts.put(id, tradingPost);
+                
+                plugin.getLogger().info("========================================");
+                plugin.getLogger().info("取引所登録成功:");
+                plugin.getLogger().info("  名前: " + name);
+                plugin.getLogger().info("  ID: " + id);
+                plugin.getLogger().info("  UUID: " + npcId);
+                plugin.getLogger().info("  座標: [" + x + ", " + y + ", " + z + "]");
+                plugin.getLogger().info("========================================");
+                
             } catch (Exception e) {
-                plugin.getLogger().warning("取引NPC生成中にエラーが発生しました: " + e.getMessage());
+                plugin.getLogger().warning("取引NPC処理中にエラーが発生しました: " + e.getMessage());
                 e.printStackTrace();
             }
         }
+        
+        // config.ymlに記載されていないNPCを検出して警告
+        plugin.getLogger().info("=== config.yml未登録NPCチェック ===");
+        int orphanedCount = 0;
+        for (Map.Entry<String, UUID> entry : existingNPCsByLocation.entrySet()) {
+            String locationKey = entry.getKey();
+            if (!configLocationKeys.contains(locationKey)) {
+                String npcName = existingNPCsNameByLocation.get(locationKey);
+                UUID npcId = entry.getValue();
+                plugin.getLogger().warning("警告: config.ymlに記載されていない取引NPCを発見: " + npcName + " at " + locationKey + " (UUID: " + npcId + ")");
+                plugin.getLogger().warning("  このNPCを削除する場合は /npc delete コマンドを使用してください");
+                orphanedCount++;
+            }
+        }
+        
+        if (orphanedCount > 0) {
+            plugin.getLogger().warning("config.yml未登録の取引NPC: " + orphanedCount + "体");
+        } else {
+            plugin.getLogger().info("全ての取引NPCがconfig.ymlに登録されています");
+        }
+        
+        plugin.getLogger().info("=== 取引NPC生成完了 ===");
     }
     
     private void setupTradingNPC(Villager npc) {
@@ -334,65 +426,117 @@ public class TradingNPCManager {
     
     private void openTradingServiceGUI(Player player, TradingPost tradingPost, NPCManager.NPCData npcData) {
         plugin.getLogger().info("Step 5: GUI表示処理開始");
+        plugin.getLogger().info("  プレイヤー: " + player.getName());
+        plugin.getLogger().info("  取引所: " + tradingPost.getName());
+        plugin.getLogger().info("  NPC: " + npcData.getName());
         
         try {
-            // まず職業チェックを先に行う（GUIの有無に関係なく）
+            // まず営業時間チェック（遅延前に実行）
+            if (!isWithinTradingHours()) {
+                plugin.getLogger().info("営業時間外のため処理中断");
+                int startHour = configManager.getTradingStartHour();
+                int endHour = configManager.getTradingEndHour();
+                player.sendMessage("§c申し訳ありません。営業時間は" + startHour + ":00~" + endHour + ":00です。");
+                return;
+            }
+            plugin.getLogger().info("営業時間チェック: OK");
+            
+            // 職業チェックを先に行う
             String playerJob = jobManager.getPlayerJob(player.getUniqueId());
             plugin.getLogger().info("職業チェック: " + (playerJob != null ? playerJob : "無職"));
             
-            // 無職の場合は即座にメッセージ表示
+            // 無職の場合、この取引所が無職を受け入れるかチェック
             if (playerJob == null) {
-                plugin.getLogger().info("無職のためメッセージ表示");
-                String npcType = getNPCTypeFromTradingPost(tradingPost);
-                plugin.getLogger().info("NPCタイプ: " + npcType);
+                plugin.getLogger().info("プレイヤーは無職です。取引所の受け入れ判定中...");
+                boolean acceptsNoJob = tradingPost.acceptsJob(null);
+                plugin.getLogger().info("取引所「" + tradingPost.getName() + "」の無職受け入れ: " + (acceptsNoJob ? "可能" : "不可"));
                 
-                // メッセージ送信を確実に実行
-                try {
-                    // まず挨拶メッセージを送信
-                    configManager.sendNPCWelcomeMessage(player, npcType);
-                    // その後、無職者向けメッセージを送信
-                    configManager.sendNPCSpecificMessageList(player, npcType, "no_job");
-                    plugin.getLogger().info("挨拶メッセージと無職者向けメッセージ送信完了");
-                } catch (Exception e) {
-                    plugin.getLogger().severe("メッセージ送信でエラー: " + e.getMessage());
-                    // 緊急フォールバック
-                    player.sendMessage("§6「いらっしゃい、お客さん！」");
-                    player.sendMessage("§e「まずは何か職業に就いてからお越しください」");
-                    player.sendMessage("§7コマンド: §f/jobs join <職業名>");
+                if (!acceptsNoJob) {
+                    // この取引所は無職を受け入れない
+                    plugin.getLogger().info("無職のためメッセージ表示して終了");
+                    String npcType = getNPCTypeFromTradingPost(tradingPost);
+                    plugin.getLogger().info("NPCタイプ: " + npcType);
+                    
+                    // メッセージ送信を確実に実行
+                    try {
+                        // まず挨拶メッセージを送信
+                        configManager.sendNPCWelcomeMessage(player, npcType);
+                        // その後、無職者向けメッセージを送信
+                        configManager.sendNPCSpecificMessageList(player, npcType, "no_job");
+                        plugin.getLogger().info("挨拶メッセージと無職者向けメッセージ送信完了");
+                    } catch (Exception e) {
+                        plugin.getLogger().severe("メッセージ送信でエラー: " + e.getMessage());
+                        // 緊急フォールバック
+                        player.sendMessage("§6「いらっしゃい、お客さん！」");
+                        player.sendMessage("§e「まずは何か職業に就いてからお越しください」");
+                        player.sendMessage("§7コマンド: §f/jobs join <職業名>");
+                    }
+                    return;
                 }
-                return;
+                
+                // この取引所は無職も受け入れる
+                plugin.getLogger().info("この取引所は無職も受け入れます。GUIを開く処理へ進みます");
             }
             
-            // 遅延してからTradingGUIを開く（職業がある場合）
+            // TradingGUIインスタンスの確認
+            plugin.getLogger().info("TradingGUIインスタンス確認中...");
+            org.tofu.tofunomics.npc.gui.TradingGUI tradingGUI = plugin.getTradingGUI();
+            
+            if (tradingGUI == null) {
+                plugin.getLogger().severe("TradingGUIがnullです！初期化に失敗している可能性があります");
+                player.sendMessage("§c取引システムの初期化に失敗しています。");
+                player.sendMessage("§e管理者にお知らせください。");
+                // フォールバック処理
+                showTradingMenu(player, tradingPost);
+                return;
+            }
+            plugin.getLogger().info("TradingGUIインスタンス確認: OK");
+            
+            // 遅延してからTradingGUIを開く
             int delayTicks = configManager.getNPCGUIDelayTicks();
+            plugin.getLogger().info("GUI表示を" + delayTicks + "tick遅延実行します");
+            
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                // プレイヤーがまだオンラインで、NPCの近くにいて、営業時間内かチェック
-                if (player.isOnline() && isPlayerNearNPC(player, npcData) && isWithinTradingHours()) {
-                    org.tofu.tofunomics.npc.gui.TradingGUI tradingGUI = plugin.getTradingGUI();
-                    
-                    if (tradingGUI != null) {
-                        plugin.getLogger().info("TradingGUIでの処理");
-                        tradingGUI.openTradingGUI(player, tradingPost);
-                    } else {
-                        plugin.getLogger().info("TradingGUI null - フォールバック処理で価格表示");
-                        showTradingMenu(player, tradingPost);
-                    }
-                } else {
-                    if (!player.isOnline()) {
-                        plugin.getLogger().info("プレイヤー " + player.getName() + " がオフラインのため、GUIを開かませんでした");
-                    } else if (!isPlayerNearNPC(player, npcData)) {
-                        plugin.getLogger().info("プレイヤー " + player.getName() + " がNPCから離れたため、GUIを開かませんでした");
-                    } else if (!isWithinTradingHours()) {
-                        plugin.getLogger().info("営業時間外のため、GUIを開かませんでした");
-                        // 営業時間外メッセージを送信
-                        int startHour = configManager.getTradingStartHour();
-                        int endHour = configManager.getTradingEndHour();
-                        player.sendMessage("§c申し訳ありません。営業時間は" + startHour + ":00~" + endHour + ":00です。");
-                    }
+                plugin.getLogger().info("=== 遅延実行開始 ===");
+                
+                // プレイヤーがまだオンラインかチェック
+                if (!player.isOnline()) {
+                    plugin.getLogger().info("プレイヤー " + player.getName() + " がオフラインのため、GUIを開きませんでした");
+                    return;
+                }
+                plugin.getLogger().info("プレイヤーオンラインチェック: OK");
+                
+                // NPCの近くにいるかチェック
+                if (!isPlayerNearNPC(player, npcData)) {
+                    plugin.getLogger().info("プレイヤー " + player.getName() + " がNPCから離れたため、GUIを開きませんでした");
+                    player.sendMessage("§cNPCから離れすぎています。");
+                    return;
+                }
+                plugin.getLogger().info("NPC距離チェック: OK");
+                
+                // 営業時間内か再チェック（念のため）
+                if (!isWithinTradingHours()) {
+                    plugin.getLogger().info("営業時間外のため、GUIを開きませんでした");
+                    int startHour = configManager.getTradingStartHour();
+                    int endHour = configManager.getTradingEndHour();
+                    player.sendMessage("§c申し訳ありません。営業時間は" + startHour + ":00~" + endHour + ":00です。");
+                    return;
+                }
+                plugin.getLogger().info("営業時間再チェック: OK");
+                
+                // GUIを開く
+                plugin.getLogger().info("TradingGUI.openTradingGUI()を呼び出します");
+                try {
+                    tradingGUI.openTradingGUI(player, tradingPost);
+                    plugin.getLogger().info("TradingGUI.openTradingGUI()の呼び出し完了");
+                } catch (Exception e) {
+                    plugin.getLogger().severe("TradingGUI.openTradingGUI()でエラーが発生: " + e.getMessage());
+                    player.sendMessage("§c取引画面の表示中にエラーが発生しました。");
+                    player.sendMessage("§e管理者にお知らせください。");
+                    e.printStackTrace();
                 }
             }, delayTicks);
             
-
         } catch (Exception e) {
             plugin.getLogger().severe("取引GUI開起中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("エラー発生場所: TradingNPCManager.openTradingServiceGUI");
@@ -410,7 +554,7 @@ public class TradingNPCManager {
         }
         
         String playerJob = jobManager.getPlayerJob(player.getUniqueId());
-        if (playerJob == null || !tradingPost.acceptsJob(playerJob)) {
+        if (!tradingPost.acceptsJob(playerJob)) {
             return new TradeResult(false, "この取引所を利用する権限がありません", 0.0, new HashMap<>());
         }
         
@@ -437,15 +581,66 @@ public class TradingNPCManager {
                 
                 totalEarnings += itemTotal;
                 soldItems.put(material, soldItems.getOrDefault(material, 0) + amount);
-                
-                // アイテムを削除
-                item.setAmount(0);
             }
         }
         
         if (totalEarnings > 0) {
             // インベントリに金塊として支払い
             if (!currencyConverter.receiveCash(player, totalEarnings)) {
+                return new TradeResult(false, "インベントリに空きがありません。金塊を受け取るスペースを確保してください", 0.0, new HashMap<>());
+            }
+            
+            return new TradeResult(true, "取引が完了しました", totalEarnings, soldItems);
+        } else {
+            return new TradeResult(false, "売却可能なアイテムがありませんでした", 0.0, new HashMap<>());
+        }
+    }
+
+    // スペースチェックスキップオプション付きのアイテム売却処理
+    public TradeResult processItemSale(Player player, UUID npcId, List<ItemStack> items, boolean skipSpaceCheck) {
+        plugin.getLogger().info("[TradingNPCManager] processItemSale called with skipSpaceCheck: " + skipSpaceCheck);
+        
+        TradingPost tradingPost = getTradingPostByNPCId(npcId);
+        if (tradingPost == null) {
+            return new TradeResult(false, "取引所が見つかりません", 0.0, new HashMap<>());
+        }
+        
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        if (!tradingPost.acceptsJob(playerJob)) {
+            return new TradeResult(false, "この取引所を利用する権限がありません", 0.0, new HashMap<>());
+        }
+        
+        Map<Material, Integer> soldItems = new HashMap<>();
+        double totalEarnings = 0.0;
+        
+        for (ItemStack item : items) {
+            if (item == null || item.getType() == Material.AIR) continue;
+            
+            Material material = item.getType();
+            double basePrice = tradingPost.getItemPrice(material);
+            
+            if (basePrice > 0) {
+                int amount = item.getAmount();
+                double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, basePrice);
+                
+                // 木こりが原木を売る場合は価格を2倍に
+                if (isWoodcutter(player) && isLogItem(material)) {
+                    finalPrice *= 2.0;
+                    plugin.getLogger().info("木こりボーナス適用: " + material + " の価格を2倍に");
+                }
+                
+                double itemTotal = finalPrice * amount;
+                
+                totalEarnings += itemTotal;
+                soldItems.put(material, soldItems.getOrDefault(material, 0) + amount);
+            }
+        }
+        
+        if (totalEarnings > 0) {
+            plugin.getLogger().info("[TradingNPCManager] Calling receiveCash with totalEarnings: " + totalEarnings + ", skipSpaceCheck: " + skipSpaceCheck);
+            
+            // インベントリに金塊として支払い（スペースチェックスキップオプション付き）
+            if (!currencyConverter.receiveCash(player, totalEarnings, skipSpaceCheck)) {
                 return new TradeResult(false, "インベントリに空きがありません。金塊を受け取るスペースを確保してください", 0.0, new HashMap<>());
             }
             
@@ -620,6 +815,38 @@ public class TradingNPCManager {
         
         plugin.getLogger().info("取引所データの再読み込みが完了しました");
     }
+
+    
+    /**
+     * コマンドで生成されたNPCを即座に登録（リロードなし）
+     * NPCCommand からの直接呼び出し用
+     */
+    public void registerTradingNPC(UUID npcId, String id, String name, Location location, List<String> acceptedJobs) {
+        try {
+            plugin.getLogger().info("=== 取引NPC即座登録開始 ===");
+            plugin.getLogger().info("  NPC UUID: " + npcId);
+            plugin.getLogger().info("  取引所ID: " + id);
+            plugin.getLogger().info("  NPC名: " + name);
+            plugin.getLogger().info("  受け入れ職業: " + String.join(", ", acceptedJobs));
+            
+            // アイテム価格を構築
+            Map<Material, Double> prices = buildItemPrices(acceptedJobs);
+            
+            // TradingPostオブジェクトを作成
+            TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, npcId);
+            
+            // tradingPostsマップに登録
+            tradingPosts.put(id, tradingPost);
+            
+            plugin.getLogger().info("取引NPCを即座に登録完了: " + name + " (UUID: " + npcId + ")");
+            plugin.getLogger().info("登録済み取引所数: " + tradingPosts.size());
+            plugin.getLogger().info("=== 取引NPC即座登録完了 ===");
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("取引NPC即座登録中にエラーが発生: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
     
     /**
      * 設定ファイルからtradingPostsマップを更新（既存NPCは再スポーンしない）
@@ -629,6 +856,18 @@ public class TradingNPCManager {
         
         // 既存の取引所データをクリア
         tradingPosts.clear();
+        
+        // デバッグ: 現在スポーンしている全NPCを確認
+        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
+        plugin.getLogger().info("現在スポーン中のNPC総数: " + allNPCs.size());
+        int traderCount = 0;
+        for (NPCManager.NPCData npc : allNPCs) {
+            if ("trader".equals(npc.getNpcType())) {
+                traderCount++;
+                plugin.getLogger().info("  取引NPC: " + npc.getName() + " (UUID: " + npc.getEntityId() + ", タイプ: " + npc.getNpcType() + ")");
+            }
+        }
+        plugin.getLogger().info("取引NPCの数: " + traderCount);
         
         List<Map<?, ?>> tradingPostConfigs = configManager.getTradingPostConfigs();
         plugin.getLogger().info("設定から " + tradingPostConfigs.size() + " 個の取引所を読み込み");
@@ -671,6 +910,11 @@ public class TradingNPCManager {
                 
                 Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
                 
+                plugin.getLogger().info("--- 取引所設定処理: " + name + " ---");
+                plugin.getLogger().info("  設定ID: " + id);
+                plugin.getLogger().info("  名前（色コード付き）: " + name);
+                plugin.getLogger().info("  名前（色コード除去）: " + org.bukkit.ChatColor.stripColor(name));
+                
                 // 既存のスポーン済みNPCを名前で検索
                 UUID npcId = findExistingNPCIdByName(name);
                 
@@ -680,9 +924,13 @@ public class TradingNPCManager {
                     TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, prices, npcId);
                     tradingPosts.put(id, tradingPost);
                     
-                    plugin.getLogger().info("取引所データ登録: " + name + " (既存NPC: " + npcId + ")");
+                    plugin.getLogger().info("  ✓ 取引所データ登録成功: " + name + " (既存NPC UUID: " + npcId + ")");
                 } else {
-                    plugin.getLogger().warning("取引所 " + name + " に対応するNPCが見つかりません");
+                    plugin.getLogger().warning("  ✗ 取引所 " + name + " に対応するNPCが見つかりません");
+                    plugin.getLogger().warning("  - config.ymlに設定はあるが、スポーン済みNPCが見つからない");
+                    plugin.getLogger().warning("  - NPCを手動削除した、またはワールドがロードされていない可能性");
+                    plugin.getLogger().warning("  - 解決方法1: /npc spawn trader コマンドで再作成");
+                    plugin.getLogger().warning("  - 解決方法2: config.ymlから該当の設定を削除");
                 }
                 
             } catch (Exception e) {
@@ -702,15 +950,27 @@ public class TradingNPCManager {
         // 色コードを除去した検索名
         String searchName = org.bukkit.ChatColor.stripColor(name);
         
+        plugin.getLogger().info("  NPCを検索中: " + name + " → " + searchName);
+        plugin.getLogger().info("  検索対象NPC総数: " + allNPCs.size());
+        
+        int matchAttempts = 0;
         for (NPCManager.NPCData npcData : allNPCs) {
             if ("trader".equals(npcData.getNpcType())) {
+                matchAttempts++;
                 // NPCの名前からも色コードを除去して比較
                 String npcName = org.bukkit.ChatColor.stripColor(npcData.getName());
+                plugin.getLogger().info("    比較 #" + matchAttempts + ": [" + npcData.getName() + "] → [" + npcName + "]");
+                
                 if (searchName.equals(npcName)) {
+                    plugin.getLogger().info("    ✓ マッチ成功！UUID: " + npcData.getEntityId());
                     return npcData.getEntityId();
+                } else {
+                    plugin.getLogger().info("    ✗ マッチ失敗: [" + searchName + "] != [" + npcName + "]");
                 }
             }
         }
+        
+        plugin.getLogger().warning("  検索結果: NPCが見つかりませんでした（" + matchAttempts + "個の取引NPCを確認）");
         return null;
     }
     
@@ -760,6 +1020,8 @@ public class TradingNPCManager {
      */
     private boolean isPlayerNearNPC(Player player, NPCManager.NPCData npcData) {
         try {
+            plugin.getLogger().info("距離チェック開始: プレイヤー=" + player.getName() + ", NPC=" + npcData.getName());
+            
             // NPCエンティティを取得
             Villager npcEntity = null;
             for (Villager villager : player.getWorld().getEntitiesByClass(Villager.class)) {
@@ -770,6 +1032,7 @@ public class TradingNPCManager {
             }
             
             if (npcEntity == null) {
+                plugin.getLogger().warning("NPCエンティティが見つかりませんでした: " + npcData.getName());
                 return false; // NPCが見つからない場合
             }
             
@@ -777,10 +1040,16 @@ public class TradingNPCManager {
             double distance = player.getLocation().distance(npcEntity.getLocation());
             int accessRange = configManager.getNPCAccessRange();
             
-            return distance <= accessRange;
+            plugin.getLogger().info("距離チェック結果: 距離=" + String.format("%.2f", distance) + "ブロック, 許容範囲=" + accessRange + "ブロック");
+            
+            boolean isNear = distance <= accessRange;
+            plugin.getLogger().info("距離チェック判定: " + (isNear ? "範囲内" : "範囲外"));
+            
+            return isNear;
             
         } catch (Exception e) {
             plugin.getLogger().warning("プレイヤーとNPCの距離チェック中にエラーが発生: " + e.getMessage());
+            e.printStackTrace();
             return false; // エラーの場合は安全のためfalseを返す
         }
     }
