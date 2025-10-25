@@ -53,7 +53,7 @@ public class UnifiedEventHandler implements Listener {
     
     // 既存のハンドラ参照
     private final org.tofu.tofunomics.experience.JobExperienceManager experienceManager;
-    private final org.tofu.tofunomics.income.JobIncomeManager incomeManager;
+    // 収入システムは無効化: incomeManager は削除されました
     private final org.tofu.tofunomics.quests.JobQuestManager questManager;
     
     // 職業ブロック制限システム
@@ -63,7 +63,6 @@ public class UnifiedEventHandler implements Listener {
                               PlayerDAO playerDAO, PlayerJobDAO playerJobDAO,
                               JobManager jobManager,
                               org.tofu.tofunomics.experience.JobExperienceManager experienceManager,
-                              org.tofu.tofunomics.income.JobIncomeManager incomeManager,
                               org.tofu.tofunomics.quests.JobQuestManager questManager,
                               org.tofu.tofunomics.jobs.JobBlockPermissionManager blockPermissionManager) {
         this.plugin = plugin;
@@ -73,7 +72,7 @@ public class UnifiedEventHandler implements Listener {
         this.jobManager = jobManager;
         this.logger = plugin.getLogger();
         this.experienceManager = experienceManager;
-        this.incomeManager = incomeManager;
+        // 収入システムは無効化: incomeManager は削除されました
         this.questManager = questManager;
         this.blockPermissionManager = blockPermissionManager;
         
@@ -138,9 +137,8 @@ public class UnifiedEventHandler implements Listener {
             return; // 50ms以内の重複イベントは無視
         }
         
-        // 既存のマネージャーに処理を委譲
+        // 既存のマネージャーに処理を委譲（収入システムは無効化）
         experienceManager.onBlockBreak(event);
-        incomeManager.onBlockBreak(event);
         questManager.onBlockBreak(event);
         
         // キャッシュに記録
@@ -216,9 +214,8 @@ public class UnifiedEventHandler implements Listener {
             return;
         }
         
-        // 既存のマネージャーに処理を委譲
+        // 既存のマネージャーに処理を委譲（収入システムは無効化）
         experienceManager.onCraftItem(event);
-        incomeManager.onCraftItem(event);
         questManager.onCraftItem(event);
         
         // キャッシュに記録
@@ -308,9 +305,8 @@ public class UnifiedEventHandler implements Listener {
             return;
         }
         
-        // 既存のマネージャーに処理を委譲
+        // 既存のマネージャーに処理を委譲（収入システムは無効化）
         experienceManager.onPlayerFish(event);
-        incomeManager.onPlayerFish(event);
         questManager.onPlayerFish(event);
         
         // キャッシュに記録
@@ -405,13 +401,11 @@ public class UnifiedEventHandler implements Listener {
                 experienceManager.giveExperienceManual(player, jobName, finalExperience);
             }
             
-            // 収入付与（既存システムを利用）
-            if (finalIncome > 0) {
-                incomeManager.giveIncomeManual(player, jobName, finalIncome);
-                
-                // プレイヤーに通知
-                player.sendMessage(String.format("§7[%s] §e+%.1f経験値 §a+%.2f金塊", 
-                    configManager.getJobDisplayName(jobName), finalExperience, finalIncome));
+            // 収入システムは無効化：収入付与は削除されました
+            // プレイヤーに経験値獲得通知のみ（金塊は表示しない）
+            if (finalExperience > 0) {
+                player.sendMessage(String.format("§7[%s] §e+%.1f経験値",
+                    configManager.getJobDisplayName(jobName), finalExperience));
             }
         }
     }

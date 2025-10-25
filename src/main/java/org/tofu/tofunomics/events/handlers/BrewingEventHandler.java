@@ -146,9 +146,8 @@ public class BrewingEventHandler {
                              double income, int potionCount) {
         String playerUUID = player.getUniqueId().toString();
         
-        // 非同期で経験値と残高を更新
+        // 非同期で経験値を更新（収入システムは無効化）
         asyncUpdater.updateJobExperience(playerUUID, "alchemist", experience);
-        asyncUpdater.updatePlayerBalance(playerUUID, income, "醸造報酬");
         
         // メッセージ表示
         String message = String.format(

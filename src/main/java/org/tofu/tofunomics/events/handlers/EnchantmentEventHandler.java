@@ -66,7 +66,6 @@ public class EnchantmentEventHandler {
         
         // 基本報酬計算
         double baseExperience = expLevelCost * 2.0; // 消費レベル×2の経験値
-        double baseIncome = expLevelCost * 5.0; // 消費レベル×5の金塊
         
         // エンチャント数によるボーナス
         double enchantBonus = enchantments.size() * 1.5;
@@ -76,15 +75,13 @@ public class EnchantmentEventHandler {
         
         // 最終報酬計算
         double totalExperience = (baseExperience + enchantBonus) * levelMultiplier;
-        double totalIncome = (baseIncome + enchantBonus * 2) * levelMultiplier;
         
-        // 非同期で報酬を付与
+        // 非同期で経験値を付与（収入システムは無効化）
         String playerUUID = player.getUniqueId().toString();
         asyncUpdater.updateJobExperience(playerUUID, "wizard", totalExperience);
-        asyncUpdater.updatePlayerBalance(playerUUID, totalIncome, "エンチャント報酬");
         
         // メッセージ表示
-        displayEnchantmentResult(player, item, enchantments.size(), totalExperience, totalIncome);
+        displayEnchantmentResult(player, item, enchantments.size(), totalExperience);
     }
     
     /**
@@ -197,7 +194,7 @@ public class EnchantmentEventHandler {
      * エンチャント結果を表示
      */
     private void displayEnchantmentResult(Player player, ItemStack item, int enchantCount,
-                                         double experience, double income) {
+                                         double experience) {
         String itemName = item.getType().name().toLowerCase().replace("_", " ");
         
         player.sendMessage(ChatColor.LIGHT_PURPLE + "═══════════════════════════");
@@ -205,7 +202,6 @@ public class EnchantmentEventHandler {
         player.sendMessage(ChatColor.YELLOW + "アイテム: " + ChatColor.WHITE + itemName);
         player.sendMessage(ChatColor.YELLOW + "付与効果数: " + ChatColor.WHITE + enchantCount);
         player.sendMessage(ChatColor.GREEN + "獲得経験値: +" + String.format("%.1f", experience));
-        player.sendMessage(ChatColor.GOLD + "獲得金塊: +" + String.format("%.1f", income));
         player.sendMessage(ChatColor.LIGHT_PURPLE + "═══════════════════════════");
     }
     

@@ -114,10 +114,9 @@ public class BreedingEventHandler {
         finalExperience *= bonusMultiplier;
         finalIncome *= bonusMultiplier;
         
-        // 非同期で報酬を付与
+        // 非同期で経験値を付与（収入システムは無効化）
         String playerUUID = player.getUniqueId().toString();
         asyncUpdater.updateJobExperience(playerUUID, "farmer", finalExperience);
-        asyncUpdater.updatePlayerBalance(playerUUID, finalIncome, "動物繁殖報酬");
         
         // メッセージ表示
         displayBreedingResult(player, reward, finalExperience, finalIncome, bonusMultiplier > 1.0);
