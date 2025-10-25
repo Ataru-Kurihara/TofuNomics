@@ -121,6 +121,8 @@ public class JobIncomeManager implements Listener {
         jobIncomeMap.put("architect", architectIncome);
     }
     
+    // 収入システム無効化: 以下のイベントハンドラーをコメントアウト
+    /*
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         org.bukkit.entity.Player player = event.getPlayer();
@@ -131,7 +133,9 @@ public class JobIncomeManager implements Listener {
         checkAndGiveIncome(player, "woodcutter", blockType);
         checkAndGiveIncome(player, "farmer", blockType);
     }
+    */
     
+    /*
     @EventHandler
     public void onPlayerFish(PlayerFishEvent event) {
         if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH) return;
@@ -142,7 +146,9 @@ public class JobIncomeManager implements Listener {
             checkAndGiveIncome(player, "fisherman", caughtItem.getType());
         }
     }
+    */
     
+    /*
     @EventHandler
     public void onCraftItem(CraftItemEvent event) {
         if (!(event.getWhoClicked() instanceof org.bukkit.entity.Player)) return;
@@ -154,6 +160,7 @@ public class JobIncomeManager implements Listener {
         checkAndGiveIncome(player, "blacksmith", craftedType);
         checkAndGiveIncome(player, "alchemist", craftedType);
     }
+    */
     
     /**
      * 職業別収入の計算と付与

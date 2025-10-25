@@ -179,10 +179,9 @@ public class BuildingEventHandler {
         finalExperience *= projectBonus;
         finalIncome *= projectBonus;
         
-        // 非同期で報酬を付与
+        // 非同期で経験値を付与（収入システムは無効化）
         String playerUUID = player.getUniqueId().toString();
         asyncUpdater.updateJobExperience(playerUUID, "builder", finalExperience);
-        asyncUpdater.updatePlayerBalance(playerUUID, finalIncome, "建築報酬");
         
         // 建築スキル発動チェック
         checkBuildingSkills(player, builderJob, material, location);

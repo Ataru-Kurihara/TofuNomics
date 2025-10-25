@@ -41,7 +41,8 @@ public final class TofuNomics extends JavaPlugin {
     // Phase 3 新機能マネージャー
     private JobToolManager jobToolManager;
     private JobExperienceManager jobExperienceManager;
-    private JobIncomeManager jobIncomeManager;
+    // 収入システムは無効化: JobIncomeManager は削除されました
+    // private JobIncomeManager jobIncomeManager;
     private JobQuestManager jobQuestManager;
     private JobLevelRewardManager jobLevelRewardManager;
     private JobStatsManager jobStatsManager;
@@ -324,12 +325,14 @@ public final class TofuNomics extends JavaPlugin {
                 experienceManager
             );
             
-            // JobIncomeManagerの初期化
+            // 収入システムは無効化: JobIncomeManagerの初期化はコメントアウト
+            /*
             jobIncomeManager = new JobIncomeManager(
-                configManager, 
-                playerDAO, 
+                configManager,
+                playerDAO,
                 jobManager
             );
+            */
             
             // JobQuestManagerの初期化
             jobQuestManager = new JobQuestManager(
@@ -469,7 +472,6 @@ public final class TofuNomics extends JavaPlugin {
                     playerJobDAO,
                     jobManager,
                     jobExperienceManager,
-                    jobIncomeManager,
                     jobQuestManager,
                     jobBlockPermissionManager
                 );
@@ -542,9 +544,9 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(unifiedEventHandler, this);
                 getLogger().info("Phase 5 統合イベントハンドラーを登録しました");
             } else {
-                // フォールバック：既存の個別リスナーを登録
+                // フォールバック：既存の個別リスナーを登録（収入システムは無効化）
                 getServer().getPluginManager().registerEvents(jobExperienceManager, this);
-                getServer().getPluginManager().registerEvents(jobIncomeManager, this);
+                // getServer().getPluginManager().registerEvents(jobIncomeManager, this);  // 収入システムは無効化
                 getServer().getPluginManager().registerEvents(jobQuestManager, this);
                 getLogger().info("既存の個別イベントリスナーを登録しました");
             }

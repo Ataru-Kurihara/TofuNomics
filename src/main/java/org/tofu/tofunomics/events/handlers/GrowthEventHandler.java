@@ -138,26 +138,22 @@ public class GrowthEventHandler {
         double levelMultiplier = 1.0 + (farmerJob.getLevel() * 0.02); // レベル毎に2%ボーナス
         
         double finalExperience = reward.getExperience() * levelMultiplier;
-        double finalIncome = reward.getIncome() * levelMultiplier;
         
         // 環境ボーナスをチェック
         double bonusMultiplier = checkEnvironmentalBonuses(player, location);
         finalExperience *= bonusMultiplier;
-        finalIncome *= bonusMultiplier;
         
-        // 非同期で報酬を付与
+        // 非同期で経験値を付与（収入システムは無効化）
         String playerUUID = player.getUniqueId().toString();
         asyncUpdater.updateJobExperience(playerUUID, "farmer", finalExperience);
-        asyncUpdater.updatePlayerBalance(playerUUID, finalIncome, "作物成長報酬");
         
         // メッセージ表示（頻繁になりすぎないように制限）
         if (Math.random() < 0.3) { // 30%の確率で表示
             String message = String.format(
-                "%s%sが成長しました！ §a+%.1f経験値 §6+%.1f金塊",
+                "%s%sが成長しました！ §a+%.1f経験値",
                 ChatColor.GREEN,
                 reward.getDisplayName(),
-                finalExperience,
-                finalIncome
+                finalExperience
             );
             player.sendMessage(message);
         }
@@ -212,13 +208,16 @@ public class GrowthEventHandler {
             player.sendMessage(ChatColor.GOLD + "✦ 連鎖成長！周囲の作物も成長しました！");
         }
         
-        // レベル35以上：豊作の恵み
+        // レベル35以上：豊作の恵み（収入システムは無効化）
+        // 以下のコードはコメントアウト
+        /*
         if (level >= 35 && Math.random() < 0.1) { // 10%の確率
             // 追加報酬を付与
             asyncUpdater.updatePlayerBalance(player.getUniqueId().toString(), 
                                            reward.getIncome() * 0.5, "豊作ボーナス");
             player.sendMessage(ChatColor.GOLD + "✦ 豊作の恵み！追加収入を獲得しました！");
         }
+        */
         
         // レベル50以上：生命の祝福
         if (level >= 50 && Math.random() < 0.05) { // 5%の確率
