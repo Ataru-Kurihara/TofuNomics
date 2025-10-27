@@ -200,74 +200,44 @@ public class ScoreboardManager implements Listener {
             }
             
             // スコアを設定（下から上の順番で表示される）
-            int score = 15;
-            
-            // 時刻表示を追加する場合はスコアを増やす
-            if (showCurrentTime) {
-                score += 3; // 時刻表示で3行追加
-            }
-            if (showTradingHours && !tradingStatusText.isEmpty()) {
-                score += 2; // 取引状態で2行追加
-            }
+            int score = 10;
         
             // 空行を追加してレイアウトを整える
             objective.getScore(ChatColor.WHITE + " ").setScore(score--);
             
             // 時刻表示
             if (showCurrentTime) {
-                objective.getScore(ChatColor.AQUA + "⏰ 時刻:").setScore(score--);
-                objective.getScore(ChatColor.WHITE + currentTimeText).setScore(score--);
-                objective.getScore(ChatColor.WHITE + "  ").setScore(score--);
+                objective.getScore(ChatColor.AQUA + "⏰ 時刻: " + ChatColor.WHITE + currentTimeText).setScore(score--);
             }
             
             // 取引時間表示
             if (showTradingHours && !tradingStatusText.isEmpty()) {
-                objective.getScore(ChatColor.GOLD + "💼 取引:").setScore(score--);
-                objective.getScore(tradingStatusText).setScore(score--);
-                objective.getScore(ChatColor.WHITE + "   ").setScore(score--);
+                objective.getScore(ChatColor.GOLD + "💼 取引: " + tradingStatusText).setScore(score--);
             }
-            
-            // オンライン時間
-            if (configManager.isScoreboardShowOnlineTime()) {
-                objective.getScore(ChatColor.AQUA + "プレイ時間:").setScore(score--);
-                objective.getScore(ChatColor.WHITE + onlineTimeText).setScore(score--);
-                objective.getScore(ChatColor.WHITE + "    ").setScore(score--);
-            }
-            
             
             // 職業経験値情報
             if (configManager.isScoreboardShowExperience() && !experienceInfo.isEmpty()) {
-                objective.getScore(ChatColor.YELLOW + "次レベル:").setScore(score--);
-                objective.getScore(ChatColor.WHITE + experienceInfo).setScore(score--);
-                
-                objective.getScore(ChatColor.WHITE + "   ").setScore(score--);
+                objective.getScore(ChatColor.YELLOW + "次レベル: " + ChatColor.WHITE + experienceInfo).setScore(score--);
             }
             
             // 職業レベル
             if (configManager.isScoreboardShowJobLevel() && !levelInfo.isEmpty()) {
                 objective.getScore(ChatColor.GREEN + levelInfo).setScore(score--);
-                objective.getScore(ChatColor.WHITE + "    ").setScore(score--);
             }
             
             // 職業名
             if (configManager.isScoreboardShowJob()) {
-                objective.getScore(ChatColor.GOLD + "職業:").setScore(score--);
-                objective.getScore(ChatColor.WHITE + jobInfo).setScore(score--);
-                objective.getScore(ChatColor.WHITE + "     ").setScore(score--);
+                objective.getScore(ChatColor.GOLD + "職業: " + ChatColor.WHITE + jobInfo).setScore(score--);
             }
             
             // 預金残高
             if (configManager.isScoreboardShowBalance()) {
-                objective.getScore(ChatColor.GOLD + "預金:").setScore(score--);
-                objective.getScore(ChatColor.WHITE + bankText).setScore(score--);
-                objective.getScore(ChatColor.WHITE + "      ").setScore(score--);
+                objective.getScore(ChatColor.GOLD + "預金: " + ChatColor.WHITE + bankText).setScore(score--);
             }
             
             // 現金残高（金塊）
             if (configManager.isScoreboardShowBalance()) {
-                objective.getScore(ChatColor.GREEN + "現金:").setScore(score--);
-                objective.getScore(ChatColor.WHITE + cashText).setScore(score--);
-                objective.getScore(ChatColor.WHITE + "       ").setScore(score--);
+                objective.getScore(ChatColor.GREEN + "現金: " + ChatColor.WHITE + cashText).setScore(score--);
             }
         
             // プレイヤー名
