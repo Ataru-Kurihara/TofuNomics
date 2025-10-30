@@ -99,29 +99,29 @@ public class BankGUI implements Listener {
         );
         gui.setItem(4, balanceItem);
         
-        // 引き出しボタン
+        // 出金ボタン
         ItemStack withdrawItem = createGUIItem(
             Material.HOPPER,
-            "§c金塊を引き出し",
+            "§c出金",
             Arrays.asList(
-                "§7銀行から金塊を引き出します",
-                "§7左クリック: §f10 " + configManager.getCurrencyName(),
-                "§7右クリック: §f100 " + configManager.getCurrencyName(),
-                "§7シフト左クリック: §f500 " + configManager.getCurrencyName(),
+                "§7銀行残高からコインを引き出します",
+                "§7左クリック: §f10コイン",
+                "§7右クリック: §f100コイン",
+                "§7シフト左クリック: §f500コイン",
                 "§7シフト右クリック: §f全額引き出し"
             )
         );
         gui.setItem(11, withdrawItem);
         
-        // 預け入れボタン
+        // 入金ボタン
         ItemStack depositItem = createGUIItem(
             Material.CHEST,
-            "§a金塊を預け入れ",
+            "§a入金",
             Arrays.asList(
-                "§7手持ちの金塊を銀行に預けます",
-                "§7左クリック: §f手持ち金塊を1個預入",
-                "§7右クリック: §f手持ち金塊を10個預入",
-                "§7シフト+クリック: §f手持ち金塊を全て預入"
+                "§7手持ちのコインを銀行に入金します",
+                "§7左クリック: §fコイン1個入金",
+                "§7右クリック: §fコイン10個入金",
+                "§7シフト+クリック: §f全てのコイン入金"
             )
         );
         gui.setItem(13, depositItem);
