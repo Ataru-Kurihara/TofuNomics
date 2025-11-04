@@ -77,7 +77,8 @@ public class PlayerJoinHandler implements Listener {
             logger.info("プレイヤー " + player.getName() + " がTofuNomicsワールドに参加 - インベントリを復元します");
             // 少し遅延してインベントリを復元（TofuHomePluginのナビゲーションアイテム付与の後）
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                if (inventoryManager != null) {
+                // 復元時点でtofuNomicsワールドにいるか再チェック
+                if (inventoryManager != null && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
                     // TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）を一時保存
                     ItemStack slot9 = player.getInventory().getItem(9);
                     ItemStack slot10 = player.getInventory().getItem(10);
@@ -133,7 +134,8 @@ public class PlayerJoinHandler implements Listener {
                 logger.info("プレイヤー " + player.getName() + " がTofuNomicsワールドに入りました - インベントリを復元します");
                 // 遅延してインベントリを復元（TofuHomePluginのナビゲーションアイテム付与の後）
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    if (inventoryManager != null && player.isOnline()) {
+                    // 復元時点でtofuNomicsワールドにいるか再チェック
+                    if (inventoryManager != null && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
                         // TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）を一時保存
                         ItemStack slot9 = player.getInventory().getItem(9);
                         ItemStack slot10 = player.getInventory().getItem(10);
