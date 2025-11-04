@@ -464,6 +464,12 @@ public class PlayerJoinHandler implements Listener {
                 return;
             }
             
+            // 現在のワールドがtofuNomicsでない場合はスキップ
+            if (!player.getWorld().getName().equals("tofuNomics")) {
+                logger.info("プレイヤー " + player.getName() + " は" + player.getWorld().getName() + "にいるため、スポーン座標へのテレポートをスキップします");
+                return;
+            }
+            
             // 設定からスポーン座標を取得
             String worldName = configManager.getSpawnWorldName();
             int x = configManager.getSpawnX();
