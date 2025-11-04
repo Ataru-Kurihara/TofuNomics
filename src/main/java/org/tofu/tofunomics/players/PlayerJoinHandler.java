@@ -40,8 +40,8 @@ public class PlayerJoinHandler implements Listener {
     private final RulesManager rulesManager;
     private final Logger logger;
     
-    // ログイン時刻を記録するマップ（ログイン直後のワールド変更でインベントリ保存をスキップするため）
-    private final Map<UUID, Long> playerLoginTimes = new ConcurrentHashMap<>();
+    // ログイン中フラグを記録するマップ（ログイン直後のワールド変更でインベントリ保存をスキップするため）
+    private final Map<UUID, Boolean> isLoggingIn = new ConcurrentHashMap<>();
 
     public PlayerJoinHandler(JavaPlugin plugin, ConfigManager configManager, PlayerDAO playerDAO, ScoreboardManager scoreboardManager, PlayerInventoryManager inventoryManager, RulesManager rulesManager) {
         this.plugin = plugin;
@@ -53,12 +53,17 @@ public class PlayerJoinHandler implements Listener {
         this.logger = plugin.getLogger();
     }
     
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         
-        // ログイン時刻を記録（ログイン直後のワールド変更でインベントリ保存をスキップするため）
-        playerLoginTimes.put(player.getUniqueId(), System.currentTimeMillis());
+        // ログイン中フラグを設定（ログイン直後のワールド変更でインベントリ保存をスキップするため）
+        isLoggingIn.put(player.getUniqueId(), true);
+        
+        // 5秒後にフラグをクリア
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            isLoggingIn.remove(player.getUniqueId());
+        }, 100L); // 100 ticks = 5秒
 
         logger.info("プレイヤー参加イベント開始: " + player.getName() + " ワールド: " + player.getWorld().getName());
 
@@ -172,9 +177,9 @@ public class PlayerJoinHandler implements Listener {
         // TofuNomicsワールドから出た場合、インベントリを保存
         else if (previousWorldName.equals("tofuNomics")) {
             // ログイン直後（5秒以内）のワールド変更は無視（空のインベントリで上書きされるのを防ぐ）
-            Long loginTime = playerLoginTimes.get(player.getUniqueId());
-            if (loginTime != null && (System.currentTimeMillis() - loginTime) < 5000) {
-                logger.info("プレイヤー " + player.getName() + " はログイン直後のため、インベントリ保存をスキップします");
+            Boolean loggingIn = isLoggingIn.get(player.getUniqueId());
+            if (loggingIn != null && loggingIn) {
+                logger.info("プレイヤー " + player.getName() + " はログイン中のため、インベントリ保存をスキップします");
                 return;
             }
             
@@ -193,8 +198,8 @@ public class PlayerJoinHandler implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         
-        // ログイン時刻マップからクリーンアップ（メモリリーク防止）
-        playerLoginTimes.remove(player.getUniqueId());
+        // ログイン中フラグをクリーンアップ（メモリリーク防止）
+        isLoggingIn.remove(player.getUniqueId());
 
         // TofuNomicsワールドにいる場合、インベントリと現金データを保存
         if (player.getWorld().getName().equals("tofuNomics")) {
