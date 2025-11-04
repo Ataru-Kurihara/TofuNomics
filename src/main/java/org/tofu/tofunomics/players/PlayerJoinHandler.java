@@ -173,15 +173,40 @@ public class PlayerJoinHandler implements Listener {
      * プレイヤーがサーバーから退出した時の処理
      * TofuNomicsワールドにいる場合、インベントリを保存
      */
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
 
-        // TofuNomicsワールドにいる場合、インベントリを保存
+        // TofuNomicsワールドにいる場合、インベントリと現金データを保存
         if (player.getWorld().getName().equals("tofuNomics")) {
-            logger.info("プレイヤー " + player.getName() + " がサーバーから退出 - インベントリを保存します");
-            if (inventoryManager != null) {
-                inventoryManager.saveInventory(player);
+            logger.info("プレイヤー " + player.getName() + " がサーバーから退出 - データを保存します");
+            
+            try {
+                // インベントリを保存
+                if (inventoryManager != null) {
+                    boolean inventorySaved = inventoryManager.saveInventory(player);
+                    if (inventorySaved) {
+                        logger.info("インベントリ保存成功: " + player.getName());
+                    } else {
+                        logger.severe("インベントリ保存失敗: " + player.getName());
+                    }
+                }
+                
+                // プレイヤーデータを保存（念のため）
+                org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayer(player.getUniqueId());
+                if (tofuPlayer != null) {
+                    boolean dataSaved = playerDAO.updatePlayerData(tofuPlayer);
+                    if (dataSaved) {
+                        logger.info("プレイヤーデータ保存成功: " + player.getName());
+                    } else {
+                        logger.severe("プレイヤーデータ保存失敗: " + player.getName());
+                    }
+                }
+                
+            } catch (Exception e) {
+                logger.severe("プレイヤー退出時のデータ保存中にエラー: " + player.getName());
+                logger.severe("エラー詳細: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }
