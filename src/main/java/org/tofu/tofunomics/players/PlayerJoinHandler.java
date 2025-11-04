@@ -543,6 +543,10 @@ public class PlayerJoinHandler implements Listener {
         public void run() {
             try {
                 if (player.isOnline()) {
+                    // tofuNomicsワールドにいない場合はスキップ
+                    if (!player.getWorld().getName().equals("tofuNomics")) {
+                        return;
+                    }
                     displayWelcomeMessages(player);
                     displayWelcomeTitle(player);
                     // スポーン座標へのテレポート処理を追加
@@ -636,6 +640,10 @@ public class PlayerJoinHandler implements Listener {
         @Override
         public void run() {
             if (player.isOnline()) {
+                // tofuNomicsワールドにいない場合はスキップ
+                if (!player.getWorld().getName().equals("tofuNomics")) {
+                    return;
+                }
                 String formattedMessage = formatMessage(message, player);
                 player.sendMessage(ChatColor.translateAlternateColorCodes('&', formattedMessage));
             }
@@ -652,6 +660,11 @@ public class PlayerJoinHandler implements Listener {
         @Override
         public void run() {
             if (!player.isOnline()) return;
+            
+            // tofuNomicsワールドにいない場合はスキップ
+            if (!player.getWorld().getName().equals("tofuNomics")) {
+                return;
+            }
             
             player.sendMessage("");
             player.sendMessage(ChatColor.GOLD + "▬▬▬▬▬▬ 職業システム案内 ▬▬▬▬▬▬");
