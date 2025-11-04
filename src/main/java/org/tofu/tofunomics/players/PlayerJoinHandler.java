@@ -21,6 +21,9 @@ import org.tofu.tofunomics.inventory.PlayerInventoryManager;
 import org.tofu.tofunomics.rules.RulesManager;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 /**
@@ -36,6 +39,9 @@ public class PlayerJoinHandler implements Listener {
     private final PlayerInventoryManager inventoryManager;
     private final RulesManager rulesManager;
     private final Logger logger;
+    
+    // ログイン時刻を記録するマップ（ログイン直後のワールド変更でインベントリ保存をスキップするため）
+    private final Map<UUID, Long> playerLoginTimes = new ConcurrentHashMap<>();
 
     public PlayerJoinHandler(JavaPlugin plugin, ConfigManager configManager, PlayerDAO playerDAO, ScoreboardManager scoreboardManager, PlayerInventoryManager inventoryManager, RulesManager rulesManager) {
         this.plugin = plugin;
@@ -50,6 +56,9 @@ public class PlayerJoinHandler implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        
+        // ログイン時刻を記録（ログイン直後のワールド変更でインベントリ保存をスキップするため）
+        playerLoginTimes.put(player.getUniqueId(), System.currentTimeMillis());
 
         logger.info("プレイヤー参加イベント開始: " + player.getName() + " ワールド: " + player.getWorld().getName());
 
@@ -162,6 +171,13 @@ public class PlayerJoinHandler implements Listener {
         }
         // TofuNomicsワールドから出た場合、インベントリを保存
         else if (previousWorldName.equals("tofuNomics")) {
+            // ログイン直後（5秒以内）のワールド変更は無視（空のインベントリで上書きされるのを防ぐ）
+            Long loginTime = playerLoginTimes.get(player.getUniqueId());
+            if (loginTime != null && (System.currentTimeMillis() - loginTime) < 5000) {
+                logger.info("プレイヤー " + player.getName() + " はログイン直後のため、インベントリ保存をスキップします");
+                return;
+            }
+            
             logger.info("プレイヤー " + player.getName() + " がTofuNomicsワールドから退出 - インベントリを保存します");
             if (inventoryManager != null) {
                 inventoryManager.saveInventory(player);
@@ -176,6 +192,9 @@ public class PlayerJoinHandler implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        
+        // ログイン時刻マップからクリーンアップ（メモリリーク防止）
+        playerLoginTimes.remove(player.getUniqueId());
 
         // TofuNomicsワールドにいる場合、インベントリと現金データを保存
         if (player.getWorld().getName().equals("tofuNomics")) {
