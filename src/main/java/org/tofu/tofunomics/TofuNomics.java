@@ -7,6 +7,7 @@ import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.dao.JobDAO;
 import org.tofu.tofunomics.dao.PlayerJobDAO;
 import org.tofu.tofunomics.dao.JobChangeDAO;
+import org.tofu.tofunomics.dao.JobHistoryDAO;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.economy.ItemManager;
 import org.tofu.tofunomics.economy.CurrencyConverter;
@@ -31,6 +32,7 @@ public final class TofuNomics extends JavaPlugin {
     private JobDAO jobDAO;
     private PlayerJobDAO playerJobDAO;
     private JobChangeDAO jobChangeDAO;
+    private JobHistoryDAO jobHistoryDAO;
     private ConfigManager configManager;
     private ItemManager itemManager;
     private CurrencyConverter currencyConverter;
@@ -265,6 +267,7 @@ public final class TofuNomics extends JavaPlugin {
             jobDAO = new JobDAO(databaseManager.getConnection());
             playerJobDAO = new PlayerJobDAO(databaseManager.getConnection());
             jobChangeDAO = new JobChangeDAO(databaseManager.getConnection());
+            jobHistoryDAO = new JobHistoryDAO(databaseManager.getConnection());
             
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
@@ -294,7 +297,8 @@ public final class TofuNomics extends JavaPlugin {
                 jobDAO,
                 playerDAO,
                 playerJobDAO,
-                jobChangeDAO
+                jobChangeDAO,
+                jobHistoryDAO
             );
             
             // ExperienceManagerの初期化
@@ -1257,7 +1261,8 @@ public final class TofuNomics extends JavaPlugin {
             rulesManager = new org.tofu.tofunomics.rules.RulesManager(
                 this,
                 configManager,
-                playerDAO
+                playerDAO,
+                jobManager
             );
             
             getLogger().info("ルール確認システムの初期化が完了しました");

@@ -455,7 +455,7 @@ npc_system:
       kelp: 1               # 昆布               # 昆布
       
       # 八百屋用商品
-      potato: 1             # じゃがいも
+      potato: 0.2             # じゃがいも
       beetroot: 2           # ビートルート
       melon_slice: 2        # スイカ
       pumpkin_pie: 4        # パンプキンパイ        # パンプキンパイ
@@ -605,51 +605,51 @@ npc_system:
 # アイテム買取価格設定（基準価格）
   item_prices:
     # 鉱物系（tofunomicsワールド向け価格調整）
-    coal: 3
-    iron_ingot: 6
-    gold_ingot: 12
+    coal: 1
+    iron_ingot: 4
+    gold_ingot: 8
     diamond: 60
     emerald: 30
-    redstone: 2
-    lapis_lazuli: 4
-    copper_ingot: 4
+    redstone: 1
+    lapis_lazuli: 2
+    copper_ingot: 2
     # 原石系
-    iron_ore: 5
-    gold_ore: 9
+    iron_ore: 3
+    gold_ore: 6
     diamond_ore: 45
     emerald_ore: 22
-    coal_ore: 2
-    copper_ore: 3
+    coal_ore: 0.5
+    copper_ore: 1
     # 木材系（tofunomicsワールド向け価格調整）
-    oak_log: 2
-    birch_log: 2
-    spruce_log: 2
-    jungle_log: 3
-    acacia_log: 3
-    dark_oak_log: 3
-    mangrove_log: 3
-    cherry_log: 3
+    oak_log: 0.2
+    birch_log: 0.2
+    spruce_log: 0.2
+    jungle_log: 0.4
+    acacia_log: 0.4
+    dark_oak_log: 0.4
+    mangrove_log: 0.4
+    cherry_log: 0.4
     # 木材製品
-    oak_planks: 1
-    birch_planks: 1
-    spruce_planks: 1
+    oak_planks: 0.1
+    birch_planks: 0.1
+    spruce_planks: 0.1
     # 農作物系（tofunomicsワールド向け価格調整）
-    wheat: 2
-    potato: 1
-    carrot: 1
-    beetroot: 2
-    pumpkin: 2
-    melon: 2
-    sugar_cane: 1
-    cocoa_beans: 3
+    wheat: 0.3
+    potato: 0.2
+    carrot: 0.2
+    beetroot: 0.3
+    pumpkin: 1
+    melon: 1
+    sugar_cane: 0.2
+    cocoa_beans: 1
     # 畜産物
-    beef: 4
-    pork: 4
-    chicken: 3
-    mutton: 3
-    leather: 3
-    milk_bucket: 4
-    egg: 2
+    beef: 2
+    pork: 2
+    chicken: 1
+    mutton: 1
+    leather: 2
+    milk_bucket: 2
+    egg: 0.3
     # 魚類（tofunomicsワールド向け価格調整）
     cod: 4
     salmon: 5
@@ -967,18 +967,23 @@ trade_system:
   
   # 全体価格倍率（すべての取引価格にかかる倍率）
   # tofunomicsワールドでは経済活性化のため価格を10%上昇
-  global_price_multiplier: 1.1
+  global_price_multiplier: 1.0
   
-  # 職業別価格ボーナス倍率
+  # 職業別価格ボーナス倍率（整数倍に統一）
   job_price_multipliers:
-    miner: 1.2      # 鉱夫は鉱石系アイテムを20%高く買取
-    woodcutter: 1.1 # 木こりは木材系アイテムを10%高く買取
-    farmer: 1.1     # 農家は農作物を10%高く買取
-    fisherman: 1.15 # 漁師は魚類を15%高く買取
-    blacksmith: 1.25 # 鍛冶屋は道具・武器を25%高く買取
-    alchemist: 1.2   # 錬金術師はポーション材料を20%高く買取
-    enchanter: 1.3   # エンチャンターはエンチャント関連を30%高く買取
-    architect: 1.15  # 建築家は建材を15%高く買取
+    # 初級職業（ボーナスなし）
+    woodcutter: 1.0  # 木こりは基本価格のみ
+    farmer: 1.0      # 農家は基本価格のみ
+    
+    # 中級職業（50%ボーナス）
+    miner: 1.5       # 鉱夫は鉱石系アイテムを50%高く買取
+    fisherman: 1.5   # 漁師は魚類を50%高く買取
+    architect: 1.5   # 建築家は建材を50%高く買取
+    
+    # 上級職業（100%ボーナス）
+    blacksmith: 2.0  # 鍛冶屋は道具・武器を100%高く買取
+    alchemist: 2.0   # 錬金術師はポーション材料を100%高く買取
+    enchanter: 2.0   # エンチャンターはエンチャント関連を100%高く買取 建築家は建材を15%高く買取
   
   # 取引履歴の保存設定
   history:
@@ -1862,7 +1867,7 @@ rules:
         - "§f・§b/rules §fでこのルールを再確認"
         - "§f・管理者やベテランプレイヤーに相談"
     
-    # ページ2: 経済システム
+    # ページ2: 経済システム（このコンテンツは economy セクションの設定値から動的に生成されます）
     2:
       title: "§6§l【経済システム】"
       content:
@@ -1885,22 +1890,25 @@ rules:
         - "§f・ジョブレベルで価格ボーナスあり"
         - "§f・食料NPCで食べ物を購入できます"
     
-    # ページ3: ジョブ・スキルシステム
+    # ページ3: ジョブ・スキルシステム（このコンテンツは jobs.job_settings セクションの設定値から動的に生成されます）
     3:
       title: "§6§l【ジョブ・スキルシステム】"
       content:
         - "§e▼ ジョブの種類"
-        - "§f・農業（Farmer） - 作物栽培で経験値"
-        - "§f・採掘（Miner） - 鉱石採掘で経験値"
-        - "§f・狩猟（Hunter） - モンスター狩りで経験値"
-        - "§f・建築（Builder） - ブロック設置で経験値"
-        - "§f・木こり（Lumberjack） - 木の伐採で経験値"
-        - "§f・漁師（Fisherman） - 釣りで経験値"
+        - "§f・鉱夫（Miner） - 鉱石採掘で経験値"
+        - "§f・木こり（Woodcutter） - 木の伐採で経験値"
+        - "§f・農家（Farmer） - 作物栽培・畜産で経験値"
+        - "§f・釣り人（Fisherman） - 釣りで経験値"
+        - "§f・鍛冶屋（Blacksmith） - 道具・武器の生産と修理"
+        - "§f・ポーション屋（Alchemist） - ポーション製造"
+        - "§f・エンチャンター（Enchanter） - エンチャント付与"
+        - "§f・建築家（Architect） - 建築と装飾で経験値"
+        - "§f※ 同時に就けるジョブは1つのみです"
         - ""
         - "§e▼ レベルアップ"
         - "§f・ジョブ関連の作業で経験値を獲得"
         - "§f・レベルが上がるとスキルを習得"
-        - "§f・最大レベル: 75"
+        - "§f・最大レベル: 100"
         - ""
         - "§e▼ スキル"
         - "§f・各ジョブ専用のスキルが習得可能"
