@@ -130,7 +130,7 @@ public class RulesGUI implements Listener {
                 content.add("§e▼ ジョブ変更");
                 content.add("§f・§b/jobs leave §fで現在のジョブを辞める");
                 content.add("§f・§b/jobs join <ジョブ名> §fで新しいジョブに就く");
-                content.add("§f・変更は1日1回まで");
+                content.add("§f・レベル50に達すると他の職業に転職できます");
             } else {
                 // その他のページは静的に読み込み
                 content = plugin.getConfig().getStringList("rules.pages." + page + ".content");
