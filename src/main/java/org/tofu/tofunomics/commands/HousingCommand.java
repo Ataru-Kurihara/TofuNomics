@@ -705,10 +705,23 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         boolean success = wgIntegration.setHostileMobSpawning(regionName, world, allow);
 
         if (success) {
+            // HostileMobRemovalManagerへの登録・削除
+            org.tofu.tofunomics.protection.HostileMobRemovalManager hostileMobRemovalManager = 
+                plugin.getHostileMobRemovalManager();
+            
+            if (hostileMobRemovalManager != null) {
+                if (allow) {
+                    hostileMobRemovalManager.removeRegion(regionName, world);
+                } else {
+                    hostileMobRemovalManager.addRegion(regionName, world);
+                }
+            }
+            
             if (allow) {
                 sender.sendMessage("§aリージョン '" + regionName + "' で敵対的モブのスポーン制限を解除しました");
             } else {
                 sender.sendMessage("§aリージョン '" + regionName + "' で敵対的モブのスポーンを禁止しました");
+                sender.sendMessage("§7自動除去システムも有効化されました（5秒ごとにスキャン）");
             }
             sender.sendMessage("§7対象: ゾンビ、スケルトン、クリーパーなど約30種類の敵対的モブ");
         } else {

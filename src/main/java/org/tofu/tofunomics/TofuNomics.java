@@ -58,6 +58,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.housing.SelectionManager selectionManager;
     private org.tofu.tofunomics.housing.HousingListener housingListener;
     private org.tofu.tofunomics.integration.WorldGuardIntegration worldGuardIntegration;
+    private org.tofu.tofunomics.protection.HostileMobRemovalManager hostileMobRemovalManager; // 敵対的モブ自動除去マネージャー
 
     // テストモードマネージャー
     private org.tofu.tofunomics.testing.TestModeManager testModeManager;
@@ -650,7 +651,8 @@ public final class TofuNomics extends JavaPlugin {
                         this,
                         housingRentalManager,
                         selectionManager,
-                        testModeManager
+                        testModeManager,
+                        configManager
                     );
                 getCommand("housing").setExecutor(housingCommand);
                 getCommand("housing").setTabCompleter(housingCommand);
@@ -1110,6 +1112,10 @@ public final class TofuNomics extends JavaPlugin {
             // WorldGuard統合の初期化（最初に初期化）
             this.worldGuardIntegration = new org.tofu.tofunomics.integration.WorldGuardIntegration(this);
             
+            // HostileMobRemovalManagerの初期化（WorldGuard統合の後に初期化）
+            this.hostileMobRemovalManager = new org.tofu.tofunomics.protection.HostileMobRemovalManager(this, worldGuardIntegration);
+            this.hostileMobRemovalManager.startMonitoring();
+            
             // テストモードマネージャーの初期化
             this.testModeManager = new org.tofu.tofunomics.testing.TestModeManager(this);
             
@@ -1155,6 +1161,9 @@ public final class TofuNomics extends JavaPlugin {
         }
         if (testModeManager != null) {
             testModeManager.clearAll();
+        }
+        if (hostileMobRemovalManager != null) {
+            hostileMobRemovalManager.stopMonitoring();
         }
         getLogger().info("住居賃貸システムをクリーンアップしました");
     }
@@ -1304,6 +1313,13 @@ public final class TofuNomics extends JavaPlugin {
         return testModeManager;
     }
 
+
+    /**
+     * HostileMobRemovalManagerを取得
+     */
+    public org.tofu.tofunomics.protection.HostileMobRemovalManager getHostileMobRemovalManager() {
+        return hostileMobRemovalManager;
+    }
 
     /**
      * WorldGuard統合を取得

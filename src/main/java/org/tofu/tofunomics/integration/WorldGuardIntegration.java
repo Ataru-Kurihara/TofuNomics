@@ -514,6 +514,15 @@ public class WorldGuardIntegration {
                 case "mob-spawning":
                     flag = Flags.MOB_SPAWNING;
                     break;
+                case "mob-damage":
+                    flag = Flags.MOB_DAMAGE;
+                    break;
+                case "creeper-explosion":
+                    flag = Flags.CREEPER_EXPLOSION;
+                    break;
+                case "ghast-fireball":
+                    flag = Flags.GHAST_FIREBALL;
+                    break;
                 default:
                     logger.warning("未対応のフラグ: " + flagName);
                     return false;
@@ -586,7 +595,13 @@ public class WorldGuardIntegration {
             if (allow) {
                 // スポーン制限を解除（nullを設定）
                 region.setFlag(Flags.DENY_SPAWN, null);
-                logger.info("リージョン " + regionId + " の敵対的モブスポーン制限を解除しました");
+
+                // ダメージ・爆発防止フラグも解除
+                region.setFlag(Flags.MOB_DAMAGE, null);
+                region.setFlag(Flags.CREEPER_EXPLOSION, null);
+                region.setFlag(Flags.GHAST_FIREBALL, null);
+
+                logger.info("リージョン " + regionId + " の敵対的モブスポーン制限・ダメージ・爆発防止を解除しました");
             } else {
                 // 敵対的なモブのリストを作成
                 java.util.Set<com.sk89q.worldedit.world.entity.EntityType> hostileMobs = new java.util.HashSet<>();
@@ -625,7 +640,14 @@ public class WorldGuardIntegration {
 
                 // deny-spawnフラグに設定
                 region.setFlag(Flags.DENY_SPAWN, hostileMobs);
+
+                // ダメージ・爆発防止フラグも設定（二重防御）
+                region.setFlag(Flags.MOB_DAMAGE, StateFlag.State.DENY);
+                region.setFlag(Flags.CREEPER_EXPLOSION, StateFlag.State.DENY);
+                region.setFlag(Flags.GHAST_FIREBALL, StateFlag.State.DENY);
+
                 logger.info("リージョン " + regionId + " で敵対的モブのスポーンを禁止しました（" + hostileMobs.size() + "種類）");
+                logger.info("リージョン " + regionId + " でダメージ・爆発防止も設定しました（二重防御）");
             }
 
             // 変更を保存
