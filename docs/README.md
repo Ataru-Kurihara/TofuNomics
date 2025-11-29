@@ -7,11 +7,13 @@
 ### 🎮 プレイヤー向け
 | ドキュメント | 説明 | 対象者 |
 |------------|------|--------|
+| **[プラグイン紹介](plugin-introduction.md)** | プラグインの魅力と遊び方 | 新規プレイヤー・検討中の方 |
 | **[プレイヤーガイド](user-guide.md)** | 職業システム・経済システムの使い方 | 一般プレイヤー |
 
 ### 🛡️ 管理者向け
 | ドキュメント | 説明 | 対象者 |
 |------------|------|--------|
+| **[機能一覧と目的](features-overview.md)** | 全機能の概要と導入メリット | サーバー管理者・検討中の方 |
 | **[管理者ガイド](admin/README.md)** | サーバー管理・運用の完全ガイド | サーバー管理者 |
 | **[インストールガイド](install-guide.md)** | プラグインの導入・初期設定 | サーバー管理者 |
 
@@ -29,8 +31,8 @@
 ## 🔍 クイックリンク
 
 ### 🚀 今すぐ始める
-- **プレイヤー**: [基本操作](user-guide.md#基本操作) → [職業選択](user-guide.md#職業システム) → [お金稼ぎ](user-guide.md#経済システム)
-- **管理者**: [インストール](install-guide.md) → [基本設定](admin/configuration.md) → [日常運用](admin/daily-operations.md)
+- **プレイヤー**: [プラグイン紹介](plugin-introduction.md) → [基本操作](user-guide.md#基本操作) → [職業選択](user-guide.md#職業システム)
+- **管理者**: [機能一覧](features-overview.md) → [インストール](install-guide.md) → [基本設定](admin/configuration.md)
 
 ### 💡 よくある質問
 - **プレイヤー**: [FAQ](user-guide.md#よくある質問)
@@ -90,6 +92,8 @@ TofuNomics プラグイン
 ```
 docs/
 ├── README.md               # このファイル（メイン索引）
+├── plugin-introduction.md  # プラグイン紹介（プレイヤー向け）
+├── features-overview.md    # 機能一覧と目的（管理者・開発者向け）
 ├── user-guide.md           # プレイヤー向けガイド
 ├── install-guide.md        # インストール・セットアップ
 ├── api-reference.md        # 開発者向けAPI
