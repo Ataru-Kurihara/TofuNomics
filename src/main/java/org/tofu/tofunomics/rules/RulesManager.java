@@ -20,27 +20,138 @@ import org.tofu.tofunomics.dao.PlayerDAO;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * ルール確認・同意機能を管理するクラス
- * - ルールブックの配布
- * - 未同意プレイヤーの行動制限
- * - ルール同意の記録
- */
 public class RulesManager implements Listener {
     
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private final PlayerDAO playerDAO;
     private final RulesGUI rulesGUI;
+    private final org.tofu.tofunomics.jobs.JobManager jobManager;
     
     // 未同意プレイヤーのUUIDを記録（制限対象）
     private final Set<UUID> unagreedPlayers = ConcurrentHashMap.newKeySet();
     
-    public RulesManager(TofuNomics plugin, ConfigManager configManager, PlayerDAO playerDAO) {
+    public RulesManager(TofuNomics plugin, ConfigManager configManager, PlayerDAO playerDAO, org.tofu.tofunomics.jobs.JobManager jobManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.playerDAO = playerDAO;
-        this.rulesGUI = new RulesGUI(plugin, configManager, this);
+        this.jobManager = jobManager;
+        this.rulesGUI = new RulesGUI(plugin, configManager, this, jobManager);
+    }
+    
+    /**
+     * ページ2の内容を動的に生成（経済システム）
+     */
+    private List<String> generatePage2Content() {
+        List<String> content = new ArrayList<>();
+        
+        try {
+            // 通貨設定を取得
+            String currencyName = plugin.getConfig().getString("economy.currency.name", "金塊");
+            String currencySymbol = plugin.getConfig().getString("economy.currency.symbol", "G");
+            int startingBalance = plugin.getConfig().getInt("economy.starting_balance", 100);
+            
+            content.add("§e▼ 通貨システム");
+            content.add("§f通貨: §6" + currencyName + " (" + currencySymbol + ")");
+            content.add("§f新規プレイヤーは" + startingBalance + currencySymbol + "からスタート");
+            content.add("");
+            content.add("§e▼ 銀行システム");
+            content.add("§f・§b/balance §f- 残高確認");
+            content.add("§f・§b/deposit <金額> §f- 金塊を預ける");
+            content.add("§f・§b/withdraw <金額> §f- 金塊を引き出す");
+            content.add("§f・銀行NPC周辺でのみ取引可能");
+            content.add("");
+            content.add("§e▼ 送金");
+            content.add("§f・§b/pay <プレイヤー名> <金額>");
+            content.add("§f・他のプレイヤーにお金を送れます");
+            content.add("");
+            content.add("§e▼ NPCとの取引");
+            content.add("§f・取引NPCで物を売買できます");
+            content.add("§f・ジョブレベルで価格ボーナスあり");
+            content.add("§f・食料NPCで食べ物を購入できます");
+            
+        } catch (Exception e) {
+            plugin.getLogger().warning("ページ2の動的生成に失敗しました。フォールバックします: " + e.getMessage());
+            // フォールバック: config.ymlから静的に読み込み
+            return plugin.getConfig().getStringList("rules.pages.2.content");
+        }
+        
+        return content;
+    }
+    
+    /**
+     * ページ3の内容を動的に生成（ジョブ・スキルシステム）
+     */
+    private List<String> generatePage3Content() {
+        List<String> content = new ArrayList<>();
+        
+        try {
+            // ジョブ設定を取得
+            int maxJobsPerPlayer = plugin.getConfig().getInt("jobs.general.max_jobs_per_player", 1);
+            
+            content.add("§e▼ ジョブの種類");
+            
+            // 全ジョブをconfig.ymlから取得して動的に生成
+            if (plugin.getConfig().isConfigurationSection("jobs.job_settings")) {
+                Set<String> jobKeys = plugin.getConfig().getConfigurationSection("jobs.job_settings").getKeys(false);
+                
+                // ジョブの表示順序を定義（優先度順）
+                List<String> jobOrder = Arrays.asList("miner", "woodcutter", "farmer", "fisherman", "blacksmith", "alchemist", "enchanter", "architect");
+                
+                // 最大レベルを取得（全ジョブ共通と仮定）
+                int maxLevel = 100;
+                
+                for (String jobKey : jobOrder) {
+                    if (jobKeys.contains(jobKey)) {
+                        String displayName = plugin.getConfig().getString("jobs.job_settings." + jobKey + ".display_name", jobKey);
+                        String description = plugin.getConfig().getString("jobs.job_settings." + jobKey + ".description", "");
+                        maxLevel = plugin.getConfig().getInt("jobs.job_settings." + jobKey + ".max_level", 100);
+                        
+                        // ジョブリストに追加
+                        content.add("§f・" + displayName + "（" + capitalize(jobKey) + "） - " + description);
+                    }
+                }
+                
+                // 同時保有可能ジョブ数を明記
+                if (maxJobsPerPlayer == 1) {
+                    content.add("§f※ 同時に就けるジョブは1つのみです");
+                } else {
+                    content.add("§f※ 同時に" + maxJobsPerPlayer + "つのジョブに就けます");
+                }
+                content.add("");
+                content.add("§e▼ レベルアップ");
+                content.add("§f・ジョブ関連の作業で経験値を獲得");
+                content.add("§f・レベルが上がるとスキルを習得");
+                content.add("§f・最大レベル: " + maxLevel);
+            } else {
+                throw new Exception("ジョブ設定が見つかりません");
+            }
+            
+            content.add("");
+            content.add("§e▼ スキル");
+            content.add("§f・各ジョブ専用のスキルが習得可能");
+            content.add("§f・作業効率アップや特殊能力を獲得");
+            content.add("");
+            content.add("§e▼ ジョブ変更");
+            content.add("§f・§b/jobs leave §fで現在のジョブを辞める");
+            content.add("§f・§b/jobs join <ジョブ名> §fで新しいジョブに就く");
+            content.add("§f・レベル50に達すると他の職業に転職できます");
+            
+        } catch (Exception e) {
+            plugin.getLogger().warning("ページ3の動的生成に失敗しました。フォールバックします: " + e.getMessage());
+            // フォールバック: config.ymlから静的に読み込み
+            return plugin.getConfig().getStringList("rules.pages.3.content");
+        }
+        
+        return content;
+    }
+    
+    /**
+     * 文字列の最初の文字を大文字にする
+     */
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) return str;
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
     
     /**
@@ -59,19 +170,19 @@ public class RulesManager implements Listener {
             // ページ内容を追加
             List<String> pages = new ArrayList<>();
             
-            // ページ1: 初心者ガイド
+            // ページ1: 初心者ガイド（静的）
             List<String> page1Content = plugin.getConfig().getStringList("rules.pages.1.content");
             pages.add(String.join("\n", page1Content));
             
-            // ページ2: 経済システム
-            List<String> page2Content = plugin.getConfig().getStringList("rules.pages.2.content");
+            // ページ2: 経済システム（動的生成）
+            List<String> page2Content = generatePage2Content();
             pages.add(String.join("\n", page2Content));
             
-            // ページ3: ジョブ・スキルシステム
-            List<String> page3Content = plugin.getConfig().getStringList("rules.pages.3.content");
+            // ページ3: ジョブ・スキルシステム（動的生成）
+            List<String> page3Content = generatePage3Content();
             pages.add(String.join("\n", page3Content));
             
-            // ページ4: 禁止事項
+            // ページ4: 禁止事項（静的）
             List<String> page4Content = plugin.getConfig().getStringList("rules.pages.4.content");
             pages.add(String.join("\n", page4Content));
             

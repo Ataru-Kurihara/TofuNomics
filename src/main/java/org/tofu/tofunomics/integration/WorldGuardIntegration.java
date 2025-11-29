@@ -8,6 +8,9 @@ import com.sk89q.worldguard.domains.DefaultDomain;
 import com.sk89q.worldguard.protection.flags.Flag;
 import com.sk89q.worldguard.protection.flags.Flags;
 import com.sk89q.worldguard.protection.flags.StateFlag;
+import com.sk89q.worldguard.protection.flags.SetFlag;
+import com.sk89q.worldedit.world.entity.EntityType;
+import com.sk89q.worldedit.world.entity.EntityTypes;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
 import com.sk89q.worldguard.protection.managers.RegionManager;
@@ -106,6 +109,18 @@ public class WorldGuardIntegration {
 
             // 領域を登録
             regionManager.addRegion(region);
+            
+            // 変更を保存
+            try {
+                regionManager.save();
+                logger.info("WorldGuard領域 " + regionId + " をディスクに保存しました");
+            } catch (Exception saveException) {
+                logger.severe("WorldGuard領域の保存に失敗しました: " + saveException.getMessage());
+                saveException.printStackTrace();
+                // 保存失敗時はリージョンを削除してロールバック
+                regionManager.removeRegion(regionId);
+                return false;
+            }
 
             logger.info("WorldGuard領域 " + regionId + " を作成しました");
             return true;
@@ -145,8 +160,17 @@ public class WorldGuardIntegration {
             DefaultDomain members = region.getMembers();
             members.addPlayer(playerUuid);
             region.setMembers(members);
-
-            logger.info("プレイヤー " + playerUuid + " を領域 " + regionId + " のメンバーに追加しました");
+            
+            // 変更を保存
+            try {
+                regionManager.save();
+                logger.info("プレイヤー " + playerUuid + " を領域 " + regionId + " のメンバーに追加し、保存しました");
+            } catch (Exception saveException) {
+                logger.severe("メンバー追加の保存に失敗しました: " + saveException.getMessage());
+                saveException.printStackTrace();
+                return false;
+            }
+            
             return true;
 
         } catch (Exception e) {
@@ -183,8 +207,17 @@ public class WorldGuardIntegration {
             DefaultDomain members = region.getMembers();
             members.removePlayer(playerUuid);
             region.setMembers(members);
-
-            logger.info("プレイヤー " + playerUuid + " を領域 " + regionId + " のメンバーから削除しました");
+            
+            // 変更を保存
+            try {
+                regionManager.save();
+                logger.info("プレイヤー " + playerUuid + " を領域 " + regionId + " のメンバーから削除し、保存しました");
+            } catch (Exception saveException) {
+                logger.severe("メンバー削除の保存に失敗しました: " + saveException.getMessage());
+                saveException.printStackTrace();
+                return false;
+            }
+            
             return true;
 
         } catch (Exception e) {
@@ -213,7 +246,15 @@ public class WorldGuardIntegration {
 
             boolean removed = regionManager.removeRegion(regionId) != null;
             if (removed) {
-                logger.info("領域 " + regionId + " を削除しました");
+                // 変更を保存
+                try {
+                    regionManager.save();
+                    logger.info("領域 " + regionId + " を削除し、保存しました");
+                } catch (Exception saveException) {
+                    logger.severe("領域削除の保存に失敗しました: " + saveException.getMessage());
+                    saveException.printStackTrace();
+                    return false;
+                }
                 return true;
             } else {
                 logger.warning("領域 " + regionId + " が見つかりません");
@@ -394,7 +435,19 @@ public class WorldGuardIntegration {
             // 親リージョンを設定
             try {
                 childRegion.setParent(parentRegion);
-                logger.info("リージョン " + childRegionId + " の親リージョンを " + parentRegionId + " に設定しました");
+                
+                // 変更を保存
+                try {
+                    regionManager.save();
+                    logger.info("リージョン " + childRegionId + " の親リージョンを " + parentRegionId + " に設定し、保存しました");
+                } catch (Exception saveException) {
+                    logger.severe("親リージョン設定の保存に失敗しました: " + saveException.getMessage());
+                    saveException.printStackTrace();
+                    // 保存失敗時は親設定をロールバック
+                    childRegion.setParent(null);
+                    return false;
+                }
+                
                 return true;
             } catch (ProtectedRegion.CircularInheritanceException e) {
                 logger.severe("循環参照エラー: " + e.getMessage());
@@ -458,6 +511,18 @@ public class WorldGuardIntegration {
                 case "block-place":
                     flag = Flags.BLOCK_PLACE;
                     break;
+                case "mob-spawning":
+                    flag = Flags.MOB_SPAWNING;
+                    break;
+                case "mob-damage":
+                    flag = Flags.MOB_DAMAGE;
+                    break;
+                case "creeper-explosion":
+                    flag = Flags.CREEPER_EXPLOSION;
+                    break;
+                case "ghast-fireball":
+                    flag = Flags.GHAST_FIREBALL;
+                    break;
                 default:
                     logger.warning("未対応のフラグ: " + flagName);
                     return false;
@@ -479,14 +544,144 @@ public class WorldGuardIntegration {
 
             // フラグを設定
             region.setFlag((StateFlag) flag, flagState);
-
-            logger.info("リージョン " + regionId + " のフラグ " + flagName + " を " + state + " に設定しました");
+            
+            // 変更を保存
+            try {
+                regionManager.save();
+                logger.info("リージョン " + regionId + " のフラグ " + flagName + " を " + state + " に設定し、保存しました");
+            } catch (Exception saveException) {
+                logger.severe("フラグ設定の保存に失敗しました: " + saveException.getMessage());
+                saveException.printStackTrace();
+                return false;
+            }
+            
             return true;
 
         } catch (Exception e) {
             logger.severe("フラグの設定に失敗しました: " + e.getMessage());
             e.printStackTrace();
             return false;
+        }
+    }
+
+
+    /**
+     * 敵対的なモブのスポーンを制御
+     * 
+     * @param regionId リージョンID
+     * @param world ワールド
+     * @param allow trueの場合スポーンを許可、falseの場合スポーンを禁止
+     * @return 成功した場合true
+     */
+    public boolean setHostileMobSpawning(String regionId, World world, boolean allow) {
+        if (!enabled) {
+            logger.warning("WorldGuardが無効なため敵対的モブのスポーン制御を設定できません");
+            return false;
+        }
+
+        try {
+            RegionManager regionManager = regionContainer.get(BukkitAdapter.adapt(world));
+            if (regionManager == null) {
+                logger.warning("WorldGuardのRegionManagerを取得できませんでした");
+                return false;
+            }
+
+            ProtectedRegion region = regionManager.getRegion(regionId);
+            if (region == null) {
+                logger.warning("リージョン " + regionId + " が見つかりません");
+                return false;
+            }
+
+            if (allow) {
+                // スポーン制限を解除（nullを設定）
+                region.setFlag(Flags.DENY_SPAWN, null);
+
+                // ダメージ・爆発防止フラグも解除
+                region.setFlag(Flags.MOB_DAMAGE, null);
+                region.setFlag(Flags.CREEPER_EXPLOSION, null);
+                region.setFlag(Flags.GHAST_FIREBALL, null);
+
+                logger.info("リージョン " + regionId + " の敵対的モブスポーン制限・ダメージ・爆発防止を解除しました");
+            } else {
+                // 敵対的なモブのリストを作成
+                java.util.Set<com.sk89q.worldedit.world.entity.EntityType> hostileMobs = new java.util.HashSet<>();
+                
+                // 敵対的なモブを追加
+                addIfExists(hostileMobs, "zombie");
+                addIfExists(hostileMobs, "skeleton");
+                addIfExists(hostileMobs, "creeper");
+                addIfExists(hostileMobs, "spider");
+                addIfExists(hostileMobs, "cave_spider");
+                addIfExists(hostileMobs, "enderman");
+                addIfExists(hostileMobs, "witch");
+                addIfExists(hostileMobs, "slime");
+                addIfExists(hostileMobs, "phantom");
+                addIfExists(hostileMobs, "drowned");
+                addIfExists(hostileMobs, "husk");
+                addIfExists(hostileMobs, "stray");
+                addIfExists(hostileMobs, "pillager");
+                addIfExists(hostileMobs, "vindicator");
+                addIfExists(hostileMobs, "evoker");
+                addIfExists(hostileMobs, "ravager");
+                addIfExists(hostileMobs, "vex");
+                addIfExists(hostileMobs, "zombie_villager");
+                addIfExists(hostileMobs, "wither_skeleton");
+                addIfExists(hostileMobs, "blaze");
+                addIfExists(hostileMobs, "ghast");
+                addIfExists(hostileMobs, "magma_cube");
+                addIfExists(hostileMobs, "silverfish");
+                addIfExists(hostileMobs, "endermite");
+                addIfExists(hostileMobs, "guardian");
+                addIfExists(hostileMobs, "elder_guardian");
+                addIfExists(hostileMobs, "shulker");
+                addIfExists(hostileMobs, "hoglin");
+                addIfExists(hostileMobs, "piglin_brute");
+                addIfExists(hostileMobs, "zoglin");
+
+                // deny-spawnフラグに設定
+                region.setFlag(Flags.DENY_SPAWN, hostileMobs);
+
+                // ダメージ・爆発防止フラグも設定（二重防御）
+                region.setFlag(Flags.MOB_DAMAGE, StateFlag.State.DENY);
+                region.setFlag(Flags.CREEPER_EXPLOSION, StateFlag.State.DENY);
+                region.setFlag(Flags.GHAST_FIREBALL, StateFlag.State.DENY);
+
+                logger.info("リージョン " + regionId + " で敵対的モブのスポーンを禁止しました（" + hostileMobs.size() + "種類）");
+                logger.info("リージョン " + regionId + " でダメージ・爆発防止も設定しました（二重防御）");
+            }
+
+            // 変更を保存
+            try {
+                regionManager.save();
+                logger.info("リージョン " + regionId + " の設定を保存しました");
+            } catch (Exception saveException) {
+                logger.severe("設定の保存に失敗しました: " + saveException.getMessage());
+                saveException.printStackTrace();
+                return false;
+            }
+
+            return true;
+
+        } catch (Exception e) {
+            logger.severe("敵対的モブのスポーン制御設定に失敗しました: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * エンティティタイプが存在する場合にセットに追加するヘルパーメソッド
+     */
+    private void addIfExists(java.util.Set<com.sk89q.worldedit.world.entity.EntityType> set, String entityId) {
+        try {
+            com.sk89q.worldedit.world.entity.EntityType entityType = 
+                com.sk89q.worldedit.world.entity.EntityTypes.get(entityId);
+            if (entityType != null) {
+                set.add(entityType);
+            }
+        } catch (Exception e) {
+            // エンティティタイプが見つからない場合は無視
+            logger.fine("エンティティタイプ " + entityId + " が見つかりませんでした");
         }
     }
 }

@@ -21,6 +21,9 @@ import org.tofu.tofunomics.inventory.PlayerInventoryManager;
 import org.tofu.tofunomics.rules.RulesManager;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 /**
@@ -36,6 +39,9 @@ public class PlayerJoinHandler implements Listener {
     private final PlayerInventoryManager inventoryManager;
     private final RulesManager rulesManager;
     private final Logger logger;
+    
+    // ログイン中フラグを記録するマップ（ログイン直後のワールド変更でインベントリ保存をスキップするため）
+    private final Map<UUID, Boolean> isLoggingIn = new ConcurrentHashMap<>();
 
     public PlayerJoinHandler(JavaPlugin plugin, ConfigManager configManager, PlayerDAO playerDAO, ScoreboardManager scoreboardManager, PlayerInventoryManager inventoryManager, RulesManager rulesManager) {
         this.plugin = plugin;
@@ -47,9 +53,17 @@ public class PlayerJoinHandler implements Listener {
         this.logger = plugin.getLogger();
     }
     
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        
+        // ログイン中フラグを設定（ログイン直後のワールド変更でインベントリ保存をスキップするため）
+        isLoggingIn.put(player.getUniqueId(), true);
+        
+        // 5秒後にフラグをクリア
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            isLoggingIn.remove(player.getUniqueId());
+        }, 100L); // 100 ticks = 5秒
 
         logger.info("プレイヤー参加イベント開始: " + player.getName() + " ワールド: " + player.getWorld().getName());
 
@@ -63,7 +77,8 @@ public class PlayerJoinHandler implements Listener {
             logger.info("プレイヤー " + player.getName() + " がTofuNomicsワールドに参加 - インベントリを復元します");
             // 少し遅延してインベントリを復元（TofuHomePluginのナビゲーションアイテム付与の後）
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                if (inventoryManager != null) {
+                // 復元時点でtofuNomicsワールドにいるか再チェック
+                if (inventoryManager != null && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
                     // TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）を一時保存
                     ItemStack slot9 = player.getInventory().getItem(9);
                     ItemStack slot10 = player.getInventory().getItem(10);
@@ -119,7 +134,8 @@ public class PlayerJoinHandler implements Listener {
                 logger.info("プレイヤー " + player.getName() + " がTofuNomicsワールドに入りました - インベントリを復元します");
                 // 遅延してインベントリを復元（TofuHomePluginのナビゲーションアイテム付与の後）
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    if (inventoryManager != null && player.isOnline()) {
+                    // 復元時点でtofuNomicsワールドにいるか再チェック
+                    if (inventoryManager != null && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
                         // TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）を一時保存
                         ItemStack slot9 = player.getInventory().getItem(9);
                         ItemStack slot10 = player.getInventory().getItem(10);
@@ -162,6 +178,13 @@ public class PlayerJoinHandler implements Listener {
         }
         // TofuNomicsワールドから出た場合、インベントリを保存
         else if (previousWorldName.equals("tofuNomics")) {
+            // ログイン直後（5秒以内）のワールド変更は無視（空のインベントリで上書きされるのを防ぐ）
+            Boolean loggingIn = isLoggingIn.get(player.getUniqueId());
+            if (loggingIn != null && loggingIn) {
+                logger.info("プレイヤー " + player.getName() + " はログイン中のため、インベントリ保存をスキップします");
+                return;
+            }
+            
             logger.info("プレイヤー " + player.getName() + " がTofuNomicsワールドから退出 - インベントリを保存します");
             if (inventoryManager != null) {
                 inventoryManager.saveInventory(player);
@@ -173,15 +196,43 @@ public class PlayerJoinHandler implements Listener {
      * プレイヤーがサーバーから退出した時の処理
      * TofuNomicsワールドにいる場合、インベントリを保存
      */
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        
+        // ログイン中フラグをクリーンアップ（メモリリーク防止）
+        isLoggingIn.remove(player.getUniqueId());
 
-        // TofuNomicsワールドにいる場合、インベントリを保存
+        // TofuNomicsワールドにいる場合、インベントリと現金データを保存
         if (player.getWorld().getName().equals("tofuNomics")) {
-            logger.info("プレイヤー " + player.getName() + " がサーバーから退出 - インベントリを保存します");
-            if (inventoryManager != null) {
-                inventoryManager.saveInventory(player);
+            logger.info("プレイヤー " + player.getName() + " がサーバーから退出 - データを保存します");
+            
+            try {
+                // インベントリを保存
+                if (inventoryManager != null) {
+                    boolean inventorySaved = inventoryManager.saveInventory(player);
+                    if (inventorySaved) {
+                        logger.info("インベントリ保存成功: " + player.getName());
+                    } else {
+                        logger.severe("インベントリ保存失敗: " + player.getName());
+                    }
+                }
+                
+                // プレイヤーデータを保存（念のため）
+                org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayer(player.getUniqueId());
+                if (tofuPlayer != null) {
+                    boolean dataSaved = playerDAO.updatePlayerData(tofuPlayer);
+                    if (dataSaved) {
+                        logger.info("プレイヤーデータ保存成功: " + player.getName());
+                    } else {
+                        logger.severe("プレイヤーデータ保存失敗: " + player.getName());
+                    }
+                }
+                
+            } catch (Exception e) {
+                logger.severe("プレイヤー退出時のデータ保存中にエラー: " + player.getName());
+                logger.severe("エラー詳細: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }
@@ -413,6 +464,12 @@ public class PlayerJoinHandler implements Listener {
                 return;
             }
             
+            // 現在のワールドがtofuNomicsでない場合はスキップ
+            if (!player.getWorld().getName().equals("tofuNomics")) {
+                logger.info("プレイヤー " + player.getName() + " は" + player.getWorld().getName() + "にいるため、スポーン座標へのテレポートをスキップします");
+                return;
+            }
+            
             // 設定からスポーン座標を取得
             String worldName = configManager.getSpawnWorldName();
             int x = configManager.getSpawnX();
@@ -486,6 +543,10 @@ public class PlayerJoinHandler implements Listener {
         public void run() {
             try {
                 if (player.isOnline()) {
+                    // tofuNomicsワールドにいない場合はスキップ
+                    if (!player.getWorld().getName().equals("tofuNomics")) {
+                        return;
+                    }
                     displayWelcomeMessages(player);
                     displayWelcomeTitle(player);
                     // スポーン座標へのテレポート処理を追加
@@ -579,6 +640,10 @@ public class PlayerJoinHandler implements Listener {
         @Override
         public void run() {
             if (player.isOnline()) {
+                // tofuNomicsワールドにいない場合はスキップ
+                if (!player.getWorld().getName().equals("tofuNomics")) {
+                    return;
+                }
                 String formattedMessage = formatMessage(message, player);
                 player.sendMessage(ChatColor.translateAlternateColorCodes('&', formattedMessage));
             }
@@ -595,6 +660,11 @@ public class PlayerJoinHandler implements Listener {
         @Override
         public void run() {
             if (!player.isOnline()) return;
+            
+            // tofuNomicsワールドにいない場合はスキップ
+            if (!player.getWorld().getName().equals("tofuNomics")) {
+                return;
+            }
             
             player.sendMessage("");
             player.sendMessage(ChatColor.GOLD + "▬▬▬▬▬▬ 職業システム案内 ▬▬▬▬▬▬");

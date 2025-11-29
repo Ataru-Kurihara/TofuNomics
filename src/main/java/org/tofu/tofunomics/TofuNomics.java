@@ -7,6 +7,7 @@ import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.dao.JobDAO;
 import org.tofu.tofunomics.dao.PlayerJobDAO;
 import org.tofu.tofunomics.dao.JobChangeDAO;
+import org.tofu.tofunomics.dao.JobHistoryDAO;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.economy.ItemManager;
 import org.tofu.tofunomics.economy.CurrencyConverter;
@@ -31,6 +32,7 @@ public final class TofuNomics extends JavaPlugin {
     private JobDAO jobDAO;
     private PlayerJobDAO playerJobDAO;
     private JobChangeDAO jobChangeDAO;
+    private JobHistoryDAO jobHistoryDAO;
     private ConfigManager configManager;
     private ItemManager itemManager;
     private CurrencyConverter currencyConverter;
@@ -56,6 +58,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.housing.SelectionManager selectionManager;
     private org.tofu.tofunomics.housing.HousingListener housingListener;
     private org.tofu.tofunomics.integration.WorldGuardIntegration worldGuardIntegration;
+    private org.tofu.tofunomics.protection.HostileMobRemovalManager hostileMobRemovalManager; // 敵対的モブ自動除去マネージャー
 
     // テストモードマネージャー
     private org.tofu.tofunomics.testing.TestModeManager testModeManager;
@@ -265,6 +268,7 @@ public final class TofuNomics extends JavaPlugin {
             jobDAO = new JobDAO(databaseManager.getConnection());
             playerJobDAO = new PlayerJobDAO(databaseManager.getConnection());
             jobChangeDAO = new JobChangeDAO(databaseManager.getConnection());
+            jobHistoryDAO = new JobHistoryDAO(databaseManager.getConnection());
             
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
@@ -294,7 +298,8 @@ public final class TofuNomics extends JavaPlugin {
                 jobDAO,
                 playerDAO,
                 playerJobDAO,
-                jobChangeDAO
+                jobChangeDAO,
+                jobHistoryDAO
             );
             
             // ExperienceManagerの初期化
@@ -646,7 +651,8 @@ public final class TofuNomics extends JavaPlugin {
                         this,
                         housingRentalManager,
                         selectionManager,
-                        testModeManager
+                        testModeManager,
+                        configManager
                     );
                 getCommand("housing").setExecutor(housingCommand);
                 getCommand("housing").setTabCompleter(housingCommand);
@@ -1106,6 +1112,10 @@ public final class TofuNomics extends JavaPlugin {
             // WorldGuard統合の初期化（最初に初期化）
             this.worldGuardIntegration = new org.tofu.tofunomics.integration.WorldGuardIntegration(this);
             
+            // HostileMobRemovalManagerの初期化（WorldGuard統合の後に初期化）
+            this.hostileMobRemovalManager = new org.tofu.tofunomics.protection.HostileMobRemovalManager(this, worldGuardIntegration);
+            this.hostileMobRemovalManager.startMonitoring();
+            
             // テストモードマネージャーの初期化
             this.testModeManager = new org.tofu.tofunomics.testing.TestModeManager(this);
             
@@ -1151,6 +1161,9 @@ public final class TofuNomics extends JavaPlugin {
         }
         if (testModeManager != null) {
             testModeManager.clearAll();
+        }
+        if (hostileMobRemovalManager != null) {
+            hostileMobRemovalManager.stopMonitoring();
         }
         getLogger().info("住居賃貸システムをクリーンアップしました");
     }
@@ -1257,7 +1270,8 @@ public final class TofuNomics extends JavaPlugin {
             rulesManager = new org.tofu.tofunomics.rules.RulesManager(
                 this,
                 configManager,
-                playerDAO
+                playerDAO,
+                jobManager
             );
             
             getLogger().info("ルール確認システムの初期化が完了しました");
@@ -1299,6 +1313,13 @@ public final class TofuNomics extends JavaPlugin {
         return testModeManager;
     }
 
+
+    /**
+     * HostileMobRemovalManagerを取得
+     */
+    public org.tofu.tofunomics.protection.HostileMobRemovalManager getHostileMobRemovalManager() {
+        return hostileMobRemovalManager;
+    }
 
     /**
      * WorldGuard統合を取得

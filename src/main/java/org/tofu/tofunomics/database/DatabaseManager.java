@@ -126,6 +126,17 @@ public class DatabaseManager {
             "    FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
             ");",
 
+            // 職業履歴テーブル（退職時のレベル記録用）
+            "CREATE TABLE IF NOT EXISTS job_history (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    uuid TEXT NOT NULL," +
+            "    job_id INTEGER NOT NULL," +
+            "    max_level INTEGER NOT NULL," +
+            "    left_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE," +
+            "    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE" +
+            ");",
+
             // 取引チェストテーブル（フェーズ4用）
             "CREATE TABLE IF NOT EXISTS trade_chests (" +
             "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
@@ -308,6 +319,28 @@ public class DatabaseManager {
                 statement.executeUpdate("ALTER TABLE players ADD COLUMN rules_agreed_at TIMESTAMP");
                 
                 logger.info("players テーブルに rules_agreed_at カラムを追加しました");
+            }
+            
+            // name カラムが存在するかチェック
+            try {
+                statement.executeQuery("SELECT name FROM players LIMIT 1");
+            } catch (SQLException e) {
+                // カラムが存在しない場合、追加する
+                logger.info("players テーブルに name カラムを追加しています...");
+                statement.executeUpdate("ALTER TABLE players ADD COLUMN name TEXT");
+                
+                logger.info("players テーブルに name カラムを追加しました");
+            }
+            
+            // last_login カラムが存在するかチェック
+            try {
+                statement.executeQuery("SELECT last_login FROM players LIMIT 1");
+            } catch (SQLException e) {
+                // カラムが存在しない場合、追加する
+                logger.info("players テーブルに last_login カラムを追加しています...");
+                statement.executeUpdate("ALTER TABLE players ADD COLUMN last_login TIMESTAMP");
+                
+                logger.info("players テーブルに last_login カラムを追加しました");
             }
         } catch (SQLException e) {
             logger.warning("マイグレーション処理に失敗しました: " + e.getMessage());

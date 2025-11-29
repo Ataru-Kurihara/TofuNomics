@@ -24,12 +24,14 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
     private final HousingRentalManager rentalManager;
     private final SelectionManager selectionManager;
     private final TestModeManager testModeManager;
+    private final org.tofu.tofunomics.config.ConfigManager configManager;
 
-    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager) {
+    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager, org.tofu.tofunomics.config.ConfigManager configManager) {
         this.plugin = plugin;
         this.rentalManager = rentalManager;
         this.selectionManager = selectionManager;
         this.testModeManager = testModeManager;
+        this.configManager = configManager;
     }
 
     @Override
@@ -327,6 +329,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                 return handleAdminCreateCityRegion(sender, args);
             case "setparent":
                 return handleAdminSetParent(sender, args);
+            case "mobspawn":
+                return handleAdminMobspawn(sender, args);
             default:
                 sendAdminUsage(sender);
                 return true;
@@ -542,18 +546,34 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // BUILDフラグとUSEフラグをDENYに設定
+        // configから親リージョンのフラグ設定を取得
         org.tofu.tofunomics.integration.WorldGuardIntegration wgIntegration = 
             plugin.getWorldGuardIntegration();
         
         if (wgIntegration != null && wgIntegration.isEnabled()) {
-            boolean buildFlagSet = wgIntegration.setRegionFlag(regionName, player.getWorld(), "build", "deny");
-            boolean useFlagSet = wgIntegration.setRegionFlag(regionName, player.getWorld(), "use", "deny");
+            java.util.Map<String, String> parentFlags = configManager.getCityProtectionParentRegionFlags();
+            int successCount = 0;
+            int totalFlags = parentFlags.size();
             
-            if (buildFlagSet && useFlagSet) {
+            for (java.util.Map.Entry<String, String> entry : parentFlags.entrySet()) {
+                String flagName = entry.getKey();
+                String flagState = entry.getValue();
+                
+                boolean flagSet = wgIntegration.setRegionFlag(regionName, player.getWorld(), flagName, flagState);
+                if (flagSet) {
+                    successCount++;
+                }
+            }
+            
+            
+            if (successCount == totalFlags) {
                 player.sendMessage("§a都市保護リージョン '" + regionName + "' を作成しました");
-                player.sendMessage("§aBUILDフラグとUSEフラグをDENYに設定しました");
+                player.sendMessage("§a" + successCount + "個のフラグを設定しました");
                 player.sendMessage("§7次に '/housing admin setparent " + regionName + "' で既存物件を子リージョンに設定してください");
+                selectionManager.clearSelection(player);
+            } else if (successCount > 0) {
+                player.sendMessage("§e都市保護リージョン '" + regionName + "' を作成しました");
+                player.sendMessage("§e" + successCount + "/" + totalFlags + " のフラグを設定しました（一部失敗）");
                 selectionManager.clearSelection(player);
             } else {
                 player.sendMessage("§cリージョンは作成されましたが、フラグの設定に失敗しました");
@@ -638,6 +658,79 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+
+    /**
+     * モブスポーン制御コマンド処理
+     * /housing admin mobspawn <リージョン名> <allow/deny>
+     */
+    private boolean handleAdminMobspawn(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("§c使用法: /housing admin mobspawn <リージョン名> <allow/deny>");
+            sender.sendMessage("§7例: /housing admin mobspawn spawn_area deny");
+            return true;
+        }
+
+        String regionName = args[1];
+        String action = args[2].toLowerCase();
+
+        if (!action.equals("allow") && !action.equals("deny")) {
+            sender.sendMessage("§c無効なアクション: " + action);
+            sender.sendMessage("§7allowまたはdenyを指定してください");
+            return true;
+        }
+
+        org.tofu.tofunomics.integration.WorldGuardIntegration wgIntegration = 
+            plugin.getWorldGuardIntegration();
+
+        if (wgIntegration == null || !wgIntegration.isEnabled()) {
+            sender.sendMessage("§cWorldGuard統合が無効です");
+            return true;
+        }
+
+        // コマンド実行者がプレイヤーの場合はそのワールド、そうでない場合はメインワールド
+        org.bukkit.World world;
+        if (sender instanceof org.bukkit.entity.Player) {
+            world = ((org.bukkit.entity.Player) sender).getWorld();
+        } else {
+            world = plugin.getServer().getWorlds().get(0); // メインワールド
+        }
+
+        // リージョンの存在確認
+        if (!wgIntegration.hasRegion(regionName, world)) {
+            sender.sendMessage("§cリージョン '" + regionName + "' が見つかりません");
+            return true;
+        }
+
+        boolean allow = action.equals("allow");
+        boolean success = wgIntegration.setHostileMobSpawning(regionName, world, allow);
+
+        if (success) {
+            // HostileMobRemovalManagerへの登録・削除
+            org.tofu.tofunomics.protection.HostileMobRemovalManager hostileMobRemovalManager = 
+                plugin.getHostileMobRemovalManager();
+            
+            if (hostileMobRemovalManager != null) {
+                if (allow) {
+                    hostileMobRemovalManager.removeRegion(regionName, world);
+                } else {
+                    hostileMobRemovalManager.addRegion(regionName, world);
+                }
+            }
+            
+            if (allow) {
+                sender.sendMessage("§aリージョン '" + regionName + "' で敵対的モブのスポーン制限を解除しました");
+            } else {
+                sender.sendMessage("§aリージョン '" + regionName + "' で敵対的モブのスポーンを禁止しました");
+                sender.sendMessage("§7自動除去システムも有効化されました（5秒ごとにスキャン）");
+            }
+            sender.sendMessage("§7対象: ゾンビ、スケルトン、クリーパーなど約30種類の敵対的モブ");
+        } else {
+            sender.sendMessage("§c設定に失敗しました。サーバーログを確認してください");
+        }
+
+        return true;
+    }
+
     /**
      * 使用法を表示
      */
@@ -673,6 +766,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/housing admin remove <ID> §7- 物件削除");
         sender.sendMessage("§e/housing admin createcityregion <名前> §7- 都市保護リージョン作成");
         sender.sendMessage("§e/housing admin setparent <親リージョン名> §7- 全物件を子リージョンに設定");
+        sender.sendMessage("§e/housing admin mobspawn <リージョン名> <allow/deny> §7- 敵対的モブスポーン制御");
         sender.sendMessage("§6===========================");
     }
 

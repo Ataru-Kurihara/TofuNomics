@@ -44,6 +44,22 @@ public class TradingGUI implements Listener {
         public Material getIcon() { return icon; }
     }
     
+    public enum TradingMode {
+        SELL("§a売却モード", Material.EMERALD),
+        BUY("§e購入モード", Material.GOLD_INGOT);
+        
+        private final String displayName;
+        private final Material icon;
+        
+        TradingMode(String displayName, Material icon) {
+            this.displayName = displayName;
+            this.icon = icon;
+        }
+        
+        public String getDisplayName() { return displayName; }
+        public Material getIcon() { return icon; }
+    }
+    
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private final CurrencyConverter currencyConverter;
@@ -70,6 +86,7 @@ public class TradingGUI implements Listener {
         private final long createdTime;
         private int currentPage;
         private ItemCategory currentCategory;
+        private TradingMode tradingMode;
         private String searchFilter;
         
         public TradingGUISession(UUID playerId, String tradingPostId, Inventory inventory) {
@@ -79,6 +96,7 @@ public class TradingGUI implements Listener {
             this.createdTime = System.currentTimeMillis();
             this.currentPage = 0;
             this.currentCategory = ItemCategory.ALL;
+            this.tradingMode = TradingMode.SELL;
             this.searchFilter = "";
         }
         
@@ -90,6 +108,8 @@ public class TradingGUI implements Listener {
         public void setCurrentPage(int page) { this.currentPage = page; }
         public ItemCategory getCurrentCategory() { return currentCategory; }
         public void setCurrentCategory(ItemCategory category) { this.currentCategory = category; }
+        public TradingMode getTradingMode() { return tradingMode; }
+        public void setTradingMode(TradingMode mode) { this.tradingMode = mode; }
         public String getSearchFilter() { return searchFilter; }
         public void setSearchFilter(String filter) { this.searchFilter = filter != null ? filter : ""; }
     }
@@ -167,8 +187,18 @@ public class TradingGUI implements Listener {
     private void setupTradingGUIItems(Inventory gui, Player player, TradingNPCManager.TradingPost tradingPost, TradingGUISession session) {
         gui.clear();
         
+        // スロット0: モード切り替えボタン
+        setupModeButton(gui, session.getTradingMode(), !tradingPost.getPurchasePrices().isEmpty());
+        
         String playerJob = jobManager.getPlayerJob(player.getUniqueId());
-        List<Map.Entry<Material, Double>> allItems = new ArrayList<>(tradingPost.getItemPrices().entrySet());
+        
+        // モードによってアイテムリストを切り替え
+        List<Map.Entry<Material, Double>> allItems;
+        if (session.getTradingMode() == TradingMode.BUY) {
+            allItems = new ArrayList<>(tradingPost.getPurchasePrices().entrySet());
+        } else {
+            allItems = new ArrayList<>(tradingPost.getItemPrices().entrySet());
+        }
         
         // フィルタリング適用
         List<Map.Entry<Material, Double>> filteredItems = filterItems(allItems, session.getCurrentCategory(), session.getSearchFilter());
@@ -186,19 +216,22 @@ public class TradingGUI implements Listener {
         for (int i = startIndex; i < endIndex; i++) {
             Map.Entry<Material, Double> entry = filteredItems.get(i);
             Material material = entry.getKey();
-            double basePrice = entry.getValue();
+            double price = entry.getValue();
             
-            // 最終価格を計算（職業ボーナス適用）
-            double finalPrice = tradePriceManager.calculateFinalPrice(
-                material.toString().toLowerCase(), 
-                playerJob, 
-                basePrice
-            );
-            
-            // プレイヤーの手持ち数量をカウント
-            int playerAmount = countPlayerItems(player, material);
-            
-            ItemStack displayItem = createTradingItem(material, basePrice, finalPrice, playerAmount, playerJob);
+            ItemStack displayItem;
+            if (session.getTradingMode() == TradingMode.BUY) {
+                // 購入モード
+                displayItem = createPurchaseItem(material, price, playerJob);
+            } else {
+                // 売却モード
+                double finalPrice = tradePriceManager.calculateFinalPrice(
+                    material.toString().toLowerCase(), 
+                    playerJob, 
+                    price
+                );
+                int playerAmount = countPlayerItems(player, material);
+                displayItem = createTradingItem(material, price, finalPrice, playerAmount, playerJob);
+            }
             gui.setItem(slot, displayItem);
             
             // スロット位置調整
@@ -289,11 +322,19 @@ public class TradingGUI implements Listener {
             meta.setDisplayName("§f" + getDisplayName(material));
             
             List<String> lore = new ArrayList<>();
-            lore.add("§f基本価格: §e" + currencyConverter.formatCurrency(basePrice));
+            
+            // 原木の場合は10個分の価格を表示
+            int displayMultiplier = isLogItem(material) ? 10 : 1;
+            String unitSuffix = displayMultiplier > 1 ? " (" + displayMultiplier + "個)" : "";
+            
+            double displayBasePrice = basePrice * displayMultiplier;
+            double displayFinalPrice = finalPrice * displayMultiplier;
+            
+            lore.add("§f基本価格: §e" + currencyConverter.formatCurrency(displayBasePrice) + unitSuffix);
             
             if (Math.abs(finalPrice - basePrice) > 0.01) {
                 double bonusPercent = ((finalPrice / basePrice) - 1.0) * 100;
-                lore.add("§f職業価格: §a" + currencyConverter.formatCurrency(finalPrice) + 
+                lore.add("§f職業価格: §a" + currencyConverter.formatCurrency(displayFinalPrice) + unitSuffix +
                         " §7(+" + String.format("%.1f", bonusPercent) + "%)");
             }
             
@@ -303,12 +344,40 @@ public class TradingGUI implements Listener {
                 double totalValue = finalPrice * playerAmount;
                 lore.add("§f合計価値: §a" + currencyConverter.formatCurrency(totalValue));
                 lore.add("");
-                lore.add("§e左クリック: §f1個売却");
-                lore.add("§e右クリック: §f10個売却");
+                
+                // まとめ売りアイテム（displayMultiplier > 1）の場合は表記を変更
+                if (displayMultiplier > 1) {
+                    lore.add("§e左クリック: §f" + displayMultiplier + "個売却");
+                    lore.add("§e右クリック: §f" + (displayMultiplier * 2) + "個売却");
+                } else {
+                    lore.add("§e左クリック: §f1個売却");
+                    lore.add("§e右クリック: §f10個売却");
+                }
                 lore.add("§eシフト+クリック: §f全て売却");
             } else {
                 lore.add("§c売却可能なアイテムがありません");
             }
+            
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+        }
+        
+        return item;
+    }
+    
+    private ItemStack createPurchaseItem(Material material, double price, String playerJob) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        
+        if (meta != null) {
+            meta.setDisplayName("§f" + getDisplayName(material));
+            
+            List<String> lore = new ArrayList<>();
+            lore.add("§f購入価格: §e" + currencyConverter.formatCurrency(price));
+            lore.add("");
+            lore.add("§e左クリック: §f1個購入");
+            lore.add("§e右クリック: §f16個購入");
+            lore.add("§eシフト+クリック: §f64個購入");
             
             meta.setLore(lore);
             item.setItemMeta(meta);
@@ -354,10 +423,44 @@ public class TradingGUI implements Listener {
     }
     
     /**
+     * モード切り替えボタンを設定
+     */
+    private void setupModeButton(Inventory gui, TradingMode currentMode, boolean purchaseEnabled) {
+        if (!purchaseEnabled) {
+            // 購入機能が無効な場合はボタンを表示しない
+            return;
+        }
+        
+        ItemStack modeButton;
+        if (currentMode == TradingMode.SELL) {
+            // 現在売却モード -> 購入モードへ切り替えるボタン
+            modeButton = createGUIItem(
+                TradingMode.BUY.getIcon(),
+                "§e§l購入モードに切り替え",
+                Arrays.asList(
+                    "§7現在: " + TradingMode.SELL.getDisplayName(),
+                    "§7クリックで購入モードに変更"
+                )
+            );
+        } else {
+            // 現在購入モード -> 売却モードへ切り替えるボタン
+            modeButton = createGUIItem(
+                TradingMode.SELL.getIcon(),
+                "§a§l売却モードに切り替え",
+                Arrays.asList(
+                    "§7現在: " + TradingMode.BUY.getDisplayName(),
+                    "§7クリックで売却モードに変更"
+                )
+            );
+        }
+        gui.setItem(0, modeButton);
+    }
+    
+    /**
      * カテゴリボタンを設定
      */
     private void setupCategoryButtons(Inventory gui, ItemCategory currentCategory) {
-        int slot = 1;
+        int slot = 2; // スロット0がモード切り替えボタンのため2から開始
         for (ItemCategory category : ItemCategory.values()) {
             boolean isSelected = category == currentCategory;
             ItemStack categoryButton = createGUIItem(
@@ -434,6 +537,18 @@ public class TradingGUI implements Listener {
         return materialName.endsWith("_LOG") || 
                materialName.equals("CRIMSON_STEM") || 
                materialName.equals("WARPED_STEM");
+    }
+
+    /**
+     * アイテムが通貨（TofuCoinまたはTofuGold）かどうかを判定
+     * 売却処理で通貨アイテムを除外するために使用
+     */
+    private boolean isCurrencyItem(ItemStack item) {
+        if (item == null) {
+            return false;
+        }
+        return currencyConverter.getItemManager().isValidGoldNugget(item) 
+            || currencyConverter.getItemManager().isValidCurrencyGoldIngot(item);
     }
     
     // カテゴリ判定メソッド群
@@ -536,10 +651,23 @@ public class TradingGUI implements Listener {
             return;
         }
         
-        // カテゴリボタン処理 (スロット1-7)
-        if (slot >= 1 && slot <= 7) {
+        // モード切り替えボタン処理 (スロット0)
+        if (slot == 0) {
+            // モード切り替え
+            if (session.getTradingMode() == TradingMode.SELL) {
+                session.setTradingMode(TradingMode.BUY);
+            } else {
+                session.setTradingMode(TradingMode.SELL);
+            }
+            session.setCurrentPage(0); // ページをリセット
+            setupTradingGUIItems(session.getInventory(), player, tradingPost, session);
+            return;
+        }
+        
+        // カテゴリボタン処理 (スロット2-8)
+        if (slot >= 2 && slot <= 8) {
             ItemCategory[] categories = ItemCategory.values();
-            int categoryIndex = slot - 1;
+            int categoryIndex = slot - 2;
             if (categoryIndex < categories.length) {
                 session.setCurrentCategory(categories[categoryIndex]);
                 session.setCurrentPage(0); // カテゴリ変更時はページをリセット
@@ -571,12 +699,21 @@ public class TradingGUI implements Listener {
                 break;
                 
             default:
-                // アイテム売却処理 (スロット18-44の範囲)
+                // アイテム取引処理 (スロット18-44の範囲)
                 if (isItemSlot(slot)) {
                     Material material = clickedItem.getType();
-                    if (tradingPost.getItemPrice(material) > 0) {
-                        handleItemSell(player, tradingPost, material, clickType);
-                        setupTradingGUIItems(session.getInventory(), player, tradingPost, session);
+                    if (session.getTradingMode() == TradingMode.SELL) {
+                        // 売却モード
+                        if (tradingPost.getItemPrice(material) > 0) {
+                            handleItemSell(player, tradingPost, material, clickType);
+                            setupTradingGUIItems(session.getInventory(), player, tradingPost, session);
+                        }
+                    } else {
+                        // 購入モード
+                        if (tradingPost.getPurchasePrice(material) > 0) {
+                            handleItemPurchase(player, tradingPost, material, clickType);
+                            setupTradingGUIItems(session.getInventory(), player, tradingPost, session);
+                        }
                     }
                 }
                 break;
@@ -595,12 +732,15 @@ public class TradingGUI implements Listener {
                                Material material, org.bukkit.event.inventory.ClickType clickType) {
         int sellAmount;
         
+        // まとめ売りアイテムかどうかを判定
+        boolean isBulkItem = isLogItem(material);
+        
         switch (clickType) {
             case LEFT:
-                sellAmount = 1;
+                sellAmount = isBulkItem ? 10 : 1;
                 break;
             case RIGHT:
-                sellAmount = 10;
+                sellAmount = isBulkItem ? 20 : 10;
                 break;
             case SHIFT_LEFT:
             case SHIFT_RIGHT:
@@ -615,7 +755,7 @@ public class TradingGUI implements Listener {
         int remaining = sellAmount;
         
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getType() == material && remaining > 0) {
+            if (item != null && item.getType() == material && !isCurrencyItem(item) && remaining > 0) {
                 int available = item.getAmount();
                 int takeAmount = Math.min(available, remaining);
                 
@@ -637,19 +777,36 @@ public class TradingGUI implements Listener {
         String playerJob = jobManager.getPlayerJob(player.getUniqueId());
         double totalEarnings = 0.0;
 
+        plugin.getLogger().info("[TradingGUI] DEBUG ===== 売却処理開始 =====");
+        plugin.getLogger().info("[TradingGUI] DEBUG - itemsToSell.size(): " + itemsToSell.size());
+        plugin.getLogger().info("[TradingGUI] DEBUG - playerJob: " + playerJob);
+        
         // 売却金額の合計を計算（木こりボーナスも考慮）
         for (ItemStack sellItem : itemsToSell) {
             Material mat = sellItem.getType();
             double basePrice = tradingPost.getItemPrice(mat);
+            
+            plugin.getLogger().info("[TradingGUI] DEBUG - Material: " + mat + ", basePrice: " + basePrice + ", playerJob: " + playerJob + ", amount: " + sellItem.getAmount());
+            
             if (basePrice > 0) {
                 double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), playerJob, basePrice);
+                
+                plugin.getLogger().info("[TradingGUI] DEBUG - After calculateFinalPrice: " + finalPrice);
                 
                 // 木こりが原木を売る場合は価格を2倍に
                 if ("woodcutter".equals(playerJob) && isLogItem(mat)) {
                     finalPrice *= 2.0;
+                    plugin.getLogger().info("[TradingGUI] DEBUG - After woodcutter bonus: " + finalPrice);
                 }
                 
-                totalEarnings += finalPrice * sellItem.getAmount();
+                double itemTotal = finalPrice * sellItem.getAmount();
+                plugin.getLogger().info("[TradingGUI] DEBUG - itemTotal (before floor): " + itemTotal);
+                
+                // 個数を掛けた後に切り捨て
+                itemTotal = Math.floor(itemTotal);
+                plugin.getLogger().info("[TradingGUI] DEBUG - itemTotal (after floor): " + itemTotal);
+                
+                totalEarnings += itemTotal;
             }
         }
 
@@ -715,6 +872,73 @@ public class TradingGUI implements Listener {
         }
     }
     
+    private void handleItemPurchase(Player player, TradingNPCManager.TradingPost tradingPost,
+                                    Material material, org.bukkit.event.inventory.ClickType clickType) {
+        int purchaseAmount;
+        
+        switch (clickType) {
+            case LEFT:
+                purchaseAmount = 1;
+                break;
+            case RIGHT:
+                purchaseAmount = 16;
+                break;
+            case SHIFT_LEFT:
+            case SHIFT_RIGHT:
+                purchaseAmount = 64;
+                break;
+            default:
+                return;
+        }
+        
+        // 購入価格を取得
+        double unitPrice = tradingPost.getPurchasePrice(material);
+        if (unitPrice <= 0) {
+            player.sendMessage("§cこのアイテムは購入できません");
+            return;
+        }
+        
+        // 合計金額を計算
+        double totalPrice = unitPrice * purchaseAmount;
+        
+        // 所持金チェック（インベントリの金塊）
+        if (!currencyConverter.canAffordWithCash(player, totalPrice)) {
+            player.sendMessage("§c所持金が不足しています。必要: " + currencyConverter.formatCurrency(totalPrice));
+            return;
+        }
+        
+        // インベントリ空きチェック
+        int emptySlots = 0;
+        for (ItemStack item : player.getInventory().getStorageContents()) {
+            if (item == null || item.getType() == Material.AIR) {
+                emptySlots++;
+            } else if (item.getType() == material && item.getAmount() < item.getMaxStackSize()) {
+                emptySlots++; // スタック可能なスロットもカウント
+            }
+        }
+        
+        int requiredSlots = (purchaseAmount + material.getMaxStackSize() - 1) / material.getMaxStackSize();
+        if (emptySlots < requiredSlots) {
+            player.sendMessage("§cインベントリに空きがありません");
+            return;
+        }
+        
+        // 購入処理（インベントリから金塊を削除）
+        boolean success = currencyConverter.payWithCash(player, totalPrice);
+        if (!success) {
+            player.sendMessage("§c購入処理に失敗しました");
+            return;
+        }
+        
+        // アイテムを付与
+        ItemStack purchasedItem = new ItemStack(material, purchaseAmount);
+        player.getInventory().addItem(purchasedItem);
+        
+        // メッセージ
+        player.sendMessage("§a" + material.name() + " を " + purchaseAmount + "個購入しました（" + 
+                          currencyConverter.formatCurrency(totalPrice) + "）");
+    }
+    
     private void handleSellAll(Player player, TradingNPCManager.TradingPost tradingPost) {
         List<ItemStack> allItems = new ArrayList<>();
         
@@ -733,19 +957,36 @@ public class TradingGUI implements Listener {
         String playerJob = jobManager.getPlayerJob(player.getUniqueId());
         double totalEarnings = 0.0;
 
+        plugin.getLogger().info("[TradingGUI] DEBUG ===== 全アイテム売却処理開始 =====");
+        plugin.getLogger().info("[TradingGUI] DEBUG - allItems.size(): " + allItems.size());
+        plugin.getLogger().info("[TradingGUI] DEBUG - playerJob: " + playerJob);
+        
         // 売却金額の合計を計算（木こりボーナスも考慮）
         for (ItemStack sellItem : allItems) {
             Material mat = sellItem.getType();
             double basePrice = tradingPost.getItemPrice(mat);
+            
+            plugin.getLogger().info("[TradingGUI] DEBUG - Material: " + mat + ", basePrice: " + basePrice + ", playerJob: " + playerJob + ", amount: " + sellItem.getAmount());
+            
             if (basePrice > 0) {
                 double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), playerJob, basePrice);
+                
+                plugin.getLogger().info("[TradingGUI] DEBUG - After calculateFinalPrice: " + finalPrice);
                 
                 // 木こりが原木を売る場合は価格を2倍に
                 if ("woodcutter".equals(playerJob) && isLogItem(mat)) {
                     finalPrice *= 2.0;
+                    plugin.getLogger().info("[TradingGUI] DEBUG - After woodcutter bonus: " + finalPrice);
                 }
                 
-                totalEarnings += finalPrice * sellItem.getAmount();
+                double itemTotal = finalPrice * sellItem.getAmount();
+                plugin.getLogger().info("[TradingGUI] DEBUG - itemTotal (before floor): " + itemTotal);
+                
+                // 個数を掛けた後に切り捨て
+                itemTotal = Math.floor(itemTotal);
+                plugin.getLogger().info("[TradingGUI] DEBUG - itemTotal (after floor): " + itemTotal);
+                
+                totalEarnings += itemTotal;
             }
         }
 

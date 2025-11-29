@@ -16,14 +16,12 @@ import org.tofu.tofunomics.config.ConfigManager;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * ルール確認GUI（ページ分割型）
- */
 public class RulesGUI implements Listener {
     
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private final RulesManager rulesManager;
+    private final org.tofu.tofunomics.jobs.JobManager jobManager;
     
     // アクティブなGUIセッション
     private final Map<UUID, RulesGUISession> activeSessions = new ConcurrentHashMap<>();
@@ -31,10 +29,11 @@ public class RulesGUI implements Listener {
     // 最大ページ数
     private static final int MAX_PAGES = 4;
     
-    public RulesGUI(TofuNomics plugin, ConfigManager configManager, RulesManager rulesManager) {
+    public RulesGUI(TofuNomics plugin, ConfigManager configManager, RulesManager rulesManager, org.tofu.tofunomics.jobs.JobManager jobManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.rulesManager = rulesManager;
+        this.jobManager = jobManager;
     }
     
     /**
@@ -55,6 +54,102 @@ public class RulesGUI implements Listener {
         public int getCurrentPage() { return currentPage; }
         public void setCurrentPage(int page) { this.currentPage = page; }
         public Inventory getInventory() { return inventory; }
+    }
+    
+    /**
+     * ページ内容を動的に生成
+     */
+    private List<String> generateDynamicPageContent(int page) {
+        List<String> content = new ArrayList<>();
+        
+        try {
+            if (page == 2) {
+                // ページ2: 経済システム（動的生成）
+                String currencyName = plugin.getConfig().getString("economy.currency.name", "金塊");
+                String currencySymbol = plugin.getConfig().getString("economy.currency.symbol", "G");
+                int startingBalance = plugin.getConfig().getInt("economy.starting_balance", 100);
+                
+                content.add("§e▼ 通貨システム");
+                content.add("§f通貨: §6" + currencyName + " (" + currencySymbol + ")");
+                content.add("§f新規プレイヤーは" + startingBalance + currencySymbol + "からスタート");
+                content.add("");
+                content.add("§e▼ 銀行システム");
+                content.add("§f・§b/balance §f- 残高確認");
+                content.add("§f・§b/deposit <金額> §f- 金塊を預ける");
+                content.add("§f・§b/withdraw <金額> §f- 金塊を引き出す");
+                content.add("§f・銀行NPC周辺でのみ取引可能");
+                content.add("");
+                content.add("§e▼ 送金");
+                content.add("§f・§b/pay <プレイヤー名> <金額>");
+                content.add("§f・他のプレイヤーにお金を送れます");
+                content.add("");
+                content.add("§e▼ NPCとの取引");
+                content.add("§f・取引NPCで物を売買できます");
+                content.add("§f・ジョブレベルで価格ボーナスあり");
+                content.add("§f・食料NPCで食べ物を購入できます");
+                
+            } else if (page == 3) {
+                // ページ3: ジョブ・スキルシステム（動的生成）
+                int maxJobsPerPlayer = plugin.getConfig().getInt("jobs.general.max_jobs_per_player", 1);
+                
+                content.add("§e▼ ジョブの種類");
+                
+                if (plugin.getConfig().isConfigurationSection("jobs.job_settings")) {
+                    Set<String> jobKeys = plugin.getConfig().getConfigurationSection("jobs.job_settings").getKeys(false);
+                    List<String> jobOrder = Arrays.asList("miner", "woodcutter", "farmer", "fisherman", "blacksmith", "alchemist", "enchanter", "architect");
+                    int maxLevel = 100;
+                    
+                    for (String jobKey : jobOrder) {
+                        if (jobKeys.contains(jobKey)) {
+                            String displayName = plugin.getConfig().getString("jobs.job_settings." + jobKey + ".display_name", jobKey);
+                            String description = plugin.getConfig().getString("jobs.job_settings." + jobKey + ".description", "");
+                            maxLevel = plugin.getConfig().getInt("jobs.job_settings." + jobKey + ".max_level", 100);
+                            content.add("§f・" + displayName + "（" + capitalize(jobKey) + "） - " + description);
+                        }
+                    }
+                    
+                    if (maxJobsPerPlayer == 1) {
+                        content.add("§f※ 同時に就けるジョブは1つのみです");
+                    } else {
+                        content.add("§f※ 同時に" + maxJobsPerPlayer + "つのジョブに就けます");
+                    }
+                    content.add("");
+                    content.add("§e▼ レベルアップ");
+                    content.add("§f・ジョブ関連の作業で経験値を獲得");
+                    content.add("§f・レベルが上がるとスキルを習得");
+                    content.add("§f・最大レベル: " + maxLevel);
+                } else {
+                    throw new Exception("ジョブ設定が見つかりません");
+                }
+                
+                content.add("");
+                content.add("§e▼ スキル");
+                content.add("§f・各ジョブ専用のスキルが習得可能");
+                content.add("§f・作業効率アップや特殊能力を獲得");
+                content.add("");
+                content.add("§e▼ ジョブ変更");
+                content.add("§f・§b/jobs leave §fで現在のジョブを辞める");
+                content.add("§f・§b/jobs join <ジョブ名> §fで新しいジョブに就く");
+                content.add("§f・レベル50に達すると他の職業に転職できます");
+            } else {
+                // その他のページは静的に読み込み
+                content = plugin.getConfig().getStringList("rules.pages." + page + ".content");
+            }
+            
+        } catch (Exception e) {
+            plugin.getLogger().warning("ページ" + page + "の動的生成に失敗しました。フォールバックします: " + e.getMessage());
+            content = plugin.getConfig().getStringList("rules.pages." + page + ".content");
+        }
+        
+        return content;
+    }
+    
+    /**
+     * 文字列の最初の文字を大文字にする
+     */
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) return str;
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
     
     /**
@@ -89,8 +184,8 @@ public class RulesGUI implements Listener {
      * GUIアイテムをセットアップ
      */
     private void setupRulesGUIItems(Inventory gui, Player player, int page) {
-        // ページ内容を表示（スロット 10-43）
-        List<String> pageContent = plugin.getConfig().getStringList("rules.pages." + page + ".content");
+        // ページ内容を動的に生成
+        List<String> pageContent = generateDynamicPageContent(page);
         String pageTitle = plugin.getConfig().getString("rules.pages." + page + ".title");
         
         // タイトル表示
