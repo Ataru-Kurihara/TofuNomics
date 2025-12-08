@@ -1,10 +1,13 @@
 package org.tofu.tofunomics.npc;
 
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.TofuNomics;
 
@@ -13,13 +16,26 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class NPCManager {
     
+    // PersistentDataContainerのキー定義
+    private static final String PDC_KEY_SYSTEM_NPC = "system_npc";
+    private static final String PDC_KEY_NPC_TYPE = "npc_type";
+    private static final String PDC_KEY_CREATION_TIME = "creation_time";
+    
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private final Map<UUID, NPCData> npcs = new ConcurrentHashMap<>();
+    private final NamespacedKey systemNpcKey;
+    private final NamespacedKey npcTypeKey;
+    private final NamespacedKey creationTimeKey;
     
     public NPCManager(TofuNomics plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
+        
+        // PersistentDataContainerのキー初期化
+        this.systemNpcKey = new NamespacedKey(plugin, PDC_KEY_SYSTEM_NPC);
+        this.npcTypeKey = new NamespacedKey(plugin, PDC_KEY_NPC_TYPE);
+        this.creationTimeKey = new NamespacedKey(plugin, PDC_KEY_CREATION_TIME);
     }
     
     public static class NPCData {
@@ -75,7 +91,13 @@ public class NPCManager {
             npcLocation.setPitch(location.getPitch());
             villager.teleport(npcLocation);
             
-            // システムNPC識別用のメタデータを設定
+            // システムNPC識別用のPersistentDataContainerを設定（永続化される）
+            PersistentDataContainer pdc = villager.getPersistentDataContainer();
+            pdc.set(systemNpcKey, PersistentDataType.STRING, "true");
+            pdc.set(npcTypeKey, PersistentDataType.STRING, npcType);
+            pdc.set(creationTimeKey, PersistentDataType.LONG, System.currentTimeMillis());
+            
+            // 後方互換性のためMetadataも設定（既存のコードとの互換性維持）
             villager.setMetadata("tofunomics_system_npc", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
             villager.setMetadata("tofunomics_npc_type", new org.bukkit.metadata.FixedMetadataValue(plugin, npcType));
             villager.setMetadata("tofunomics_creation_time", new org.bukkit.metadata.FixedMetadataValue(plugin, System.currentTimeMillis()));
@@ -103,6 +125,55 @@ public class NPCManager {
         // すべてのNPCをNITWIT（無職）に設定して取引GUIを完全に無効化
         // 見た目の区別は名前やメタデータで行う
         return Villager.Profession.NITWIT;
+    }
+    
+    /**
+     * NPCに設定を再適用する（サーバー再起動後の復元用）
+     * @param villager 対象の村人エンティティ
+     */
+    public void reapplyNPCSettings(Villager villager) {
+        if (villager == null) return;
+        
+        // PersistentDataContainerからNPCタイプを取得
+        PersistentDataContainer pdc = villager.getPersistentDataContainer();
+        if (!pdc.has(npcTypeKey, PersistentDataType.STRING)) {
+            return; // システムNPCではない
+        }
+        
+        String npcType = pdc.get(npcTypeKey, PersistentDataType.STRING);
+        if (npcType == null) return;
+        
+        plugin.getLogger().info("NPCの設定を再適用: " + villager.getCustomName() + " (タイプ: " + npcType + ")");
+        
+        // NPC基本設定を再適用
+        villager.setProfession(getNPCProfession(npcType));
+        villager.setVillagerType(Villager.Type.PLAINS);
+        villager.setAI(false);
+        villager.setSilent(true);
+        villager.setInvulnerable(true);
+        villager.setRemoveWhenFarAway(false);
+        villager.setCustomNameVisible(true);
+        
+        // 取引を無効化
+        villager.setRecipes(new ArrayList<>());
+        
+        // Metadataも再設定（後方互換性）
+        villager.setMetadata("tofunomics_system_npc", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+        villager.setMetadata("tofunomics_npc_type", new org.bukkit.metadata.FixedMetadataValue(plugin, npcType));
+        
+        // NPCデータをマップに追加（存在しない場合のみ）
+        UUID npcId = villager.getUniqueId();
+        if (!npcs.containsKey(npcId)) {
+            NPCData npcData = new NPCData(
+                npcId,
+                npcType,
+                villager.getCustomName(),
+                villager.getLocation(),
+                villager
+            );
+            npcs.put(npcId, npcData);
+            plugin.getLogger().info("NPCデータを復元: " + villager.getCustomName());
+        }
     }
     
     public boolean removeNPC(UUID npcId) {
@@ -153,6 +224,9 @@ public class NPCManager {
     /**
      * ワールド内の既存システムNPCを削除する
      * プラグイン再起動時の重複NPC問題を解決
+     * 
+     * PDC（PersistentDataContainer）を使用して永続化されたNPCマーカーを検出し、
+     * サーバー再起動後もシステムNPCを正確に識別して削除する
      */
     public void removeExistingSystemNPCs() {
         int removedCount = 0;
@@ -201,10 +275,10 @@ public class NPCManager {
                     boolean shouldRemove = false;
                     String reason = "";
                     
-                    // 既存の判定（メタデータ）
+                    // システムNPC判定（PDC + Metadata + カスタムネーム）
                     if (isSystemNPC(entity)) {
                         shouldRemove = true;
-                        reason = "メタデータ検出";
+                        reason = "PDC/Metadata検出";
                     }
                     // 新規判定（config.yml登録名）
                     else if (entity.getCustomName() != null && 
@@ -241,7 +315,15 @@ public class NPCManager {
             return false;
         }
         
-        // メタデータでの判定（優先）
+        org.bukkit.entity.Villager villager = (org.bukkit.entity.Villager) entity;
+        
+        // PersistentDataContainerでの判定（最優先）
+        PersistentDataContainer pdc = villager.getPersistentDataContainer();
+        if (pdc.has(systemNpcKey, PersistentDataType.STRING)) {
+            return true;
+        }
+        
+        // メタデータでの判定（後方互換性）
         if (entity.hasMetadata("tofunomics_system_npc")) {
             return entity.getMetadata("tofunomics_system_npc").get(0).asBoolean();
         }

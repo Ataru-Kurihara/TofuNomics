@@ -189,8 +189,8 @@ public class FoodNPCManager {
      * 食料NPCの設定
      */
     private void setupFoodNPC(Villager npc) {
-        npc.setProfession(Villager.Profession.BUTCHER);
-        npc.setVillagerType(Villager.Type.PLAINS);
+        // NPCManagerのcreateNPC()で基本設定は完了しているため、
+        // 追加設定のみを行う（職業はNITWITのまま維持）
         npc.setVillagerLevel(5);
     }
     
@@ -285,7 +285,7 @@ public class FoodNPCManager {
             }
             
             // 営業時間チェック
-            if (!isOperatingHours()) {
+            if (!isOperatingHours(player)) {
                 int startHour = configManager.getFoodNPCStartHour();
                 int endHour = configManager.getFoodNPCEndHour();
                 String startTime = String.format("%d:00", startHour);
@@ -298,7 +298,7 @@ public class FoodNPCManager {
             checkDailyReset();
             
             // 挨拶メッセージ（時間帯に応じて変化）
-            player.sendMessage(getTimeOfDayGreeting(player.getName()));
+            player.sendMessage(getTimeOfDayGreeting(player));
             
             // 遅延してからGUIを開く
             int delayTicks = configManager.getNPCGUIDelayTicks();
@@ -330,9 +330,9 @@ public class FoodNPCManager {
     /**
      * 時間帯に応じた挨拶メッセージを取得
      */
-    private String getTimeOfDayGreeting(String playerName) {
-        // Minecraft時間を取得
-        long worldTime = plugin.getServer().getWorlds().get(0).getTime();
+    private String getTimeOfDayGreeting(Player player) {
+        // Minecraft時間を取得（プレイヤーがいるワールドの時間）
+        long worldTime = player.getWorld().getTime();
         int currentHour = (int) (((worldTime + 6000) / 1000) % 24);
         
         String greeting;
@@ -350,19 +350,19 @@ public class FoodNPCManager {
             greeting = "夜分にすみません";
         }
         
-        return "§6「" + greeting + "、" + playerName + "さん」";
+        return "§6「" + greeting + "、" + player.getName() + "さん」";
     }
     
     /**
      * 営業時間チェック
      */
-    private boolean isOperatingHours() {
+    private boolean isOperatingHours(Player player) {
         if (!configManager.isFoodNPCOperatingHoursEnabled()) {
             return true;
         }
         
-        // Minecraft時間を取得（TradingNPCManagerと同じ方式）
-        long worldTime = plugin.getServer().getWorlds().get(0).getTime();
+        // Minecraft時間を取得（プレイヤーがいるワールドの時間）
+        long worldTime = player.getWorld().getTime();
         // Minecraft時間計算: 0=朝6:00, 6000=正午12:00, 12000=夕方18:00, 18000=深夜0:00
         int currentHour = (int) (((worldTime + 6000) / 1000) % 24);
         
@@ -423,7 +423,7 @@ public class FoodNPCManager {
         }
         
         // 営業時間チェック
-        if (!isOperatingHours()) {
+            if (!isOperatingHours(player)) {
             int startHour = configManager.getFoodNPCStartHour();
             int endHour = configManager.getFoodNPCEndHour();
             return new PurchaseResult(false, 
