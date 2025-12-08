@@ -236,7 +236,7 @@ jobs:
       max_level: 100
       base_income_multiplier: 1.0
       # レベルアップに必要な経験値倍率
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       # 売却ボーナス（レベル1での基本ボーナス）
       base_sell_bonus: 0.05
       
@@ -245,7 +245,7 @@ jobs:
       description: "木材の供給を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     farmer:
@@ -253,7 +253,7 @@ jobs:
       description: "農作物・畜産物の供給を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     fisherman:
@@ -261,7 +261,7 @@ jobs:
       description: "魚と宝の供給を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     blacksmith:
@@ -269,7 +269,7 @@ jobs:
       description: "ツール、武器、防具の生産と修理を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     alchemist:
@@ -277,7 +277,7 @@ jobs:
       description: "ポーションの生産を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     enchanter:
@@ -285,7 +285,7 @@ jobs:
       description: "エンチャントサービスを担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     architect:
@@ -293,7 +293,7 @@ jobs:
       description: "建築と装飾を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
 
 # NPCシステム設定
@@ -1660,6 +1660,26 @@ housing_rental:
     region_name: ""
     # 対象ワールド
     world_name: "tofuNomics"
+    # 親リージョン作成時の自動フラグ設定
+    parent_region_flags:
+      build: deny
+      block-break: deny
+      interact: deny
+  
+  # WorldGuard賃貸リージョン設定
+  worldguard_rental_regions:
+    # リージョン自動設定の有効化
+    auto_configure: true
+    # 賃貸リージョンに自動設定するフラグ
+    default_flags:
+      use: allow           # ドア、ボタン、レバーの使用許可（メンバーのみ）
+      chest-access: allow  # チェストアクセス許可（メンバーのみ）
+      build: deny          # 建築は禁止（親の設定を継承）
+      interact: allow      # インタラクション許可（メンバーのみ）
+    # 親リージョンの自動設定
+    auto_set_parent: true
+    # デフォルトの親リージョン名（city_protection.region_nameが優先）
+    default_parent_region: ""
   
   # メッセージ設定
   messages:
