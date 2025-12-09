@@ -35,108 +35,199 @@ public class JobLevelRewardManager {
     private void initializeLevelRewards() {
         // 鉱夫の報酬設定
         Map<Integer, LevelReward> minerRewards = new HashMap<>();
-        minerRewards.put(5, new LevelReward(50.0, 
-            Arrays.asList(createRewardItem(Material.IRON_PICKAXE, "見習い鉱夫の証", 1)),
+        minerRewards.put(5, new LevelReward(100.0, 
+            Arrays.asList(
+                createRewardItem(Material.IRON_INGOT, "鉄インゴット", 16),
+                createRewardItem(Material.COAL, "石炭", 32)
+            ),
             "鉱石探知能力開放"));
-        minerRewards.put(10, new LevelReward(100.0,
-            Arrays.asList(createRewardItem(Material.DIAMOND, "品質証明書", 3)),
-            "採掘効率向上"));
-        minerRewards.put(20, new LevelReward(200.0,
-            Arrays.asList(createRewardItem(Material.NETHERITE_INGOT, "マスター鉱夫の証", 1)),
-            "レア鉱石発見確率大幅向上"));
-        minerRewards.put(35, new LevelReward(500.0,
-            Arrays.asList(createRewardItem(Material.BEACON, "鉱夫の栄光", 1)),
+        minerRewards.put(10, new LevelReward(50.0,
+            Arrays.asList(createRewardItem(Material.IRON_ORE, "鉄鉱石", 16)),
+            "採掘技術向上"));
+        minerRewards.put(15, new LevelReward(250.0,
+            Arrays.asList(
+                createRewardItem(Material.DIAMOND, "ダイヤモンド", 5),
+                createRewardItem(Material.GOLD_INGOT, "金インゴット", 16)
+            ),
+            "採掘効率大幅向上"));
+        minerRewards.put(30, new LevelReward(600.0,
+            Arrays.asList(
+                createRewardItem(Material.NETHERITE_INGOT, "ネザライトインゴット", 2),
+                createRewardItem(Material.DIAMOND, "ダイヤモンド", 10),
+                createRewardItem(Material.BEACON, "鉱夫の栄光", 1)
+            ),
             "伝説的採掘能力獲得"));
         jobRewards.put("miner", minerRewards);
         
         // 木こりの報酬設定
         Map<Integer, LevelReward> woodcutterRewards = new HashMap<>();
-        woodcutterRewards.put(5, new LevelReward(50.0,
-            Arrays.asList(createRewardItem(Material.IRON_AXE, "見習い木こりの証", 1)),
+        woodcutterRewards.put(5, new LevelReward(100.0,
+            Arrays.asList(
+                createRewardItem(Material.OAK_LOG, "オークの原木", 32),
+                createRewardItem(Material.STICK, "棒", 64)
+            ),
             "一括伐採能力開放"));
-        woodcutterRewards.put(15, new LevelReward(150.0,
-            Arrays.asList(createRewardItem(Material.DIAMOND_AXE, "熟練木こりの証", 1)),
+        woodcutterRewards.put(15, new LevelReward(250.0,
+            Arrays.asList(
+                createRewardItem(Material.OAK_LOG, "オークの原木", 64),
+                createRewardItem(Material.OAK_SAPLING, "オークの苗木", 32)
+            ),
             "伐採速度大幅向上"));
-        woodcutterRewards.put(30, new LevelReward(300.0,
-            Arrays.asList(createRewardItem(Material.TOTEM_OF_UNDYING, "森の守護者", 1)),
+        woodcutterRewards.put(30, new LevelReward(600.0,
+            Arrays.asList(
+                createRewardItem(Material.BAMBOO, "竹", 128),
+                createRewardItem(Material.OAK_LOG, "各種原木", 128),
+                createRewardItem(Material.TOTEM_OF_UNDYING, "森の守護者", 1)
+            ),
             "自然回復能力獲得"));
         jobRewards.put("woodcutter", woodcutterRewards);
         
         // 農家の報酬設定
         Map<Integer, LevelReward> farmerRewards = new HashMap<>();
-        farmerRewards.put(5, new LevelReward(50.0,
-            Arrays.asList(createRewardItem(Material.GOLDEN_HOE, "見習い農家の証", 1)),
+        farmerRewards.put(5, new LevelReward(100.0,
+            Arrays.asList(
+                createRewardItem(Material.BONE_MEAL, "骨粉", 32),
+                createRewardItem(Material.WHEAT_SEEDS, "小麦の種", 16)
+            ),
             "作物成長加速能力開放"));
-        farmerRewards.put(12, new LevelReward(120.0,
-            Arrays.asList(createRewardItem(Material.BONE_MEAL, "特製肥料", 32)),
+        farmerRewards.put(12, new LevelReward(50.0,
+            Arrays.asList(createRewardItem(Material.BONE_MEAL, "骨粉", 16)),
+            "収穫技術向上"));
+        farmerRewards.put(15, new LevelReward(250.0,
+            Arrays.asList(
+                createRewardItem(Material.BONE_MEAL, "特製肥料", 64),
+                createRewardItem(Material.WHEAT, "小麦", 32)
+            ),
             "収穫量向上"));
-        farmerRewards.put(25, new LevelReward(250.0,
-            Arrays.asList(createRewardItem(Material.ENCHANTED_GOLDEN_APPLE, "豊穣の果実", 3)),
+        farmerRewards.put(30, new LevelReward(600.0,
+            Arrays.asList(
+                createRewardItem(Material.ENCHANTED_GOLDEN_APPLE, "豊穣の果実", 5),
+                createRewardItem(Material.GOLDEN_CARROT, "金のニンジン", 16),
+                createRewardItem(Material.GOLDEN_HOE, "農家の証", 1)
+            ),
             "動物繁殖効率大幅向上"));
         jobRewards.put("farmer", farmerRewards);
         
         // 釣り人の報酬設定
         Map<Integer, LevelReward> fishermanRewards = new HashMap<>();
-        fishermanRewards.put(8, new LevelReward(80.0,
-            Arrays.asList(createRewardItem(Material.FISHING_ROD, "見習い釣り師の証", 1)),
+        fishermanRewards.put(5, new LevelReward(100.0,
+            Arrays.asList(
+                createRewardItem(Material.FISHING_ROD, "釣り竿", 3),
+                createRewardItem(Material.STRING, "糸", 32)
+            ),
             "宝物発見能力開放"));
-        fishermanRewards.put(18, new LevelReward(180.0,
-            Arrays.asList(createRewardItem(Material.TRIDENT, "海の守護者", 1)),
+        fishermanRewards.put(8, new LevelReward(50.0,
+            Arrays.asList(createRewardItem(Material.INK_SAC, "イカスミ", 16)),
+            "釣り運向上"));
+        fishermanRewards.put(15, new LevelReward(250.0,
+            Arrays.asList(
+                createRewardItem(Material.COD, "鱈", 32),
+                createRewardItem(Material.PRISMARINE, "プリズマリン", 16)
+            ),
             "レア魚獲得確率向上"));
-        fishermanRewards.put(40, new LevelReward(400.0,
-            Arrays.asList(createRewardItem(Material.HEART_OF_THE_SEA, "海の心", 1)),
+        fishermanRewards.put(30, new LevelReward(600.0,
+            Arrays.asList(
+                createRewardItem(Material.TRIDENT, "海の守護者", 1),
+                createRewardItem(Material.HEART_OF_THE_SEA, "海の心", 1),
+                createRewardItem(Material.SEA_LANTERN, "海晶ブロック", 64)
+            ),
             "伝説の釣り能力獲得"));
         jobRewards.put("fisherman", fishermanRewards);
         
         // 鍛冶屋の報酬設定
         Map<Integer, LevelReward> blacksmithRewards = new HashMap<>();
-        blacksmithRewards.put(6, new LevelReward(60.0,
-            Arrays.asList(createRewardItem(Material.ANVIL, "見習い鍛冶台", 1)),
+        blacksmithRewards.put(5, new LevelReward(100.0,
+            Arrays.asList(
+                createRewardItem(Material.IRON_INGOT, "鉄インゴット", 32),
+                createRewardItem(Material.ANVIL, "金床", 1)
+            ),
             "製作効率向上"));
-        blacksmithRewards.put(16, new LevelReward(160.0,
-            Arrays.asList(createRewardItem(Material.SMITHING_TABLE, "熟練鍛冶台", 1)),
+        blacksmithRewards.put(15, new LevelReward(250.0,
+            Arrays.asList(
+                createRewardItem(Material.DIAMOND, "ダイヤモンド", 5),
+                createRewardItem(Material.NETHERITE_SCRAP, "ネザライトの欠片", 4),
+                createRewardItem(Material.SMITHING_TABLE, "鍛冶台", 1)
+            ),
             "高品質製作能力開放"));
-        blacksmithRewards.put(28, new LevelReward(280.0,
-            Arrays.asList(createRewardItem(Material.PAPER, "マスター設計図", 1)),
+        blacksmithRewards.put(30, new LevelReward(600.0,
+            Arrays.asList(
+                createRewardItem(Material.NETHERITE_INGOT, "ネザライトインゴット", 3),
+                createRewardItem(Material.DIAMOND, "ダイヤモンド", 10),
+                createRewardItem(Material.ANVIL, "金床", 2)
+            ),
             "伝説装備製作能力獲得"));
         jobRewards.put("blacksmith", blacksmithRewards);
         
         // ポーション屋の報酬設定
         Map<Integer, LevelReward> alchemistRewards = new HashMap<>();
-        alchemistRewards.put(7, new LevelReward(70.0,
-            Arrays.asList(createRewardItem(Material.BREWING_STAND, "見習い錬金台", 1)),
+        alchemistRewards.put(5, new LevelReward(100.0,
+            Arrays.asList(
+                createRewardItem(Material.NETHER_WART, "ネザーウォート", 32),
+                createRewardItem(Material.GLASS_BOTTLE, "ガラス瓶", 64),
+                createRewardItem(Material.BREWING_STAND, "醸造台", 1)
+            ),
             "ポーション効果延長"));
-        alchemistRewards.put(14, new LevelReward(140.0,
-            Arrays.asList(createRewardItem(Material.CAULDRON, "魔法の大釜", 1)),
+        alchemistRewards.put(15, new LevelReward(250.0,
+            Arrays.asList(
+                createRewardItem(Material.GLOWSTONE_DUST, "グロウストーン", 32),
+                createRewardItem(Material.REDSTONE, "レッドストーン", 32),
+                createRewardItem(Material.FERMENTED_SPIDER_EYE, "発酵したクモの目", 16)
+            ),
             "特殊ポーション製作開放"));
-        alchemistRewards.put(35, new LevelReward(350.0,
-            Arrays.asList(createRewardItem(Material.DRAGON_BREATH, "ドラゴンの息", 8)),
+        alchemistRewards.put(30, new LevelReward(600.0,
+            Arrays.asList(
+                createRewardItem(Material.DRAGON_BREATH, "ドラゴンの息", 16),
+                createRewardItem(Material.BLAZE_POWDER, "ブレイズパウダー", 32),
+                createRewardItem(Material.CAULDRON, "魔法の大釜", 1)
+            ),
             "最上級ポーション製作能力"));
         jobRewards.put("alchemist", alchemistRewards);
         
         // エンチャンターの報酬設定  
         Map<Integer, LevelReward> enchanterRewards = new HashMap<>();
-        enchanterRewards.put(9, new LevelReward(90.0,
-            Arrays.asList(createRewardItem(Material.ENCHANTING_TABLE, "見習いエンチャント台", 1)),
+        enchanterRewards.put(5, new LevelReward(100.0,
+            Arrays.asList(
+                createRewardItem(Material.LAPIS_LAZULI, "ラピスラズリ", 64),
+                createRewardItem(Material.BOOK, "本", 16),
+                createRewardItem(Material.ENCHANTING_TABLE, "エンチャントテーブル", 1)
+            ),
             "エンチャント成功確率向上"));
-        enchanterRewards.put(22, new LevelReward(220.0,
-            Arrays.asList(createRewardItem(Material.BOOKSHELF, "魔法書棚", 15)),
+        enchanterRewards.put(15, new LevelReward(250.0,
+            Arrays.asList(
+                createRewardItem(Material.BOOKSHELF, "魔法書棚", 15),
+                createRewardItem(Material.OBSIDIAN, "黒曜石", 8),
+                createRewardItem(Material.BOOK, "本", 32)
+            ),
             "高レベルエンチャント開放"));
-        enchanterRewards.put(45, new LevelReward(450.0,
-            Arrays.asList(createRewardItem(Material.NETHER_STAR, "魔導師の星", 1)),
+        enchanterRewards.put(30, new LevelReward(600.0,
+            Arrays.asList(
+                createRewardItem(Material.NETHER_STAR, "魔導師の星", 1),
+                createRewardItem(Material.LAPIS_BLOCK, "ラピスラズリブロック", 16),
+                createRewardItem(Material.BOOK, "本", 64)
+            ),
             "最高レベルエンチャント能力"));
         jobRewards.put("enchanter", enchanterRewards);
         
         // 建築家の報酬設定
         Map<Integer, LevelReward> architectRewards = new HashMap<>();
-        architectRewards.put(4, new LevelReward(40.0,
-            Arrays.asList(createRewardItem(Material.STRUCTURE_BLOCK, "設計ブロック", 4)),
+        architectRewards.put(5, new LevelReward(100.0,
+            Arrays.asList(
+                createRewardItem(Material.STONE, "石", 64),
+                createRewardItem(Material.GLASS, "ガラス", 64)
+            ),
             "建築効率向上"));
-        architectRewards.put(13, new LevelReward(130.0,
-            Arrays.asList(createRewardItem(Material.BARRIER, "保護ブロック", 16)),
+        architectRewards.put(15, new LevelReward(250.0,
+            Arrays.asList(
+                createRewardItem(Material.QUARTZ_BLOCK, "クォーツブロック", 32),
+                createRewardItem(Material.WHITE_STAINED_GLASS, "色付きガラス", 16)
+            ),
             "材料節約能力開放"));
-        architectRewards.put(27, new LevelReward(270.0,
-            Arrays.asList(createRewardItem(Material.COMMAND_BLOCK, "マスター設計ブロック", 1)),
+        architectRewards.put(30, new LevelReward(600.0,
+            Arrays.asList(
+                createRewardItem(Material.END_STONE, "エンドストーン", 16),
+                createRewardItem(Material.SHULKER_BOX, "シュルカーボックス", 4),
+                createRewardItem(Material.BEACON, "建築の証", 1)
+            ),
             "高速建築能力獲得"));
         jobRewards.put("architect", architectRewards);
     }
