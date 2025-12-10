@@ -255,8 +255,8 @@ public class ProcessingNPCManager {
      * 加工NPCの外観設定
      */
     private void setupProcessingNPC(Villager npc) {
-        npc.setProfession(Villager.Profession.TOOLSMITH);
-        npc.setVillagerType(Villager.Type.PLAINS);
+        // NPCManagerのcreateNPC()で基本設定は完了しているため、
+        // 追加設定のみを行う（職業はNITWITのまま維持）
         npc.setVillagerLevel(5);
     }
     
@@ -291,9 +291,9 @@ public class ProcessingNPCManager {
             
             // 挨拶メッセージ
             if (isWoodcutter(player)) {
-                player.sendMessage(configManager.getProcessingNPCMessage("woodcutter_greeting"));
+                player.sendMessage(configManager.getProcessingNPCMessage("woodcutter_greeting", player));
             } else {
-                player.sendMessage(configManager.getProcessingNPCMessage("greeting"));
+                player.sendMessage(configManager.getProcessingNPCMessage("greeting", player));
             }
             
             // GUIを開く

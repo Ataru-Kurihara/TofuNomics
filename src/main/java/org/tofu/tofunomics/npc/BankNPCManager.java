@@ -183,17 +183,10 @@ public class BankNPCManager {
     }
     
     private void setupBankNPC(Villager npc) {
-        // NPCの外見設定
-        npc.setProfession(Villager.Profession.LIBRARIAN);
-        npc.setVillagerType(Villager.Type.PLAINS);
+        // NPCManagerのcreateNPC()で基本設定は完了しているため、
+        // 追加設定のみを行う（職業はNITWITのまま維持）
         npc.setAdult();
-        npc.setAI(false);
-        npc.setInvulnerable(true);
-        npc.setSilent(true);
         npc.setCanPickupItems(false);
-        
-        // NPCのカスタム名を設定
-        npc.setCustomNameVisible(true);
         
         // タグを付けて銀行NPCとして識別
         npc.addScoreboardTag("tofu_bank_npc");

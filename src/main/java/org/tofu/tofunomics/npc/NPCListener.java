@@ -13,6 +13,7 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
@@ -135,7 +136,7 @@ public class NPCListener implements Listener {
     
     private void handleBankNPCInteraction(Player player, UUID npcId) {
         // 取引時間制限チェック
-        if (!isWithinTradingHours()) {
+        if (!isWithinTradingHours(player)) {
             player.sendMessage(configManager.getMessage("npc.bank.outside_hours"));
             return;
         }
@@ -155,7 +156,7 @@ public class NPCListener implements Listener {
     
     private void handleTradingNPCInteraction(Player player, UUID npcId) {
         // 取引時間制限チェック
-        if (!isWithinTradingHours()) {
+        if (!isWithinTradingHours(player)) {
             player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
             return;
         }
@@ -313,14 +314,14 @@ public class NPCListener implements Listener {
         }
     }
     
-    private boolean isWithinTradingHours() {
+    private boolean isWithinTradingHours(Player player) {
         if (!configManager.isTradingHoursEnabled()) {
             return true;
         }
         
-        // 現在の時間を取得（Minecraft時間）
-        long worldTime = plugin.getServer().getWorlds().get(0).getTime();
-        int currentHour = (int) ((worldTime / 1000 + 6) % 24); // 6:00を基準とした24時間制
+        // 現在の時間を取得（プレイヤーがいるワールドのMinecraft時間）
+        long worldTime = player.getWorld().getTime();
+        int currentHour = (int) (((worldTime + 6000) / 1000) % 24); // 6:00を基準とした24時間制
         
         int startHour = configManager.getTradingStartHour();
         int endHour = configManager.getTradingEndHour();
@@ -410,6 +411,25 @@ public class NPCListener implements Listener {
         // プレイヤーがログアウトしたら取引セッションを削除
         UUID playerId = event.getPlayer().getUniqueId();
         activeTradingSessions.remove(playerId);
+    }
+    
+    /**
+     * チャンクロード時にNPC設定を再適用（サーバー再起動後の復元）
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChunkLoad(ChunkLoadEvent event) {
+        // チャンク内の全エンティティをチェック
+        for (org.bukkit.entity.Entity entity : event.getChunk().getEntities()) {
+            if (entity instanceof Villager) {
+                Villager villager = (Villager) entity;
+                
+                // システムNPCかチェック（PDCベース）
+                if (npcManager.isSystemNPC(villager)) {
+                    // NPC設定を再適用
+                    npcManager.reapplyNPCSettings(villager);
+                }
+            }
+        }
     }
 
     /**
