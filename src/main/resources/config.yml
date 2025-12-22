@@ -533,6 +533,37 @@ npc_system:
   # 取引所の設定
   trading_posts: []
   # 取引所の設定例（職業別NPC）:
+  # 
+  # 【24時間営業・緊急モード取引所の設定例】
+  # 必需品を割高価格で24時間購入できるNPC
+  # - world: tofuNomics
+  #   name: "§c24時間緊急ショップ"
+  #   x: 0
+  #   y: 64
+  #   z: 100
+  #   id: emergency_shop
+  #   description: "緊急時の必需品供給所"
+  #   accepted_jobs:
+  #     - all
+  #   purchase_prices:
+  #     bread: 5
+  #     cooked_beef: 10
+  #     apple: 3
+  #     golden_apple: 50
+  #     torch: 1
+  #     arrow: 2
+  #   emergency_mode:
+  #     enabled: true
+  #     price_multiplier: 2.0  # 通常の2倍の価格
+  #     items:
+  #       - BREAD
+  #       - COOKED_BEEF
+  #       - APPLE
+  #       - GOLDEN_APPLE
+  #       - TORCH
+  #       - ARROW
+  # 
+  # 通常の取引所の設定例（職業別NPC）:
   # - world: world_name
   #   name: 取引所名
   #   x: 100
@@ -723,6 +754,11 @@ scoreboard:
     show_current_time: true
     # 取引時間表示
     show_trading_hours: true
+    # ルールコマンド表示
+    show_rules_command: true
+  
+  # スコアボードに表示するルールコマンドテキスト
+  rules_command_text: "&e/rules でルール確認"
 
 # メッセージ設定
 messages:
@@ -1859,11 +1895,14 @@ area_system:
 # ルール確認システム設定
 # ========================================
 rules:
-  # ルール確認機能の有効化
-  enabled: true
+  # ルール確認機能の有効化（同意必須機能は無効化）
+  enabled: false
   
-  # ルール同意を必須にするか
-  require_agreement: true
+  # ルール同意を必須にするか（外部サイト確認方式に変更）
+  require_agreement: false
+  
+  # ルールサイトURL
+  url: "https://to-fu.world/worlds/tofu-nomics/"
   
   # ページ内容
   pages:
