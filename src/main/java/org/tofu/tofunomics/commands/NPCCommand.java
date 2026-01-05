@@ -135,22 +135,55 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
     
     private boolean handleSpawnTrader(Player player, String[] args, Location spawnLocation) {
         if (args.length < 3) {
-            player.sendMessage("§c使用法: /npc spawn trader <職業名|all> [NPC名]");
+            player.sendMessage("§c使用法: /npc spawn trader <職業名|all> [NPC名] [オプション]");
             player.sendMessage("§7職業: " + String.join(", ", VALID_JOBS) + ", all");
+            player.sendMessage("§7オプション:");
+            player.sendMessage("  §e--emergency §7: 24時間営業モードを有効化");
+            player.sendMessage("  §e--multiplier <倍率> §7: 価格倍率を設定（デフォルト: 2.0）");
+            player.sendMessage("  §e--items <プリセット> §7: アイテムプリセットを指定");
+            player.sendMessage("§7プリセット: " + String.join(", ", configManager.getValidEmergencyPresets()));
             return true;
         }
-        
+
         String jobType = args[2].toLowerCase();
         if (!isValidJobType(jobType)) {
             player.sendMessage("§c無効な職業名です: " + jobType);
             player.sendMessage("§7有効な職業: " + String.join(", ", VALID_JOBS) + ", all");
             return true;
         }
-        
-        String npcName = args.length > 3 ? 
-            String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : 
+
+        // 緊急モードオプションを解析
+        EmergencyOptions emergencyOptions = parseEmergencyOptions(args);
+
+        // NPC名を抽出（オプションフラグが見つかるまで）
+        StringBuilder npcNameBuilder = new StringBuilder();
+        boolean foundName = false;
+        for (int i = 3; i < args.length; i++) {
+            String arg = args[i];
+
+            // クォート記号を除去
+            arg = arg.replace("\"", "");
+
+            // オプションフラグが見つかったら終了
+            if (arg.startsWith("--")) {
+                break;
+            }
+            if (foundName) {
+                npcNameBuilder.append(" ");
+            }
+            npcNameBuilder.append(arg);
+            foundName = true;
+        }
+
+        String npcName = foundName && npcNameBuilder.length() > 0 ?
+            npcNameBuilder.toString() :
             ("all".equalsIgnoreCase(jobType) ? "§6総合取引所" : "§6" + configManager.getJobDisplayName(jobType) + "取引商人");
-        
+
+        // 緊急モードの場合はNPC名に識別子を追加（未指定の場合のみ）
+        if (emergencyOptions.enabled && !foundName) {
+            npcName = "§c24h " + npcName;
+        }
+
         // 重複チェック
         if (configManager.hasTradingPostWithName(npcName)) {
             player.sendMessage("§c同じ名前の取引NPCが既に存在します: " + npcName);
@@ -158,45 +191,44 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             player.sendMessage("§7削除コマンド: §f/npc remove " + npcName);
             return true;
         }
-        
+
         try {
             // 取引NPCを作成
             Villager npc = npcManager.createNPC(spawnLocation, "trader", npcName);
             boolean success = (npc != null);
-            
+
             if (success) {
                 // 取引所データをconfig.ymlに自動追加
                 try {
-                    configManager.addTradingPost(npcName, spawnLocation, jobType);
-                    
+                    // 緊急モードアイテムリストを取得
+                    List<String> emergencyItems = emergencyOptions.enabled ?
+                        configManager.getEmergencyItemsPreset(emergencyOptions.itemsPreset) :
+                        new ArrayList<>();
+
+                    // 緊急モード設定を含めて追加
+                    configManager.addTradingPost(npcName, spawnLocation, jobType,
+                        emergencyOptions.enabled, emergencyOptions.multiplier, emergencyItems);
+
                     // メッセージ設定も自動確認・追加
                     configManager.ensureNPCMessagesExist();
-                    
-                    // TradingNPCManagerに即座に反映（reloadを使わず直接登録）
+
+                    // config.yml保存後、TradingNPCManagerをリロードして反映
                     if (tradingNPCManager != null) {
-                        // 取引所IDを生成（jobType_market形式）
-                        String tradingPostId = ("all".equalsIgnoreCase(jobType)) ? 
-                            "central_market" : jobType + "_market";
-                        
-                        // accepted_jobsリストを作成
-                        List<String> acceptedJobs = ("all".equalsIgnoreCase(jobType)) ? 
-                            Arrays.asList("all") : Arrays.asList(jobType);
-                        
-                        // NPCをTradingNPCManagerに即座に登録
-                        tradingNPCManager.registerTradingNPC(
-                            npc.getUniqueId(), 
-                            tradingPostId, 
-                            npcName, 
-                            spawnLocation, 
-                            acceptedJobs
-                        );
-                        
-                        plugin.getLogger().info("取引NPCをTradingNPCManagerに即座に登録: " + npcName);
+                        tradingNPCManager.reloadTradingPosts();
+                        plugin.getLogger().info("取引所データをリロードしました: " + npcName);
                     }
-                    
+
                     String typeDesc = "all".equalsIgnoreCase(jobType) ? "全職業対応" : jobType + "専用";
                     player.sendMessage("§a" + typeDesc + "取引NPC「" + npcName + "」をスポーンし、取引所データを追加しました。");
                     player.sendMessage("§7座標: " + formatLocation(spawnLocation));
+
+                    if (emergencyOptions.enabled) {
+                        player.sendMessage("§c§l[24時間営業モード]");
+                        player.sendMessage("§7価格倍率: §f" + emergencyOptions.multiplier + "倍");
+                        player.sendMessage("§7アイテムプリセット: §f" + emergencyOptions.itemsPreset);
+                        player.sendMessage("§7販売アイテム数: §f" + emergencyItems.size() + "種類");
+                    }
+
                     player.sendMessage("§e取引所データがconfig.ymlに自動追加され、即座に利用可能になりました。");
                 } catch (Exception configError) {
                     plugin.getLogger().severe("取引所データの追加に失敗しました: " + configError.getMessage());
@@ -207,9 +239,9 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             } else {
                 player.sendMessage("§c取引NPCのスポーンに失敗しました。");
             }
-            
+
             return true;
-            
+
         } catch (Exception e) {
             player.sendMessage("§c取引NPCのスポーン中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("取引NPCスポーンエラー: " + e.getMessage());
@@ -1358,7 +1390,60 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("");
         
         player.sendMessage("§6進捗確認: §f/tofunomics npc list");
-        
+
         return true;
+    }
+
+    /**
+     * 緊急モード用のオプションパラメータクラス
+     */
+    private static class EmergencyOptions {
+        boolean enabled = false;
+        double multiplier = 2.0;
+        String itemsPreset = "essentials";
+
+        public EmergencyOptions() {}
+    }
+
+    /**
+     * コマンド引数から緊急モードオプションを解析
+     */
+    private EmergencyOptions parseEmergencyOptions(String[] args) {
+        EmergencyOptions options = new EmergencyOptions();
+
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+
+            if ("--emergency".equalsIgnoreCase(arg)) {
+                options.enabled = true;
+            } else if ("--multiplier".equalsIgnoreCase(arg)) {
+                if (i + 1 < args.length) {
+                    try {
+                        double multiplier = Double.parseDouble(args[i + 1]);
+                        if (multiplier > 0 && multiplier <= 10.0) {
+                            options.multiplier = multiplier;
+                        } else {
+                            plugin.getLogger().warning("無効な価格倍率: " + args[i + 1] + " (1.0～10.0の範囲で指定してください)");
+                        }
+                        i++; // 次の引数をスキップ
+                    } catch (NumberFormatException e) {
+                        plugin.getLogger().warning("価格倍率の解析に失敗: " + args[i + 1]);
+                    }
+                }
+            } else if ("--items".equalsIgnoreCase(arg)) {
+                if (i + 1 < args.length) {
+                    String preset = args[i + 1];
+                    if (configManager.getValidEmergencyPresets().contains(preset.toLowerCase())) {
+                        options.itemsPreset = preset.toLowerCase();
+                    } else {
+                        plugin.getLogger().warning("無効なプリセット名: " + preset);
+                        plugin.getLogger().warning("有効なプリセット: " + String.join(", ", configManager.getValidEmergencyPresets()));
+                    }
+                    i++; // 次の引数をスキップ
+                }
+            }
+        }
+
+        return options;
     }
 }

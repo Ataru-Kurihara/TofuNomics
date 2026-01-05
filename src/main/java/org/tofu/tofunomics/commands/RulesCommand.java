@@ -1,21 +1,24 @@
 package org.tofu.tofunomics.commands;
 
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.tofu.tofunomics.rules.RulesManager;
+import org.tofu.tofunomics.config.ConfigManager;
 
 /**
  * /rules コマンド実装
  * プレイヤーがいつでもルールを確認できるコマンド
+ * 外部サイトのURLをクリック可能な形式でチャットに表示
  */
 public class RulesCommand implements CommandExecutor {
     
-    private final RulesManager rulesManager;
+    private final ConfigManager configManager;
     
-    public RulesCommand(RulesManager rulesManager) {
-        this.rulesManager = rulesManager;
+    public RulesCommand(ConfigManager configManager) {
+        this.configManager = configManager;
     }
     
     @Override
@@ -27,29 +30,24 @@ public class RulesCommand implements CommandExecutor {
         }
         
         Player player = (Player) sender;
+        String rulesUrl = configManager.getRulesUrl();
         
-        // reset サブコマンド
-        if (args.length > 0 && args[0].equalsIgnoreCase("reset")) {
-            // 権限チェック
-            if (!player.hasPermission("tofunomics.rules.reset")) {
-                player.sendMessage("§cこのコマンドを実行する権限がありません。");
-                return true;
-            }
-            
-            // ルール同意状態をリセット
-            boolean success = rulesManager.resetPlayerRules(player.getUniqueId());
-            
-            if (success) {
-                player.sendMessage("§aルール同意状態をリセットしました。次回ログイン時にルールが表示されます。");
-            } else {
-                player.sendMessage("§cルール同意状態のリセットに失敗しました。");
-            }
-            
-            return true;
-        }
+        // ヘッダー
+        player.sendMessage("§6━━━━━━━━━━━━━━━━━━━━━━");
+        player.sendMessage("§6§l  TofuNomics サーバールール");
+        player.sendMessage("§6━━━━━━━━━━━━━━━━━━━━━━");
+        player.sendMessage("");
         
-        // 引数なし（またはreset以外）: ルールGUIを開く
-        rulesManager.getRulesGUI().openRulesGUI(player, 1);
+        // クリック可能なURL
+        TextComponent message = new TextComponent("§a§l➤ ルールを確認する: ");
+        TextComponent urlLink = new TextComponent("§b§n" + rulesUrl);
+        urlLink.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, rulesUrl));
+        message.addExtra(urlLink);
+        player.spigot().sendMessage(message);
+        
+        player.sendMessage("");
+        player.sendMessage("§7§o※ 上記リンクをクリックしてブラウザで開いてください");
+        player.sendMessage("§6━━━━━━━━━━━━━━━━━━━━━━");
         
         return true;
     }

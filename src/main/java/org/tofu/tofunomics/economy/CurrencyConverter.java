@@ -35,8 +35,8 @@ public class CurrencyConverter {
     }
     
     public String formatCurrency(double amount) {
-        // 価格を整数に丸める
-        double roundedAmount = Math.ceil(amount);
+        // 価格を四捨五入で丸める
+        double roundedAmount = Math.round(amount);
         return formatter.format(roundedAmount);
     }
     

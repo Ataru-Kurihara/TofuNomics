@@ -9,7 +9,9 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 public class ItemManager {
@@ -200,6 +202,67 @@ public class ItemManager {
     }
 
     /**
+     * 旧形式のTofuGold（金インゴット）かどうかを判定（互換性のため）
+     * バリデーションが厳格すぎて預け入れできない問題への対応
+     */
+    public boolean isLegacyGoldIngot(ItemStack item) {
+        if (item == null || item.getType() != Material.GOLD_INGOT) {
+            return false;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+
+        // 表示名チェック（TofuGoldまたは金貨が含まれていればOK）
+        if (meta.hasDisplayName()) {
+            String displayName = ChatColor.stripColor(meta.getDisplayName());
+            if (displayName.contains("TofuGold") || displayName.contains("金貨") || displayName.contains("金インゴット")) {
+                return true;
+            }
+        }
+
+        // Loreチェック（TofuNomicsまたは豆腐銀行が含まれていればOK）
+        if (meta.hasLore()) {
+            List<String> lore = meta.getLore();
+            for (String loreLine : lore) {
+                String strippedLore = ChatColor.stripColor(loreLine);
+                if (strippedLore.contains("TofuNomics") || strippedLore.contains("豆腐銀行") ||
+                    strippedLore.contains("金貨") || strippedLore.contains("コイン")) {
+                    return true;
+                }
+            }
+        }
+
+        // CustomModelDataがあればOK（通貨として作成されたもの）
+        if (meta.hasCustomModelData() && meta.getCustomModelData() == INGOT_CUSTOM_MODEL_DATA) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 旧形式のTofuGold（金インゴット）を新形式に変換
+     */
+    public ItemStack convertLegacyGoldIngotToNewFormat(ItemStack legacyItem) {
+        if (!isLegacyGoldIngot(legacyItem)) {
+            return null;
+        }
+
+        int amount = legacyItem.getAmount();
+        return createCurrencyGoldIngot(amount);
+    }
+
+    /**
+     * 拡張バリデーション：新形式または旧形式のTofuGold（金インゴット）かチェック
+     */
+    public boolean isAnyValidGoldIngot(ItemStack item) {
+        return isValidCurrencyGoldIngot(item) || isLegacyGoldIngot(item);
+    }
+
+    /**
      * 旧形式の豆腐コインかどうかを判定（互換性のため）
      */
     public boolean isLegacyGoldNugget(ItemStack item) {
@@ -250,7 +313,7 @@ public class ItemManager {
                 totalAmount += item.getAmount();
             }
             // 金のインゴットのカウント（1インゴット = 9金塊）
-            else if (isValidCurrencyGoldIngot(item)) {
+            else if (isAnyValidGoldIngot(item)) {
                 totalAmount += item.getAmount() * NUGGETS_PER_INGOT;
             }
         }
@@ -298,10 +361,10 @@ public class ItemManager {
         if (remaining > 0) {
             for (int slot = 0; slot < inventory.getSize(); slot++) {
                 ItemStack item = inventory.getItem(slot);
-                if (isValidCurrencyGoldIngot(item) && remaining > 0) {
+                if (isAnyValidGoldIngot(item) && remaining > 0) {
                     int ingotAmount = item.getAmount();
                     int nuggetsFromThisStack = ingotAmount * NUGGETS_PER_INGOT;
-                    
+
                     if (nuggetsFromThisStack <= remaining) {
                         // このインゴットスタック全体を使う
                         inventory.setItem(slot, null);
@@ -310,19 +373,25 @@ public class ItemManager {
                         // このインゴットスタックから一部を使う
                         int ingotsNeeded = (remaining + NUGGETS_PER_INGOT - 1) / NUGGETS_PER_INGOT; // 切り上げ
                         int changeNuggets = (ingotsNeeded * NUGGETS_PER_INGOT) - remaining;
-                        
+
                         // インゴットを減らす
                         if (ingotAmount == ingotsNeeded) {
                             inventory.setItem(slot, null);
                         } else {
-                            item.setAmount(ingotAmount - ingotsNeeded);
+                            // 旧形式の場合は新形式に変換して残りを設定
+                            if (isLegacyGoldIngot(item)) {
+                                ItemStack newFormatItem = createCurrencyGoldIngot(ingotAmount - ingotsNeeded);
+                                inventory.setItem(slot, newFormatItem);
+                            } else {
+                                item.setAmount(ingotAmount - ingotsNeeded);
+                            }
                         }
-                        
+
                         // お釣りの金塊を追加
                         if (changeNuggets > 0) {
                             addGoldNuggetsToInventory(player, changeNuggets);
                         }
-                        
+
                         remaining = 0;
                     }
                 }
@@ -337,22 +406,44 @@ public class ItemManager {
             return false;
         }
         
-        PlayerInventory inventory = player.getInventory();
-        int remaining = amount;
-        
-        while (remaining > 0) {
-            int stackSize = Math.min(remaining, Material.GOLD_NUGGET.getMaxStackSize());
-            ItemStack goldNugget = createGoldNugget(stackSize);
-            
-            if (inventory.firstEmpty() == -1) {
-                return false;
-            }
-            
-            inventory.addItem(goldNugget);
-            remaining -= stackSize;
+        // 事前にスペースをチェック（既存の金塊スタックの空きも考慮）
+        if (!hasInventorySpace(player, amount)) {
+            return false;
         }
         
-        return true;
+        PlayerInventory inventory = player.getInventory();
+        int remaining = amount;
+        List<ItemStack> addedItems = new ArrayList<>();
+        
+        try {
+            while (remaining > 0) {
+                int stackSize = Math.min(remaining, Material.GOLD_NUGGET.getMaxStackSize());
+                ItemStack goldNugget = createGoldNugget(stackSize);
+                
+                // addItemの戻り値をチェック（追加できなかったアイテムがある場合はロールバック）
+                HashMap<Integer, ItemStack> leftover = inventory.addItem(goldNugget);
+                
+                if (!leftover.isEmpty()) {
+                    // 追加失敗 - これまでに追加したアイテムをロールバック
+                    for (ItemStack added : addedItems) {
+                        inventory.removeItem(added);
+                    }
+                    return false;
+                }
+                
+                addedItems.add(goldNugget);
+                remaining -= stackSize;
+            }
+            
+            return true;
+        } catch (Exception e) {
+            // 例外発生時もロールバック
+            for (ItemStack added : addedItems) {
+                inventory.removeItem(added);
+            }
+            org.bukkit.Bukkit.getLogger().warning("[ItemManager] addGoldNuggetsToInventory failed with exception: " + e.getMessage());
+            return false;
+        }
     }
     
     public boolean hasInventorySpace(Player player, int amount) {

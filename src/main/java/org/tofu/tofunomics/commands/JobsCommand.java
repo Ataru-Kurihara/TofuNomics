@@ -52,6 +52,8 @@ public class JobsCommand implements CommandExecutor {
                 return handleJobInfo(player, args);
             case "debug":
                 return handleJobDebug(player);
+            case "admin":
+                return handleJobAdmin(sender, args);
             default:
                 sendHelpMessage(player);
                 return true;
@@ -165,19 +167,33 @@ public class JobsCommand implements CommandExecutor {
         
         JobManager.JobLeaveResult result = jobManager.leaveJob(player, jobName);
         
-        if (result == JobManager.JobLeaveResult.SUCCESS) {
-            String displayName = jobManager.getJobDisplayName(jobName);
-            String message = configManager.getMessage("jobs.job_left", "job", displayName);
-            
-            // メッセージが見つからない場合のフォールバック
-            if (message.startsWith("メッセージが見つかりません:")) {
-                message = "&a職業「" + displayName + "」を辞職しました。";
-            }
-            
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&', 
-                configManager.getMessagePrefix() + message));
-        } else {
-            player.sendMessage(ChatColor.RED + "職業の辞職に失敗しました。");
+        switch (result) {
+            case SUCCESS:
+                String displayName = jobManager.getJobDisplayName(jobName);
+                String message = configManager.getMessage("jobs.job_left", "job", displayName);
+                
+                // メッセージが見つからない場合のフォールバック
+                if (message.startsWith("メッセージが見つかりません:")) {
+                    message = "&a職業「" + displayName + "」を辞職しました。";
+                }
+                
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', 
+                    configManager.getMessagePrefix() + message));
+                break;
+                
+            case LEVEL_TOO_LOW:
+                player.sendMessage(ChatColor.RED + "レベル50未満の職業は辞職できません。レベル50に達してから辞職してください。");
+                break;
+                
+            case DAILY_LIMIT_EXCEEDED:
+                player.sendMessage(ChatColor.RED + "本日はすでに職業を変更しています。明日再度お試しください。");
+                break;
+                
+            case NO_SUCH_JOB:
+            case DATABASE_ERROR:
+            default:
+                player.sendMessage(ChatColor.RED + "職業の辞職に失敗しました。");
+                break;
         }
         
         return true;
@@ -295,6 +311,78 @@ public class JobsCommand implements CommandExecutor {
         return true;
     }
 
+    /**
+     * 管理者コマンドのハンドラー
+     */
+    private boolean handleJobAdmin(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("tofunomics.jobs.admin")) {
+            sender.sendMessage(ChatColor.RED + "このコマンドを実行する権限がありません。");
+            return true;
+        }
+        
+        if (args.length < 2) {
+            sender.sendMessage(ChatColor.RED + "使用法: /jobs admin <サブコマンド>");
+            sender.sendMessage(ChatColor.YELLOW + "  forceleave <player> <jobName> - プレイヤーを強制的に辞職させる");
+            return true;
+        }
+        
+        String subCommand = args[1].toLowerCase();
+        
+        switch (subCommand) {
+            case "forceleave":
+                return handleJobAdminForceLeave(sender, args);
+            default:
+                sender.sendMessage(ChatColor.RED + "不明なサブコマンド: " + subCommand);
+                return true;
+        }
+    }
+    
+    /**
+     * 管理者による強制辞職コマンド
+     */
+    private boolean handleJobAdminForceLeave(CommandSender sender, String[] args) {
+        if (args.length != 4) {
+            sender.sendMessage(ChatColor.RED + "使用法: /jobs admin forceleave <player> <jobName>");
+            return true;
+        }
+        
+        String playerName = args[2];
+        String jobName = args[3].toLowerCase();
+        
+        Player targetPlayer = sender.getServer().getPlayer(playerName);
+        if (targetPlayer == null) {
+            sender.sendMessage(ChatColor.RED + "プレイヤーが見つかりません: " + playerName);
+            return true;
+        }
+        
+        if (!jobManager.hasJob(targetPlayer, jobName)) {
+            sender.sendMessage(ChatColor.RED + "そのプレイヤーはその職業に就いていません: " + jobName);
+            return true;
+        }
+        
+        JobManager.JobLeaveResult result = jobManager.forceLeaveJob(targetPlayer, jobName);
+        
+        switch (result) {
+            case SUCCESS:
+                String displayName = jobManager.getJobDisplayName(jobName);
+                sender.sendMessage(ChatColor.GREEN + "プレイヤー " + playerName + " を職業「" + displayName + "」から強制的に辞職させました。");
+                targetPlayer.sendMessage(ChatColor.YELLOW + "管理者により職業「" + displayName + "」から辞職させられました。");
+                break;
+                
+            case DAILY_LIMIT_EXCEEDED:
+                sender.sendMessage(ChatColor.RED + "本日はすでに職業を変更しています。");
+                break;
+                
+            case NO_SUCH_JOB:
+            case DATABASE_ERROR:
+            default:
+                sender.sendMessage(ChatColor.RED + "職業の強制辞職に失敗しました。");
+                break;
+        }
+        
+        return true;
+    }
+    
     private void sendHelpMessage(Player player) {
         player.sendMessage(ChatColor.GOLD + "=== Jobs コマンドヘルプ ===");
         player.sendMessage(ChatColor.YELLOW + "/jobs list " + ChatColor.WHITE + "- 利用可能な職業一覧を表示");

@@ -48,8 +48,20 @@ public class TradingNPCManager {
         private final Map<Material, Double> purchasePrices; // 購入価格マップ
         private UUID npcId; // 変更可能にしてリカバリー機能を実装
         
+        // 緊急モード関連のフィールド
+        private final boolean emergencyMode; // 緊急モードフラグ（24時間営業）
+        private final double emergencyPriceMultiplier; // 緊急時の価格倍率
+        private final List<Material> emergencyItems; // 緊急時の取扱アイテムリスト
+        
         public TradingPost(String id, String name, Location location, List<String> acceptedJobTypes, 
                          List<String> items, Map<Material, Double> itemPrices, Map<Material, Double> purchasePrices, UUID npcId) {
+            this(id, name, location, acceptedJobTypes, items, itemPrices, purchasePrices, npcId, 
+                 false, 1.0, new ArrayList<>());
+        }
+        
+        public TradingPost(String id, String name, Location location, List<String> acceptedJobTypes, 
+                         List<String> items, Map<Material, Double> itemPrices, Map<Material, Double> purchasePrices, UUID npcId,
+                         boolean emergencyMode, double emergencyPriceMultiplier, List<Material> emergencyItems) {
             this.id = id;
             this.name = name;
             this.location = location;
@@ -58,6 +70,9 @@ public class TradingNPCManager {
             this.itemPrices = itemPrices;
             this.purchasePrices = purchasePrices != null ? purchasePrices : new HashMap<>();
             this.npcId = npcId;
+            this.emergencyMode = emergencyMode;
+            this.emergencyPriceMultiplier = emergencyPriceMultiplier;
+            this.emergencyItems = emergencyItems != null ? emergencyItems : new ArrayList<>();
         }
         
         public String getId() { return id; }
@@ -69,9 +84,50 @@ public class TradingNPCManager {
         public Map<Material, Double> getPurchasePrices() { return purchasePrices; }
         public UUID getNpcId() { return npcId; }
         
+        // 緊急モード関連のゲッター
+        public boolean isEmergencyMode() { return emergencyMode; }
+        public double getEmergencyPriceMultiplier() { return emergencyPriceMultiplier; }
+        public List<Material> getEmergencyItems() { return emergencyItems; }
+        
         // UUID更新用のセッター（リカバリー機能）
         public void setNpcId(UUID npcId) { 
             this.npcId = npcId; 
+        }
+        
+        /**
+         * 緊急モードを考慮した実際の購入価格を取得
+         * @param material アイテム
+         * @return 実際の購入価格
+         */
+        public double getEffectivePurchasePrice(Material material) {
+            double basePrice = purchasePrices.getOrDefault(material, 0.0);
+            
+            // 緊急モードで、緊急アイテムリストに含まれている場合は倍率を適用
+            if (emergencyMode && !emergencyItems.isEmpty() && emergencyItems.contains(material)) {
+                return basePrice * emergencyPriceMultiplier;
+            }
+            
+            return basePrice;
+        }
+        
+        /**
+         * 緊急モード時に購入可能なアイテムかどうかを判定
+         * @param material アイテム
+         * @return 購入可能な場合true
+         */
+        public boolean isAvailableForPurchase(Material material) {
+            // 緊急モードでない場合は通常の判定
+            if (!emergencyMode) {
+                return purchasePrices.containsKey(material);
+            }
+            
+            // 緊急モードの場合、緊急アイテムリストに含まれているかチェック
+            if (!emergencyItems.isEmpty()) {
+                return emergencyItems.contains(material) && purchasePrices.containsKey(material);
+            }
+            
+            // 緊急アイテムリストが空の場合は全アイテム対応
+            return purchasePrices.containsKey(material);
         }
         
         public boolean acceptsJob(String jobType) {
@@ -79,14 +135,41 @@ public class TradingNPCManager {
             if (acceptedJobTypes.isEmpty() || acceptedJobTypes.contains("all")) {
                 return true;
             }
-            
+
             // jobTypeがnull（無職）の場合、上記の条件を満たさない限りfalse
             if (jobType == null) {
                 return false;
             }
-            
+
             // 指定された職業が含まれているかチェック
             return acceptedJobTypes.contains(jobType);
+        }
+
+        /**
+         * 売却時の職業チェック（従来の厳格な制限）
+         * @param jobType プレイヤーの職業
+         * @return 売却可能な場合true
+         */
+        public boolean acceptsJobForSale(String jobType) {
+            return acceptsJob(jobType);
+        }
+
+        /**
+         * 購入時の職業チェック（全職業許可）
+         * @param jobType プレイヤーの職業
+         * @return 常にtrue（購入は職業問わず可能）
+         */
+        public boolean acceptsJobForPurchase(String jobType) {
+            return true; // 購入は全職業許可
+        }
+
+        /**
+         * プレイヤーがこの取引所の対応職業かどうかをチェック
+         * @param jobType プレイヤーの職業
+         * @return 対応職業の場合true、別職業の場合false
+         */
+        public boolean isMatchingJob(String jobType) {
+            return acceptsJob(jobType);
         }
         
         public double getItemPrice(Material material) {
@@ -246,18 +329,63 @@ public class TradingNPCManager {
                 Map<Material, Double> prices = buildItemPrices(acceptedJobs, items);
                 
                 // 購入価格を読み込み
-                Map<String, Double> purchasePricesConfig = configManager.getTradingPostPurchasePrices(id);
-                Map<Material, Double> purchasePrices = new HashMap<>();
-                for (Map.Entry<String, Double> entry : purchasePricesConfig.entrySet()) {
-                    try {
-                        Material material = Material.valueOf(entry.getKey().toUpperCase());
-                        purchasePrices.put(material, entry.getValue());
-                    } catch (IllegalArgumentException e) {
-                        plugin.getLogger().warning("無効なMaterial名: " + entry.getKey());
+                    Map<String, Double> purchasePricesConfig = configManager.getTradingPostPurchasePrices(id);
+                    Map<Material, Double> purchasePrices = new HashMap<>();
+                    for (Map.Entry<String, Double> entry : purchasePricesConfig.entrySet()) {
+                        try {
+                            Material material = Material.valueOf(entry.getKey().toUpperCase());
+                            purchasePrices.put(material, entry.getValue());
+                        } catch (IllegalArgumentException e) {
+                            plugin.getLogger().warning("無効なMaterial名: " + entry.getKey());
+                        }
                     }
-                }
-                
-                TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, items, prices, purchasePrices, npcId);
+                    
+                    // 緊急モード設定を読み込み（configマップから直接取得）
+                    boolean emergencyMode = false;
+                    double emergencyPriceMultiplier = 2.0;
+                    List<String> emergencyItemNames = new ArrayList<>();
+                    
+                    if (config.containsKey("emergency_mode") && config.get("emergency_mode") instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> emergencyConfig = (Map<String, Object>) config.get("emergency_mode");
+                        
+                        Object enabledObj = emergencyConfig.get("enabled");
+                        if (enabledObj instanceof Boolean) {
+                            emergencyMode = (Boolean) enabledObj;
+                        }
+                        
+                        Object multiplierObj = emergencyConfig.get("price_multiplier");
+                        if (multiplierObj instanceof Number) {
+                            emergencyPriceMultiplier = ((Number) multiplierObj).doubleValue();
+                        }
+                        
+                        Object emergencyItemsObj = emergencyConfig.get("items");
+                        if (emergencyItemsObj instanceof List) {
+                            @SuppressWarnings("unchecked")
+                            List<String> tempList = (List<String>) emergencyItemsObj;
+                            emergencyItemNames = tempList;
+                        }
+                    }
+                    
+                    plugin.getLogger().info("  緊急モード設定: " + emergencyMode);
+                    if (emergencyMode) {
+                        plugin.getLogger().info("    価格倍率: " + emergencyPriceMultiplier);
+                        plugin.getLogger().info("    対象アイテム数: " + emergencyItemNames.size());
+                    }
+                    
+                    // 緊急アイテムリストをMaterialに変換
+                    List<Material> emergencyItems = new ArrayList<>();
+                    for (String itemName : emergencyItemNames) {
+                        try {
+                            Material material = Material.valueOf(itemName.toUpperCase());
+                            emergencyItems.add(material);
+                        } catch (IllegalArgumentException e) {
+                            plugin.getLogger().warning("無効な緊急アイテム名: " + itemName);
+                        }
+                    }
+                    
+                    TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, items, prices, purchasePrices, npcId,
+                        emergencyMode, emergencyPriceMultiplier, emergencyItems);
                 tradingPosts.put(id, tradingPost);
                 
                 plugin.getLogger().info("========================================");
@@ -402,23 +530,28 @@ public class TradingNPCManager {
             }
             plugin.getLogger().info("Step 3: 取引所データ取得 - 成功 (" + tradingPost.getName() + ")");
             
+            // Step 3.5: 営業時間チェック（emergency_mode対応）
+            if (!isWithinTradingHours(player, tradingPost)) {
+                player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+                return true;
+            }
+            plugin.getLogger().info("Step 3.5: 営業時間チェック - 営業時間内");
+            
             // Step 4: 権限チェック（基本的にすべて許可）
             boolean hasPermission = hasPermissionToUseTradingNPC(player);
             plugin.getLogger().info("Step 4: 権限チェック - " + (hasPermission ? "許可" : "拒否"));
-            
+
             if (!hasPermission) {
                 player.sendMessage("§c取引NPCを利用する権限がありません。");
                 return true;
             }
-            
+
+            // 挨拶メッセージを先に表示
+            String greetingMessage = configManager.getTradingNPCGreeting(tradingPost.getName(), player.getName());
+            player.sendMessage(greetingMessage);
+
             // 取引サービスGUIを開く
             boolean guiOpened = openTradingServiceGUI(player, tradingPost, npcData);
-            
-            // GUI開封に成功した場合のみ挨拶メッセージを送信
-            if (guiOpened) {
-                String greetingMessage = configManager.getTradingNPCGreeting(tradingPost.getName(), player.getName());
-                player.sendMessage(greetingMessage);
-            }
             
             plugin.getLogger().info("プレイヤー " + player.getName() + " が取引NPC " + tradingPost.getName() + " と取引しました");
             return true;
@@ -478,7 +611,7 @@ public class TradingNPCManager {
         
         try {
             // まず営業時間チェック（遅延前に実行）
-            if (!isWithinTradingHours(player)) {
+            if (!isWithinTradingHours(player, tradingPost)) {
                 plugin.getLogger().info("営業時間外のため処理中断");
                 int startHour = configManager.getTradingStartHour();
                 int endHour = configManager.getTradingEndHour();
@@ -487,39 +620,16 @@ public class TradingNPCManager {
             }
             plugin.getLogger().info("営業時間チェック: OK");
             
-            // 職業チェックを先に行う
+            // 職業チェック（ログ出力のみ、制限はしない）
             String playerJob = jobManager.getPlayerJob(player.getUniqueId());
             plugin.getLogger().info("職業チェック: " + (playerJob != null ? playerJob : "無職"));
-            
-            // 無職の場合、この取引所が無職を受け入れるかチェック
-            if (playerJob == null) {
-                plugin.getLogger().info("プレイヤーは無職です。取引所の受け入れ判定中...");
-                boolean acceptsNoJob = tradingPost.acceptsJob(null);
-                plugin.getLogger().info("取引所「" + tradingPost.getName() + "」の無職受け入れ: " + (acceptsNoJob ? "可能" : "不可"));
-                
-                if (!acceptsNoJob) {
-                    // この取引所は無職を受け入れない
-                    plugin.getLogger().info("無職のためメッセージ表示して終了");
-                    String npcType = getNPCTypeFromTradingPost(tradingPost);
-                    plugin.getLogger().info("NPCタイプ: " + npcType);
-                    
-                    // メッセージ送信を確実に実行
-                    try {
-                        // 無職者向けメッセージを送信（挨拶も含まれている）
-                        configManager.sendNPCSpecificMessageList(player, npcType, "no_job");
-                        plugin.getLogger().info("無職者向けメッセージ送信完了");
-                    } catch (Exception e) {
-                        plugin.getLogger().severe("メッセージ送信でエラー: " + e.getMessage());
-                        // 緊急フォールバック
-                        player.sendMessage("§6「いらっしゃい、お客さん！」");
-                        player.sendMessage("§e「まずは何か職業に就いてからお越しください」");
-                        player.sendMessage("§7コマンド: §f/jobs join <職業名>");
-                    }
-                    return false;
-                }
-                
-                // この取引所は無職も受け入れる
-                plugin.getLogger().info("この取引所は無職も受け入れます。GUIを開く処理へ進みます");
+
+            // 購入は全職業可能、売却時のみ職業制限を適用（TradingGUI側で処理）
+            boolean isMatchingJob = tradingPost.isMatchingJob(playerJob);
+            if (!isMatchingJob) {
+                plugin.getLogger().info("別職業または無職です（購入は可能、売却は制限）");
+            } else {
+                plugin.getLogger().info("対応職業です（購入・売却ともに可能）");
             }
             
             // TradingGUIインスタンスの確認
@@ -559,7 +669,7 @@ public class TradingNPCManager {
                 plugin.getLogger().info("NPC距離チェック: OK");
                 
                 // 営業時間内か再チェック（念のため）
-                if (!isWithinTradingHours(player)) {
+                if (!isWithinTradingHours(player, tradingPost)) {
                     plugin.getLogger().info("営業時間外のため、GUIを開きませんでした");
                     int startHour = configManager.getTradingStartHour();
                     int endHour = configManager.getTradingEndHour();
@@ -1014,7 +1124,52 @@ public class TradingNPCManager {
                         }
                     }
                     
-                    TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, items, prices, purchasePrices, npcId);
+                    // 緊急モード設定を読み込み（configマップから直接取得）
+                    boolean emergencyMode = false;
+                    double emergencyPriceMultiplier = 2.0;
+                    List<String> emergencyItemNames = new ArrayList<>();
+                    
+                    if (config.containsKey("emergency_mode") && config.get("emergency_mode") instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> emergencyConfig = (Map<String, Object>) config.get("emergency_mode");
+                        
+                        Object enabledObj = emergencyConfig.get("enabled");
+                        if (enabledObj instanceof Boolean) {
+                            emergencyMode = (Boolean) enabledObj;
+                        }
+                        
+                        Object multiplierObj = emergencyConfig.get("price_multiplier");
+                        if (multiplierObj instanceof Number) {
+                            emergencyPriceMultiplier = ((Number) multiplierObj).doubleValue();
+                        }
+                        
+                        Object emergencyItemsObj = emergencyConfig.get("items");
+                        if (emergencyItemsObj instanceof List) {
+                            @SuppressWarnings("unchecked")
+                            List<String> tempList = (List<String>) emergencyItemsObj;
+                            emergencyItemNames = tempList;
+                        }
+                    }
+                    
+                    plugin.getLogger().info("  緊急モード設定: " + emergencyMode);
+                    if (emergencyMode) {
+                        plugin.getLogger().info("    価格倍率: " + emergencyPriceMultiplier);
+                        plugin.getLogger().info("    対象アイテム数: " + emergencyItemNames.size());
+                    }
+                    
+                    // 緊急アイテムリストをMaterialに変換
+                    List<Material> emergencyItems = new ArrayList<>();
+                    for (String itemName : emergencyItemNames) {
+                        try {
+                            Material material = Material.valueOf(itemName.toUpperCase());
+                            emergencyItems.add(material);
+                        } catch (IllegalArgumentException e) {
+                            plugin.getLogger().warning("無効な緊急アイテム名: " + itemName);
+                        }
+                    }
+                    
+                    TradingPost tradingPost = new TradingPost(id, name, location, acceptedJobs, items, prices, purchasePrices, npcId,
+                        emergencyMode, emergencyPriceMultiplier, emergencyItems);
                     tradingPosts.put(id, tradingPost);
                     
                     plugin.getLogger().info("  ✓ 取引所データ登録成功: " + name + " (既存NPC UUID: " + npcId + ")");
@@ -1149,8 +1304,15 @@ public class TradingNPCManager {
     
     /**
      * 取引営業時間内かどうかをチェック
+     * 緊急モードのNPCは24時間営業
      */
-    private boolean isWithinTradingHours(Player player) {
+    private boolean isWithinTradingHours(Player player, TradingPost tradingPost) {
+        // 緊急モードの場合は常に営業時間内として扱う
+        if (tradingPost != null && tradingPost.isEmergencyMode()) {
+            plugin.getLogger().info("緊急モードNPCのため、営業時間チェックをスキップ");
+            return true;
+        }
+        
         if (!configManager.isTradingHoursEnabled()) {
             return true;
         }

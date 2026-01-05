@@ -109,6 +109,24 @@ public class HousingRentalManager {
             }
         }
         
+        // フラグの自動設定
+        if (configManager.isRentalRegionAutoConfigure()) {
+            java.util.Map<String, String> defaultFlags = configManager.getRentalRegionDefaultFlags();
+            
+            for (java.util.Map.Entry<String, String> entry : defaultFlags.entrySet()) {
+                String flagName = entry.getKey();
+                String flagState = entry.getValue();
+                
+                boolean flagSet = worldGuardIntegration.setRegionFlag(regionId, world, flagName, flagState);
+                
+                if (flagSet) {
+                    logger.info("リージョン " + regionId + " にフラグ " + flagName + "=" + flagState + " を設定しました");
+                } else {
+                    logger.warning("リージョン " + regionId + " のフラグ " + flagName + " の設定に失敗しました");
+                }
+            }
+        }
+        
         return true;
     }
 

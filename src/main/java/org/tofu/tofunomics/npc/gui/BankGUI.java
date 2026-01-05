@@ -120,7 +120,7 @@ public class BankGUI implements Listener {
             Arrays.asList(
                 "§7手持ちのコインを銀行に入金します",
                 "§7左クリック: §fコイン1個入金",
-                "§7右クリック: §fコイン10個入金",
+                "§7右クリック: §fコイン9個入金",
                 "§7シフト+クリック: §f全てのコイン入金"
             )
         );
@@ -350,16 +350,16 @@ public class BankGUI implements Listener {
         }
     }
     
-    private void handleDeposit(Player player, BankGUISession session, 
+    private void handleDeposit(Player player, BankGUISession session,
                              org.bukkit.event.inventory.ClickType clickType) {
         int amount;
-        
+
         switch (clickType) {
             case LEFT:
                 amount = 1;
                 break;
             case RIGHT:
-                amount = 10;
+                amount = 9;
                 break;
             case SHIFT_LEFT:
             case SHIFT_RIGHT:
@@ -368,52 +368,40 @@ public class BankGUI implements Listener {
             default:
                 return;
         }
-        
-        // 手持ちの豆腐コインをカウント
-        int goldCount = 0;
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (itemManager.isAnyValidGoldNugget(item)) {
-                goldCount += item.getAmount();
-            }
-        }
-        
-        if (goldCount == 0) {
-            player.sendMessage(configManager.getMessage("npc.bank.no_tofu_coins"));
+
+        // ItemManagerのメソッドを使用してTofuCoinとTofuGoldの両方をカウント
+        int availableAmount = itemManager.countGoldNuggetsInInventory(player);
+
+        if (availableAmount == 0) {
+            player.sendMessage("§cインベントリに有効なTofuCoinまたはTofuGoldがありません。");
+            player.sendMessage("§7※ TofuGoldは通貨専用の金インゴットです（1個 = 9 TofuCoin）");
             return;
         }
-        
+
         // 実際に預ける量を決定
-        int depositAmount = Math.min(amount, goldCount);
+        int depositAmount = Math.min(amount, availableAmount);
         double maxDeposit = configManager.getMaxDepositAmount();
         if (depositAmount > maxDeposit) {
             depositAmount = (int) maxDeposit;
         }
-        
-        // 豆腐コインをインベントリから削除
-        int remaining = depositAmount;
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (remaining <= 0) break;
-            
-            if (itemManager.isAnyValidGoldNugget(item)) {
-                int itemAmount = item.getAmount();
-                if (itemAmount <= remaining) {
-                    remaining -= itemAmount;
-                    item.setAmount(0);
-                } else {
-                    item.setAmount(itemAmount - remaining);
-                    remaining = 0;
-                }
-            }
+
+        // ItemManagerのメソッドを使用してTofuCoin/TofuGoldを削除（自動的に両方対応）
+        if (!itemManager.removeGoldNuggetsFromInventory(player, depositAmount)) {
+            player.sendMessage("§c入金処理中にエラーが発生しました。");
+            return;
         }
-        
+
         // 残高に追加
-        currencyConverter.addBalance(player.getUniqueId(), depositAmount);
-        
-        String amountText = currencyConverter.formatCurrency(depositAmount);
-        player.sendMessage(configManager.getMessage("economy.deposit_success", 
-            "amount", amountText, 
+        double depositBalance = currencyConverter.convertNuggetsToBalance(depositAmount);
+        currencyConverter.addBalance(player.getUniqueId(), depositBalance);
+
+        String amountText = currencyConverter.formatCurrency(depositBalance);
+        player.sendMessage(configManager.getMessage("economy.deposit_success",
+            "amount", amountText,
             "currency", configManager.getCurrencyName()));
-        
+
+        player.sendMessage("§7預け入れた金額: " + depositAmount + " TofuCoin相当");
+
         // GUIを更新
         setupBankGUIItems(session.getInventory(), player);
     }
@@ -480,24 +468,24 @@ public class BankGUI implements Listener {
     private void handleGoldToCoinConversion(Player player) {
         int nuggetsPerIngot = itemManager.getNuggetsPerIngot();
         
-        // インベントリ内の通貨版金インゴットを数える
+        // インベントリ内の通貨版金インゴットを数える（新旧両対応）
         int goldCount = 0;
         for (ItemStack item : player.getInventory().getContents()) {
-            if (itemManager.isValidCurrencyGoldIngot(item)) {
+            if (itemManager.isAnyValidGoldIngot(item)) {
                 goldCount += item.getAmount();
             }
         }
-        
+
         // 1枚以上あるかチェック
         if (goldCount < 1) {
             player.sendMessage("§cTofuGoldが必要です。");
             return;
         }
-        
-        // 金インゴットを削除
+
+        // 金インゴットを削除（旧形式も対応）
         for (int i = 0; i < player.getInventory().getSize(); i++) {
             ItemStack item = player.getInventory().getItem(i);
-            if (item != null && itemManager.isValidCurrencyGoldIngot(item)) {
+            if (item != null && itemManager.isAnyValidGoldIngot(item)) {
                 if (item.getAmount() <= 1) {
                     player.getInventory().setItem(i, null);
                 } else {

@@ -43,12 +43,14 @@ public class JobCraftPermissionManager {
             Material.DIAMOND_HELMET, Material.DIAMOND_CHESTPLATE, Material.DIAMOND_LEGGINGS, Material.DIAMOND_BOOTS,
             Material.NETHERITE_HELMET, Material.NETHERITE_CHESTPLATE, Material.NETHERITE_LEGGINGS, Material.NETHERITE_BOOTS,
             // 武器類
-            Material.WOODEN_SWORD, Material.STONE_SWORD, Material.IRON_SWORD, Material.GOLDEN_SWORD, 
+            Material.STONE_SWORD, Material.IRON_SWORD, Material.GOLDEN_SWORD, 
             Material.DIAMOND_SWORD, Material.NETHERITE_SWORD,
             Material.BOW, Material.CROSSBOW, Material.TRIDENT,
             // 設備類
             Material.FURNACE, Material.BLAST_FURNACE, Material.ANVIL, Material.CHIPPED_ANVIL, Material.DAMAGED_ANVIL,
-            Material.GRINDSTONE, Material.SMITHING_TABLE
+            Material.GRINDSTONE, Material.SMITHING_TABLE,
+            // 作業台
+            Material.CRAFTING_TABLE
         ));
         jobCraftableItems.put("blacksmith", blacksmithItems);
         
@@ -64,7 +66,9 @@ public class JobCraftPermissionManager {
             Material.MOSSY_COBBLESTONE, Material.STONE_STAIRS, Material.STONE_BRICK_STAIRS,
             Material.COBBLESTONE_STAIRS, Material.STONE_SLAB, Material.STONE_BRICK_SLAB,
             Material.COBBLESTONE_SLAB, Material.STONE_BRICK_WALL, Material.COBBLESTONE_WALL,
-            Material.STONE_BRICK_WALL
+            Material.STONE_BRICK_WALL,
+            // 作業台
+            Material.CRAFTING_TABLE
         ));
         jobCraftableItems.put("miner", minerItems);
         
@@ -73,13 +77,17 @@ public class JobCraftPermissionManager {
             // くわ類
             Material.WOODEN_HOE, Material.STONE_HOE, Material.IRON_HOE, 
             Material.GOLDEN_HOE, Material.DIAMOND_HOE, Material.NETHERITE_HOE,
+            // シャベル類（農家専用）
+            Material.WOODEN_SHOVEL,
             // 食料関連
             Material.BREAD, Material.CAKE, Material.COOKIE, Material.PUMPKIN_PIE,
             Material.MUSHROOM_STEW, Material.RABBIT_STEW, Material.BEETROOT_SOUP,
             Material.SUSPICIOUS_STEW, Material.HONEY_BOTTLE,
             // 農業関連設備
             Material.COMPOSTER, Material.FLOWER_POT, Material.CAULDRON,
-            Material.BARREL, Material.SMOKER
+            Material.BARREL, Material.SMOKER,
+            // 作業台
+            Material.CRAFTING_TABLE
         ));
         jobCraftableItems.put("farmer", farmerItems);
         
@@ -112,7 +120,9 @@ public class JobCraftPermissionManager {
             Material.FISHING_ROD,
             // 船類
             Material.OAK_BOAT, Material.SPRUCE_BOAT, Material.BIRCH_BOAT, Material.JUNGLE_BOAT,
-            Material.ACACIA_BOAT, Material.DARK_OAK_BOAT
+            Material.ACACIA_BOAT, Material.DARK_OAK_BOAT,
+            // 作業台
+            Material.CRAFTING_TABLE
         ));
         jobCraftableItems.put("fisherman", fishermanItems);
         
@@ -122,7 +132,9 @@ public class JobCraftPermissionManager {
             Material.BREWING_STAND, Material.CAULDRON,
             // ポーション関連（基本的なもの）
             Material.GLASS_BOTTLE, Material.FERMENTED_SPIDER_EYE, Material.GLISTERING_MELON_SLICE,
-            Material.GOLDEN_CARROT, Material.MAGMA_CREAM, Material.BLAZE_POWDER
+            Material.GOLDEN_CARROT, Material.MAGMA_CREAM, Material.BLAZE_POWDER,
+            // 作業台
+            Material.CRAFTING_TABLE
         ));
         jobCraftableItems.put("alchemist", alchemistItems);
         
@@ -131,7 +143,9 @@ public class JobCraftPermissionManager {
             // エンチャント関連
             Material.ENCHANTING_TABLE, Material.BOOKSHELF, Material.BOOK,
             Material.WRITABLE_BOOK, Material.WRITTEN_BOOK, Material.PAPER,
-            Material.ITEM_FRAME, Material.ITEM_FRAME
+            Material.ITEM_FRAME, Material.ITEM_FRAME,
+            // 作業台
+            Material.CRAFTING_TABLE
         ));
         jobCraftableItems.put("enchanter", enchanterItems);
         
@@ -144,7 +158,7 @@ public class JobCraftPermissionManager {
             Material.BRICK_STAIRS, Material.BRICK_SLAB, Material.BRICK_WALL,
             Material.NETHER_BRICK_STAIRS, Material.NETHER_BRICK_SLAB, Material.NETHER_BRICK_WALL,
             Material.RED_NETHER_BRICK_STAIRS, Material.RED_NETHER_BRICK_SLAB, Material.RED_NETHER_BRICK_WALL,
-            // 各種階段・ハーフブロック・塀
+            // 各種階段・ハーフブロック・壁
             Material.SANDSTONE_STAIRS, Material.SANDSTONE_SLAB, Material.SANDSTONE_WALL,
             Material.RED_SANDSTONE_STAIRS, Material.RED_SANDSTONE_SLAB, Material.RED_SANDSTONE_WALL,
             Material.PRISMARINE_STAIRS, Material.PRISMARINE_SLAB, Material.PRISMARINE_WALL,
@@ -164,7 +178,9 @@ public class JobCraftPermissionManager {
             Material.BROWN_STAINED_GLASS, Material.BROWN_STAINED_GLASS_PANE,
             Material.GREEN_STAINED_GLASS, Material.GREEN_STAINED_GLASS_PANE,
             Material.RED_STAINED_GLASS, Material.RED_STAINED_GLASS_PANE,
-            Material.BLACK_STAINED_GLASS, Material.BLACK_STAINED_GLASS_PANE
+            Material.BLACK_STAINED_GLASS, Material.BLACK_STAINED_GLASS_PANE,
+            // 作業台
+            Material.CRAFTING_TABLE
         ));
         jobCraftableItems.put("builder", builderItems);
     }
@@ -174,15 +190,14 @@ public class JobCraftPermissionManager {
      */
     private void initializePublicCraftableItems() {
         publicCraftableItems.addAll(Arrays.asList(
+            // 基本的な武器
+            Material.WOODEN_SWORD,
             // 基本的なサバイバル用品
             Material.STICK, Material.TORCH, Material.LADDER, 
             Material.WHITE_BED, Material.ORANGE_BED, Material.MAGENTA_BED, Material.LIGHT_BLUE_BED,
             Material.YELLOW_BED, Material.LIME_BED, Material.PINK_BED, Material.GRAY_BED,
             Material.LIGHT_GRAY_BED, Material.CYAN_BED, Material.PURPLE_BED, Material.BLUE_BED,
             Material.BROWN_BED, Material.GREEN_BED, Material.RED_BED, Material.BLACK_BED,
-            // 基本ツール（木製のみ）
-            Material.WOODEN_SWORD, Material.WOODEN_PICKAXE, Material.WOODEN_AXE, 
-            Material.WOODEN_SHOVEL, Material.WOODEN_HOE,
             // 基本的な食料
             Material.BOWL, Material.BUCKET,
             // その他生活必需品
