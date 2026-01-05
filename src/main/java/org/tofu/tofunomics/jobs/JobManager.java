@@ -6,6 +6,8 @@ import org.tofu.tofunomics.dao.JobDAO;
 import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.dao.PlayerJobDAO;
 import org.tofu.tofunomics.dao.JobChangeDAO;
+import org.tofu.tofunomics.dao.JobHistoryDAO;
+import org.tofu.tofunomics.models.JobHistory;
 import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.TofuNomics;
@@ -20,14 +22,16 @@ public class JobManager {
     private final PlayerDAO playerDAO;
     private final PlayerJobDAO playerJobDAO;
     private final JobChangeDAO jobChangeDAO;
+    private final JobHistoryDAO jobHistoryDAO;
     
     public JobManager(ConfigManager configManager, JobDAO jobDAO, PlayerDAO playerDAO, 
-                     PlayerJobDAO playerJobDAO, JobChangeDAO jobChangeDAO) {
+                     PlayerJobDAO playerJobDAO, JobChangeDAO jobChangeDAO, JobHistoryDAO jobHistoryDAO) {
         this.configManager = configManager;
         this.jobDAO = jobDAO;
         this.playerDAO = playerDAO;
         this.playerJobDAO = playerJobDAO;
         this.jobChangeDAO = jobChangeDAO;
+        this.jobHistoryDAO = jobHistoryDAO;
     }
     
     public enum JobJoinResult {
@@ -50,19 +54,30 @@ public class JobManager {
         List<PlayerJob> currentJobs = playerJobDAO.getPlayerJobsByUUID(uuid);
         int maxJobs = configManager.getMaxJobsPerPlayer();
         
-        // 既に職業を持っている場合、転職にはレベル50以上が必要
+        // レベル50チェック（転職時のみ）
+        // 現在職業を持っている場合のみチェック
         if (!currentJobs.isEmpty()) {
             boolean hasLevel50Job = false;
+            
+            // 現在の職業でレベル50以上があるかチェック
             for (PlayerJob existingJob : currentJobs) {
                 if (existingJob.getLevel() >= 50) {
                     hasLevel50Job = true;
                     break;
                 }
             }
+            
+            // レベル50以上の職業がない場合、過去の履歴もチェック
+            if (!hasLevel50Job) {
+                hasLevel50Job = jobHistoryDAO.hasReachedLevel50(uuid);
+            }
+            
+            // レベル50以上の記録がない場合はエラー
             if (!hasLevel50Job) {
                 return JobJoinResult.LEVEL_TOO_LOW;
             }
         }
+        // 現在職業がない場合（初回就職・再就職）は制限なし
         
         if (currentJobs.size() >= maxJobs) {
             return JobJoinResult.MAX_JOBS_REACHED;
@@ -79,8 +94,17 @@ public class JobManager {
         PlayerJob playerJob = new PlayerJob();
         playerJob.setUuid(uuid);
         playerJob.setJobId(job.getId());
-        playerJob.setLevel(1);
-        playerJob.setExperience(0.0);
+        
+        // job_historyから過去の記録を取得してレベルを復元
+        JobHistory history = jobHistoryDAO.getLatestJobHistory(uuid, job.getId());
+        if (history != null) {
+            // 過去の記録がある場合はレベルを復元
+            playerJob.setLevel(history.getMaxLevel());
+        } else {
+            // 初回就職の場合はレベル1
+            playerJob.setLevel(1);
+        }
+        playerJob.setExperience(0.0); // 経験値は常に0
         
         if (!playerJobDAO.insertPlayerJob(playerJob)) {
             return JobJoinResult.DATABASE_ERROR;
@@ -93,7 +117,8 @@ public class JobManager {
         SUCCESS,
         NO_SUCH_JOB,
         DATABASE_ERROR,
-        DAILY_LIMIT_EXCEEDED
+        DAILY_LIMIT_EXCEEDED,
+        LEVEL_TOO_LOW
     }
     
     public JobLeaveResult leaveJob(Player player, String jobName) {
@@ -112,6 +137,61 @@ public class JobManager {
         PlayerJob playerJob = playerJobDAO.getPlayerJob(uuid, job.getId());
         if (playerJob == null) {
             return JobLeaveResult.NO_SUCH_JOB;
+        }
+        
+        // レベル50未満は辞職不可
+        if (playerJob.getLevel() < 50) {
+            return JobLeaveResult.LEVEL_TOO_LOW;
+        }
+        
+        // 退職前に職業履歴を保存
+        JobHistory jobHistory = new JobHistory(uuid, job.getId(), playerJob.getLevel());
+        if (!jobHistoryDAO.insertJobHistory(jobHistory)) {
+            TofuNomics.getInstance().getLogger().warning("職業履歴の保存に失敗しました: " + uuid + ", job=" + jobName);
+        }
+        
+        if (!playerJobDAO.deletePlayerJob(uuid, job.getId())) {
+            return JobLeaveResult.DATABASE_ERROR;
+        }
+        
+        if (configManager.isDailyJobChangeLimitEnabled()) {
+            jobChangeDAO.recordJobChangeToday(uuid);
+        }
+        
+        return JobLeaveResult.SUCCESS;
+    }
+
+    
+    /**
+     * 管理者による強制辞職（レベル制限を無視）
+     * @param player プレイヤー
+     * @param jobName 職業名
+     * @return 辞職結果
+     */
+    public JobLeaveResult forceLeaveJob(Player player, String jobName) {
+        String uuid = player.getUniqueId().toString();
+        
+        if (configManager.isDailyJobChangeLimitEnabled() && 
+            !jobChangeDAO.canPlayerChangeJobToday(uuid)) {
+            return JobLeaveResult.DAILY_LIMIT_EXCEEDED;
+        }
+        
+        Job job = jobDAO.getJobByNameSafe(jobName);
+        if (job == null) {
+            return JobLeaveResult.NO_SUCH_JOB;
+        }
+        
+        PlayerJob playerJob = playerJobDAO.getPlayerJob(uuid, job.getId());
+        if (playerJob == null) {
+            return JobLeaveResult.NO_SUCH_JOB;
+        }
+        
+        // レベルチェックをスキップして辞職処理を実行
+        
+        // 退職前に職業履歴を保存
+        JobHistory jobHistory = new JobHistory(uuid, job.getId(), playerJob.getLevel());
+        if (!jobHistoryDAO.insertJobHistory(jobHistory)) {
+            TofuNomics.getInstance().getLogger().warning("職業履歴の保存に失敗しました: " + uuid + ", job=" + jobName);
         }
         
         if (!playerJobDAO.deletePlayerJob(uuid, job.getId())) {

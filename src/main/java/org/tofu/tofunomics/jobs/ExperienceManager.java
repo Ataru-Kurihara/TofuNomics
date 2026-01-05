@@ -19,7 +19,7 @@ public class ExperienceManager {
         if (level <= 1) {
             return 0.0;
         }
-        return Math.pow(level, 2.2) * 100;
+        return Math.pow(level - 1, 2.2) * 100;
     }
     
     public double calculateRequiredExperienceForNextLevel(int currentLevel) {

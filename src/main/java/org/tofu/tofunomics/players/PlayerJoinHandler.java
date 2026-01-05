@@ -250,36 +250,15 @@ public class PlayerJoinHandler implements Listener {
                 createNewPlayer(player);
                 logger.info("新規プレイヤーを登録しました: " + player.getName());
                 
-                // ルールブックを配布
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    rulesManager.giveRulebook(player);
-                    // 未同意リストに追加（行動制限対象）
-                    rulesManager.markAsUnagreed(player.getUniqueId());
-                    
-                    // 2秒後にルールGUIを自動表示
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                        rulesManager.getRulesGUI().openRulesGUI(player, 1);
-                        player.sendMessage(configManager.getMessage("rules.messages.must_agree"));
-                    }, 40L); // 2秒後
-                });
+                // ルール確認システムは外部サイトURL方式に変更（GUI廃止）
+                // 新規プレイヤーにはウェルカムメッセージで /rules コマンドを案内
                 
                 // 新規プレイヤーメッセージを表示するフラグを設定
                 scheduleNewPlayerMessages(player);
             } else {
-                // 既存プレイヤーの場合、ルール同意確認
-                boolean hasAgreed = rulesManager.hasAgreedToRules(player.getUniqueId());
-                if (!hasAgreed) {
-                    // 未同意の場合、制限リストに追加
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        rulesManager.markAsUnagreed(player.getUniqueId());
-                        player.sendMessage(configManager.getMessage("rules.messages.must_agree"));
-                        
-                        // 2秒後にルールGUIを表示
-                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                            rulesManager.getRulesGUI().openRulesGUI(player, 1);
-                        }, 40L); // 2秒後
-                    });
-                }
+                // 既存プレイヤーの場合
+                // ルール確認システムは外部サイトURL方式に変更（GUI廃止）
+                // /rules コマンドでいつでもルールを確認可能
                 
                 // 復帰プレイヤーかチェック
                 boolean isReturning = checkReturningPlayer(player);

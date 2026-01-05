@@ -227,7 +227,7 @@ public class ScoreboardManager implements Listener {
             
             // 職業名
             if (configManager.isScoreboardShowJob()) {
-                objective.getScore(ChatColor.GOLD + "職業: " + ChatColor.WHITE + jobInfo).setScore(score--);
+                objective.getScore(ChatColor.AQUA + "職業: " + ChatColor.WHITE + jobInfo).setScore(score--);
             }
             
             // 預金残高
@@ -243,6 +243,15 @@ public class ScoreboardManager implements Listener {
             // プレイヤー名
             if (configManager.isScoreboardShowPlayerName()) {
                 objective.getScore(ChatColor.YELLOW + player.getName()).setScore(score--);
+            }
+            
+            // ルールコマンド表示
+            if (configManager.isScoreboardShowRulesCommand()) {
+                // 空行を追加して視認性向上
+                objective.getScore(ChatColor.WHITE + "  ").setScore(score--);
+                // ルールコマンドテキスト
+                String rulesCommandText = ChatColor.translateAlternateColorCodes('&', configManager.getScoreboardRulesCommandText());
+                objective.getScore(rulesCommandText).setScore(score--);
             }
             
             player.setScoreboard(scoreboard);

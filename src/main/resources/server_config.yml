@@ -1,0 +1,3400 @@
+# TofuNomics プラグイン設定ファイル
+# Minecraftサーバー「Tofu」独自経済プラグイン
+messages:
+  npc:
+    unknown_type: '&cNPCの種類が不明です。'
+    service_error: '&cサービス処理中にエラーが発生しました。しばらく経ってから再度お試しください。'
+    trading:
+      no_permission:
+      - '&c申し訳ありませんが、取引NPCを利用する権限がありません'
+      - '&e管理者に権限の設定をお願いするか、'
+      - '&e何か職業に就いてから再度お試しください'
+      - '&7必要権限: tofunomics.npc.trading.use または tofunomics.trade.basic'
+      service_error: '&c取引サービスでエラーが発生しました。しばらく待ってから再度お試しください。'
+      gui_error: '&c取引GUIの作成中にエラーが発生しました。'
+      action_error: '&c取引操作中にエラーが発生しました。'
+      outside_hours: '&c取引所の営業時間外です。'
+      cooldown_active: '&c少し時間を置いてから再度お試しください。'
+      no_job: '&c職業に就いていません。/jobs join <職業名> で職業に就いてからご利用ください。'
+      job_not_accepted: '&c申し訳ありませんが、あなたの職業（%job%）では当店をご利用いただけません。'
+      post_not_found: '&c取引所が見つかりません。'
+      no_items_to_sell: '&c売却可能なアイテムがありません。'
+      no_sellable_items: '&c売却可能なアイテムがありませんでした。'
+      sale_success: '&a売却完了！ &f%total% &a獲得しました。'
+      sell_all_success: '&a一括売却完了！ &f%count%個のアイテム &aを売却し、&f%total% &a獲得しました。'
+      npc_specific:
+        central_market:
+          welcome: '&6「いらっしゃいませ、%player%さん！中央市場へようこそ。」'
+          no_job:
+          - '&6「いらっしゃい、お客さん！」'
+          - '&e「まずは何か職業に就いてからお越しください」'
+          - '&7コマンド: &f/jobs join <職業名>'
+          greeting:
+          - '&6「いらっしゃいませ！中央市場へようこそ！」'
+          - '&e「何でも買い取りますよ～」'
+        mining_post:
+          welcome: '&8「よう、%player%。鉱山の取引所にようこそ」'
+          no_job:
+          - '&8「ここは鉱夫の取引所だ」'
+          - '&7「まずは /jobs join miner で鉱夫になってくれ」'
+          greeting:
+          - '&8「よう、同志よ。今日はどんな鉱石を掘ってきた？」'
+        wood_market:
+          welcome: '&2「%player%さん、森の市場へようこそ」'
+          no_job:
+          - '&2「森の風が...君を運んできたのかな？」'
+          - '&a「しかし、この木材市場は職人の集う場所」'
+          - '&e「自然と共に働く者たちとしか'
+          - '&e取引はできないんだ」'
+          - '&7「&f/jobs join woodcutter&7 で木こりに、'
+          - '&7または他の職業に就いてからおいで」'
+    bank:
+      no_permission: '&c銀行NPCを利用する権限がありません。'
+      service_error: '&c銀行サービスでエラーが発生しました。しばらく待ってから再度お試しください。'
+      gui_error: '&c銀行GUIの作成中にエラーが発生しました。'
+      action_error: '&c銀行操作中にエラーが発生しました。'
+      outside_hours: '&c銀行の営業時間外です。'
+      cooldown_active: '&c少し時間を置いてから再度お試しください。'
+      withdraw_failed: '&c引き出しに失敗しました。'
+      no_gold_ingots: '&c手持ちに金塊がありません。'
+      no_tofu_coins: '&c手持ちに豆腐コインがありません。'
+      greeting: '&6「いらっしゃいませ、%player%様」'
+      welcome: '&6いらっしゃいませ、%player%さん！銀行サービスをご利用いただけます。'
+      too_far: '&c銀行NPCに近づいてからご利用ください。'
+  craft:
+    no_job_required: '&c職業に就いていないため、このアイテムをクラフトできません。'
+    wrong_job_required: '&c{item}をクラフトするには{required_job}である必要があります。（現在: {current_job}）'
+    item_not_craftable: '&cこのアイテムはクラフトできません。'
+  economy:
+    balance_self: '&a残高: &f%amount% %currency%'
+    balance_other: '&a%player%の残高: &f%amount% %currency%'
+    pay_sent: '&a%player%に %amount% %currency% を送金しました。'
+    pay_received: '&a%player%から %amount% %currency% を受け取りました。'
+    withdraw_success: '&a%amount% %currency% を引き出しました。'
+    deposit_success: '&a%amount% %currency% を預け入れました。'
+    bank_access_required: '&c銀行またはATMでのみご利用いただけます。'
+    nearest_location_info: '&e最寄りの場所: &f%location_name% &e(%distance%ブロック先)'
+    location_restrictions_disabled: '&e場所制限が無効になっています。'
+    exceed_max_withdraw: '&c1回の引き出し限度額(%max_amount%)を超えています。'
+  jobs:
+    job_joined: '&a職業「%job%」に就職しました。'
+    job_left: '&a職業「%job%」を辞職しました。'
+    no_job: '&c現在就職していません。'
+    job_not_found: '&c指定された職業は存在しません。'
+    already_have_job: '&c既に職業に就いています。'
+  scoreboard:
+    enabled: '&aスコアボードを有効にしました。'
+    disabled: '&cスコアボードを無効にしました。'
+    already_enabled: '&eスコアボードは既に有効です。'
+    already_disabled: '&eスコアボードは既に無効です。'
+  rules:
+    book_name: §6§lTofuNomicsルールブック
+    book_given: §aルールブックを受け取りました。右クリックで確認できます。
+    gui_title: §6TofuNomics サーバールール
+    must_agree: §c§lルールに同意するまでプレイできません。§r§c /rules でルールを確認してください。
+    agreed: §a§l✔ ルールに同意しました！§r§a 楽しいサーバーライフを送ってください！
+    disagreed: §cルールに同意しませんでした。§e/rules §cでもう一度確認してください。
+    action_blocked: §cルールに同意するまで、この操作はできません。§e/rules §cでルールを確認してください。
+    reset_success: §aルール同意状態をリセットしました。次回ログイン時にルールが表示されます。
+    reset_no_permission: §cこのコマンドを実行する権限がありません。
+player_join:
+  spawn_location:
+    enabled: true
+    world: tofuNomics
+    x: -97
+    y: 75
+    z: -247
+    teleport_delay: 60
+  welcome_messages:
+  - '&6▬▬▬▬▬▬▬▬ ようこそ TofuNomicsワールドへ! ▬▬▬▬▬▬▬▬'
+  - '&e%player%さん、TofuNomicsワールドにようこそ！'
+  - '&fこのワールドでは職業に就いて経済活動を楽しむことができます。'
+  - '&a初期残高として &f%starting_balance%%currency% &aを受け取りました。'
+  - '&b職業システムを活用して、豊かな経済生活を送りましょう！'
+  - '&6▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬'
+  welcome_title: '&6TofuNomicsへようこそ!'
+  welcome_subtitle: '&e%player%さん、経済活動をお楽しみください!'
+  new_player_bonus:
+    enabled: true
+    amount: 100.0
+    messages:
+    - '&a初めてのご参加ありがとうございます！'
+    - '&f職業に就くことで収入を得ることができます。'
+    - '&e&l/jobs join <職業名> &rで職業に就職してみましょう！'
+    - '&b利用可能な職業: &f鉱夫, 木こり, 農家, 釣り人, 鍛冶屋, ポーション屋, エンチャンター, 建築家'
+    - '&dチュートリアルクエストも用意されています。&f /quest &dで確認！'
+  welcome_back_message:
+    enabled: true
+    message: '&6★ おかえりなさい、%player%さん！'
+    days_threshold: 7
+npc_system:
+  interaction:
+    cooldown_ms: 1000
+    session_timeout_ms: 300000
+    access_range: 5
+    look_at_player: true
+    gui_delay_ticks: 40
+  bank_npcs:
+    enabled: true
+    locations:
+    - world: tofuNomics
+      x: -200
+      y: 70
+      z: -100
+      name: §bATM案内係
+      type: atm_assistant
+    limits:
+      max_withdraw_amount: 10000.0
+      max_deposit_amount: 10000.0
+    messages:
+      greeting: §6こんにちは、%player%さん！%npc_name%へようこそ。
+      main_bank_greeting: §6ようこそ中央銀行へ！お金の管理はお任せください。
+      branch_greeting: §eいらっしゃいませ！こちらは商店街支店です。
+      atm_greeting: §bATMサービスをご利用いただけます。
+      service_hours: '§c申し訳ありませんが、営業時間外です。（営業時間: %start%:00 - %end%:00）'
+  trading_npcs:
+    enabled: true
+    cross_job_purchase_multiplier: 1.5
+    trading_hours:
+      enabled: true
+      start: 6
+      end: 22
+    default_messages:
+      greeting: §6いらっしゃいませ、%player%さん！%npc_name%へようこそ。
+      job_not_accepted: §c申し訳ありませんが、あなたの職業（%job%）では当店をご利用いただけません。
+      no_job: §c職業に就いていません。/jobs join <職業名> で職業に就いてからご利用ください。
+      outside_hours: '§c営業時間外です。営業時間: %start%:00 - %end%:00'
+      detailed_trade_info: true
+  food_npc:
+    enabled: true
+    operating_hours:
+      enabled: true
+      start_hour: 6
+      end_hour: 22
+    locations:
+    - world: tofuNomics
+      npc_type: bakery
+      x: -87
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -345
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -127
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -345
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -126
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -347
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -119
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -364
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -121
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -362
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -127
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -373
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -126
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -375
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -74
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -345
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -72
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -347
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -116
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -345
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -66
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -364
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -67
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -362
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -74
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -373
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -72
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -375
+    - world: tofuNomics
+      npc_type: bakery
+      x: -142
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -345
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -114
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -347
+    - world: tofuNomics
+      npc_type: bakery
+      x: -106
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -364
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -132
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -364
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -133
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -362
+    - world: tofuNomics
+      npc_type: bakery
+      x: -141
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -373
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -115
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -373
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -114
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -374
+    - world: tofuNomics
+      npc_type: bakery
+      x: -87
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -373
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -62
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -373
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -60
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -374
+    - world: tofuNomics
+      npc_type: bakery
+      x: -51
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -364
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -77
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -364
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -79
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -363
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -62
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -345
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -60
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -346
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -58
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -147
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -81
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -128
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -59
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -119
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -112
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -147
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -135
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -128
+    - world: tofuNomics
+      npc_type: greengrocer
+      x: -113
+      name: 八百屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -119
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -67
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -145
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -65
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -147
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -72
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -130
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -74
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -128
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -67
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -117
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -66
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -119
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -121
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -117
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -120
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -119
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -128
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -128
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -126
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -130
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -120
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -147
+    - world: tofuNomics
+      npc_type: fishmonger
+      x: -121
+      name: 魚屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -145
+    - world: tofuNomics
+      npc_type: bakery
+      x: -133
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -145
+    - world: tofuNomics
+      npc_type: bakery
+      x: -132
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -147
+    - world: tofuNomics
+      npc_type: bakery
+      x: -116
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -128
+    - world: tofuNomics
+      npc_type: bakery
+      x: -114
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -130
+    - world: tofuNomics
+      npc_type: bakery
+      x: -132
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -119
+    - world: tofuNomics
+      npc_type: bakery
+      x: -133
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -117
+    - world: tofuNomics
+      npc_type: bakery
+      x: -78
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -119
+    - world: tofuNomics
+      npc_type: bakery
+      x: -79
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -117
+    - world: tofuNomics
+      npc_type: bakery
+      x: -62
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -128
+    - world: tofuNomics
+      npc_type: bakery
+      x: -60
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -130
+    - world: tofuNomics
+      npc_type: bakery
+      x: -77
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -147
+    - world: tofuNomics
+      npc_type: bakery
+      x: -79
+      name: パン屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -145
+    - world: tofuNomics
+      npc_type: butcher
+      x: -106
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -147
+    - world: tofuNomics
+      npc_type: butcher
+      x: -142
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -128
+    - world: tofuNomics
+      npc_type: butcher
+      x: -105
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -119
+    - world: tofuNomics
+      npc_type: butcher
+      x: -52
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -119
+    - world: tofuNomics
+      npc_type: butcher
+      x: -51
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -147
+    - world: tofuNomics
+      npc_type: butcher
+      x: -87
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -128
+    - world: tofuNomics
+      npc_type: butcher
+      x: -81
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -345
+    - world: tofuNomics
+      npc_type: butcher
+      x: -58
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -364
+    - world: tofuNomics
+      npc_type: butcher
+      x: -81
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -373
+    - world: tofuNomics
+      npc_type: butcher
+      x: -135
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -373
+    - world: tofuNomics
+      npc_type: butcher
+      x: -134
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -345
+    - world: tofuNomics
+      npc_type: butcher
+      x: -112
+      name: 肉屋
+      y: 75
+      description: 基本的な食料品を販売
+      z: -364
+    - world: tofuNomics
+      npc_type: general_store
+      x: -96
+      name: §6食料品商人
+      y: 87
+      description: 基本的な食料品を販売
+      z: -247
+    purchase_limits:
+      enabled: true
+      daily_limit_per_item: 32
+      reset_hour: 6
+    inventory_system:
+      enabled: true
+      daily_stock_limit: 64
+      restock_hour: 6
+    npc_types:
+      general_store:
+        name: §6総合食料品店
+        items:
+        - all
+        price_multiplier: 1.5
+      bakery:
+        name: §e村のパン屋
+        items:
+        - bread
+        - pumpkin_pie
+        - cookie
+        - cake
+        price_multiplier: 1.0
+      butcher:
+        name: §c精肉店
+        items:
+        - cooked_beef
+        - cooked_pork
+        - cooked_chicken
+        - cooked_mutton
+        - cooked_rabbit
+        price_multiplier: 1.0
+      fishmonger:
+        name: §b魚屋
+        items:
+        - cooked_cod
+        - cooked_salmon
+        - dried_kelp
+        - kelp
+        price_multiplier: 1.0
+      greengrocer:
+        name: §a八百屋
+        items:
+        - carrot
+        - potato
+        - beetroot
+        - apple
+        - sweet_berries
+        - melon_slice
+        - baked_potato
+        price_multiplier: 1.0
+      specialty:
+        name: §d特産品店
+        items:
+        - mushroom_stew
+        - rabbit_stew
+        - suspicious_stew
+        price_multiplier: 1.0
+    food_items:
+      bread: 2.5
+      baked_potato: 1.8
+      carrot: 1.5
+      apple: 2.0
+      cooked_beef: 5.2
+      cooked_pork: 4.8
+      cooked_chicken: 4.2
+      cooked_mutton: 4.5
+      mushroom_stew: 3.5
+      rabbit_stew: 4.0
+      dried_kelp: 0.8
+      sweet_berries: 1.2
+      cooked_cod: 3.0
+      cooked_salmon: 3.5
+      kelp: 0.5
+      potato: 0.2
+      beetroot: 1.2
+      melon_slice: 1.5
+      pumpkin_pie: 4.0
+      cookie: 1.8
+      cake: 8.0
+      cooked_rabbit: 4.0
+      suspicious_stew: 5.0
+    messages:
+      greeting: §6「夜分にすみません、%player%さん」
+      welcome: §e「緊急時の食料でしたら、こちらで調達できますよ」
+      closed: §c「申し訳ありません。営業時間は6:00-22:00です」
+      out_of_stock: §e「%item%は売り切れです。明朝6時に入荷予定です」
+      daily_limit_reached: §c「%item%は本日の購入上限に達しています」
+      purchase_success: §a%item% x%amount%を %price% で購入しました
+      insufficient_funds: '§c残高が不足しています。必要: %required%'
+  item_prices:
+    coal: 1
+    iron_ingot: 4
+    gold_ingot: 8
+    diamond: 60.0
+    emerald: 30.0
+    redstone: 1
+    lapis_lazuli: 2
+    copper_ingot: 2
+    iron_ore: 3
+    gold_ore: 6
+    diamond_ore: 45.0
+    emerald_ore: 22.0
+    coal_ore: 0.5
+    copper_ore: 1
+    oak_log: 0.2
+    birch_log: 0.2
+    spruce_log: 0.2
+    jungle_log: 0.4
+    acacia_log: 0.4
+    dark_oak_log: 0.4
+    mangrove_log: 0.4
+    cherry_log: 0.4
+    oak_planks: 0.1
+    birch_planks: 0.1
+    spruce_planks: 0.1
+    wheat: 0.3
+    potato: 0.2
+    carrot: 0.2
+    beetroot: 0.3
+    pumpkin: 1
+    melon: 1
+    sugar_cane: 0.2
+    cocoa_beans: 1
+    beef: 2
+    pork: 2
+    chicken: 1
+    mutton: 1
+    leather: 2
+    milk_bucket: 2
+    egg: 0.3
+    cod: 3.5
+    salmon: 4.5
+    tropical_fish: 7.0
+    pufferfish: 9.5
+    prismarine_shard: 8.0
+    prismarine_crystals: 12.0
+    nautilus_shell: 25.0
+    heart_of_the_sea: 150.0
+    experience_bottle: 15.0
+    blaze_rod: 20.0
+    ender_pearl: 18.0
+    ghast_tear: 35.0
+  trading_posts:
+  - world: tofuNomics
+    name: §6総合取引所
+    x: -89
+    y: 97
+    description: 全職業対応の総合取引所
+    z: -237
+    id: §6総合取引所
+    accepted_jobs:
+    - all
+    items: []
+    purchase_prices:
+      cobblestone: 4.0
+  - world: tofuNomics
+    name: §6鉱夫取引商人
+    x: -195
+    y: 75
+    description: miner専用の取引所
+    z: -203
+    id: §6鉱夫取引商人
+    accepted_jobs:
+    - miner
+    items:
+    - coal
+    - coal_ore
+    - iron_ore
+    - iron_ingot
+    - gold_ore
+    - gold_ingot
+    - diamond
+    - diamond_ore
+    - emerald
+    - emerald_ore
+    - redstone
+    - lapis_lazuli
+    - copper_ore
+    - copper_ingot
+    purchase_prices:
+      wooden_pickaxe: 15
+      stone_pickaxe: 15
+  - world: tofuNomics
+    name: 岩男
+    x: -214
+    y: 75
+    description: miner専用の取引所
+    z: -238
+    id: 岩男
+    accepted_jobs:
+    - miner
+    items:
+    - coal
+    - coal_ore
+    - iron_ore
+    - iron_ingot
+    - gold_ore
+    - gold_ingot
+    - diamond
+    - diamond_ore
+    - emerald
+    - emerald_ore
+    - redstone
+    - lapis_lazuli
+    - copper_ore
+    - copper_ingot
+    purchase_prices:
+      wooden_pickaxe: 15
+      stone_pickaxe: 15
+  - world: tofuNomics
+    name: 鉄夫
+    x: -223
+    y: 75
+    description: miner専用の取引所
+    z: -203
+    id: 鉄夫
+    accepted_jobs:
+    - miner
+    items:
+    - coal
+    - coal_ore
+    - iron_ore
+    - iron_ingot
+    - gold_ore
+    - gold_ingot
+    - diamond
+    - diamond_ore
+    - emerald
+    - emerald_ore
+    - redstone
+    - lapis_lazuli
+    - copper_ore
+    - copper_ingot
+    purchase_prices:
+      wooden_pickaxe: 15
+      stone_pickaxe: 15
+  - world: tofuNomics
+    name: §6木こり取引商人
+    x: -195
+    y: 75
+    description: woodcutter専用の取引所
+    z: -210
+    id: §6木こり取引商人
+    accepted_jobs:
+    - woodcutter
+    items:
+    - oak_log
+    - birch_log
+    - spruce_log
+    - jungle_log
+    - acacia_log
+    - dark_oak_log
+    - mangrove_log
+    - cherry_log
+    - oak_planks
+    - birch_planks
+    - spruce_planks
+    purchase_prices:
+      wooden_axe: 15
+      stone_axe: 15
+  - world: tofuNomics
+    name: 斧太郎
+    x: -214
+    y: 75
+    description: woodcutter専用の取引所
+    z: -232
+    id: 斧太郎
+    accepted_jobs:
+    - woodcutter
+    items:
+    - oak_log
+    - birch_log
+    - spruce_log
+    - jungle_log
+    - acacia_log
+    - dark_oak_log
+    - mangrove_log
+    - cherry_log
+    - oak_planks
+    - birch_planks
+    - spruce_planks
+    purchase_prices:
+      wooden_axe: 15
+      stone_axe: 15
+  - world: tofuNomics
+    name: 原木切夫
+    x: -223
+    y: 75
+    description: woodcutter専用の取引所
+    z: -209
+    id: 原木切夫
+    accepted_jobs:
+    - woodcutter
+    items:
+    - oak_log
+    - birch_log
+    - spruce_log
+    - jungle_log
+    - acacia_log
+    - dark_oak_log
+    - mangrove_log
+    - cherry_log
+    - oak_planks
+    - birch_planks
+    - spruce_planks
+    purchase_prices:
+      wooden_axe: 15
+      stone_axe: 15
+  - world: tofuNomics
+    name: §6農家取引商人
+    x: -195
+    y: 75
+    description: farmer専用の取引所
+    z: -216
+    id: §6農家取引商人
+    accepted_jobs:
+    - farmer
+    items:
+    - wheat
+    - potato
+    - carrot
+    - beetroot
+    - pumpkin
+    - melon
+    - sugar_cane
+    - cocoa_beans
+    - beef
+    - pork
+    - chicken
+    - mutton
+    - leather
+    - milk_bucket
+    - egg
+    purchase_prices:
+      wooden_hoe: 15
+      stone_hoe: 15
+      bucket: 50
+  - world: tofuNomics
+    name: じゃが太郎
+    x: -197
+    y: 75
+    description: farmer専用の取引所
+    z: -218
+    id: じゃが太郎
+    accepted_jobs:
+    - farmer
+    items:
+    - wheat
+    - potato
+    - carrot
+    - beetroot
+    - pumpkin
+    - melon
+    - sugar_cane
+    - cocoa_beans
+    - beef
+    - pork
+    - chicken
+    - mutton
+    - leather
+    - milk_bucket
+    - egg
+    purchase_prices:
+      wooden_hoe: 15
+      stone_hoe: 15
+      bucket: 50
+  - world: tofuNomics
+    name: りんごちゃん
+    x: -214
+    y: 75
+    description: farmer専用の取引所
+    z: -225
+    id: りんごちゃん
+    accepted_jobs:
+    - farmer
+    items:
+    - wheat
+    - potato
+    - carrot
+    - beetroot
+    - pumpkin
+    - melon
+    - sugar_cane
+    - cocoa_beans
+    - beef
+    - pork
+    - chicken
+    - mutton
+    - leather
+    - milk_bucket
+    - egg
+    purchase_prices:
+      wooden_hoe: 15
+      stone_hoe: 15
+      bucket: 50
+  - world: tofuNomics
+    name: きの子
+    x: -212
+    y: 75
+    description: farmer専用の取引所
+    z: -223
+    id: きの子
+    accepted_jobs:
+    - farmer
+    items:
+    - wheat
+    - potato
+    - carrot
+    - beetroot
+    - pumpkin
+    - melon
+    - sugar_cane
+    - cocoa_beans
+    - beef
+    - pork
+    - chicken
+    - mutton
+    - leather
+    - milk_bucket
+    - egg
+    purchase_prices:
+      wooden_hoe: 15
+      stone_hoe: 15
+      bucket: 50
+  - world: tofuNomics
+    name: 稲作吾郎
+    x: -223
+    y: 75
+    description: farmer専用の取引所
+    z: -216
+    id: 稲作吾郎
+    accepted_jobs:
+    - farmer
+    items:
+    - wheat
+    - potato
+    - carrot
+    - beetroot
+    - pumpkin
+    - melon
+    - sugar_cane
+    - cocoa_beans
+    - beef
+    - pork
+    - chicken
+    - mutton
+    - leather
+    - milk_bucket
+    - egg
+    purchase_prices:
+      wooden_hoe: 15
+      stone_hoe: 15
+      bucket: 50
+  - world: tofuNomics
+    name: 鍬次郎
+    x: -225
+    y: 75
+    description: farmer専用の取引所
+    z: -218
+    id: 鍬次郎
+    accepted_jobs:
+    - farmer
+    items:
+    - wheat
+    - potato
+    - carrot
+    - beetroot
+    - pumpkin
+    - melon
+    - sugar_cane
+    - cocoa_beans
+    - beef
+    - pork
+    - chicken
+    - mutton
+    - leather
+    - milk_bucket
+    - egg
+    purchase_prices:
+      wooden_hoe: 15
+      stone_hoe: 15
+      bucket: 50
+  - world: tofuNomics
+    name: 田中サーモン一郎
+    x: -197
+    y: 75
+    description: fisherman専用の取引所
+    z: -230
+    id: 田中サーモン一郎
+    accepted_jobs:
+    - fisherman
+    items:
+    - cod
+    - salmon
+    - tropical_fish
+    - pufferfish
+    - prismarine_shard
+    - prismarine_crystals
+    - nautilus_shell
+    - heart_of_the_sea
+    purchase_prices:
+      string: 5
+  - world: tofuNomics
+    name: 鮭田刺身
+    x: -195
+    y: 75
+    description: fisherman専用の取引所
+    z: -228
+    id: 鮭田刺身
+    accepted_jobs:
+    - fisherman
+    items:
+    - cod
+    - salmon
+    - tropical_fish
+    - pufferfish
+    - prismarine_shard
+    - prismarine_crystals
+    - nautilus_shell
+    - heart_of_the_sea
+    purchase_prices:
+      string: 5
+  - world: tofuNomics
+    name: フグ美
+    x: -214
+    y: 75
+    description: fisherman専用の取引所
+    z: -213
+    id: フグ美
+    accepted_jobs:
+    - fisherman
+    items:
+    - cod
+    - salmon
+    - tropical_fish
+    - pufferfish
+    - prismarine_shard
+    - prismarine_crystals
+    - nautilus_shell
+    - heart_of_the_sea
+    purchase_prices:
+      string: 5
+  - world: tofuNomics
+    name: 鮎子
+    x: -212
+    y: 75
+    description: fisherman専用の取引所
+    z: -211
+    id: 鮎子
+    accepted_jobs:
+    - fisherman
+    items:
+    - cod
+    - salmon
+    - tropical_fish
+    - pufferfish
+    - prismarine_shard
+    - prismarine_crystals
+    - nautilus_shell
+    - heart_of_the_sea
+    purchase_prices:
+      string: 5
+  - world: tofuNomics
+    name: ニジマス夫
+    x: -223
+    y: 75
+    description: fisherman専用の取引所
+    z: -228
+    id: ニジマス夫
+    accepted_jobs:
+    - fisherman
+    items:
+    - cod
+    - salmon
+    - tropical_fish
+    - pufferfish
+    - prismarine_shard
+    - prismarine_crystals
+    - nautilus_shell
+    - heart_of_the_sea
+    purchase_prices:
+      string: 5
+  - world: tofuNomics
+    name: わかめちゃん
+    x: -225
+    y: 75
+    description: fisherman専用の取引所
+    z: -230
+    id: わかめちゃん
+    accepted_jobs:
+    - fisherman
+    items:
+    - cod
+    - salmon
+    - tropical_fish
+    - pufferfish
+    - prismarine_shard
+    - prismarine_crystals
+    - nautilus_shell
+    - heart_of_the_sea
+    purchase_prices:
+      string: 5
+  - world: tofuNomics
+    name: ゴードン
+    x: -223
+    y: 75
+    description: blacksmith専用の取引所
+    z: -282
+    id: ゴードン
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: バルカン
+    x: -225
+    y: 75
+    description: blacksmith専用の取引所
+    z: -284
+    id: バルカン
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: アストリッド
+    x: -214
+    y: 75
+    description: blacksmith専用の取引所
+    z: -266
+    id: アストリッド
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: ブロック
+    x: -212
+    y: 75
+    description: blacksmith専用の取引所
+    z: -265
+    id: ブロック
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: エルマー
+    x: -195
+    y: 75
+    description: blacksmith専用の取引所
+    z: -281
+    id: エルマー
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: へファイストス
+    x: -197
+    y: 75
+    description: blacksmith専用の取引所
+    z: -283
+    id: へファイストス
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: メルクーリオ
+    x: -223
+    y: 75
+    description: alchemist専用の取引所
+    z: -257
+    id: メルクーリオ
+    accepted_jobs:
+    - alchemist
+    items:
+    - potion
+    - splash_potion
+    - lingering_potion
+    - glass_bottle
+    - blaze_powder
+    - nether_wart
+    - glowstone_dust
+    - redstone
+    - gunpowder
+    - dragon_breath
+    - brewing_stand
+    purchase_prices:
+      glass_bottle: 5
+      brewing_stand: 100
+  - world: tofuNomics
+    name: パラケルスス
+    x: -214
+    y: 75
+    description: alchemist専用の取引所
+    z: -292
+    id: パラケルスス
+    accepted_jobs:
+    - alchemist
+    items:
+    - potion
+    - splash_potion
+    - lingering_potion
+    - glass_bottle
+    - blaze_powder
+    - nether_wart
+    - glowstone_dust
+    - redstone
+    - gunpowder
+    - dragon_breath
+    - brewing_stand
+    purchase_prices:
+      glass_bottle: 5
+      brewing_stand: 100
+  - world: tofuNomics
+    name: フルカネルリ
+    x: -195
+    y: 75
+    description: alchemist専用の取引所
+    z: -256
+    id: フルカネルリ
+    accepted_jobs:
+    - alchemist
+    items:
+    - potion
+    - splash_potion
+    - lingering_potion
+    - glass_bottle
+    - blaze_powder
+    - nether_wart
+    - glowstone_dust
+    - redstone
+    - gunpowder
+    - dragon_breath
+    - brewing_stand
+    purchase_prices:
+      glass_bottle: 5
+      brewing_stand: 100
+  - world: tofuNomics
+    name: エルビア
+    x: -195
+    y: 75
+    description: enchanter専用の取引所
+    z: -262
+    id: エルビア
+    accepted_jobs:
+    - enchanter
+    items:
+    - enchanted_book
+    - lapis_lazuli
+    - experience_bottle
+    - bookshelf
+    - book
+    - enchanting_table
+    purchase_prices:
+      book: 10
+      lapis_lazuli: 25
+  - world: tofuNomics
+    name: アストラル
+    x: -214
+    y: 75
+    description: enchanter専用の取引所
+    z: -286
+    id: アストラル
+    accepted_jobs:
+    - enchanter
+    items:
+    - enchanted_book
+    - lapis_lazuli
+    - experience_bottle
+    - bookshelf
+    - book
+    - enchanting_table
+    purchase_prices:
+      book: 10
+      lapis_lazuli: 25
+  - world: tofuNomics
+    name: ミラクル
+    x: -223
+    y: 75
+    description: enchanter専用の取引所
+    z: -263
+    id: ミラクル
+    accepted_jobs:
+    - enchanter
+    items:
+    - enchanted_book
+    - lapis_lazuli
+    - experience_bottle
+    - bookshelf
+    - book
+    - enchanting_table
+    purchase_prices:
+      book: 10
+      lapis_lazuli: 25
+  - world: tofuNomics
+    name: ヴィニオリ
+    x: -195
+    y: 75
+    description: architect専用の取引所
+    z: -270
+    id: ヴィニオリ
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: アールト
+    x: -197
+    y: 75
+    description: architect専用の取引所
+    z: -271
+    id: アールト
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: ムラヤマ
+    x: -214
+    y: 75
+    description: architect専用の取引所
+    z: -278
+    id: ムラヤマ
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: イニゴ
+    x: -212
+    y: 75
+    description: architect専用の取引所
+    z: -277
+    id: イニゴ
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: レン
+    x: -223
+    y: 75
+    description: architect専用の取引所
+    z: -270
+    id: レン
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: アルベルティ
+    x: -225
+    y: 75
+    description: architect専用の取引所
+    z: -272
+    id: アルベルティ
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: 玄白
+    x: 3
+    y: 75
+    description: alchemist専用の取引所
+    z: -292
+    id: 玄白
+    accepted_jobs:
+    - alchemist
+    items:
+    - potion
+    - splash_potion
+    - lingering_potion
+    - glass_bottle
+    - blaze_powder
+    - nether_wart
+    - glowstone_dust
+    - redstone
+    - gunpowder
+    - dragon_breath
+    - brewing_stand
+    purchase_prices:
+      glass_bottle: 5
+      brewing_stand: 100
+  - world: tofuNomics
+    name: 千草
+    x: 22
+    y: 75
+    description: alchemist専用の取引所
+    z: -256
+    id: 千草
+    accepted_jobs:
+    - alchemist
+    items:
+    - potion
+    - splash_potion
+    - lingering_potion
+    - glass_bottle
+    - blaze_powder
+    - nether_wart
+    - glowstone_dust
+    - redstone
+    - gunpowder
+    - dragon_breath
+    - brewing_stand
+    purchase_prices:
+      glass_bottle: 5
+      brewing_stand: 100
+  - world: tofuNomics
+    name: 道満
+    x: 31
+    y: 75
+    description: alchemist専用の取引所
+    z: -293
+    id: 道満
+    accepted_jobs:
+    - alchemist
+    items:
+    - potion
+    - splash_potion
+    - lingering_potion
+    - glass_bottle
+    - blaze_powder
+    - nether_wart
+    - glowstone_dust
+    - redstone
+    - gunpowder
+    - dragon_breath
+    - brewing_stand
+    purchase_prices:
+      glass_bottle: 5
+      brewing_stand: 100
+  - world: tofuNomics
+    name: 安倍
+    x: 31
+    y: 75
+    description: enchanter専用の取引所
+    z: -286
+    id: 安倍
+    accepted_jobs:
+    - enchanter
+    items:
+    - enchanted_book
+    - lapis_lazuli
+    - experience_bottle
+    - bookshelf
+    - book
+    - enchanting_table
+    purchase_prices:
+      book: 10
+      lapis_lazuli: 25
+  - world: tofuNomics
+    name: 静
+    x: 22
+    y: 75
+    description: enchanter専用の取引所
+    z: -264
+    id: 静
+    accepted_jobs:
+    - enchanter
+    items:
+    - enchanted_book
+    - lapis_lazuli
+    - experience_bottle
+    - bookshelf
+    - book
+    - enchanting_table
+    purchase_prices:
+      book: 10
+      lapis_lazuli: 25
+  - world: tofuNomics
+    name: 空海
+    x: 3
+    y: 75
+    description: enchanter専用の取引所
+    z: -286
+    id: 空海
+    accepted_jobs:
+    - enchanter
+    items:
+    - enchanted_book
+    - lapis_lazuli
+    - experience_bottle
+    - bookshelf
+    - book
+    - enchanting_table
+    purchase_prices:
+      book: 10
+      lapis_lazuli: 25
+  - world: tofuNomics
+    name: 飛騨
+    x: 3
+    y: 75
+    description: architect専用の取引所
+    z: -278
+    id: 飛騨
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: 巌
+    x: 5
+    y: 75
+    description: architect専用の取引所
+    z: -277
+    id: 巌
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: 匠
+    x: 22
+    y: 75
+    description: architect専用の取引所
+    z: -271
+    id: 匠
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: 善次郎
+    x: 20
+    y: 75
+    description: architect専用の取引所
+    z: -272
+    id: 善次郎
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: 檜山
+    x: 31
+    y: 75
+    description: architect専用の取引所
+    z: -278
+    id: 檜山
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: 左衛門
+    x: 33
+    y: 75
+    description: architect専用の取引所
+    z: -277
+    id: 左衛門
+    accepted_jobs:
+    - architect
+    items:
+    - stone
+    - stone_bricks
+    - cobblestone
+    - oak_planks
+    - spruce_planks
+    - birch_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - glass
+    - white_wool
+    - black_wool
+    - red_wool
+    - quartz_block
+    - terracotta
+    - white_concrete
+    - light_gray_concrete
+    - bricks
+    - sandstone
+    purchase_prices:
+      lantern: 5
+      torch: 5
+      scaffolding: 10
+  - world: tofuNomics
+    name: 源五郎
+    x: 31
+    y: 75
+    description: blacksmith専用の取引所
+    z: -267
+    id: 源五郎
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: 兼定
+    x: 33
+    y: 75
+    description: blacksmith専用の取引所
+    z: -265
+    id: 兼定
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: 鉄斎
+    x: 22
+    y: 75
+    description: blacksmith専用の取引所
+    z: -283
+    id: 鉄斎
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: 小鉄
+    x: 20
+    y: 75
+    description: blacksmith専用の取引所
+    z: -284
+    id: 小鉄
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: 正宗
+    x: 3
+    y: 75
+    description: blacksmith専用の取引所
+    z: -266
+    id: 正宗
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: 玄武
+    x: 5
+    y: 75
+    description: blacksmith専用の取引所
+    z: -265
+    id: 玄武
+    accepted_jobs:
+    - blacksmith
+    items:
+    - iron_ingot
+    - gold_ingot
+    - diamond
+    - netherite_ingot
+    - iron_sword
+    - iron_pickaxe
+    - iron_axe
+    - iron_shovel
+    - iron_helmet
+    - iron_chestplate
+    - iron_leggings
+    - iron_boots
+    - diamond_sword
+    - diamond_pickaxe
+    - diamond_axe
+    - diamond_shovel
+    - diamond_helmet
+    - diamond_chestplate
+    - diamond_leggings
+    - diamond_boots
+    - anvil
+    purchase_prices:
+      coal: 10
+      stone: 10
+  - world: tofuNomics
+    name: 24時間ショップ
+    x: -109
+    y: 76
+    z: -234
+    id: 24時間ショップ
+    description: 全職業対応の総合取引所
+    accepted_jobs:
+    - all
+    purchase_prices:
+      apple: 3
+      bread: 5
+      golden_apple: 50
+      arrow: 2
+      cooked_beef: 10
+      torch: 1
+    emergency_mode:
+      enabled: true
+      price_multiplier: 2.0
+      items:
+      - BREAD
+      - COOKED_BEEF
+      - APPLE
+      - GOLDEN_APPLE
+      - TORCH
+      - ARROW
+  processing_npc:
+    enabled: true
+    fees:
+      base_fee_per_log: 1.0
+      woodcutter_fee: 0.0
+    limits:
+      max_logs_per_process: 64
+    locations:
+    - world: tofuNomics
+      x: -104
+      name: §6木材加工職人
+      y: 97
+      z: -237
+      id: processing_1759311567603
+      pitch: -2.469969
+      yaw: -89.978516
+    wood_types:
+      oak_log: oak_planks
+      birch_log: birch_planks
+      spruce_log: spruce_planks
+      jungle_log: jungle_planks
+      acacia_log: acacia_planks
+      dark_oak_log: dark_oak_planks
+      crimson_stem: crimson_planks
+      warped_stem: warped_planks
+    messages:
+      greeting: §6いらっしゃいませ、%player%さん！木材加工サービスへようこそ。
+      service_start: §a原木を板材に加工いたします。
+      woodcutter_special: §e木こりの方は加工料金が無料です！
+      insufficient_funds: '§c残高が不足しています。必要: %amount%'
+      no_logs: §c加工できる原木が見つかりません。
+      no_space: §cインベントリに空きがありません。
+      success: §a%log_amount%個の原木を%plank_amount%個の板材に加工しました。
+      fee_charged: '§e加工料金: %fee%'
+      outside_hours: §c申し訳ありませんが、営業時間外です。
+  bank_npc:
+    locations:
+    - world: tofuNomics
+      greeting: §6いらっしゃいませ、中央銀行員へようこそ！
+      x: -109
+      name: 中央銀行員
+      y: 76
+      z: -253
+      type: bank
+    - world: tofuNomics
+      greeting: §6いらっしゃいませ、中央銀行員へようこそ！
+      x: -84
+      name: 中央銀行員
+      y: 76
+      z: -253
+      type: bank
+database:
+  filename: tofunomics_world.db
+  connection_pool:
+    max_connections: 10
+    timeout: 30000
+economy:
+  currency:
+    name: 金塊
+    symbol: G
+    decimal_places: 2
+    coin_value: 1
+    dynamic_value: true
+    min_value: 1
+    max_value: 1000
+  starting_balance: 100.0
+  pay:
+    minimum_amount: 1.0
+    maximum_amount: 5000.0
+    fee_percentage: 0.0
+  withdraw_deposit:
+    max_withdraw: 10000.0
+    max_deposit: 10000.0
+  location_restrictions:
+    enabled: true
+    access_range: 5
+    banks: []
+    atms: []
+jobs:
+  general:
+    max_jobs_per_player: 1
+    keep_level_on_change: true
+    job_change_cooldown: 0
+  block_restrictions:
+    enabled: true
+    basic_blocks:
+    - STONE
+    - COBBLESTONE
+    - DIRT
+    - GRASS_BLOCK
+    - SAND
+    - GRAVEL
+    - SANDSTONE
+    - ANDESITE
+    - DIORITE
+    - GRANITE
+    - NETHERRACK
+    - END_STONE
+    - OBSIDIAN
+    - OAK_LOG
+    - BIRCH_LOG
+    - SPRUCE_LOG
+    - JUNGLE_LOG
+    - ACACIA_LOG
+    - DARK_OAK_LOG
+    job_restricted_blocks:
+      miner:
+      - COAL_ORE
+      - IRON_ORE
+      - GOLD_ORE
+      - DIAMOND_ORE
+      - EMERALD_ORE
+      - LAPIS_ORE
+      - REDSTONE_ORE
+      - NETHER_QUARTZ_ORE
+      woodcutter:
+      - OAK_LOG
+      - BIRCH_LOG
+      - SPRUCE_LOG
+      - JUNGLE_LOG
+      - ACACIA_LOG
+      - DARK_OAK_LOG
+      - OAK_LEAVES
+      - BIRCH_LEAVES
+      - SPRUCE_LEAVES
+      - JUNGLE_LEAVES
+      - ACACIA_LEAVES
+      - DARK_OAK_LEAVES
+      - BROWN_MUSHROOM_BLOCK
+      - RED_MUSHROOM_BLOCK
+      - MUSHROOM_STEM
+      farmer:
+      - WHEAT
+      - POTATOES
+      - CARROTS
+      - BEETROOTS
+      - PUMPKIN
+      - MELON
+      - COCOA
+      - SUGAR_CANE
+      - CACTUS
+      - BROWN_MUSHROOM
+      - RED_MUSHROOM
+      - HAY_BLOCK
+      - DRIED_KELP_BLOCK
+      fisherman:
+      - WATER
+      - KELP
+      - SEAGRASS
+      - SEA_PICKLE
+      - TUBE_CORAL
+      - BRAIN_CORAL
+      - BUBBLE_CORAL
+      - FIRE_CORAL
+      - HORN_CORAL
+      - DEAD_TUBE_CORAL
+      - DEAD_BRAIN_CORAL
+      - DEAD_BUBBLE_CORAL
+      - DEAD_FIRE_CORAL
+      - DEAD_HORN_CORAL
+      blacksmith:
+      - ANVIL
+      - CHIPPED_ANVIL
+      - DAMAGED_ANVIL
+      - FURNACE
+      - BLAST_FURNACE
+      - SMITHING_TABLE
+      - GRINDSTONE
+      - CAULDRON
+      - LAVA_CAULDRON
+      alchemist:
+      - BREWING_STAND
+      - CAULDRON
+      - WATER_CAULDRON
+      - POWDER_SNOW_CAULDRON
+      - NETHER_WART
+      - SOUL_SAND
+      - SOUL_SOIL
+      - MAGMA_BLOCK
+      enchanter:
+      - ENCHANTING_TABLE
+      - BOOKSHELF
+      - LECTERN
+      - LAPIS_LAZULI_BLOCK
+      architect:
+      - SCAFFOLDING
+      - LADDER
+      - CHAIN
+      - LANTERN
+      - SOUL_LANTERN
+      - TORCH
+      - SOUL_TORCH
+      - REDSTONE_TORCH
+      - SEA_LANTERN
+      - GLOWSTONE
+      - JACK_O_LANTERN
+      - CAMPFIRE
+      - SOUL_CAMPFIRE
+  job_settings:
+    miner:
+      display_name: 鉱夫
+      description: 鉱物資源と石材の供給を担当
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+    woodcutter:
+      display_name: 木こり
+      description: 木材の供給を担当
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+    farmer:
+      display_name: 農家
+      description: 農作物・畜産物の供給を担当
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+    fisherman:
+      display_name: 釣り人
+      description: 魚と宝の供給を担当
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+    blacksmith:
+      display_name: 鍛冶屋
+      description: ツール、武器、防具の生産と修理を担当
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+    alchemist:
+      display_name: ポーション屋
+      description: ポーションの生産を担当
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+    enchanter:
+      display_name: エンチャンター
+      description: エンチャントサービスを担当
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+    architect:
+      display_name: 建築家
+      description: 建築と装飾を担当
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+land_protection:
+  worldguard_integration: true
+  urban_land_price: 100.0
+  max_lands_per_player: 5
+  protected_worlds:
+  - tofunomics
+  - tofunomics_nether
+  - tofunomics_the_end
+scoreboard:
+  enabled: true
+  default_enabled: true
+  title: '&6&l★ &eTofuNomics &6&l★'
+  update_interval: 1
+  enabled_worlds:
+  - tofuNomics
+  - tofunomics_nether
+  - tofunomics_the_end
+  display_settings:
+    show_player_name: false
+    show_balance: true
+    show_job: true
+    show_job_level: true
+    show_experience: true
+    show_online_time: false
+    show_current_time: true
+    show_trading_hours: true
+    show_rules_command: true
+  rules_command_text: '&e/rules でルール確認'
+events:
+  enabled: true
+  excluded_worlds:
+  - creative_world
+  - test_world
+  - world
+  - world_nether
+  - world_the_end
+  excluded_game_modes:
+  - ADVENTURE
+  caching:
+    enabled: true
+    expiry_time: 300000
+    cleanup_interval: 60000
+  async_processing:
+    enabled: true
+    thread_pool_size: 2
+    batch_interval: 100
+    max_batch_size: 50
+  handlers:
+    brewing:
+      enabled: true
+      owner_detection_range: 10
+    enchantment:
+      enabled: true
+      bonus_enchant_rate_multiplier: 1.0
+    breeding:
+      enabled: true
+      rare_animals:
+      - HORSE
+      - MULE
+      - HOGLIN
+      - STRIDER
+      - AXOLOTL
+    growth:
+      enabled: true
+      owner_detection_range: 50
+      message_display_rate: 0.3
+    building:
+      enabled: true
+      project_tracking:
+        enabled: true
+        expiry_time: 3600000
+        max_range: 50
+      decorative_restrictions:
+        enabled: true
+        allowed_for_non_builders:
+        - CARVED_PUMPKIN
+        - JACK_O_LANTERN
+  performance:
+    statistics_enabled: true
+    debug_mode: false
+    verbose_logging: false
+    level_up: '&6おめでとうございます！ %job% がレベル %level% に上がりました！'
+trade_system:
+  enabled: true
+  confirmation_required: true
+  global_price_multiplier: 1.0
+  job_price_multipliers:
+    miner: 1.5
+    woodcutter: 1.0
+    farmer: 1.0
+    fisherman: 1.5
+    blacksmith: 2.0
+    alchemist: 2.0
+    enchanter: 2.0
+    architect: 1.5
+  history:
+    max_days: 30
+    max_records_per_player: 1000
+    auto_cleanup: true
+  limits:
+    max_trades_per_day: 50
+    max_items_per_trade: 2304
+    max_earnings_per_day: 10000.0
+  chest_settings:
+    max_chests_per_job: 10
+    prevent_duplicate_location: true
+    require_confirmation_on_remove: true
+  messages:
+    trade_chest_created: '&a取引チェストを設置しました。職業: %job%'
+    trade_chest_removed: '&c取引チェストを削除しました。'
+    trade_completed: '&a取引が完了しました。合計: %amount%金塊'
+    trade_no_items: '&e買取可能なアイテムがありませんでした。'
+    trade_invalid_item: '&c%item%はこのチェストでは買取できません。'
+    insufficient_permission: '&cこの操作を行う権限がありません。'
+    invalid_job_type: '&c無効な職業タイプです: %job%'
+    chest_not_found: '&cチェストを見てコマンドを実行してください。'
+    chest_already_exists: '&cこの場所には既に取引チェストが設置されています。'
+job_skills:
+  miner:
+    fortune_strike:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.25
+      cooldown_seconds: 0
+      effect_multiplier: 1.5
+    vein_discovery:
+      base_probability: 0.08
+      level_bonus: 0.003
+      max_probability: 0.3
+      cooldown_seconds: 10
+      effect_range: 3
+    mining_mastery:
+      base_probability: 0.1
+      level_bonus: 0.004
+      max_probability: 0.4
+      cooldown_seconds: 0
+      durability_save_rate: 0.3
+  woodcutter:
+    tree_feller:
+      base_probability: 0.1
+      level_bonus: 0.003
+      max_probability: 0.35
+      cooldown_seconds: 30
+      max_blocks: 64
+    sapling_blessing:
+      base_probability: 0.15
+      level_bonus: 0.005
+      max_probability: 0.5
+      cooldown_seconds: 0
+      bonus_drops: 1
+    forest_guardian:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.2
+      cooldown_seconds: 0
+      quality_multiplier: 1.8
+  farmer:
+    harvest_blessing:
+      base_probability: 0.12
+      level_bonus: 0.004
+      max_probability: 0.4
+      cooldown_seconds: 0
+      bonus_yield_rate: 0.5
+    twin_miracle:
+      base_probability: 0.1
+      level_bonus: 0.003
+      max_probability: 0.25
+      cooldown_seconds: 0
+      effect_duration: 600
+    growth_acceleration:
+      base_probability: 0.2
+      level_bonus: 0.005
+      max_probability: 0.6
+      cooldown_seconds: 0
+      acceleration_rate: 0.25
+    selective_breeding:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.15
+      cooldown_seconds: 0
+      quality_bonus: 2.0
+  fisherman:
+    big_catch:
+      base_probability: 0.08
+      level_bonus: 0.003
+      max_probability: 0.3
+      cooldown_seconds: 0
+      size_multiplier: 1.5
+    treasure_hunter:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.2
+      cooldown_seconds: 0
+      treasure_rate: 1.8
+    sea_blessing:
+      base_probability: 1.0
+      level_bonus: 0.0
+      max_probability: 1.0
+      cooldown_seconds: 0
+      weather_immunity: true
+  blacksmith:
+    perfect_repair:
+      base_probability: 0.15
+      level_bonus: 0.005
+      max_probability: 0.5
+      cooldown_seconds: 0
+      durability_bonus: 0.2
+    master_craftsmanship:
+      base_probability: 0.1
+      level_bonus: 0.004
+      max_probability: 0.35
+      cooldown_seconds: 0
+      quality_improvement: 1.5
+    artifact_creation:
+      base_probability: 0.02
+      level_bonus: 0.001
+      max_probability: 0.08
+      cooldown_seconds: 300
+      special_enchant_rate: 1.0
+  alchemist:
+    ingredient_conservation:
+      base_probability: 0.2
+      level_bonus: 0.006
+      max_probability: 0.6
+      cooldown_seconds: 0
+      save_rate: 0.5
+    double_brewing:
+      base_probability: 0.1
+      level_bonus: 0.003
+      max_probability: 0.25
+      cooldown_seconds: 0
+      extra_potions: 1
+    alchemy_mastery:
+      base_probability: 0.15
+      level_bonus: 0.004
+      max_probability: 0.4
+      cooldown_seconds: 0
+      duration_multiplier: 1.5
+  enchanter:
+    experience_conservation:
+      base_probability: 0.25
+      level_bonus: 0.008
+      max_probability: 0.7
+      cooldown_seconds: 0
+      cost_reduction: 0.3
+    bonus_enchantment:
+      base_probability: 0.08
+      level_bonus: 0.003
+      max_probability: 0.25
+      cooldown_seconds: 0
+      bonus_levels: 1
+    mystical_arts:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.15
+      cooldown_seconds: 0
+      rare_enchant_rate: 2.0
+  architect:
+    material_efficiency:
+      base_probability: 0.15
+      level_bonus: 0.005
+      max_probability: 0.45
+      cooldown_seconds: 0
+      material_save_rate: 0.25
+    architectural_aesthetics:
+      base_probability: 0.2
+      level_bonus: 0.006
+      max_probability: 0.6
+      cooldown_seconds: 0
+      aesthetic_bonus: 1.5
+    master_architect:
+      base_probability: 1.0
+      level_bonus: 0.0
+      max_probability: 1.0
+      cooldown_seconds: 0
+      scale_bonus_threshold: 100
+leveling:
+  experience:
+    base_multiplier: 100
+    exponent: 2.0
+    level_scaling:
+      early_levels:
+        min_level: 1
+        max_level: 10
+        multiplier: 1.0
+      mid_levels:
+        min_level: 11
+        max_level: 25
+        multiplier: 0.9
+      advanced_levels:
+        min_level: 26
+        max_level: 50
+        multiplier: 1.0
+      master_levels:
+        min_level: 51
+        max_level: 100
+        multiplier: 1.5
+  rewards:
+    base_rewards:
+      money:
+        enabled: true
+        base_amount: 50.0
+        level_multiplier: 2.5
+        max_amount: 500.0
+      skill_points:
+        enabled: true
+        levels:
+        - 10
+        - 25
+        - 50
+        - 75
+        points_per_level: 1
+    job_specific_rewards:
+      milestone_rewards:
+        level_10:
+          all_jobs:
+          - type: money
+            amount: 200.0
+          - type: message
+            text: 初級職人になりました！
+        level_25:
+          all_jobs:
+          - type: money
+            amount: 500.0
+          - type: message
+            text: 中級職人になりました！
+          miner:
+          - type: item
+            material: DIAMOND_PICKAXE
+            enchantments:
+            - EFFICIENCY:3
+            - UNBREAKING:2
+          woodcutter:
+          - type: item
+            material: DIAMOND_AXE
+            enchantments:
+            - EFFICIENCY:3
+            - UNBREAKING:2
+        level_50:
+          all_jobs:
+          - type: money
+            amount: 1000.0
+          - type: message
+            text: 上級職人になりました！
+        level_75:
+          all_jobs:
+          - type: money
+            amount: 2000.0
+          - type: message
+            text: マスター職人になりました！
+event_rewards:
+  global_multipliers:
+    experience_multiplier: 1.2
+    income_multiplier: 1.1
+    skill_probability_multiplier: 1.0
+    time_bonuses:
+      morning:
+        experience_bonus: 0.05
+        income_bonus: 0.05
+      day:
+        experience_bonus: 0.0
+        income_bonus: 0.0
+      evening:
+        experience_bonus: 0.1
+        income_bonus: 0.05
+      night:
+        experience_bonus: 0.15
+        income_bonus: 0.1
+    weather_bonuses:
+      rain:
+        experience_bonus: 0.15
+        income_bonus: 0.1
+      thunderstorm:
+        experience_bonus: 0.2
+        income_bonus: 0.15
+  individual_events:
+    block_break:
+      base_experience: 1.0
+      base_income: 1.5
+      level_experience_bonus: 0.02
+      level_income_bonus: 0.03
+      tool_bonuses:
+        enchanted_tools:
+          efficiency:
+            level_1: 0.1
+            level_2: 0.15
+            level_3: 0.2
+            level_4: 0.25
+            level_5: 0.3
+          fortune:
+            level_1: 0.2
+            level_2: 0.35
+            level_3: 0.5
+        diamond_tools:
+          experience_bonus: 0.1
+          income_bonus: 0.05
+    block_place:
+      base_experience: 0.5
+      base_income: 0.8
+      level_experience_bonus: 0.015
+      level_income_bonus: 0.02
+      project_bonuses:
+        small_project:
+          threshold: 20
+          experience_multiplier: 1.2
+          income_multiplier: 1.1
+        medium_project:
+          threshold: 50
+          experience_multiplier: 1.5
+          income_multiplier: 1.3
+        large_project:
+          threshold: 100
+          experience_multiplier: 2.0
+          income_multiplier: 1.6
+    fishing:
+      base_experience: 3.0
+      base_income: 4.0
+      level_experience_bonus: 0.05
+      level_income_bonus: 0.08
+      fish_bonuses:
+        cod:
+          experience_multiplier: 1.0
+          income_multiplier: 1.0
+        salmon:
+          experience_multiplier: 1.2
+          income_multiplier: 1.3
+        tropical_fish:
+          experience_multiplier: 1.5
+          income_multiplier: 1.8
+        pufferfish:
+          experience_multiplier: 2.0
+          income_multiplier: 2.2
+      treasure_bonuses:
+        enchanted_book:
+          experience_multiplier: 3.0
+          income_multiplier: 5.0
+        name_tag:
+          experience_multiplier: 2.5
+          income_multiplier: 4.0
+    crafting:
+      base_experience: 2.0
+      base_income: 2.5
+      level_experience_bonus: 0.03
+      level_income_bonus: 0.04
+      complexity_bonuses:
+        simple_items:
+          experience_multiplier: 1.0
+          income_multiplier: 1.0
+        intermediate_items:
+          experience_multiplier: 1.3
+          income_multiplier: 1.2
+        complex_items:
+          experience_multiplier: 1.8
+          income_multiplier: 1.5
+performance:
+  database:
+    connection_pool:
+      enabled: true
+      maximum_pool_size: 15
+      minimum_idle: 3
+      connection_timeout: 30000
+      idle_timeout: 600000
+      max_lifetime: 1800000
+      leak_detection_threshold: 60000
+    batch_processing:
+      enabled: true
+      batch_size: 100
+      batch_timeout: 5000
+      max_queue_size: 1000
+    cleanup:
+      enabled: true
+      cleanup_interval: 3600
+      old_data_threshold_days: 30
+  caching:
+    player_cache:
+      enabled: true
+      max_size: 1000
+      expire_after_access: 1800
+      expire_after_write: 3600
+    job_cache:
+      enabled: true
+      max_size: 500
+      expire_after_access: 3600
+      expire_after_write: 7200
+    config_cache:
+      enabled: true
+      max_size: 200
+      expire_after_access: 7200
+      expire_after_write: 14400
+  memory_management:
+    object_pooling:
+      enabled: true
+      pool_sizes:
+        string_builder: 50
+        location_objects: 100
+        event_objects: 200
+    memory_monitoring:
+      enabled: true
+      warning_threshold: 0.8
+      critical_threshold: 0.95
+      gc_suggestion_threshold: 0.85
+  monitoring:
+    statistics:
+      enabled: true
+      collection_interval: 300
+      retention_days: 7
+    realtime_monitoring:
+      enabled: true
+      cpu_threshold: 80.0
+      memory_threshold: 85.0
+      tps_threshold: 18.0
+    alerts:
+      enabled: true
+      discord_webhook: ''
+      admin_notification: true
+debug:
+  enabled: false
+  verbose: false
+config_version: '2.1'
+housing_rental:
+  enabled: true
+  max_rentals_per_player: 3
+  selection_tool: WOODEN_AXE
+  rental_periods:
+    daily:
+      enabled: true
+      min_days: 1
+      max_days: 30
+    weekly:
+      enabled: true
+      multiplier: 6.5
+    monthly:
+      enabled: true
+      multiplier: 25.0
+  worldguard_integration: true
+  world_name: tofuNomics
+  expire_check_interval: 3600
+  expire_notification_days: 3
+  messages:
+    list_header: '&6========= 賃貸可能物件一覧 ========='
+    list_footer: '&6====================================='
+    property_format: '&e#%id% &f%name% &7- 日額: &a%daily% &7/ 週額: &a%weekly% &7/ 月額:
+      &a%monthly%'
+    rent_success: '&a%property%の賃貸契約を締結しました'
+    rent_failed: '&c賃貸契約に失敗しました: %reason%'
+    extend_success: '&a契約を%days%日延長しました'
+    cancel_success: '&a契約をキャンセルしました'
+    expired_notification: '&c賃貸契約が%days%日後に期限切れになります (物件: %property%)'
+  city_protection:
+    enabled: false
+    region_name: ''
+    world_name: tofuNomics
+    parent_region_flags:
+      build: deny
+      block-break: deny
+      interact: deny
+  worldguard_rental_regions:
+    auto_configure: true
+    default_flags:
+      use: allow
+      chest-access: allow
+      build: deny
+      interact: allow
+    auto_set_parent: true
+    default_parent_region: ''
+area_system:
+  enabled: true
+  cooldown_seconds: 60
+  areas:
+    north:
+      name: 北エリア
+      world: tofuNomics
+      min_x: -145
+      min_y: 74
+      min_z: -389
+      max_x: -45
+      max_y: 256
+      max_z: -336
+      title: '&b&l北商店街'
+      subtitle: '&f食の街へ'
+      message: '&e北エリアへようこそ！'
+      sound: BLOCK_NOTE_BLOCK_BELL
+    south:
+      name: 南エリア
+      world: tofuNomics
+      min_x: -145
+      min_y: 74
+      min_z: -154
+      max_x: -45
+      max_y: 256
+      max_z: -102
+      title: '&6&l南マーケット'
+      subtitle: '&f食の街へ'
+      message: '&e南エリアへようこそ！'
+      sound: BLOCK_NOTE_BLOCK_BELL
+    east:
+      name: 東エリア
+      world: tofuNomics
+      min_x: -4
+      min_y: 74
+      min_z: -296
+      max_x: 48
+      max_y: 256
+      max_z: -195
+      title: '&a&l東職人'
+      subtitle: '&f職人の街へ！'
+      message: '&e東エリアへようこそ！'
+      sound: BLOCK_NOTE_BLOCK_BELL
+    west:
+      name: 西エリア
+      world: tofuNomics
+      min_x: -237
+      min_y: 74
+      min_z: -295
+      max_x: -186
+      max_y: 256
+      max_z: -195
+      title: '&c&l西職人'
+      subtitle: '&f職人の街へ！'
+      message: '&e西エリアへようこそ！'
+      sound: BLOCK_NOTE_BLOCK_BELL
+time_announcement:
+  enabled: true
+  interval_minutes: 60
+  announce_trading_hours: true
+  messages:
+    regular: '&e[時報] &f現在時刻：%time% &7- 取引所：%trading_status%'
+    trading_open: '&a🌅 &6[お知らせ] &aおはようございます！取引所が開店しました（営業時間：6:00-22:00）'
+    trading_close: '&c🌙 &6[お知らせ] &c取引所は閉店しました。また明日お越しください（営業時間：6:00-22:00）'
+    trading_close_warning: '&e⚠ &6[お知らせ] &e取引所は1時間後に閉店します。お早めにお取引ください'
+    status_open: '&a営業中'
+    status_closed: '&c閉店中'
+clock_item:
+  enabled: true
+  purchase_price: 500.0
+  seller_npcs: []
+  action_bar:
+    enabled: true
+    update_interval: 20
+    format: '&e⏰ %time% &7| %trading_status% %time_until%'
+    status_open: '&a💼 営業中'
+    status_closed: '&c💼 閉店中'
+  details:
+    title: '&6&l=== TofuNomics時計 ==='
+    content:
+    - '&e現在時刻: &f%time%'
+    - '&e取引所: %trading_status%'
+    - '&e営業時間: &f%trading_hours%'
+    - '&e%next_event%: &f%time_until%'
+    footer: '&6&l====================='
+  item:
+    material: CLOCK
+    name: '&6&lTofuNomics時計'
+    lore:
+    - '&7TofuNomicsワールドの公式時計'
+    - '&7現在時刻と取引所の営業状況を確認できます'
+    - ''
+    - '&e右クリック: &f詳細情報を表示'
+    - '&e所持中: &fアクションバーに時刻表示'
+    enchanted: true
+  messages:
+    purchase_success: '&a時計を購入しました！所持しているとアクションバーに時刻が表示されます。'
+    purchase_failed: '&c時計の購入に失敗しました: %reason%'
+    insufficient_funds: '&c残高が不足しています。必要: %amount%'
+    already_owned: '&e既に時計を所持しています。'
+rules:
+  enabled: false
+  require_agreement: false
+  url: https://to-fu.world/worlds/tofu-nomics/
+  pages:
+    '1':
+      title: §6§l【TofuNomicsへようこそ！】
+      content:
+      - §7このサーバーは経済とジョブシステムを
+      - §7楽しむことができるサーバーです。
+      - ''
+      - §e▼ 最初にやること
+      - §f1. §b/jobs §fコマンドでジョブを選ぶ
+      - §f2. 選んだジョブで活動して経験値を稼ぐ
+      - §f3. レベルアップして新しいスキルを習得
+      - §f4. 稼いだお金を銀行に預ける
+      - ''
+      - §e▼ ジョブの選び方
+      - §f・§b/jobs §fでジョブ一覧を確認
+      - §f・自分のプレイスタイルに合ったジョブを選択
+      - §f・ジョブは1日1回まで変更可能
+      - ''
+      - §e▼ 困ったときは
+      - §f・§b/rules §fでこのルールを再確認
+      - §f・管理者やベテランプレイヤーに相談
+    '2':
+      title: §6§l【経済システム】
+      content:
+      - §e▼ 通貨システム
+      - '§f通貨: §6金塊 (G)'
+      - §f新規プレイヤーは100Gからスタート
+      - ''
+      - §e▼ 銀行システム
+      - §f・§b/balance §f- 残高確認
+      - §f・§b/deposit <金額> §f- 金塊を預ける
+      - §f・§b/withdraw <金額> §f- 金塊を引き出す
+      - §f・銀行NPC周辺でのみ取引可能
+      - ''
+      - §e▼ 送金
+      - §f・§b/pay <プレイヤー名> <金額>
+      - §f・他のプレイヤーにお金を送れます
+      - ''
+      - §e▼ NPCとの取引
+      - §f・取引NPCで物を売買できます
+      - §f・ジョブレベルで価格ボーナスあり
+      - §f・食料NPCで食べ物を購入できます
+    '3':
+      title: §6§l【ジョブ・スキルシステム】
+      content:
+      - §e▼ ジョブの種類
+      - §f・鉱夫（Miner） - 鉱石採掘で経験値
+      - §f・木こり（Woodcutter） - 木の伐採で経験値
+      - §f・農家（Farmer） - 作物栽培・畜産で経験値
+      - §f・釣り人（Fisherman） - 釣りで経験値
+      - §f・鍛冶屋（Blacksmith） - 道具・武器の生産と修理
+      - §f・ポーション屋（Alchemist） - ポーション製造
+      - §f・エンチャンター（Enchanter） - エンチャント付与
+      - §f・建築家（Architect） - 建築と装飾で経験値
+      - §f※ 同時に就けるジョブは1つのみです
+      - ''
+      - §e▼ レベルアップ
+      - §f・ジョブ関連の作業で経験値を獲得
+      - §f・レベルが上がるとスキルを習得
+      - '§f・最大レベル: 100'
+      - ''
+      - §e▼ スキル
+      - §f・各ジョブ専用のスキルが習得可能
+      - §f・作業効率アップや特殊能力を獲得
+      - ''
+      - §e▼ ジョブ変更
+      - §f・§b/jobs leave §fで現在のジョブを辞める
+      - §f・§b/jobs join <ジョブ名> §fで新しいジョブに就く
+      - §f・レベル50に達すると他の職業に転職できます
+    '4':
+      title: §c§l【禁止事項・ルール】
+      content:
+      - §c§l以下の行為は禁止されています
+      - ''
+      - §e▼ 不正行為
+      - §f・チート・ハックツールの使用
+      - §f・バグやグリッチの悪用
+      - §f・不正な金銭・アイテム取得
+      - §c→ 永久BAN
+      - ''
+      - §e▼ 迷惑行為
+      - §f・他プレイヤーへの嫌がらせ
+      - §f・暴言・差別発言
+      - §f・他プレイヤーの建築物の破壊
+      - §c→ 警告〜一時BAN
+      - ''
+      - §e▼ その他の注意事項
+      - §f・他プレイヤーとの取引は慎重に
+      - §f・詐欺行為は厳禁
+      - §f・AFK（放置）での経験値稼ぎ禁止
+      - §c→ 警告〜アカウント停止
+      - ''
+      - §6§l楽しく、フェアにプレイしましょう！
+  messages:
+    book_name: §6§lTofuNomicsルールブック
+    book_given: §aルールブックを受け取りました。右クリックで確認できます。
+    gui_title: §6TofuNomics サーバールール
+    must_agree: §c§lルールに同意するまでプレイできません。§r§c /rules でルールを確認してください。
+    agreed: §a§l✔ ルールに同意しました！§r§a 楽しいサーバーライフを送ってください！
+    disagreed: §cルールに同意しませんでした。§e/rules §cでもう一度確認してください。
+    action_blocked: §cルールに同意するまで、この操作はできません。§e/rules §cでルールを確認してください。

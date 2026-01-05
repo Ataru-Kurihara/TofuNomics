@@ -10,6 +10,7 @@ import org.tofu.tofunomics.dao.JobDAO;
 import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.dao.PlayerJobDAO;
 import org.tofu.tofunomics.dao.JobChangeDAO;
+import org.tofu.tofunomics.dao.JobHistoryDAO;
 import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.jobs.JobManager.JobJoinResult;
@@ -44,6 +45,9 @@ public class JobManagerTest {
     private JobChangeDAO jobChangeDAO;
     
     @Mock
+    private JobHistoryDAO jobHistoryDAO;
+    
+    @Mock
     private Player player;
     
     private JobManager jobManager;
@@ -54,7 +58,7 @@ public class JobManagerTest {
     public void setUp() {
         MockitoAnnotations.openMocks(this);
         
-        jobManager = new JobManager(configManager, jobDAO, playerDAO, playerJobDAO, jobChangeDAO);
+        jobManager = new JobManager(configManager, jobDAO, playerDAO, playerJobDAO, jobChangeDAO, jobHistoryDAO);
         playerUuid = UUID.randomUUID();
         playerUuidString = playerUuid.toString();
         
