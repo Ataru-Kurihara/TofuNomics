@@ -1,7 +1,11 @@
 package org.tofu.tofunomics.events;
 
 import org.bukkit.Material;
+import org.bukkit.Location;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import java.util.HashSet;
+import java.util.Set;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -59,6 +63,9 @@ public class UnifiedEventHandler implements Listener {
     // 職業ブロック制限システム
     private final org.tofu.tofunomics.jobs.JobBlockPermissionManager blockPermissionManager;
     
+    // プレイヤーが設置したブロックの位置を記録（メモリ内追跡）
+    private final Set<String> playerPlacedBlocks;
+    
     public UnifiedEventHandler(JavaPlugin plugin, ConfigManager configManager,
                               PlayerDAO playerDAO, PlayerJobDAO playerJobDAO,
                               JobManager jobManager,
@@ -75,6 +82,9 @@ public class UnifiedEventHandler implements Listener {
         // 収入システムは無効化: incomeManager は削除されました
         this.questManager = questManager;
         this.blockPermissionManager = blockPermissionManager;
+        
+        // プレイヤー設置ブロック追跡システムの初期化
+        this.playerPlacedBlocks = new HashSet<>();
         
         // サブシステムの初期化
         this.eventCache = new EventCache(plugin);
@@ -131,6 +141,17 @@ public class UnifiedEventHandler implements Listener {
         
         System.out.println("ブロック破壊許可 - 通常処理を継続");
         
+        // プレイヤーが設置したブロックかチェック（メモリ内追跡）
+        String blockKey = getBlockLocationKey(event.getBlock().getLocation());
+        boolean isPlayerPlaced = playerPlacedBlocks.contains(blockKey);
+        
+        System.out.println("プレイヤー設置ブロック: " + isPlayerPlaced);
+        
+        // 設置ブロックの場合はセットから削除
+        if (isPlayerPlaced) {
+            playerPlacedBlocks.remove(blockKey);
+        }
+        
         // キャッシュチェック
         if (eventCache.isRecentlyProcessed(player, "block_break", 50)) {
             System.out.println("重複イベントのためスキップ");
@@ -138,7 +159,12 @@ public class UnifiedEventHandler implements Listener {
         }
         
         // 既存のマネージャーに処理を委譲（収入システムは無効化）
-        experienceManager.onBlockBreak(event);
+        // プレイヤーが設置したブロックの場合は経験値を付与しない
+        if (!isPlayerPlaced) {
+            experienceManager.onBlockBreak(event);
+        } else {
+            System.out.println("プレイヤー設置ブロックのため経験値なし");
+        }
         questManager.onBlockBreak(event);
         
         // キャッシュに記録
@@ -147,11 +173,26 @@ public class UnifiedEventHandler implements Listener {
         System.out.println("=== ブロック破壊イベント処理完了 ===");
     }
     
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        Material blockType = event.getBlock().getType();
+        
+        // 鉱石ブロックの設置を禁止（管理者権限がない場合）
+        if (isOreBlock(blockType) && !player.hasPermission("tofunomics.place.ore")) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "鉱石ブロックは設置できません。");
+            return;
+        }
+        
         if (!shouldProcessEvent(event)) return;
         
-        Player player = event.getPlayer();
+        // プレイヤーが設置したブロックを記録（メモリ内追跡）
+        // STONE, COBBLESTONEなど経験値対象ブロックのみ追跡（鉱石は除外）
+        if (shouldTrackPlacedBlock(blockType)) {
+            String blockKey = getBlockLocationKey(event.getBlock().getLocation());
+            playerPlacedBlocks.add(blockKey);
+        }
         
         // キャッシュチェック
         if (eventCache.isRecentlyProcessed(player, "block_place", 50)) {
@@ -314,6 +355,60 @@ public class UnifiedEventHandler implements Listener {
     }
     
     // ========== ユーティリティメソッド ==========
+    
+    /**
+     * 鉱石ブロックかどうかを判定
+     */
+    private boolean isOreBlock(Material blockType) {
+        return blockType == Material.COAL_ORE || 
+               blockType == Material.IRON_ORE || 
+               blockType == Material.GOLD_ORE || 
+               blockType == Material.DIAMOND_ORE || 
+               blockType == Material.EMERALD_ORE || 
+               blockType == Material.LAPIS_ORE || 
+               blockType == Material.REDSTONE_ORE || 
+               blockType == Material.NETHER_QUARTZ_ORE ||
+               blockType == Material.ANCIENT_DEBRIS;
+    }
+    
+    /**
+     * ブロック位置をキー文字列に変換
+     */
+    private String getBlockLocationKey(Location location) {
+        return location.getWorld().getName() + ":" + 
+               location.getBlockX() + "," + 
+               location.getBlockY() + "," + 
+               location.getBlockZ();
+    }
+    
+    /**
+     * ブロック設置を追跡すべきかチェック
+     * 経験値が得られる可能性のあるブロックのみ追跡
+     * 注意: 鉱石ブロックは設置禁止のため追跡不要
+     */
+    private boolean shouldTrackPlacedBlock(Material blockType) {
+        // 鉱石類は設置禁止のため追跡不要（isOreBlockで判定）
+        
+        // STONE, COBBLESTONE（無限経験値防止）
+        if (blockType == Material.STONE || blockType == Material.COBBLESTONE) {
+            return true;
+        }
+        
+        // 原木類
+        if (blockType.name().endsWith("_LOG") || blockType.name().endsWith("_STEM")) {
+            return true;
+        }
+        
+        // 農作物類
+        if (blockType == Material.WHEAT || blockType == Material.POTATOES || 
+            blockType == Material.CARROTS || blockType == Material.BEETROOTS ||
+            blockType == Material.PUMPKIN || blockType == Material.MELON ||
+            blockType == Material.SUGAR_CANE || blockType == Material.NETHER_WART) {
+            return true;
+        }
+        
+        return false;
+    }
     
     /**
      * イベント処理を行うべきかチェック

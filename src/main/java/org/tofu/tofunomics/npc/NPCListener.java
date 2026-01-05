@@ -155,12 +155,6 @@ public class NPCListener implements Listener {
     }
     
     private void handleTradingNPCInteraction(Player player, UUID npcId) {
-        // 取引時間制限チェック
-        if (!isWithinTradingHours(player)) {
-            player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
-            return;
-        }
-        
         // クールダウンチェック
         if (hasRecentInteraction(player.getUniqueId(), "trader")) {
             player.sendMessage(configManager.getMessage("npc.trading.cooldown_active"));

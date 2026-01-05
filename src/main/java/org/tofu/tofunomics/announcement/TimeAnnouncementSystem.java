@@ -9,16 +9,13 @@ import org.tofu.tofunomics.config.ConfigManager;
 
 /**
  * 時刻放送システム
- * Minecraft時間に基づいて定期的に時刻を放送する
+ * Minecraft時間に基づいて営業時間関連のメッセージを放送する
  */
 public class TimeAnnouncementSystem {
     
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private BukkitTask announcementTask;
-    
-    // 前回放送した時刻（Minecraft時間の分単位）
-    private int lastAnnouncedMinute = -1;
     
     // 特別メッセージを送信したかどうかのフラグ
     private boolean sentOpeningMessage = false;
@@ -47,7 +44,7 @@ public class TimeAnnouncementSystem {
         // 1秒ごとにチェック（20 ticks = 1秒）
         announcementTask = Bukkit.getScheduler().runTaskTimer(plugin, this::checkAndAnnounce, 20L, 20L);
         
-        plugin.getLogger().info("時刻放送システムを開始しました（間隔: " + configManager.getTimeAnnouncementInterval() + "分）");
+        plugin.getLogger().info("時刻放送システムを開始しました");
     }
     
     /**
@@ -76,9 +73,6 @@ public class TimeAnnouncementSystem {
         int currentHour = (int) (((worldTime + 6000) / 1000) % 24);
         int currentMinute = (int) (((worldTime + 6000) % 1000) / 1000.0 * 60);
         
-        // Minecraft時間の分単位（0-1439）
-        int totalMinutes = currentHour * 60 + currentMinute;
-        
         // 取引時間の特別メッセージ
         if (configManager.isAnnounceTradingHours() && configManager.isTradingHoursEnabled()) {
             int startHour = configManager.getTradingStartHour();
@@ -105,57 +99,6 @@ public class TimeAnnouncementSystem {
                 sentOpeningMessage = false;
             }
         }
-        
-        // 定期放送
-        int interval = configManager.getTimeAnnouncementInterval();
-        if (interval > 0) {
-            // 放送すべき分かどうかチェック（例：60分間隔なら0分、60分、120分...）
-            if (totalMinutes % interval == 0 && totalMinutes != lastAnnouncedMinute) {
-                announceTime(currentHour, currentMinute);
-                lastAnnouncedMinute = totalMinutes;
-            }
-            
-            // 次の分に移行したらリセット
-            if (totalMinutes != lastAnnouncedMinute && totalMinutes % interval != 0) {
-                // 何もしない（次の放送タイミングまで待機）
-            }
-        }
-    }
-    
-    /**
-     * 現在時刻を放送
-     */
-    private void announceTime(int hour, int minute) {
-        String timeText = String.format("%02d:%02d", hour, minute);
-        
-        // 取引ステータスを取得
-        String tradingStatus;
-        if (configManager.isTradingHoursEnabled()) {
-            int startHour = configManager.getTradingStartHour();
-            int endHour = configManager.getTradingEndHour();
-            boolean isWithinTradingHours;
-            
-            if (startHour <= endHour) {
-                isWithinTradingHours = hour >= startHour && hour < endHour;
-            } else {
-                isWithinTradingHours = hour >= startHour || hour < endHour;
-            }
-            
-            if (isWithinTradingHours) {
-                tradingStatus = configManager.getTimeAnnouncementStatusOpen();
-            } else {
-                tradingStatus = configManager.getTimeAnnouncementStatusClosed();
-            }
-        } else {
-            tradingStatus = configManager.getTimeAnnouncementStatusOpen();
-        }
-        
-        // メッセージを作成
-        String message = configManager.getTimeAnnouncementRegularMessage()
-            .replace("%time%", timeText)
-            .replace("%trading_status%", tradingStatus);
-        
-        broadcastMessage(message);
     }
     
     /**

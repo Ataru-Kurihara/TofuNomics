@@ -4,6 +4,9 @@
 # サーバーからダウンロードしたconfig.ymlのバックアップ
 src/main/resources/server_config.yml.backup.*
 
+# Serenaキャッシュ
+.serena/
+
 # IDE設定
 .idea/
 *.iml

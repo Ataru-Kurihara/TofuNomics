@@ -184,6 +184,84 @@ public class TradingGUI implements Listener {
         }
     }
     
+    /**
+     * 指定されたモードで取引GUIを開く
+     * @param player プレイヤー
+     * @param tradingPost 取引所
+     * @param initialMode 初期モード（SELL or BUY）
+     */
+    public void openTradingGUIWithMode(Player player, TradingNPCManager.TradingPost tradingPost, TradingMode initialMode) {
+        plugin.getLogger().info("TradingGUI.openTradingGUIWithMode開始: プレイヤー=" + player.getName() +
+                               ", 取引所=" + tradingPost.getName() + ", モード=" + initialMode);
+
+        try {
+            String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+            plugin.getLogger().info("TradingGUI内での職業確認: " + (playerJob != null ? playerJob : "職業なし"));
+
+            // 職業チェック（購入と売却で異なる制限）
+            boolean isMatchingJob = tradingPost.isMatchingJob(playerJob);
+
+            if (!isMatchingJob) {
+                // 別職業または無職の場合
+                plugin.getLogger().info("TradingGUI: 別職業または無職 - プレイヤー職業=" +
+                    (playerJob != null ? playerJob : "無職") + ", 対応職業=" +
+                    String.join(", ", tradingPost.getAcceptedJobTypes()));
+
+                // 売却モードの場合のみ制限
+                if (initialMode == TradingMode.SELL) {
+                    plugin.getLogger().info("TradingGUI: 売却モードのため職業制限を適用");
+                    String acceptedJobsStr = String.join("、", tradingPost.getAcceptedJobTypes());
+
+                    player.sendMessage("§c売却はこの取引所の対応職業のみ可能です");
+                    if (playerJob == null) {
+                        player.sendMessage("§e対応職業: §f" + acceptedJobsStr);
+                        player.sendMessage("§7コマンド: §f/jobs join <職業名>");
+                    } else {
+                        player.sendMessage("§eお客様の職業: §f" + playerJob + "§e、対応職業: §f" + acceptedJobsStr);
+                    }
+                    return;
+                }
+
+                // 購入モードの場合は職業に関係なく続行
+                plugin.getLogger().info("TradingGUI: 購入モードのため職業に関係なくGUI開起を続行（割増価格適用）");
+            } else {
+                plugin.getLogger().info("TradingGUI: 対応職業です。購入・売却ともに可能");
+            }
+            
+            String title = "§6" + tradingPost.getName() + " - アイテム取引";
+            plugin.getLogger().info("TradingGUI: GUIタイトル設定完了: " + title);
+            
+            Inventory gui = Bukkit.createInventory(null, 54, title);
+            plugin.getLogger().info("TradingGUI: インベントリ作成完了");
+            
+            TradingGUISession session = new TradingGUISession(
+                player.getUniqueId(),
+                tradingPost.getId(),
+                gui
+            );
+            
+            // 初期モードを設定
+            session.setTradingMode(initialMode);
+            plugin.getLogger().info("TradingGUI: セッション作成完了（初期モード: " + initialMode + "）");
+            
+            setupTradingGUIItems(gui, player, tradingPost, session);
+            plugin.getLogger().info("TradingGUI: GUIアイテム設定完了");
+            
+            activeSessions.put(player.getUniqueId(), session);
+            player.openInventory(gui);
+            plugin.getLogger().info("TradingGUI: インベントリ開起完了");
+            
+            plugin.getLogger().info("取引GUIを開きました: " + player.getName() + " -> " + tradingPost.getName() + " (" + initialMode + "モード)");
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("取引GUI作成中にエラーが発生しました: " + e.getMessage());
+            plugin.getLogger().severe("プレイヤー: " + player.getName() + ", 取引所: " + tradingPost.getName());
+            player.sendMessage("§c取引画面の表示中にエラーが発生しました。");
+            player.sendMessage("§c管理者にお知らせください。詳細はサーバーログを確認してください。");
+            e.printStackTrace();
+        }
+    }
+    
     private void setupTradingGUIItems(Inventory gui, Player player, TradingNPCManager.TradingPost tradingPost, TradingGUISession session) {
         gui.clear();
         
@@ -221,14 +299,30 @@ public class TradingGUI implements Listener {
             ItemStack displayItem;
             if (session.getTradingMode() == TradingMode.BUY) {
                 // 購入モード
-                displayItem = createPurchaseItem(material, price, playerJob);
+                // 別職業の場合は価格を割増
+                double purchasePrice = price;
+                boolean isCrossJob = !tradingPost.isMatchingJob(playerJob);
+                if (isCrossJob) {
+                    purchasePrice *= configManager.getCrossJobPurchaseMultiplier();
+                }
+                displayItem = createPurchaseItem(material, purchasePrice, playerJob, isCrossJob);
             } else {
                 // 売却モード
                 double finalPrice = tradePriceManager.calculateFinalPrice(
-                    material.toString().toLowerCase(), 
-                    playerJob, 
+                    material.toString().toLowerCase(),
+                    playerJob,
                     price
                 );
+
+                // 木こりが原木を見る場合、GUI表示にも木こりボーナスを適用
+                if ("woodcutter".equals(playerJob) && isLogItem(material)) {
+                    plugin.getLogger().info("[TradingGUI] GUI表示: 木こりボーナス適用前 finalPrice=" + finalPrice + ", material=" + material);
+                    finalPrice *= 2.0;
+                    plugin.getLogger().info("[TradingGUI] GUI表示: 木こりボーナス適用後 finalPrice=" + finalPrice);
+                } else {
+                    plugin.getLogger().info("[TradingGUI] GUI表示: playerJob=" + playerJob + ", isLogItem=" + isLogItem(material) + ", finalPrice=" + finalPrice + ", material=" + material);
+                }
+
                 int playerAmount = countPlayerItems(player, material);
                 displayItem = createTradingItem(material, price, finalPrice, playerAmount, playerJob);
             }
@@ -330,6 +424,12 @@ public class TradingGUI implements Listener {
             double displayBasePrice = basePrice * displayMultiplier;
             double displayFinalPrice = finalPrice * displayMultiplier;
             
+            plugin.getLogger().info("[TradingGUI] createTradingItem: material=" + material + 
+                ", basePrice=" + basePrice + 
+                ", finalPrice=" + finalPrice + 
+                ", displayMultiplier=" + displayMultiplier +
+                ", displayFinalPrice=" + displayFinalPrice);
+            
             lore.add("§f基本価格: §e" + currencyConverter.formatCurrency(displayBasePrice) + unitSuffix);
             
             if (Math.abs(finalPrice - basePrice) > 0.01) {
@@ -365,24 +465,27 @@ public class TradingGUI implements Listener {
         return item;
     }
     
-    private ItemStack createPurchaseItem(Material material, double price, String playerJob) {
+    private ItemStack createPurchaseItem(Material material, double price, String playerJob, boolean isCrossJob) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        
+
         if (meta != null) {
             meta.setDisplayName("§f" + getDisplayName(material));
-            
+
             List<String> lore = new ArrayList<>();
             lore.add("§f購入価格: §e" + currencyConverter.formatCurrency(price));
+            if (isCrossJob) {
+                lore.add("§e※別職業のため" + String.format("%.1f", configManager.getCrossJobPurchaseMultiplier()) + "倍価格");
+            }
             lore.add("");
             lore.add("§e左クリック: §f1個購入");
             lore.add("§e右クリック: §f16個購入");
             lore.add("§eシフト+クリック: §f64個購入");
-            
+
             meta.setLore(lore);
             item.setItemMeta(meta);
         }
-        
+
         return item;
     }
     
@@ -773,8 +876,21 @@ public class TradingGUI implements Listener {
             return;
         }
 
-        // 事前にスペースをチェック（売却金額を計算して必要なスロット数を確認）
+        // 売却時の職業チェック（購入と異なり、売却は職業制限あり）
         String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        if (!tradingPost.acceptsJobForSale(playerJob)) {
+            player.sendMessage("§c売却はこの取引所の対応職業のみ可能です");
+            String acceptedJobsStr = String.join("、", tradingPost.getAcceptedJobTypes());
+            if (playerJob == null) {
+                player.sendMessage("§e対応職業: §f" + acceptedJobsStr);
+                player.sendMessage("§7コマンド: §f/jobs join <職業名>");
+            } else {
+                player.sendMessage("§eお客様の職業: §f" + playerJob + "§e、対応職業: §f" + acceptedJobsStr);
+            }
+            return;
+        }
+
+        // 事前にスペースをチェック（売却金額を計算して必要なスロット数を確認）
         double totalEarnings = 0.0;
 
         plugin.getLogger().info("[TradingGUI] DEBUG ===== 売却処理開始 =====");
@@ -875,7 +991,7 @@ public class TradingGUI implements Listener {
     private void handleItemPurchase(Player player, TradingNPCManager.TradingPost tradingPost,
                                     Material material, org.bukkit.event.inventory.ClickType clickType) {
         int purchaseAmount;
-        
+
         switch (clickType) {
             case LEFT:
                 purchaseAmount = 1;
@@ -890,14 +1006,25 @@ public class TradingGUI implements Listener {
             default:
                 return;
         }
-        
-        // 購入価格を取得
-        double unitPrice = tradingPost.getPurchasePrice(material);
+
+        // 購入価格を取得（緊急モードの価格倍率を適用）
+        double unitPrice = tradingPost.getEffectivePurchasePrice(material);
         if (unitPrice <= 0) {
             player.sendMessage("§cこのアイテムは購入できません");
             return;
         }
-        
+
+        // プレイヤーの職業を取得
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+
+        // 別職業の場合は価格を割増
+        boolean isCrossJob = !tradingPost.isMatchingJob(playerJob);
+        if (isCrossJob) {
+            double multiplier = configManager.getCrossJobPurchaseMultiplier();
+            unitPrice *= multiplier;
+            plugin.getLogger().info("別職業購入: " + playerJob + " が " + tradingPost.getName() + " で購入（" + multiplier + "倍）");
+        }
+
         // 合計金額を計算
         double totalPrice = unitPrice * purchaseAmount;
         
@@ -933,10 +1060,14 @@ public class TradingGUI implements Listener {
         // アイテムを付与
         ItemStack purchasedItem = new ItemStack(material, purchaseAmount);
         player.getInventory().addItem(purchasedItem);
-        
+
         // メッセージ
-        player.sendMessage("§a" + material.name() + " を " + purchaseAmount + "個購入しました（" + 
-                          currencyConverter.formatCurrency(totalPrice) + "）");
+        String message = "§a" + material.name() + " を " + purchaseAmount + "個購入しました（" +
+                          currencyConverter.formatCurrency(totalPrice) + "）";
+        if (isCrossJob) {
+            message += " §e※別職業のため" + String.format("%.1f", configManager.getCrossJobPurchaseMultiplier()) + "倍価格";
+        }
+        player.sendMessage(message);
     }
     
     private void handleSellAll(Player player, TradingNPCManager.TradingPost tradingPost) {

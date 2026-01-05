@@ -81,8 +81,9 @@ public class JobExperienceManager implements Listener {
         miningExperience.put(Material.REDSTONE_ORE, 3.0);
         miningExperience.put(Material.NETHER_QUARTZ_ORE, 6.0);
         miningExperience.put(Material.ANCIENT_DEBRIS, 50.0);
-        miningExperience.put(Material.STONE, 0.5);
-        miningExperience.put(Material.COBBLESTONE, 0.3);
+        // STONE: 自然生成のみ経験値獲得（プレイヤー設置はUnifiedEventHandlerで除外）
+        miningExperience.put(Material.STONE, 5.0);  // 0.5 → 5.0（メッセージ表示のため）
+        // COBBLESTONE: 経験値なし（設置→採掘での無限経験値防止）
         
         // 伐採経験値テーブル
         loggingExperience.put(Material.OAK_LOG, 2.0);

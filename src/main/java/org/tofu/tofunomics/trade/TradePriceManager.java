@@ -177,9 +177,6 @@ public class TradePriceManager {
         jobPriceMultipliers.put("architect", new HashMap<>());
     }
     
-    /**
-     * アイテムの販売価格を計算
-     */
     public TradeResult calculateTradePrice(Player player, TradeChest tradeChest, 
                                          Material itemType, int amount) {
         String jobType = tradeChest.getJobType();
@@ -205,11 +202,16 @@ public class TradePriceManager {
         totalPrice *= globalMultiplier;
         jobBonus *= globalMultiplier;
         
-        String message = String.format("§a%s x%d を %.2f金塊で買取します", 
+        // 価格を整数に切り捨て
+        totalPrice = Math.floor(totalPrice);
+        jobBonus = Math.floor(jobBonus);
+        
+        // 表示形式を整数に変更
+        String message = String.format("§a%s x%d を %.0f金塊で買取します", 
                                      getItemDisplayName(itemType), amount, totalPrice);
         
         if (jobBonus > 0) {
-            message += String.format(" §7(職業ボーナス: +%.2f)", jobBonus);
+            message += String.format(" §7(職業ボーナス: +%.0f)", jobBonus);
         }
         
         return new TradeResult(true, message, totalPrice - jobBonus, jobBonus);
@@ -382,19 +384,25 @@ public class TradePriceManager {
      * NPCシステム用の最終価格計算メソッド
      */
     public double calculateFinalPrice(String itemName, String jobType, double basePrice) {
-        if (jobType == null || jobType.isEmpty()) {
-            return Math.ceil(basePrice);
-        }
+        System.out.println("[TradePriceManager] calculateFinalPrice - itemName: " + itemName + ", jobType: " + jobType + ", basePrice: " + basePrice);
         
-        // 職業倍率を適用
-        double jobMultiplier = configManager.getJobPriceMultiplier(jobType);
+        // 職業倍率を取得（無職の場合は1.0）
+        double jobMultiplier = (jobType == null || jobType.isEmpty()) ? 1.0 : configManager.getJobPriceMultiplier(jobType);
+        System.out.println("[TradePriceManager] jobMultiplier: " + jobMultiplier);
+        
         double finalPrice = basePrice * jobMultiplier;
+        System.out.println("[TradePriceManager] After job multiplier: " + finalPrice);
         
         // グローバル倍率を適用
         double globalMultiplier = configManager.getTradePriceMultiplier();
-        finalPrice *= globalMultiplier;
+        System.out.println("[TradePriceManager] globalMultiplier: " + globalMultiplier);
         
-        // 価格を整数に切り上げ
-        return Math.ceil(finalPrice);
+        finalPrice *= globalMultiplier;
+        System.out.println("[TradePriceManager] After global multiplier: " + finalPrice);
+        
+        // 個数を掛ける前の価格を返す（切り捨ては呼び出し側で行う）
+        System.out.println("[TradePriceManager] Returning finalPrice (before floor): " + finalPrice);
+        
+        return finalPrice;
     }
 }

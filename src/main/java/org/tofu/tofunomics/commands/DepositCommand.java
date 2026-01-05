@@ -52,7 +52,8 @@ public class DepositCommand implements CommandExecutor {
         int availableNuggets = itemManager.countGoldNuggetsInInventory(player);
         
         if (availableNuggets == 0) {
-            player.sendMessage(ChatColor.RED + "インベントリに金塊がありません。");
+            player.sendMessage(ChatColor.RED + "インベントリに有効なTofuCoinまたはTofuGoldがありません。");
+            player.sendMessage(ChatColor.GRAY + "※ TofuGoldは通貨専用の金インゴットです（1個 = 9 TofuCoin）");
             return true;
         }
         
@@ -73,8 +74,9 @@ public class DepositCommand implements CommandExecutor {
                 nuggetsToDeposit = currencyConverter.convertBalanceToNuggets(amount);
                 
                 if (nuggetsToDeposit > availableNuggets) {
-                    player.sendMessage(ChatColor.RED + "インベントリに十分な金塊がありません。所有数: " + 
-                        availableNuggets + " 個");
+                    player.sendMessage(ChatColor.RED + "インベントリに十分なTofuCoinまたはTofuGoldがありません。");
+                    player.sendMessage(ChatColor.GRAY + "所有数: " + availableNuggets + " TofuCoin相当（TofuGold換算: " +
+                        availableNuggets + "/9 = " + (availableNuggets / 9) + " 個 + 余り " + (availableNuggets % 9) + " TofuCoin）");
                     return true;
                 }
                 
