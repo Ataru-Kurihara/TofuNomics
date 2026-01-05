@@ -62,6 +62,80 @@
 
 ---
 
+#### スクリプトを使用した修正手順（推奨）
+
+download_config.shとupload_config.shを使用する安全な修正方法です。
+
+**利点：**
+- ✅ 自動バックアップ機能（ローカル・サーバー両方）
+- ✅ サーバー固有設定（NPC座標等）を保護しながら編集可能
+- ✅ ローカルでYAML構文チェック可能
+- ✅ 誤操作防止（確認プロンプト付き）
+
+**使用するスクリプト：**
+- `scripts/download_config.sh` - サーバーからconfig.ymlをダウンロード
+- `scripts/upload_config.sh` - 編集したconfig.ymlをサーバーにアップロード
+
+**実施手順：**
+
+1. **サーバーのconfig.ymlをダウンロード**
+   ```bash
+   ./scripts/download_config.sh
+   ```
+   → `src/main/resources/server_config.yml`に保存される（既存ファイルは自動バックアップ）
+
+2. **server_config.ymlを編集**
+   - エディタで該当箇所のみを修正・追加
+   - **注意：** NPC座標、銀行位置などサーバー固有設定は絶対に削除しない
+
+3. **YAML構文チェック**
+   ```bash
+   yamllint src/main/resources/server_config.yml
+   # またはオンラインバリデーター: https://www.yamllint.com/
+   ```
+
+4. **サーバーにアップロード**
+   ```bash
+   ./scripts/upload_config.sh
+   ```
+   - 確認プロンプトで`y`を入力
+   - サーバー側で自動バックアップが作成される
+
+5. **プラグインリロード**
+   ```bash
+   # 方法1: TofuNomicsのみリロード（推奨）
+   /tofunomics reload
+
+   # 方法2: サーバー全体をリロード
+   /reload confirm
+
+   # 方法3: SSH経由でコマンド実行
+   ssh ubuntu@116.80.66.104 -i ~/.ssh/tofu_home_key/private_key2.txt
+   # サーバーコンソールで /tofunomics reload を実行
+   ```
+
+6. **動作確認**
+   - 設定が正しく反映されているか確認
+   - エラーログをチェック
+
+7. **作業ログに記録**
+   - `/Users/kuriharaataru/Desktop/mark/work-logs/TofuNomics/YYYY-MM-DD.md` に記録
+
+**必須チェック項目：**
+- [ ] download後、server_config.ymlにサーバー固有設定が含まれているか確認
+- [ ] 編集時、NPC座標・銀行位置などを削除していないか確認
+- [ ] YAML構文エラーがないか確認
+- [ ] uploadの確認プロンプトで内容を再確認
+- [ ] リロード後、正常に動作するか確認
+
+**トラブルシューティング：**
+- **SSH接続エラー** → `.server-config.env`の設定確認、SSH鍵のパス確認
+- **メッセージが反映されない** → プラグインリロード実施、サーバーログ確認
+- **YAML構文エラー** → インデント確認（スペース2個）、オンラインバリデーター使用
+- **設定が消えた** → サーバー側のバックアップから復元（自動作成される）
+
+---
+
 #### 本番環境（サーバー）での修正手順
 
 1. **【重要】絶対にローカルのconfig.ymlで上書きしない**
