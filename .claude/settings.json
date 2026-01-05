@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "verify": {
+      "allowedCommands": [
+        "mvn clean verify",
+        "mvn test",
+        "mvn package"
+      ]
+    }
+  }
+}
