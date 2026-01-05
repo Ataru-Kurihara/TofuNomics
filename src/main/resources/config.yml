@@ -236,7 +236,7 @@ jobs:
       max_level: 100
       base_income_multiplier: 1.0
       # レベルアップに必要な経験値倍率
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       # 売却ボーナス（レベル1での基本ボーナス）
       base_sell_bonus: 0.05
       
@@ -245,7 +245,7 @@ jobs:
       description: "木材の供給を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     farmer:
@@ -253,7 +253,7 @@ jobs:
       description: "農作物・畜産物の供給を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     fisherman:
@@ -261,7 +261,7 @@ jobs:
       description: "魚と宝の供給を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     blacksmith:
@@ -269,7 +269,7 @@ jobs:
       description: "ツール、武器、防具の生産と修理を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     alchemist:
@@ -277,7 +277,7 @@ jobs:
       description: "ポーションの生産を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     enchanter:
@@ -285,7 +285,7 @@ jobs:
       description: "エンチャントサービスを担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
       
     architect:
@@ -293,7 +293,7 @@ jobs:
       description: "建築と装飾を担当"
       max_level: 100
       base_income_multiplier: 1.0
-      exp_multiplier: 1.0
+      exp_multiplier: 10.0
       base_sell_bonus: 0.05
 
 # NPCシステム設定
@@ -533,6 +533,37 @@ npc_system:
   # 取引所の設定
   trading_posts: []
   # 取引所の設定例（職業別NPC）:
+  # 
+  # 【24時間営業・緊急モード取引所の設定例】
+  # 必需品を割高価格で24時間購入できるNPC
+  # - world: tofuNomics
+  #   name: "§c24時間緊急ショップ"
+  #   x: 0
+  #   y: 64
+  #   z: 100
+  #   id: emergency_shop
+  #   description: "緊急時の必需品供給所"
+  #   accepted_jobs:
+  #     - all
+  #   purchase_prices:
+  #     bread: 5
+  #     cooked_beef: 10
+  #     apple: 3
+  #     golden_apple: 50
+  #     torch: 1
+  #     arrow: 2
+  #   emergency_mode:
+  #     enabled: true
+  #     price_multiplier: 2.0  # 通常の2倍の価格
+  #     items:
+  #       - BREAD
+  #       - COOKED_BEEF
+  #       - APPLE
+  #       - GOLDEN_APPLE
+  #       - TORCH
+  #       - ARROW
+  # 
+  # 通常の取引所の設定例（職業別NPC）:
   # - world: world_name
   #   name: 取引所名
   #   x: 100
@@ -723,6 +754,11 @@ scoreboard:
     show_current_time: true
     # 取引時間表示
     show_trading_hours: true
+    # ルールコマンド表示
+    show_rules_command: true
+  
+  # スコアボードに表示するルールコマンドテキスト
+  rules_command_text: "&e/rules でルール確認"
 
 # メッセージ設定
 messages:
@@ -1660,6 +1696,26 @@ housing_rental:
     region_name: ""
     # 対象ワールド
     world_name: "tofuNomics"
+    # 親リージョン作成時の自動フラグ設定
+    parent_region_flags:
+      build: deny
+      block-break: deny
+      interact: deny
+  
+  # WorldGuard賃貸リージョン設定
+  worldguard_rental_regions:
+    # リージョン自動設定の有効化
+    auto_configure: true
+    # 賃貸リージョンに自動設定するフラグ
+    default_flags:
+      use: allow           # ドア、ボタン、レバーの使用許可（メンバーのみ）
+      chest-access: allow  # チェストアクセス許可（メンバーのみ）
+      build: deny          # 建築は禁止（親の設定を継承）
+      interact: allow      # インタラクション許可（メンバーのみ）
+    # 親リージョンの自動設定
+    auto_set_parent: true
+    # デフォルトの親リージョン名（city_protection.region_nameが優先）
+    default_parent_region: ""
   
   # メッセージ設定
   messages:
@@ -1839,11 +1895,14 @@ area_system:
 # ルール確認システム設定
 # ========================================
 rules:
-  # ルール確認機能の有効化
-  enabled: true
+  # ルール確認機能の有効化（同意必須機能は無効化）
+  enabled: false
   
-  # ルール同意を必須にするか
-  require_agreement: true
+  # ルール同意を必須にするか（外部サイト確認方式に変更）
+  require_agreement: false
+  
+  # ルールサイトURL
+  url: "https://to-fu.world/worlds/tofu-nomics/"
   
   # ページ内容
   pages:
@@ -1947,3 +2006,30 @@ rules:
         - ""
         - "§6§l楽しく、フェアにプレイしましょう！"
   
+# ========================================
+# 中心都市マップ配布システム
+# ========================================
+city_map:
+  # ImageOnMapで作成した地図のID
+  # 地図を作成後、ここに地図IDを設定してください
+  # 例: "city_center_map" または地図の番号ID
+  map_id: ""
+  
+  # 地図のタイトル（コマンド実行時に表示）
+  title: "TofuNomics 中心都市マップ"
+  
+  # 地図配布メッセージ（configManager経由で取得可能）
+  messages:
+    header: "§6━━━━━━━━━━━━━━━━━━━━━━"
+    success: "§a✓ 中心都市の案内地図を入手しました！"
+    check_inventory: "§7  インベントリを確認してください"
+    error_not_set: "§c地図がまだ設定されていません。管理者に連絡してください。"
+    error_failed: "§c地図の配布に失敗しました。"
+  
+  # 地図に記載する主要施設の説明（コマンド実行時に表示）
+  facilities:
+    - "§7  - §b🏛️ 銀行§7: お金の預け入れ・引き出し"
+    - "§7  - §b🏪 取引所§7: アイテムの売買"
+    - "§7  - §b🍖 食料店§7: 食料の購入"
+    - "§7  - §b🏘️ 商店街§7: プレイヤー間取引"
+

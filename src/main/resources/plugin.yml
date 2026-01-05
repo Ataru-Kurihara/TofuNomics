@@ -82,6 +82,10 @@ commands:
     description: サーバールールを確認する
     usage: /rules [reset]
     permission: tofunomics.rules.view
+  citymap:
+    description: 中心都市の案内地図を入手する
+    usage: /citymap
+    permission: tofunomics.citymap.use
 
 permissions:
   tofunomics.*:

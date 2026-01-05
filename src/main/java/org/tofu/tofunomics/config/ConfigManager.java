@@ -1780,8 +1780,8 @@ public class ConfigManager {
      * 職業の最大レベルを取得
      */
     public int getMaxJobLevel() {
-        // すべての職業で共通の最大レベル（75）を返す
-        return 75;
+        // すべての職業で共通の最大レベル（100）を返す
+        return 100;
     }
     
     // ========== 銀行・ATM場所制限設定 ==========
@@ -1937,6 +1937,14 @@ public class ConfigManager {
     public int getTradingEndHour() {
         return config.getInt("npc_system.trading_npcs.trading_hours.end", 22);
     }
+
+    /**
+     * 別職業での購入時の価格倍率を取得
+     * @return 価格倍率（デフォルト: 1.5 = 50%増）
+     */
+    public double getCrossJobPurchaseMultiplier() {
+        return config.getDouble("npc_system.trading_npcs.cross_job_purchase_multiplier", 1.5);
+    }
     
     /**
      * 取引所の設定一覧を取得
@@ -1944,11 +1952,77 @@ public class ConfigManager {
     public List<Map<?, ?>> getTradingPostConfigs() {
         return config.getMapList("npc_system.trading_posts");
     }
+
+    /**
+     * 指定された取引所IDのアイテムリストを取得
+     * @param tradingPostId 取引所ID
+     * @return アイテムリスト（未指定の場合は空リスト）
+     */
+    public List<String> getTradingPostItems(String tradingPostId) {
+        List<Map<?, ?>> tradingPosts = getTradingPostConfigs();
+        
+        for (Map<?, ?> post : tradingPosts) {
+            String id = (String) post.get("id");
+            if (id != null && id.equals(tradingPostId)) {
+                Object itemsObj = post.get("items");
+                if (itemsObj instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<String> items = (List<String>) itemsObj;
+                    return items;
+                }
+                // itemsが未指定の場合は空リストを返す（全アイテム対応）
+                return new ArrayList<>();
+            }
+        }
+        
+        // 取引所が見つからない場合も空リストを返す
+        return new ArrayList<>();
+    }
     
     /**
-     * 新しい取引所をconfig.ymlに追加
+     * 指定された取引所IDの購入価格マップを取得
+     * @param tradingPostId 取引所ID
+     * @return 購入価格マップ（Material名 -> 価格）
+     */
+    public Map<String, Double> getTradingPostPurchasePrices(String tradingPostId) {
+        List<Map<?, ?>> tradingPosts = getTradingPostConfigs();
+        
+        for (Map<?, ?> post : tradingPosts) {
+            String id = (String) post.get("id");
+            if (id != null && id.equals(tradingPostId)) {
+                Object pricesObj = post.get("purchase_prices");
+                if (pricesObj instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> pricesMap = (Map<String, Object>) pricesObj;
+                    Map<String, Double> result = new HashMap<>();
+                    for (Map.Entry<String, Object> entry : pricesMap.entrySet()) {
+                        if (entry.getValue() instanceof Number) {
+                            result.put(entry.getKey(), ((Number) entry.getValue()).doubleValue());
+                        }
+                    }
+                    return result;
+                }
+                // purchase_pricesが未指定の場合は空マップを返す
+                return new HashMap<>();
+            }
+        }
+        
+        // 取引所が見つからない場合も空マップを返す
+        return new HashMap<>();
+    }
+    
+    /**
+     * 新しい取引所をconfig.ymlに追加（緊急モード無し）
      */
     public void addTradingPost(String npcName, org.bukkit.Location location, String jobType) {
+        addTradingPost(npcName, location, jobType, false, 2.0, new java.util.ArrayList<>());
+    }
+
+    /**
+     * 緊急モード設定を含む新しい取引所をconfig.ymlに追加
+     */
+    public void addTradingPost(String npcName, org.bukkit.Location location, String jobType,
+                              boolean emergencyMode, double priceMultiplier, java.util.List<String> emergencyItems) {
         try {
             // 既存の取引所リスト取得
             java.util.List<java.util.Map<String, Object>> tradingPosts = new java.util.ArrayList<>();
@@ -1958,7 +2032,7 @@ public class ConfigManager {
                 java.util.Map<String, Object> castedPost = (java.util.Map<String, Object>) post;
                 tradingPosts.add(castedPost);
             }
-            
+
             // 新しい取引所データ作成
             java.util.Map<String, Object> newPost = new java.util.HashMap<>();
             newPost.put("id", npcName.toLowerCase().replace(" ", "_").replace("　", "_"));
@@ -1970,22 +2044,157 @@ public class ConfigManager {
             newPost.put("accepted_jobs", java.util.Arrays.asList(jobType));
             String description = "all".equals(jobType) ? "全職業対応の総合取引所" : jobType + "専用の取引所";
             newPost.put("description", description);
-            
+
+            // デフォルトのpurchase_pricesを追加
+            java.util.Map<String, Integer> defaultPurchasePrices = new java.util.HashMap<>();
+            if (emergencyMode) {
+                // 緊急モードの場合は緊急アイテムリストから価格を設定
+                for (String itemName : emergencyItems) {
+                    defaultPurchasePrices.put(itemName.toLowerCase(), getDefaultPrice(itemName));
+                }
+            } else {
+                // 通常モードの場合は基本的なアイテムを設定
+                defaultPurchasePrices.put("bread", 5);
+                defaultPurchasePrices.put("cooked_beef", 10);
+                defaultPurchasePrices.put("apple", 3);
+            }
+            newPost.put("purchase_prices", defaultPurchasePrices);
+
+            // 緊急モード設定を追加
+            if (emergencyMode) {
+                java.util.Map<String, Object> emergencyModeMap = new java.util.HashMap<>();
+                emergencyModeMap.put("enabled", true);
+                emergencyModeMap.put("price_multiplier", priceMultiplier);
+                emergencyModeMap.put("items", emergencyItems);
+                newPost.put("emergency_mode", emergencyModeMap);
+            }
+
             // リストに追加
             tradingPosts.add(newPost);
-            
+
             // 設定更新・保存
             updateConfigValue("npc_system.trading_posts", tradingPosts);
             plugin.saveConfig();
-            
-            plugin.getLogger().info("取引所データを追加しました: " + npcName + " (" + jobType + ")");
-            
+
+            String modeInfo = emergencyMode ? " (緊急モード: 倍率" + priceMultiplier + "倍)" : "";
+            plugin.getLogger().info("取引所データを追加しました: " + npcName + " (" + jobType + ")" + modeInfo);
+
         } catch (Exception e) {
             plugin.getLogger().severe("取引所データの追加に失敗しました: " + e.getMessage());
             e.printStackTrace();
         }
     }
-    
+
+    /**
+     * 緊急モード用アイテムプリセットを取得
+     */
+    public java.util.List<String> getEmergencyItemsPreset(String presetName) {
+        java.util.List<String> items = new java.util.ArrayList<>();
+
+        switch (presetName.toLowerCase()) {
+            case "essentials":
+                // 必需品
+                items.add("BREAD");
+                items.add("COOKED_BEEF");
+                items.add("APPLE");
+                items.add("GOLDEN_APPLE");
+                items.add("TORCH");
+                items.add("ARROW");
+                break;
+
+            case "food":
+                // 食料
+                items.add("BREAD");
+                items.add("COOKED_BEEF");
+                items.add("COOKED_PORKCHOP");
+                items.add("COOKED_MUTTON");
+                items.add("APPLE");
+                items.add("BAKED_POTATO");
+                break;
+
+            case "tools":
+                // 道具
+                items.add("TORCH");
+                items.add("ARROW");
+                items.add("BOW");
+                items.add("IRON_PICKAXE");
+                items.add("IRON_AXE");
+                items.add("IRON_SHOVEL");
+                break;
+
+            case "combat":
+                // 戦闘
+                items.add("ARROW");
+                items.add("BOW");
+                items.add("IRON_SWORD");
+                items.add("SHIELD");
+                items.add("GOLDEN_APPLE");
+                break;
+
+            case "building":
+                // 建築
+                items.add("STONE");
+                items.add("COBBLESTONE");
+                items.add("OAK_PLANKS");
+                items.add("GLASS");
+                items.add("TORCH");
+                break;
+
+            default:
+                // デフォルトはessentials
+                items.add("BREAD");
+                items.add("COOKED_BEEF");
+                items.add("APPLE");
+                items.add("GOLDEN_APPLE");
+                items.add("TORCH");
+                items.add("ARROW");
+                break;
+        }
+
+        return items;
+    }
+
+    /**
+     * 有効な緊急モードプリセット名のリストを取得
+     */
+    public java.util.List<String> getValidEmergencyPresets() {
+        return java.util.Arrays.asList("essentials", "food", "tools", "combat", "building");
+    }
+
+    /**
+     * アイテムのデフォルト購入価格を取得
+     */
+    private int getDefaultPrice(String materialName) {
+        switch (materialName.toUpperCase()) {
+            // 食料
+            case "BREAD": return 5;
+            case "COOKED_BEEF": return 10;
+            case "COOKED_PORKCHOP": return 10;
+            case "COOKED_MUTTON": return 8;
+            case "APPLE": return 3;
+            case "GOLDEN_APPLE": return 50;
+            case "BAKED_POTATO": return 4;
+
+            // 道具・武器
+            case "TORCH": return 1;
+            case "ARROW": return 2;
+            case "BOW": return 30;
+            case "IRON_PICKAXE": return 50;
+            case "IRON_AXE": return 50;
+            case "IRON_SHOVEL": return 40;
+            case "IRON_SWORD": return 50;
+            case "SHIELD": return 40;
+
+            // 建築材料
+            case "STONE": return 1;
+            case "COBBLESTONE": return 1;
+            case "OAK_PLANKS": return 2;
+            case "GLASS": return 3;
+
+            default: return 10; // デフォルト価格
+        }
+    }
+
     /**
      * 新しい銀行NPCをconfig.ymlに追加
      */
@@ -3461,7 +3670,7 @@ public class ConfigManager {
     public String getProcessingNPCMessage(String messageKey) {
         String path = "npc_system.processing_npc.messages." + messageKey;
         String message = config.getString(path, null);
-        
+
         if (message == null) {
             // フォールバックメッセージ
             switch (messageKey) {
@@ -3485,8 +3694,39 @@ public class ConfigManager {
                     return "§7メッセージが見つかりません: " + messageKey;
             }
         }
-        
+
         return org.bukkit.ChatColor.translateAlternateColorCodes('&', message);
+    }
+
+    /**
+     * 加工NPCメッセージを取得（プレースホルダー置換対応）
+     *
+     * @param messageKey メッセージキー
+     * @param player プレイヤー
+     * @param replacements 置換パラメータ（キー, 値, キー, 値...の順）
+     * @return プレースホルダーが置換されたメッセージ
+     */
+    public String getProcessingNPCMessage(String messageKey, org.bukkit.entity.Player player, Object... replacements) {
+        // 基本メッセージを取得
+        String message = getProcessingNPCMessage(messageKey);
+
+        // プレイヤー名を置換
+        if (player != null) {
+            message = message.replace("%player%", player.getName());
+        }
+
+        // 追加の置換パラメータを処理
+        if (replacements != null) {
+            for (int i = 0; i < replacements.length; i += 2) {
+                if (i + 1 < replacements.length) {
+                    String placeholder = "%" + replacements[i] + "%";
+                    String value = String.valueOf(replacements[i + 1]);
+                    message = message.replace(placeholder, value);
+                }
+            }
+        }
+
+        return message;
     }
     
     /**
@@ -3666,6 +3906,95 @@ public class ConfigManager {
      * 
      * @return 追加された設定項目の数
      */
+    // ========================================
+    // WorldGuard統合設定メソッド
+    // ========================================
+    
+    /**
+     * 都市保護機能が有効かどうかを取得
+     */
+    public boolean isCityProtectionEnabled() {
+        return config.getBoolean("housing_rental.city_protection.enabled", false);
+    }
+    
+    /**
+     * 都市保護の親リージョン名を取得
+     */
+    public String getCityProtectionRegionName() {
+        return config.getString("housing_rental.city_protection.region_name", "");
+    }
+    
+    /**
+     * 都市保護の対象ワールド名を取得
+     */
+    public String getCityProtectionWorldName() {
+        return config.getString("housing_rental.city_protection.world_name", "tofuNomics");
+    }
+    
+    /**
+     * 都市保護の親リージョンフラグ設定を取得
+     */
+    public java.util.Map<String, String> getCityProtectionParentRegionFlags() {
+        java.util.Map<String, String> flags = new java.util.HashMap<>();
+        ConfigurationSection section = config.getConfigurationSection("housing_rental.city_protection.parent_region_flags");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                flags.put(key, section.getString(key));
+            }
+        } else {
+            // デフォルト値
+            flags.put("build", "deny");
+            flags.put("block-break", "deny");
+            flags.put("interact", "deny");
+        }
+        return flags;
+    }
+    
+    /**
+     * 賃貸リージョンの親リージョン自動設定が有効かどうかを取得
+     */
+    public boolean isRentalRegionAutoSetParent() {
+        return config.getBoolean("housing_rental.worldguard_rental_regions.auto_set_parent", true);
+    }
+    
+    /**
+     * 賃貸リージョンのデフォルトフラグ設定を取得
+     */
+    public java.util.Map<String, String> getRentalRegionDefaultFlags() {
+        java.util.Map<String, String> flags = new java.util.HashMap<>();
+        ConfigurationSection section = config.getConfigurationSection("housing_rental.worldguard_rental_regions.default_flags");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                flags.put(key, section.getString(key));
+            }
+        } else {
+            // デフォルト値
+            flags.put("use", "allow");
+            flags.put("chest-access", "allow");
+            flags.put("build", "deny");
+            flags.put("interact", "allow");
+        }
+        return flags;
+    }
+    
+    /**
+     * 賃貸リージョンの自動設定が有効かどうかを取得
+     */
+    public boolean isRentalRegionAutoConfigure() {
+        return config.getBoolean("housing_rental.worldguard_rental_regions.auto_configure", true);
+    }
+    
+    /**
+     * デフォルトの親リージョン名を取得（city_protection.region_nameが優先）
+     */
+    public String getDefaultParentRegion() {
+        String cityRegion = getCityProtectionRegionName();
+        if (cityRegion != null && !cityRegion.isEmpty()) {
+            return cityRegion;
+        }
+        return config.getString("housing_rental.worldguard_rental_regions.default_parent_region", "");
+    }
+
     private int mergeConfigurations(FileConfiguration current, FileConfiguration template, String parentPath) {
         int addedCount = 0;
         Set<String> templateKeys = new HashSet<>();
@@ -3704,5 +4033,81 @@ public class ConfigManager {
         }
         
         return addedCount;
+    }
+    
+    // ========================================
+    // 緊急取引NPC関連の設定取得メソッド
+    // ========================================
+    
+    /**
+     * 指定された取引所の緊急モードが有効かどうかを取得
+     * @param tradingPostId 取引所ID
+     * @return 緊急モードが有効な場合true
+     */
+    public boolean isEmergencyMode(String tradingPostId) {
+        return config.getBoolean("npc_system.trading_npcs." + tradingPostId + ".emergency_mode.enabled", false);
+    }
+    
+    /**
+     * 指定された取引所の緊急時の価格倍率を取得
+     * @param tradingPostId 取引所ID
+     * @return 緊急時の価格倍率（デフォルト: 2.0）
+     */
+    public double getEmergencyPriceMultiplier(String tradingPostId) {
+        return config.getDouble("npc_system.trading_npcs." + tradingPostId + ".emergency_mode.price_multiplier", 2.0);
+    }
+    
+    /**
+     * 指定された取引所の緊急時取扱アイテムリストを取得
+     * @param tradingPostId 取引所ID
+     * @return 緊急時取扱アイテムのリスト（空の場合は全アイテム対応）
+     */
+    public List<String> getEmergencyItems(String tradingPostId) {
+        return config.getStringList("npc_system.trading_npcs." + tradingPostId + ".emergency_mode.items");
+    }
+    
+    // ========================================
+    // ルール確認システム関連の設定取得メソッド
+    // ========================================
+    
+    /**
+     * ルールサイトのURLを取得
+     * @return ルールサイトURL（デフォルト: https://example.com/tofunomics-rules）
+     */
+    public String getRulesUrl() {
+        return config.getString("rules.url", "https://example.com/tofunomics-rules");
+    }
+    
+    /**
+     * 中心都市の地図IDを取得
+     * ImageOnMapプラグインで作成した地図のIDを返す
+     * @return 地図ID（例: "city_center_map"、デフォルト: ""）
+     */
+    public String getCityMapId() {
+        return config.getString("city_map.map_id", "");
+    }
+    
+    /**
+     * 中心都市の地図タイトルを取得
+     * @return 地図タイトル（デフォルト: "TofuNomics 中心都市マップ"）
+     */
+    public String getCityMapTitle() {
+        return config.getString("city_map.title", "TofuNomics 中心都市マップ");
+    }
+    
+    /**
+     * スコアボードにルールコマンドを表示するかどうかを取得
+     * @return 表示する場合true（デフォルト: true）
+     */
+    public boolean isScoreboardShowRulesCommand() {
+        return config.getBoolean("scoreboard.display_settings.show_rules_command", true);
+    }
+    
+    /**
+     * スコアボードに表示するルールコマンドテキストを取得
+     * @return ルールコマンドテキスト（デフォルト: &e/rules でルール確認）
+     */
+    public String getScoreboardRulesCommandText() {
+        return config.getString("scoreboard.rules_command_text", "&e/rules でルール確認");
     }
 }

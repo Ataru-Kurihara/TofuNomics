@@ -93,6 +93,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.npc.NPCListener npcListener;
     private org.tofu.tofunomics.npc.gui.BankGUI bankGUI;
     private org.tofu.tofunomics.npc.gui.TradingGUI tradingGUI;
+    private org.tofu.tofunomics.npc.gui.TradingModeSelectionGUI tradingModeSelectionGUI = null;
     private org.tofu.tofunomics.npc.gui.FoodGUI foodGUI;
     private org.tofu.tofunomics.npc.gui.ProcessingGUI processingGUI;
     private org.tofu.tofunomics.npc.gui.QuantitySelectorGUI quantitySelectorGUI;
@@ -604,7 +605,8 @@ public final class TofuNomics extends JavaPlugin {
             // ルール確認システムリスナーの登録
             if (rulesManager != null) {
                 getServer().getPluginManager().registerEvents(rulesManager, this);
-                getServer().getPluginManager().registerEvents(rulesManager.getRulesGUI(), this);
+                // RulesGUIは廃止（外部サイトURL方式に変更）
+                // getServer().getPluginManager().registerEvents(rulesManager.getRulesGUI(), this);
                 getLogger().info("ルール確認システムリスナーを登録しました");
             }
 
@@ -682,12 +684,15 @@ public final class TofuNomics extends JavaPlugin {
                 getCommand("tofunomics").setTabCompleter(mainCommand);
             }
             
-            // ルール確認コマンド
-            if (rulesManager != null) {
-                org.tofu.tofunomics.commands.RulesCommand rulesCommand = 
-                    new org.tofu.tofunomics.commands.RulesCommand(rulesManager);
-                getCommand("rules").setExecutor(rulesCommand);
-            }
+            // ルール確認コマンド（外部サイトURL表示方式）
+            org.tofu.tofunomics.commands.RulesCommand rulesCommand = 
+                new org.tofu.tofunomics.commands.RulesCommand(configManager);
+            getCommand("rules").setExecutor(rulesCommand);
+            
+            // 中心都市マップ配布コマンド
+            org.tofu.tofunomics.commands.CityMapCommand cityMapCommand = 
+                new org.tofu.tofunomics.commands.CityMapCommand(configManager);
+            getCommand("citymap").setExecutor(cityMapCommand);
             
             getLogger().info("コマンドハンドラーを登録しました");
         } catch (Exception e) {
@@ -867,6 +872,21 @@ public final class TofuNomics extends JavaPlugin {
             }
             getLogger().info("=== TradingGUI初期化完了 ===");
             
+            // TradingModeSelectionGUIの初期化
+            getLogger().info("TradingModeSelectionGUIインスタンス作成開始...");
+            try {
+                tradingModeSelectionGUI = new org.tofu.tofunomics.npc.gui.TradingModeSelectionGUI(
+                    this,
+                    configManager,
+                    tradingGUI
+                );
+                getLogger().info("TradingModeSelectionGUIインスタンス作成完了: " + (tradingModeSelectionGUI != null ? "成功" : "失敗"));
+            } catch (Exception e) {
+                getLogger().severe("TradingModeSelectionGUI初期化エラー: " + e.getMessage());
+                e.printStackTrace();
+                tradingModeSelectionGUI = null;
+            }
+            
             // FoodGUIの初期化
             getLogger().info("FoodGUIインスタンス作成開始...");
             try {
@@ -954,6 +974,10 @@ public final class TofuNomics extends JavaPlugin {
                 tradingGUI.closeAllGUIs();
             }
             
+            if (tradingModeSelectionGUI != null) {
+                tradingModeSelectionGUI.closeAllGUIs();
+            }
+            
             if (foodGUI != null) {
                 foodGUI.closeAllGUIs();
             }
@@ -991,6 +1015,11 @@ public final class TofuNomics extends JavaPlugin {
         if (tradingGUI != null) {
             getServer().getPluginManager().registerEvents(tradingGUI, this);
             getLogger().info("取引GUIリスナーを登録しました");
+        }
+        
+        if (tradingModeSelectionGUI != null) {
+            getServer().getPluginManager().registerEvents(tradingModeSelectionGUI, this);
+            getLogger().info("取引モード選択GUIリスナーを登録しました");
         }
         
         if (foodGUI != null) {
@@ -1040,6 +1069,10 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().warning("TradingGUIがnullです。初期化に問題がある可能性があります。");
         }
         return tradingGUI;
+    }
+
+    public org.tofu.tofunomics.npc.gui.TradingModeSelectionGUI getTradingModeSelectionGUI() {
+        return tradingModeSelectionGUI;
     }
     
     public org.tofu.tofunomics.npc.gui.FoodGUI getFoodGUI() {
