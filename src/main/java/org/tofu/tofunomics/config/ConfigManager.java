@@ -1460,6 +1460,22 @@ public class ConfigManager {
     public int getSpawnTeleportDelay() {
         return config.getInt("player_join.spawn_location.teleport_delay", 60);
     }
+
+    /**
+     * スポーン座標の水平方向の向き（yaw）を取得
+     * @return yaw値（-180.0 ~ 180.0、0.0=南、90.0=西、-90.0=東、180.0=北）
+     */
+    public float getSpawnYaw() {
+        return (float) config.getDouble("player_join.spawn_location.yaw", 0.0);
+    }
+    
+    /**
+     * スポーン座標の垂直方向の向き（pitch）を取得
+     * @return pitch値（-90.0 ~ 90.0、-90.0=真上、0.0=水平、90.0=真下）
+     */
+    public float getSpawnPitch() {
+        return (float) config.getDouble("player_join.spawn_location.pitch", 0.0);
+    }
     
     // ==================== スコアボード設定関連メソッド ====================
     
@@ -1546,7 +1562,29 @@ public class ConfigManager {
     public boolean isScoreboardShowTradingHours() {
         return (Boolean) getCachedValue("scoreboard.display_settings.show_trading_hours", true);
     }
-    
+
+    /**
+     * スコアボード非表示時のヒントタイトルを取得
+     */
+    public String getScoreboardHintTitle() {
+        return (String) getCachedValue("scoreboard.hint.title", "&7&l- TofuNomics -");
+    }
+
+    /**
+     * スコアボード非表示時のヒント表示行を取得
+     */
+    public List<String> getScoreboardHintLines() {
+        List<String> defaultLines = Arrays.asList(
+            "&7スコアボード非表示中",
+            "",
+            "&e/scoreboard on",
+            "&7で表示できます"
+        );
+
+        List<String> lines = config.getStringList("scoreboard.hint.lines");
+        return lines.isEmpty() ? defaultLines : lines;
+    }
+
     // ==================== 時刻放送システム設定 ====================
     
     /**

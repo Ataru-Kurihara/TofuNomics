@@ -19,6 +19,7 @@ import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.models.PlayerJob;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -68,9 +69,52 @@ public class ScoreboardManager implements Listener {
      */
     public void disableScoreboard(Player player) {
         scoreboardEnabled.put(player.getUniqueId(), false);
-        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+        // メインスコアボードに戻す代わりにヒントスコアボードを表示
+        showHintScoreboard(player);
     }
-    
+
+    /**
+     * プレイヤーにヒントスコアボードを表示
+     * スコアボード非表示時に、再表示方法を示す簡易スコアボードを提供
+     */
+    private void showHintScoreboard(Player player) {
+        try {
+            // 新しいスコアボードを作成
+            Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
+
+            // ヒントタイトルを取得・適用
+            String hintTitle = ChatColor.translateAlternateColorCodes('&',
+                                    configManager.getScoreboardHintTitle());
+            Objective objective = scoreboard.registerNewObjective(
+                                    "tofunomics_hint", "dummy", hintTitle);
+            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+
+            // ヒント表示行を取得
+            List<String> hintLines = configManager.getScoreboardHintLines();
+
+            // スコアを設定（下から上の順番で表示されるため逆順でセット）
+            int score = hintLines.size();
+            for (String line : hintLines) {
+                // カラーコード変換
+                String coloredLine = ChatColor.translateAlternateColorCodes('&', line);
+                // 空行の場合はスペースで対応（Bukkit仕様）
+                if (coloredLine.isEmpty()) {
+                    coloredLine = " ";
+                }
+                objective.getScore(coloredLine).setScore(score--);
+            }
+
+            // プレイヤーにスコアボードを適用
+            player.setScoreboard(scoreboard);
+
+        } catch (Exception e) {
+            // エラー時はメインスコアボードにフォールバック
+            plugin.getLogger().warning("Failed to show hint scoreboard for player "
+                                       + player.getName() + ": " + e.getMessage());
+            player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+        }
+    }
+
     /**
      * プレイヤーのスコアボード表示設定を切り替える
      */
