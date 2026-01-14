@@ -101,9 +101,11 @@ player_join:
   spawn_location:
     enabled: true
     world: tofuNomics
-    x: -97
-    y: 75
+    x: -96
+    y: 76
     z: -247
+    yaw: -178.8
+    pitch: -18.8
     teleport_delay: 60
   welcome_messages:
   - '&6▬▬▬▬▬▬▬▬ ようこそ TofuNomicsワールドへ! ▬▬▬▬▬▬▬▬'
@@ -2412,14 +2414,14 @@ npc_system:
     locations:
     - world: tofuNomics
       greeting: §6いらっしゃいませ、中央銀行員へようこそ！
-      x: -109
+      x: -84
       name: 中央銀行員
       y: 76
       z: -253
       type: bank
     - world: tofuNomics
       greeting: §6いらっしゃいませ、中央銀行員へようこそ！
-      x: -84
+      x: -109
       name: 中央銀行員
       y: 76
       z: -253
@@ -2656,6 +2658,16 @@ scoreboard:
     show_trading_hours: true
     show_rules_command: true
   rules_command_text: '&e/rules でルール確認'
+  toggle_hint:
+    enabled: true
+    text: '&7/scoreboard off で非表示'
+  hint:
+    title: '&7&l- TofuNomics -'
+    lines:
+    - '&7スコアボード非表示中'
+    - ''
+    - '&e/scoreboard on'
+    - '&7で表示できます'
 events:
   enabled: true
   excluded_worlds:
@@ -3398,3 +3410,17 @@ rules:
     agreed: §a§l✔ ルールに同意しました！§r§a 楽しいサーバーライフを送ってください！
     disagreed: §cルールに同意しませんでした。§e/rules §cでもう一度確認してください。
     action_blocked: §cルールに同意するまで、この操作はできません。§e/rules §cでルールを確認してください。
+city_map:
+  map_id: ''
+  title: TofuNomics 中心都市マップ
+  messages:
+    header: §6━━━━━━━━━━━━━━━━━━━━━━
+    success: §a✓ 中心都市の案内地図を入手しました！
+    check_inventory: §7  インベントリを確認してください
+    error_not_set: §c地図がまだ設定されていません。管理者に連絡してください。
+    error_failed: §c地図の配布に失敗しました。
+  facilities:
+  - '§7  - §b🏛️ 銀行§7: お金の預け入れ・引き出し'
+  - '§7  - §b🏪 取引所§7: アイテムの売買'
+  - '§7  - §b🍖 食料店§7: 食料の購入'
+  - '§7  - §b🏘️ 商店街§7: プレイヤー間取引'

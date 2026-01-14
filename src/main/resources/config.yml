@@ -760,6 +760,13 @@ scoreboard:
   # スコアボードに表示するルールコマンドテキスト
   rules_command_text: "&e/rules でルール確認"
 
+  # スコアボード表示中のヒントメッセージ
+  toggle_hint:
+    # ヒント表示の有効/無効
+    enabled: true
+    # ヒント表示テキスト
+    text: "&7/scoreboard off で非表示"
+
   # 非表示時のヒントメッセージ設定
   hint:
     # ヒントスコアボードのタイトル

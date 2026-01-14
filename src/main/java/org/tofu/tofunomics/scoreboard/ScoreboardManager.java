@@ -297,7 +297,15 @@ public class ScoreboardManager implements Listener {
                 String rulesCommandText = ChatColor.translateAlternateColorCodes('&', configManager.getScoreboardRulesCommandText());
                 objective.getScore(rulesCommandText).setScore(score--);
             }
-            
+
+            // トグルヒント表示
+            if (configManager.isScoreboardShowToggleHint()) {
+                // トグルヒントテキスト
+                String toggleHintText = ChatColor.translateAlternateColorCodes('&',
+                        configManager.getScoreboardToggleHintText());
+                objective.getScore(toggleHintText).setScore(score--);
+            }
+
             player.setScoreboard(scoreboard);
             
         } catch (Exception e) {

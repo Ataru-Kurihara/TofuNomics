@@ -1585,6 +1585,20 @@ public class ConfigManager {
         return lines.isEmpty() ? defaultLines : lines;
     }
 
+    /**
+     * スコアボード表示中のトグルヒントを表示するかどうか
+     */
+    public boolean isScoreboardShowToggleHint() {
+        return (Boolean) getCachedValue("scoreboard.toggle_hint.enabled", true);
+    }
+
+    /**
+     * スコアボード表示中のトグルヒントテキストを取得
+     */
+    public String getScoreboardToggleHintText() {
+        return (String) getCachedValue("scoreboard.toggle_hint.text", "&7/scoreboard off で非表示");
+    }
+
     // ==================== 時刻放送システム設定 ====================
     
     /**
