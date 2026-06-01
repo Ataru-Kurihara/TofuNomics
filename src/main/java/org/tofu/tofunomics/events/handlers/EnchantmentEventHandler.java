@@ -143,8 +143,8 @@ public class EnchantmentEventHandler {
     private Enchantment selectBonusEnchantment(Material itemType, Map<Enchantment, Integer> currentEnchants) {
         // 武器の場合
         if (isWeapon(itemType)) {
-            if (!currentEnchants.containsKey(Enchantment.DAMAGE_ALL)) {
-                return Enchantment.DAMAGE_ALL; // ダメージ増加
+            if (!currentEnchants.containsKey(Enchantment.SHARPNESS)) {
+                return Enchantment.SHARPNESS; // ダメージ増加
             }
             if (!currentEnchants.containsKey(Enchantment.KNOCKBACK)) {
                 return Enchantment.KNOCKBACK; // ノックバック
@@ -153,21 +153,21 @@ public class EnchantmentEventHandler {
         
         // 防具の場合
         if (isArmor(itemType)) {
-            if (!currentEnchants.containsKey(Enchantment.PROTECTION_ENVIRONMENTAL)) {
-                return Enchantment.PROTECTION_ENVIRONMENTAL; // ダメージ軽減
+            if (!currentEnchants.containsKey(Enchantment.PROTECTION)) {
+                return Enchantment.PROTECTION; // ダメージ軽減
             }
-            if (!currentEnchants.containsKey(Enchantment.DURABILITY)) {
-                return Enchantment.DURABILITY; // 耐久力
+            if (!currentEnchants.containsKey(Enchantment.UNBREAKING)) {
+                return Enchantment.UNBREAKING; // 耐久力
             }
         }
         
         // ツールの場合
         if (isTool(itemType)) {
-            if (!currentEnchants.containsKey(Enchantment.DIG_SPEED)) {
-                return Enchantment.DIG_SPEED; // 効率強化
+            if (!currentEnchants.containsKey(Enchantment.EFFICIENCY)) {
+                return Enchantment.EFFICIENCY; // 効率強化
             }
-            if (!currentEnchants.containsKey(Enchantment.DURABILITY)) {
-                return Enchantment.DURABILITY; // 耐久力
+            if (!currentEnchants.containsKey(Enchantment.UNBREAKING)) {
+                return Enchantment.UNBREAKING; // 耐久力
             }
         }
         

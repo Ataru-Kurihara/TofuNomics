@@ -32,36 +32,36 @@ public class JobToolManager {
         jobToolSets.put("miner", new JobToolSet()
             .addTool(1, createEnchantedTool(Material.IRON_PICKAXE, "見習い鉱夫のツルハシ", 
                 Arrays.asList(ChatColor.GRAY + "鉱夫レベル1で使用可能", ChatColor.YELLOW + "採掘効率が少し向上"), 
-                Enchantment.DIG_SPEED, 1))
+                Enchantment.EFFICIENCY, 1))
             .addTool(10, createEnchantedTool(Material.DIAMOND_PICKAXE, "熟練鉱夫のツルハシ",
                 Arrays.asList(ChatColor.GRAY + "鉱夫レベル10で使用可能", ChatColor.YELLOW + "採掘効率が大幅向上"),
-                Enchantment.DIG_SPEED, 3))
+                Enchantment.EFFICIENCY, 3))
             .addTool(25, createEnchantedTool(Material.NETHERITE_PICKAXE, "マスター鉱夫のツルハシ",
                 Arrays.asList(ChatColor.GRAY + "鉱夫レベル25で使用可能", ChatColor.GOLD + "最高の採掘効率", ChatColor.LIGHT_PURPLE + "幸運付与"),
-                Enchantment.DIG_SPEED, 5, Enchantment.LOOT_BONUS_BLOCKS, 3)));
+                Enchantment.EFFICIENCY, 5, Enchantment.FORTUNE, 3)));
         
         // 木こりのツールセット
         jobToolSets.put("woodcutter", new JobToolSet()
             .addTool(1, createEnchantedTool(Material.IRON_AXE, "見習い木こりの斧",
                 Arrays.asList(ChatColor.GRAY + "木こりレベル1で使用可能", ChatColor.YELLOW + "伐採効率が少し向上"),
-                Enchantment.DIG_SPEED, 1))
+                Enchantment.EFFICIENCY, 1))
             .addTool(10, createEnchantedTool(Material.DIAMOND_AXE, "熟練木こりの斧",
                 Arrays.asList(ChatColor.GRAY + "木こりレベル10で使用可能", ChatColor.YELLOW + "伐採効率が大幅向上"),
-                Enchantment.DIG_SPEED, 3))
+                Enchantment.EFFICIENCY, 3))
             .addTool(25, createEnchantedTool(Material.NETHERITE_AXE, "マスター木こりの斧",
                 Arrays.asList(ChatColor.GRAY + "木こりレベル25で使用可能", ChatColor.GOLD + "最高の伐採効率", ChatColor.LIGHT_PURPLE + "幸運付与"),
-                Enchantment.DIG_SPEED, 5, Enchantment.LOOT_BONUS_BLOCKS, 2)));
+                Enchantment.EFFICIENCY, 5, Enchantment.FORTUNE, 2)));
         
         // 農家のツールセット
         jobToolSets.put("farmer", new JobToolSet()
             .addTool(1, createEnchantedTool(Material.IRON_HOE, "見習い農家のクワ",
                 Arrays.asList(ChatColor.GRAY + "農家レベル1で使用可能", ChatColor.GREEN + "作物の成長を促進"),
-                Enchantment.DIG_SPEED, 1))
+                Enchantment.EFFICIENCY, 1))
             .addTool(5, createSpecialItem(Material.BONE_MEAL, "特製肥料", 16,
                 Arrays.asList(ChatColor.GRAY + "農家レベル5で使用可能", ChatColor.GREEN + "作物の成長を大幅促進")))
             .addTool(15, createEnchantedTool(Material.DIAMOND_HOE, "熟練農家のクワ",
                 Arrays.asList(ChatColor.GRAY + "農家レベル15で使用可能", ChatColor.GREEN + "作物の成長を大幅促進", ChatColor.YELLOW + "収穫量増加"),
-                Enchantment.LOOT_BONUS_BLOCKS, 2)));
+                Enchantment.FORTUNE, 2)));
         
         // 釣り人のツールセット  
         jobToolSets.put("fisherman", new JobToolSet()
@@ -70,10 +70,10 @@ public class JobToolManager {
                 Enchantment.LURE, 1))
             .addTool(10, createEnchantedTool(Material.FISHING_ROD, "熟練釣り人の竿",
                 Arrays.asList(ChatColor.GRAY + "釣り人レベル10で使用可能", ChatColor.AQUA + "釣り効率が大幅向上", ChatColor.YELLOW + "宝物発見確率UP"),
-                Enchantment.LURE, 3, Enchantment.LUCK, 2))
+                Enchantment.LURE, 3, Enchantment.LUCK_OF_THE_SEA, 2))
             .addTool(20, createEnchantedTool(Material.FISHING_ROD, "マスター釣り人の竿",
                 Arrays.asList(ChatColor.GRAY + "釣り人レベル20で使用可能", ChatColor.GOLD + "最高の釣り効率", ChatColor.LIGHT_PURPLE + "レア宝物確率大幅UP"),
-                Enchantment.LURE, 5, Enchantment.LUCK, 3, Enchantment.MENDING, 1)));
+                Enchantment.LURE, 5, Enchantment.LUCK_OF_THE_SEA, 3, Enchantment.MENDING, 1)));
         
         // 鍛冶屋のツールセット
         jobToolSets.put("blacksmith", new JobToolSet()
@@ -81,7 +81,7 @@ public class JobToolManager {
                 Arrays.asList(ChatColor.GRAY + "鍛冶屋レベル1で使用可能", ChatColor.YELLOW + "高品質な製作材料")))
             .addTool(10, createEnchantedTool(Material.SMITHING_TABLE, "熟練鍛冶台",
                 Arrays.asList(ChatColor.GRAY + "鍛冶屋レベル10で使用可能", ChatColor.YELLOW + "製作効率が向上"),
-                Enchantment.DIG_SPEED, 1))
+                Enchantment.EFFICIENCY, 1))
             .addTool(15, createSpecialItem(Material.DIAMOND, "精錬されたダイヤモンド", 4,
                 Arrays.asList(ChatColor.GRAY + "鍛冶屋レベル15で使用可能", ChatColor.LIGHT_PURPLE + "最高品質の製作材料"))));
         
@@ -110,7 +110,7 @@ public class JobToolManager {
                 Arrays.asList(ChatColor.GRAY + "建築家レベル1で使用可能", ChatColor.YELLOW + "建築効率向上")))
             .addTool(5, createEnchantedTool(Material.GOLDEN_SHOVEL, "建築家のスコップ",
                 Arrays.asList(ChatColor.GRAY + "建築家レベル5で使用可能", ChatColor.YELLOW + "整地効率大幅向上"),
-                Enchantment.DIG_SPEED, 3))
+                Enchantment.EFFICIENCY, 3))
             .addTool(15, createSpecialItem(Material.STRUCTURE_BLOCK, "マスター設計ブロック", 4,
                 Arrays.asList(ChatColor.GRAY + "建築家レベル15で使用可能", ChatColor.GOLD + "高度な建築機能解放"))));
     }

@@ -148,7 +148,7 @@ public class SelectionManager {
         
         // グリーンのパーティクルで表示
         location.getWorld().spawnParticle(
-            Particle.VILLAGER_HAPPY,
+            Particle.HAPPY_VILLAGER,
             location.clone().add(0.5, 0.5, 0.5),
             10,
             0.5, 0.5, 0.5,

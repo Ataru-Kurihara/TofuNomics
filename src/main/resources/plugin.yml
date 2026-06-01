@@ -1,7 +1,7 @@
 name: TofuNomics
 version: '${project.version}'
 main: org.tofu.tofunomics.TofuNomics
-api-version: '1.16'
+api-version: '1.21'
 description: tofunomicsワールド専用経済プラグイン
 author: TofuNomics Team
 website: https://github.com/tofu-server/TofuNomics
