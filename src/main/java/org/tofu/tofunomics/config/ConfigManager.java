@@ -884,9 +884,24 @@ public class ConfigManager {
      * 経験値計算指数を取得
      */
     public double getExperienceExponent() {
-        return config.getDouble("leveling.experience.exponent", 2.0);
+        return config.getDouble("leveling.experience.exponent", 1.9);
     }
-    
+
+    /**
+     * 高レベル時の経験値獲得ペナルティ係数を取得
+     * 実効ペナルティ = max(minimum, 1.0 - level * factor)
+     */
+    public double getLevelPenaltyFactor() {
+        return config.getDouble("leveling.experience.level_penalty.factor", 0.005);
+    }
+
+    /**
+     * 高レベル時の経験値獲得ペナルティ下限値を取得
+     */
+    public double getLevelPenaltyMinimum() {
+        return config.getDouble("leveling.experience.level_penalty.minimum", 0.4);
+    }
+
     /**
      * レベル範囲別倍率を取得
      */
@@ -1825,9 +1840,48 @@ public class ConfigManager {
      */
     public boolean isScoreboardEnabledInWorld(String worldName) {
         java.util.List<String> enabledWorlds = getScoreboardEnabledWorlds();
-        return enabledWorlds.contains(worldName);
+        return enabledWorlds.stream()
+            .anyMatch(w -> w.equalsIgnoreCase(worldName));
+    }
+
+    /**
+     * 営業時間放送対象ワールド一覧を取得
+     */
+    public java.util.List<String> getAnnouncementEnabledWorlds() {
+        return config.getStringList("time_announcement.enabled_worlds");
     }
     
+    /**
+     * 指定されたワールドで営業時間放送を行うかどうか
+     * enabled_worldsが未設定の場合、スコアボードと同じ設定を使用
+     */
+    public boolean isAnnouncementEnabledInWorld(String worldName) {
+        java.util.List<String> enabledWorlds = getAnnouncementEnabledWorlds();
+        if (enabledWorlds.isEmpty()) {
+            // enabled_worldsが未設定の場合、スコアボードと同じ設定を使用
+            enabledWorlds = getScoreboardEnabledWorlds();
+        }
+        return enabledWorlds.stream()
+            .anyMatch(w -> w.equalsIgnoreCase(worldName));
+    }
+    
+    // ========== ルールシステム設定 ==========
+    
+    /**
+     * ルールシステムが有効かどうかを確認
+     */
+    public boolean isRulesEnabled() {
+        return config.getBoolean("rules.enabled", false);
+    }
+    
+    /**
+     * ルール同意が必須かどうかを確認
+     */
+    public boolean isRulesRequireAgreement() {
+        return config.getBoolean("rules.require_agreement", false);
+    }
+    
+
     /**
      * 職業の最大レベルを取得
      */

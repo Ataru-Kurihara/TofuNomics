@@ -19,7 +19,10 @@ public class ExperienceManager {
         if (level <= 1) {
             return 0.0;
         }
-        return Math.pow(level - 1, 2.2) * 100;
+        // 経験値曲線は config.yml の leveling.experience から取得（運用で再調整可能）
+        double exponent = configManager.getExperienceExponent();
+        int baseMultiplier = configManager.getExperienceBaseMultiplier();
+        return Math.pow(level - 1, exponent) * baseMultiplier;
     }
     
     public double calculateRequiredExperienceForNextLevel(int currentLevel) {

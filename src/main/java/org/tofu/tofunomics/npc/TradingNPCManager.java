@@ -840,7 +840,7 @@ public class TradingNPCManager {
         public Map<Material, Integer> getSoldItems() { return soldItems; }
     }
     
-    private TradingPost getTradingPostByNPCId(UUID npcId) {
+    public TradingPost getTradingPostByNPCId(UUID npcId) {
         return tradingPosts.values().stream()
             .filter(post -> post.getNpcId().equals(npcId))
             .findFirst()
@@ -1306,7 +1306,7 @@ public class TradingNPCManager {
      * 取引営業時間内かどうかをチェック
      * 緊急モードのNPCは24時間営業
      */
-    private boolean isWithinTradingHours(Player player, TradingPost tradingPost) {
+    public boolean isWithinTradingHours(Player player, TradingPost tradingPost) {
         // 緊急モードの場合は常に営業時間内として扱う
         if (tradingPost != null && tradingPost.isEmergencyMode()) {
             plugin.getLogger().info("緊急モードNPCのため、営業時間チェックをスキップ");

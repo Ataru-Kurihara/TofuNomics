@@ -153,6 +153,12 @@ public class TradingGUI implements Listener {
                 }
             }
             
+            // 営業時間チェックを追加（職業チェック後、GUI作成前）
+            if (!tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+                player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+                return;
+            }
+            
             String title = "§6" + tradingPost.getName() + " - アイテム取引";
             plugin.getLogger().info("TradingGUI: GUIタイトル設定完了: " + title);
             
@@ -226,6 +232,12 @@ public class TradingGUI implements Listener {
                 plugin.getLogger().info("TradingGUI: 購入モードのため職業に関係なくGUI開起を続行（割増価格適用）");
             } else {
                 plugin.getLogger().info("TradingGUI: 対応職業です。購入・売却ともに可能");
+            }
+            
+            // 営業時間チェックを追加（職業チェック後、GUI作成前）
+            if (!tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+                player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+                return;
             }
             
             String title = "§6" + tradingPost.getName() + " - アイテム取引";
@@ -833,6 +845,13 @@ public class TradingGUI implements Listener {
     
     private void handleItemSell(Player player, TradingNPCManager.TradingPost tradingPost, 
                                Material material, org.bukkit.event.inventory.ClickType clickType) {
+        // 営業時間チェックを追加（取引実行前）
+        if (!tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+            player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+            player.closeInventory();
+            return;
+        }
+
         int sellAmount;
         
         // まとめ売りアイテムかどうかを判定
@@ -990,6 +1009,13 @@ public class TradingGUI implements Listener {
     
     private void handleItemPurchase(Player player, TradingNPCManager.TradingPost tradingPost,
                                     Material material, org.bukkit.event.inventory.ClickType clickType) {
+        // 営業時間チェックを追加（取引実行前）
+        if (!tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+            player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+            player.closeInventory();
+            return;
+        }
+
         int purchaseAmount;
 
         switch (clickType) {
@@ -1071,6 +1097,13 @@ public class TradingGUI implements Listener {
     }
     
     private void handleSellAll(Player player, TradingNPCManager.TradingPost tradingPost) {
+        // 営業時間チェックを追加（取引実行前）
+        if (!tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+            player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+            player.closeInventory();
+            return;
+        }
+
         List<ItemStack> allItems = new ArrayList<>();
         
         for (ItemStack item : player.getInventory().getContents()) {

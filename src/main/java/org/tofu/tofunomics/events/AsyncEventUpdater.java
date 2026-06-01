@@ -243,7 +243,7 @@ public class AsyncEventUpdater {
         switch (jobType.toLowerCase()) {
             case "farmer": return 1;
             case "miner": return 2;
-            case "builder": return 3;
+            case "architect": return 3;
             case "hunter": return 4;
             case "fisher": return 5;
             case "trader": return 6;

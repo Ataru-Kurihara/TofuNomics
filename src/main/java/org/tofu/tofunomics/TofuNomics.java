@@ -20,7 +20,13 @@ import org.tofu.tofunomics.experience.JobExperienceManager;
 import org.tofu.tofunomics.income.JobIncomeManager;
 import org.tofu.tofunomics.quests.JobQuestManager;
 import org.tofu.tofunomics.rewards.JobLevelRewardManager;
+import org.tofu.tofunomics.rewards.JobGuideBookManager;
 import org.tofu.tofunomics.stats.JobStatsManager;
+import org.tofu.tofunomics.events.BankBalanceUpdateNotifier;
+import org.tofu.tofunomics.tutorial.TutorialManager;
+import org.tofu.tofunomics.tutorial.TutorialProgressDAO;
+import org.tofu.tofunomics.tutorial.TutorialEventListener;
+import org.tofu.tofunomics.tutorial.TutorialCommand;
 
 import java.io.File;
 
@@ -47,6 +53,7 @@ public final class TofuNomics extends JavaPlugin {
     // private JobIncomeManager jobIncomeManager;
     private JobQuestManager jobQuestManager;
     private JobLevelRewardManager jobLevelRewardManager;
+    private JobGuideBookManager jobGuideBookManager;
     private JobStatsManager jobStatsManager;
     private org.tofu.tofunomics.jobs.JobBlockPermissionManager jobBlockPermissionManager;
     
@@ -70,6 +77,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.trade.TradeChestListener tradeChestListener;
     
     // Phase 5 統合イベントシステム
+    private org.tofu.tofunomics.events.AsyncEventUpdater asyncEventUpdater;
     private org.tofu.tofunomics.events.UnifiedEventHandler unifiedEventHandler;
     
     // Phase 6 クラフト制限専用イベントハンドラー（緊急対応）
@@ -110,6 +118,14 @@ public final class TofuNomics extends JavaPlugin {
     
     // ルール確認システム
     private org.tofu.tofunomics.rules.RulesManager rulesManager;
+
+    // チュートリアルシステム
+    private TutorialManager tutorialManager;
+    private TutorialProgressDAO tutorialProgressDAO;
+    private TutorialEventListener tutorialEventListener;
+
+    // tohu-app API連携（イベント駆動型）
+    private BankBalanceUpdateNotifier bankBalanceNotifier;
 
     @Override
     public void onEnable() {
@@ -156,7 +172,10 @@ public final class TofuNomics extends JavaPlugin {
         
         // ルール確認システムの初期化（PlayerJoinHandlerの前に初期化）
         initializeRulesSystem();
-        
+
+        // チュートリアルシステムの初期化
+        initializeTutorialSystem();
+
         // プレイヤー参加時処理の初期化
         initializePlayerJoinHandler();
         
@@ -180,7 +199,13 @@ public final class TofuNomics extends JavaPlugin {
         
         // コマンドハンドラーの登録
         registerCommands();
-        
+
+        // tohu-app API連携の初期化（イベント駆動型）
+        if (getConfig().getBoolean("api.tohu_app.enabled", false)) {
+            this.bankBalanceNotifier = new BankBalanceUpdateNotifier(this);
+            getLogger().info("tohu-app API連携を初期化しました（イベント駆動型）");
+        }
+
         getLogger().info("TofuNomicsプラグインが正常に有効化されました！");
     }
 
@@ -224,6 +249,12 @@ public final class TofuNomics extends JavaPlugin {
         // 時計アイテムシステムのクリーンアップ
         if (clockItemManager != null) {
             clockItemManager.stopActionBarTask();
+        }
+
+        // tohu-app API連携のクリーンアップ
+        if (bankBalanceNotifier != null) {
+            bankBalanceNotifier.shutdown();
+            getLogger().info("tohu-app API連携をシャットダウンしました");
         }
 
         // データベース接続を閉じる
@@ -321,6 +352,13 @@ public final class TofuNomics extends JavaPlugin {
             // JobLevelRewardManagerの初期化
             jobLevelRewardManager = new JobLevelRewardManager(configManager, playerDAO);
             
+            // JobGuideBookManagerの初期化
+            jobGuideBookManager = new JobGuideBookManager(configManager);
+            getLogger().info("職業ガイドブックシステムを初期化しました。");
+            
+            // AsyncEventUpdaterの初期化（JobExperienceManagerで使用）
+            asyncEventUpdater = new org.tofu.tofunomics.events.AsyncEventUpdater(this, playerDAO, playerJobDAO);
+            
             // JobExperienceManagerの初期化
             jobExperienceManager = new JobExperienceManager(
                 configManager, 
@@ -328,7 +366,8 @@ public final class TofuNomics extends JavaPlugin {
                 jobDAO, 
                 jobManager, 
                 jobToolManager,
-                experienceManager
+                experienceManager,
+                asyncEventUpdater
             );
             
             // 収入システムは無効化: JobIncomeManagerの初期化はコメントアウト
@@ -479,7 +518,8 @@ public final class TofuNomics extends JavaPlugin {
                     jobManager,
                     jobExperienceManager,
                     jobQuestManager,
-                    jobBlockPermissionManager
+                    jobBlockPermissionManager,
+                    asyncEventUpdater
                 );
                 getLogger().info("UnifiedEventHandler初期化完了");
             } catch (Exception e) {
@@ -628,7 +668,9 @@ public final class TofuNomics extends JavaPlugin {
             getCommand("eco").setExecutor(new EcoCommand(configManager, currencyConverter, playerDAO));
             
             // 職業系コマンド
-            getCommand("jobs").setExecutor(new JobsCommand(configManager, jobManager, experienceManager));
+            JobsCommand jobsCommand = new JobsCommand(configManager, jobManager, experienceManager, playerJobDAO);
+            getCommand("jobs").setExecutor(jobsCommand);
+            getCommand("jobs").setTabCompleter(jobsCommand);
             getCommand("jobstats").setExecutor(new JobStatsCommand(jobStatsManager));
             getCommand("quest").setExecutor(new JobQuestCommand(configManager, jobQuestManager));
             
@@ -690,10 +732,17 @@ public final class TofuNomics extends JavaPlugin {
             getCommand("rules").setExecutor(rulesCommand);
             
             // 中心都市マップ配布コマンド
-            org.tofu.tofunomics.commands.CityMapCommand cityMapCommand = 
+            org.tofu.tofunomics.commands.CityMapCommand cityMapCommand =
                 new org.tofu.tofunomics.commands.CityMapCommand(configManager);
             getCommand("citymap").setExecutor(cityMapCommand);
-            
+
+            // チュートリアルコマンド
+            if (tutorialManager != null) {
+                TutorialCommand tutorialCommand = new TutorialCommand(this, tutorialManager, configManager);
+                getCommand("tutorial").setExecutor(tutorialCommand);
+                getCommand("tutorial").setTabCompleter(tutorialCommand);
+            }
+
             getLogger().info("コマンドハンドラーを登録しました");
         } catch (Exception e) {
             getLogger().severe("コマンド登録中にエラーが発生しました: " + e.getMessage());
@@ -878,7 +927,8 @@ public final class TofuNomics extends JavaPlugin {
                 tradingModeSelectionGUI = new org.tofu.tofunomics.npc.gui.TradingModeSelectionGUI(
                     this,
                     configManager,
-                    tradingGUI
+                    tradingGUI,
+                    tradingNPCManager
                 );
                 getLogger().info("TradingModeSelectionGUIインスタンス作成完了: " + (tradingModeSelectionGUI != null ? "成功" : "失敗"));
             } catch (Exception e) {
@@ -1297,6 +1347,14 @@ public final class TofuNomics extends JavaPlugin {
      */
     private void initializeRulesSystem() {
         try {
+            // ルールシステムが無効または同意不要の場合はスキップ
+            if (!configManager.isRulesEnabled() || !configManager.isRulesRequireAgreement()) {
+                getLogger().info("ルール確認システムは無効化されています (rules.enabled=" + 
+                    configManager.isRulesEnabled() + ", rules.require_agreement=" + 
+                    configManager.isRulesRequireAgreement() + ")");
+                return;
+            }
+            
             getLogger().info("ルール確認システムを初期化しています...");
             
             // RulesManagerの初期化
@@ -1340,6 +1398,49 @@ public final class TofuNomics extends JavaPlugin {
     }
 
     /**
+     * チュートリアルシステムの初期化
+     */
+    private void initializeTutorialSystem() {
+        try {
+            getLogger().info("チュートリアルシステムを初期化しています...");
+
+            // TutorialProgressDAOの初期化
+            tutorialProgressDAO = new TutorialProgressDAO(databaseManager.getConnection());
+
+            // TutorialManagerの初期化
+            tutorialManager = new TutorialManager(this, configManager, tutorialProgressDAO);
+
+            // TutorialEventListenerの初期化と登録
+            tutorialEventListener = new TutorialEventListener(this, tutorialManager);
+            getServer().getPluginManager().registerEvents(tutorialEventListener, this);
+
+            if (tutorialManager.isEnabled()) {
+                getLogger().info("チュートリアルシステムの初期化が完了しました");
+            } else {
+                getLogger().info("チュートリアルシステムは無効化されています");
+            }
+
+        } catch (Exception e) {
+            getLogger().severe("チュートリアルシステムの初期化に失敗しました: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * TutorialManagerの取得
+     */
+    public TutorialManager getTutorialManager() {
+        return tutorialManager;
+    }
+
+    /**
+     * TutorialEventListenerの取得
+     */
+    public TutorialEventListener getTutorialEventListener() {
+        return tutorialEventListener;
+    }
+
+    /**
      * TestModeManagerの取得
      */
     public org.tofu.tofunomics.testing.TestModeManager getTestModeManager() {
@@ -1359,5 +1460,19 @@ public final class TofuNomics extends JavaPlugin {
      */
     public org.tofu.tofunomics.integration.WorldGuardIntegration getWorldGuardIntegration() {
         return worldGuardIntegration;
+    }
+
+    /**
+     * BankBalanceUpdateNotifierを取得
+     */
+    public BankBalanceUpdateNotifier getBankBalanceUpdateNotifier() {
+        return bankBalanceNotifier;
+    }
+
+    /**
+     * JobGuideBookManagerを取得
+     */
+    public JobGuideBookManager getJobGuideBookManager() {
+        return jobGuideBookManager;
     }
 }

@@ -78,6 +78,12 @@ public class ScoreboardManager implements Listener {
      * スコアボード非表示時に、再表示方法を示す簡易スコアボードを提供
      */
     private void showHintScoreboard(Player player) {
+        // 対象ワールド外ではヒントスコアボードも表示しない
+        if (!isScoreboardEnabledInCurrentWorld(player)) {
+            player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+            return;
+        }
+
         try {
             // 新しいスコアボードを作成
             Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
@@ -146,8 +152,9 @@ public class ScoreboardManager implements Listener {
         
         // ワールド制限チェックを追加
         if (!isScoreboardEnabledInCurrentWorld(player)) {
-            // 対象ワールド外の場合はスコアボードを無効にする
-            disableScoreboard(player);
+            // 対象ワールド外の場合はスコアボードを完全に非表示にする
+            // （ヒントスコアボードも表示しない - disableScoreboardを呼ばない）
+            player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
             return;
         }
         
@@ -348,7 +355,7 @@ public class ScoreboardManager implements Listener {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    if (isScoreboardEnabled(player)) {
+                    if (isScoreboardEnabled(player) && isScoreboardEnabledInCurrentWorld(player)) {
                         updatePlayerScoreboard(player);
                     }
                 }
@@ -372,6 +379,13 @@ public class ScoreboardManager implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
+        String worldName = player.getWorld().getName();
+        
+        // デバッグログ
+        plugin.getLogger().info("[スコアボード] " + player.getName() + " がワールド変更: " +
+            event.getFrom().getName() + " → " + worldName);
+        plugin.getLogger().info("[スコアボード] ワールド " + worldName + " は対象ワールド: " +
+            isScoreboardEnabledInCurrentWorld(player));
         
         if (isScoreboardEnabledInCurrentWorld(player)) {
             // 対象ワールドに入った場合、スコアボードが有効なら表示する
@@ -379,10 +393,9 @@ public class ScoreboardManager implements Listener {
                 enableScoreboard(player);
             }
         } else {
-            // 対象ワールド外に出た場合、スコアボードを無効にする
-            if (isScoreboardEnabled(player)) {
-                disableScoreboard(player);
-            }
+            // 対象ワールド外に出た場合、スコアボードを完全に非表示にする
+            // （ヒントスコアボードも表示しない）
+            player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
         }
     }
     
@@ -398,7 +411,7 @@ public class ScoreboardManager implements Listener {
      */
     public void updateAllScoreboards() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (isScoreboardEnabled(player)) {
+            if (isScoreboardEnabled(player) && isScoreboardEnabledInCurrentWorld(player)) {
                 updatePlayerScoreboard(player);
             }
         }

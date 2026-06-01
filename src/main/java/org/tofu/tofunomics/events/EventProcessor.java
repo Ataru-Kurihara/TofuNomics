@@ -77,34 +77,44 @@ public class EventProcessor {
     public boolean shouldProcessEvent(Event event) {
         Player player = extractPlayer(event);
         if (player == null) {
+            System.out.println("[EventProcessor] プレイヤー抽出失敗");
             return false;
         }
         
         // プレイヤーの基本チェック
         if (!isValidPlayer(player)) {
+            System.out.println("[EventProcessor] isValidPlayer=false: " + player.getName());
             return false;
         }
         
         // ワールドチェック
+        String worldName = player.getWorld().getName();
+        System.out.println("[EventProcessor] ワールドチェック: " + worldName + ", excludedWorlds=" + excludedWorlds);
         if (!isValidWorld(player.getWorld())) {
+            System.out.println("[EventProcessor] isValidWorld=false: " + worldName);
             return false;
         }
         
         // ゲームモードチェック
+        System.out.println("[EventProcessor] ゲームモードチェック: " + player.getGameMode() + ", excludedGameModes=" + excludedGameModes);
         if (!isValidGameMode(player.getGameMode())) {
+            System.out.println("[EventProcessor] isValidGameMode=false: " + player.getGameMode());
             return false;
         }
         
         // 権限チェック
         if (!hasRequiredPermission(player, event)) {
+            System.out.println("[EventProcessor] hasRequiredPermission=false");
             return false;
         }
         
         // 職業チェック
         if (!hasValidJob(player, event)) {
+            System.out.println("[EventProcessor] hasValidJob=false");
             return false;
         }
         
+        System.out.println("[EventProcessor] すべてのチェックをパス");
         return true;
     }
     

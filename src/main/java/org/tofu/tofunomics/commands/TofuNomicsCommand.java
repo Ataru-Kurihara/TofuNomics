@@ -43,6 +43,8 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
                 return handleStatusCommand(sender);
             case "version":
                 return handleVersionCommand(sender);
+            case "recalcexp":
+                return handleRecalcExpCommand(sender);
             case "config":
                 // configサブコマンドに処理を委譲
                 return handleConfigCommand(sender, args);
@@ -66,20 +68,72 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§eTofuNomicsプラグインをリロード中...");
         
         try {
-            // 設定リロード
-            plugin.reloadConfig();
-            
+            // 設定リロード（ConfigManager内部のconfigフィールドも更新する）
+            configManager.reloadConfig();
+
             sender.sendMessage("§aTofuNomicsプラグインのリロードが完了しました。");
-            sender.sendMessage("§e注意: 完全なリロードにはプラグインの再起動が推奨されます。");
+            sender.sendMessage("§e注意: NPC関連の設定変更は /tofunomics npc reload も実行してください。");
             plugin.getLogger().info("プラグインがリロードされました（実行者: " + sender.getName() + "）");
         } catch (Exception e) {
             sender.sendMessage("§cリロード中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("リロード中にエラーが発生: " + e.getMessage());
         }
-        
+
         return true;
     }
-    
+
+    /**
+     * 経験値曲線の変更に伴い、全プレイヤーの職業経験値を再スケールする。
+     * 各レコードのレベルは維持し、経験値を新しい曲線でのそのレベルの下限値に再設定する。
+     * （リリース前の経験値曲線緩和に伴うワンショット移行用。ツール配布は行わない）
+     */
+    private boolean handleRecalcExpCommand(CommandSender sender) {
+        if (!sender.hasPermission("tofunomics.admin")) {
+            sender.sendMessage(configManager.getMessage("no_permission"));
+            return true;
+        }
+
+        sender.sendMessage("§e経験値曲線の変更に伴い、全プレイヤーの職業経験値を再スケール中...");
+
+        org.tofu.tofunomics.jobs.ExperienceManager experienceManager = plugin.getExperienceManager();
+        org.tofu.tofunomics.dao.PlayerJobDAO playerJobDAO = plugin.getPlayerJobDAO();
+
+        if (experienceManager == null || playerJobDAO == null) {
+            sender.sendMessage("§c必要なマネージャが初期化されていません。");
+            return true;
+        }
+
+        int updated = 0;
+        int failed = 0;
+        try {
+            java.util.List<org.tofu.tofunomics.models.PlayerJob> allPlayerJobs = playerJobDAO.getAllPlayerJobs();
+            for (org.tofu.tofunomics.models.PlayerJob playerJob : allPlayerJobs) {
+                int level = playerJob.getLevel();
+                if (level < 1) {
+                    level = 1;
+                }
+                // 現在のレベルを維持し、経験値を新しい経験値曲線でのそのレベルの下限値に再設定
+                double newExperience = experienceManager.calculateRequiredExperience(level);
+                playerJob.setLevel(level);
+                playerJob.setExperience(newExperience);
+                if (playerJobDAO.updatePlayerJobData(playerJob)) {
+                    updated++;
+                } else {
+                    failed++;
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            sender.sendMessage("§c再スケール中にデータベースエラーが発生しました: " + e.getMessage());
+            plugin.getLogger().severe("recalcexp 失敗: " + e.getMessage());
+            return true;
+        }
+
+        sender.sendMessage("§a経験値の再スケールが完了しました。更新: " + updated + " 件 / 失敗: " + failed + " 件");
+        sender.sendMessage("§eレベルは維持され、各職業の経験値は現在レベルの下限値に再設定されました。");
+        plugin.getLogger().info("recalcexp 実行（実行者: " + sender.getName() + "）更新: " + updated + ", 失敗: " + failed);
+        return true;
+    }
+
     private boolean handleStatusCommand(CommandSender sender) {
         if (!sender.hasPermission("tofunomics.admin")) {
             sender.sendMessage(configManager.getMessage("no_permission"));
@@ -353,6 +407,7 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§f/tofunomics reload §7- プラグイン設定をリロード");
         sender.sendMessage("§f/tofunomics status §7- プラグイン状態を表示");
         sender.sendMessage("§f/tofunomics version §7- バージョン情報を表示");
+        sender.sendMessage("§f/tofunomics recalcexp §7- 経験値曲線変更後の全プレイヤー経験値を再スケール");
         sender.sendMessage("§f/tofunomics config <サブコマンド> §7- 設定管理機能");
         sender.sendMessage("§f/tofunomics npc <サブコマンド> §7- NPC管理機能");
         sender.sendMessage("§7使用可能なconfigサブコマンド:");
@@ -364,7 +419,7 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("reload", "status", "version", "config", "npc");
+            return Arrays.asList("reload", "status", "version", "recalcexp", "config", "npc");
         } else if (args.length == 2) {
             if ("config".equals(args[0].toLowerCase())) {
                 return Arrays.asList("generate", "fix", "validate", "backup", "messages");

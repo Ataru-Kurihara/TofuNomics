@@ -64,12 +64,11 @@ fi
 
 echo -e "${YELLOW}サーバー側のファイルをバックアップしています...${NC}"
 
-# サーバー側のバックアップ
-BACKUP_NAME="config.yml.backup.$(date +%Y%m%d_%H%M%S)"
+# サーバー側のバックアップ（固定名で上書き）
 if [ -f "${SSH_KEY}" ]; then
-    ssh -i "${SSH_KEY}" "${SERVER_USER}@${SERVER_HOST}" "cp ${SERVER_CONFIG_PATH} ${SERVER_CONFIG_PATH}.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true"
+    ssh -i "${SSH_KEY}" "${SERVER_USER}@${SERVER_HOST}" "cp ${SERVER_CONFIG_PATH} ${SERVER_CONFIG_PATH}.backup 2>/dev/null || true"
 else
-    ssh "${SERVER_USER}@${SERVER_HOST}" "cp ${SERVER_CONFIG_PATH} ${SERVER_CONFIG_PATH}.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true"
+    ssh "${SERVER_USER}@${SERVER_HOST}" "cp ${SERVER_CONFIG_PATH} ${SERVER_CONFIG_PATH}.backup 2>/dev/null || true"
 fi
 
 echo -e "${YELLOW}ファイルをアップロードしています...${NC}"

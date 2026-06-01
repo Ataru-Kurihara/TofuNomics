@@ -182,7 +182,7 @@ public class JobCraftPermissionManager {
             // 作業台
             Material.CRAFTING_TABLE
         ));
-        jobCraftableItems.put("builder", builderItems);
+        jobCraftableItems.put("architect", builderItems);
     }
     
     /**

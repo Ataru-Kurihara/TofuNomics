@@ -159,6 +159,20 @@ public class PlayerJobDAO {
         return topPlayers;
     }
 
+    public List<PlayerJob> getAllPlayerJobs() throws SQLException {
+        String query = "SELECT * FROM player_jobs";
+        List<PlayerJob> allPlayerJobs = new ArrayList<>();
+
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                allPlayerJobs.add(mapResultSetToPlayerJob(resultSet));
+            }
+        }
+        return allPlayerJobs;
+    }
+
     private PlayerJob mapResultSetToPlayerJob(ResultSet resultSet) throws SQLException {
         PlayerJob playerJob = new PlayerJob();
         playerJob.setUuid(UUID.fromString(resultSet.getString("uuid")));

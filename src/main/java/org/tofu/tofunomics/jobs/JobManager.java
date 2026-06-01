@@ -204,6 +204,59 @@ public class JobManager {
         
         return JobLeaveResult.SUCCESS;
     }
+
+    /**
+     * 管理者による強制就職（レベル50制限なし）
+     * @param player 対象プレイヤー
+     * @param jobName 職業名
+     * @return 就職結果
+     */
+    public JobJoinResult forceJoinJob(Player player, String jobName) {
+        String uuid = player.getUniqueId().toString();
+        
+        Job job = jobDAO.getJobByNameSafe(jobName);
+        if (job == null) {
+            return JobJoinResult.JOB_NOT_FOUND;
+        }
+        
+        List<PlayerJob> currentJobs = playerJobDAO.getPlayerJobsByUUID(uuid);
+        int maxJobs = configManager.getMaxJobsPerPlayer();
+        
+        // 既に同じ職業に就いているかチェック
+        for (PlayerJob existingJob : currentJobs) {
+            if (existingJob.getJobId() == job.getId()) {
+                return JobJoinResult.ALREADY_HAS_JOB;
+            }
+        }
+        
+        // 最大職業数チェック（管理者コマンドでも制限）
+        if (currentJobs.size() >= maxJobs) {
+            return JobJoinResult.MAX_JOBS_REACHED;
+        }
+        
+        ensurePlayerExists(player);
+        
+        PlayerJob playerJob = new PlayerJob();
+        playerJob.setUuid(uuid);
+        playerJob.setJobId(job.getId());
+        
+        // job_historyから過去の記録を取得してレベルを復元
+        JobHistory history = jobHistoryDAO.getLatestJobHistory(uuid, job.getId());
+        if (history != null) {
+            // 過去の記録がある場合はレベルを復元
+            playerJob.setLevel(history.getMaxLevel());
+        } else {
+            // 初回就職の場合はレベル1
+            playerJob.setLevel(1);
+        }
+        playerJob.setExperience(0.0);
+        
+        if (!playerJobDAO.insertPlayerJob(playerJob)) {
+            return JobJoinResult.DATABASE_ERROR;
+        }
+        
+        return JobJoinResult.SUCCESS;
+    }
     
     public List<PlayerJob> getPlayerJobs(Player player) {
         return playerJobDAO.getPlayerJobsByUUID(player.getUniqueId().toString());

@@ -74,18 +74,6 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo ""
-echo -e "${YELLOW}サーバー側のファイルをバックアップしています...${NC}"
-
-# サーバー側のバックアップ
-BACKUP_NAME="$(basename ${SERVER_PLUGIN_PATH}).backup.$(date +%Y%m%d_%H%M%S)"
-if [ -f "${SSH_KEY}" ]; then
-    ssh -i "${SSH_KEY}" "${SERVER_USER}@${SERVER_HOST}" \
-        "cp ${SERVER_PLUGIN_PATH} ${SERVER_PLUGIN_PATH}.backup.\$(date +%Y%m%d_%H%M%S) 2>/dev/null || echo 'バックアップをスキップ（既存ファイルなし）'"
-else
-    ssh "${SERVER_USER}@${SERVER_HOST}" \
-        "cp ${SERVER_PLUGIN_PATH} ${SERVER_PLUGIN_PATH}.backup.\$(date +%Y%m%d_%H%M%S) 2>/dev/null || echo 'バックアップをスキップ（既存ファイルなし）'"
-fi
-
 echo -e "${YELLOW}JARファイルをアップロードしています...${NC}"
 
 # SCPでアップロード

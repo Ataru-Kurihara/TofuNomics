@@ -102,11 +102,15 @@ public class TimeAnnouncementSystem {
     }
     
     /**
-     * 全プレイヤーにメッセージを放送
+     * 対象ワールドのプレイヤーにメッセージを放送
+     * ワールド制限: enabled_worldsが未設定の場合、スコアボードと同じ設定を使用
      */
     private void broadcastMessage(String message) {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendMessage(message);
+            // ワールド制限チェック
+            if (configManager.isAnnouncementEnabledInWorld(player.getWorld().getName())) {
+                player.sendMessage(message);
+            }
         }
     }
     

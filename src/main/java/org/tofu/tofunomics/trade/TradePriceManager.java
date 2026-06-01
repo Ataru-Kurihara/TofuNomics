@@ -12,6 +12,12 @@ import java.util.Map;
 
 /**
  * 取引価格計算システム
+ *
+ * 注意: {@code initializePriceTables()} 系のハードコード価格テーブル（{@code jobBasePrices}）と
+ * {@code calculateTradePrice()} / {@code getBasePrice()} は旧TradeChest機能専用。
+ * NPC取引の買取価格は config.yml の {@code npc_system.item_prices} を参照する
+ * （{@code TradingNPCManager.buildItemPrices()} 経由で {@code calculateFinalPrice()} のみ使用）。
+ * 両者は別系統のため、NPC取引価格を変更する場合は config.yml 側を編集すること。
  */
 public class TradePriceManager {
     
@@ -384,25 +390,16 @@ public class TradePriceManager {
      * NPCシステム用の最終価格計算メソッド
      */
     public double calculateFinalPrice(String itemName, String jobType, double basePrice) {
-        System.out.println("[TradePriceManager] calculateFinalPrice - itemName: " + itemName + ", jobType: " + jobType + ", basePrice: " + basePrice);
-        
         // 職業倍率を取得（無職の場合は1.0）
         double jobMultiplier = (jobType == null || jobType.isEmpty()) ? 1.0 : configManager.getJobPriceMultiplier(jobType);
-        System.out.println("[TradePriceManager] jobMultiplier: " + jobMultiplier);
-        
+
         double finalPrice = basePrice * jobMultiplier;
-        System.out.println("[TradePriceManager] After job multiplier: " + finalPrice);
-        
+
         // グローバル倍率を適用
         double globalMultiplier = configManager.getTradePriceMultiplier();
-        System.out.println("[TradePriceManager] globalMultiplier: " + globalMultiplier);
-        
         finalPrice *= globalMultiplier;
-        System.out.println("[TradePriceManager] After global multiplier: " + finalPrice);
-        
+
         // 個数を掛ける前の価格を返す（切り捨ては呼び出し側で行う）
-        System.out.println("[TradePriceManager] Returning finalPrice (before floor): " + finalPrice);
-        
         return finalPrice;
     }
 }

@@ -26,14 +26,16 @@ public class TradingModeSelectionGUI implements Listener {
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private final TradingGUI tradingGUI;
+    private final TradingNPCManager tradingNPCManager;
 
     // アクティブなモード選択セッション
     private final Map<UUID, ModeSelectionSession> activeSessions = new ConcurrentHashMap<>();
 
-    public TradingModeSelectionGUI(TofuNomics plugin, ConfigManager configManager, TradingGUI tradingGUI) {
+    public TradingModeSelectionGUI(TofuNomics plugin, ConfigManager configManager, TradingGUI tradingGUI, TradingNPCManager tradingNPCManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.tradingGUI = tradingGUI;
+        this.tradingNPCManager = tradingNPCManager;
     }
 
     /**
@@ -63,6 +65,12 @@ public class TradingModeSelectionGUI implements Listener {
      */
     public void openModeSelectionGUI(Player player, TradingNPCManager.TradingPost tradingPost) {
         plugin.getLogger().info("モード選択GUI開起: プレイヤー=" + player.getName() + ", 取引所=" + tradingPost.getName());
+
+        // 営業時間チェックを追加
+        if (!tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+            player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+            return;
+        }
 
         try {
             // GUIタイトル
@@ -212,6 +220,13 @@ public class TradingModeSelectionGUI implements Listener {
      */
     private void handleModeSelection(Player player, ModeSelectionSession session, int slot, Material material) {
         TradingNPCManager.TradingPost tradingPost = session.getTradingPost();
+
+        // 営業時間チェックを追加
+        if (!tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+            player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+            player.closeInventory();
+            return;
+        }
 
         switch (slot) {
             case 11: // 売却モード

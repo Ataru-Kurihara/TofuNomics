@@ -86,6 +86,10 @@ commands:
     description: 中心都市の案内地図を入手する
     usage: /citymap
     permission: tofunomics.citymap.use
+  tutorial:
+    description: チュートリアル進捗確認・管理
+    usage: /tutorial [skip|restart|reset <player>]
+    permission: tofunomics.tutorial.view
 
 permissions:
   tofunomics.*:
@@ -271,4 +275,19 @@ permissions:
   
   tofunomics.rules.reset:
     description: ルール同意状態をリセット（テスト用）
+    default: op
+
+  tofunomics.tutorial.*:
+    description: チュートリアル関連権限（全て）
+    children:
+      tofunomics.tutorial.view: true
+      tofunomics.tutorial.admin: false
+    default: true
+
+  tofunomics.tutorial.view:
+    description: チュートリアル進捗確認・スキップ
+    default: true
+
+  tofunomics.tutorial.admin:
+    description: 他プレイヤーのチュートリアルリセット権限
     default: op

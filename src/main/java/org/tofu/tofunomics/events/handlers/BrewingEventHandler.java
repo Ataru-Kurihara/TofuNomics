@@ -52,18 +52,27 @@ public class BrewingEventHandler {
      * ポーション報酬テーブルの初期化
      */
     private void initializePotionRewards() {
-        // 通常ポーション
-        potionRewards.put(Material.POTION, new PotionReward(2.0, 3.0));
+        // 通常ポーション（上方修正版）
+        potionRewards.put(Material.POTION, new PotionReward(5.0, 6.0));               // 2.0→5.0 (+150%)
         
-        // スプラッシュポーション
-        potionRewards.put(Material.SPLASH_POTION, new PotionReward(3.0, 5.0));
+        // スプラッシュポーション（上方修正版）
+        potionRewards.put(Material.SPLASH_POTION, new PotionReward(8.0, 10.0));       // 3.0→8.0 (+167%)
         
-        // 残留ポーション
-        potionRewards.put(Material.LINGERING_POTION, new PotionReward(5.0, 8.0));
+        // 残留ポーション（上方修正版）
+        potionRewards.put(Material.LINGERING_POTION, new PotionReward(12.0, 16.0));   // 5.0→12.0 (+140%)
         
-        // 特殊アイテム（ブレイズパウダー製作など）
-        potionRewards.put(Material.BLAZE_POWDER, new PotionReward(1.0, 2.0));
-        potionRewards.put(Material.MAGMA_CREAM, new PotionReward(2.0, 3.0));
+        // 特殊アイテム（ブレイズパウダー製作など）- 上方修正版
+        potionRewards.put(Material.BLAZE_POWDER, new PotionReward(3.0, 4.0));         // 1.0→3.0 (+200%)
+        potionRewards.put(Material.MAGMA_CREAM, new PotionReward(5.0, 6.0));          // 2.0→5.0 (+150%)
+        
+        // 新規追加：素材採取ボーナス用アイテム
+        potionRewards.put(Material.NETHER_WART, new PotionReward(5.0, 3.0));          // ネザーウォート収穫
+        potionRewards.put(Material.BLAZE_ROD, new PotionReward(8.0, 5.0));            // ブレイズロッド入手
+        potionRewards.put(Material.GHAST_TEAR, new PotionReward(10.0, 8.0));          // ガストの涙
+        potionRewards.put(Material.PHANTOM_MEMBRANE, new PotionReward(6.0, 5.0));     // ファントムの皮膜
+        potionRewards.put(Material.FERMENTED_SPIDER_EYE, new PotionReward(4.0, 3.0)); // 発酵した蜘蛛の目
+        potionRewards.put(Material.RABBIT_FOOT, new PotionReward(7.0, 5.0));          // ウサギの足
+        potionRewards.put(Material.GLISTERING_MELON_SLICE, new PotionReward(4.0, 3.0)); // きらめくスイカ
     }
     
     /**
@@ -146,8 +155,13 @@ public class BrewingEventHandler {
                              double income, int potionCount) {
         String playerUUID = player.getUniqueId().toString();
         
-        // 非同期で経験値を更新（収入システムは無効化）
+        // 非同期で経験値と収入を更新
         asyncUpdater.updateJobExperience(playerUUID, "alchemist", experience);
+        
+        // 収入を銀行預金に加算
+        if (income > 0) {
+            asyncUpdater.updatePlayerBalance(playerUUID, income, "調合報酬");
+        }
         
         // メッセージ表示
         String message = String.format(

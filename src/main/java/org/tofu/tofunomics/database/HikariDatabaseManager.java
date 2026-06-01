@@ -227,7 +227,22 @@ public class HikariDatabaseManager {
                 "stat_value REAL NOT NULL," +
                 "recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP" +
                 ")";
-            
+
+            // チュートリアル進捗テーブル
+            String createTutorialProgressTable = "CREATE TABLE IF NOT EXISTS tutorial_progress (" +
+                "uuid TEXT PRIMARY KEY," +
+                "current_step INTEGER NOT NULL DEFAULT 0," +
+                "step1_completed_at TIMESTAMP," +
+                "step2_completed_at TIMESTAMP," +
+                "step3_completed_at TIMESTAMP," +
+                "step4_completed_at TIMESTAMP," +
+                "tutorial_completed BOOLEAN DEFAULT FALSE," +
+                "tutorial_skipped BOOLEAN DEFAULT FALSE," +
+                "started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "completed_at TIMESTAMP," +
+                "FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
+                ")";
+
             // インデックスの作成
             String[] indexes = {
                 "CREATE INDEX IF NOT EXISTS idx_player_jobs_uuid ON player_jobs(uuid)",
@@ -250,7 +265,8 @@ public class HikariDatabaseManager {
                 stmt.execute(createTradeChestsTable);
                 stmt.execute(createPlayerTradeHistoryTable);
                 stmt.execute(createPerformanceStatsTable);
-                
+                stmt.execute(createTutorialProgressTable);
+
                 // インデックス作成
                 for (String indexSql : indexes) {
                     stmt.execute(indexSql);

@@ -250,11 +250,14 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
     }
     
     private boolean handleSpawnBanker(Player player, String[] args, Location spawnLocation) {
-        String npcName = args.length > 2 ? 
-            String.join(" ", Arrays.copyOfRange(args, 2, args.length)) : 
+        String npcName = args.length > 2 ?
+            String.join(" ", Arrays.copyOfRange(args, 2, args.length)) :
             "§6銀行員";
-            
+
         try {
+            // 同じ座標の既存NPCを削除
+            removeDuplicateNPCsAtLocation(spawnLocation);
+
             // 銀行NPCを作成
             Villager npc = npcManager.createNPC(spawnLocation, "banker", npcName);
             boolean success = (npc != null);
@@ -285,7 +288,23 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             return true;
         }
     }
-    
+
+    /**
+     * 指定座標の周辺にある重複NPCを削除
+     */
+    private void removeDuplicateNPCsAtLocation(Location location) {
+        double radius = 1.0; // 1ブロック以内のNPCを削除
+        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
+
+        for (NPCManager.NPCData npcData : allNPCs) {
+            if (npcData.getLocation().getWorld().equals(location.getWorld()) &&
+                npcData.getLocation().distance(location) < radius) {
+                plugin.getLogger().info("重複NPC削除: " + npcData.getName() + " at " + formatLocation(npcData.getLocation()));
+                npcManager.removeNPC(npcData.getEntityId());
+            }
+        }
+    }
+
     private boolean handleSpawnFoodMerchant(Player player, String[] args, Location spawnLocation) {
         // 使用法: /npc spawn food_merchant [NPC名] [タイプ]
         String npcName;

@@ -1,5 +1,6 @@
 package org.tofu.tofunomics.events.handlers;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -56,49 +57,53 @@ public class BuildingEventHandler {
      * 建築報酬テーブルの初期化
      */
     private void initializeBuildingRewards() {
-        // 基本建築材料
-        buildingRewards.put(Material.STONE, new BuildingReward(0.5, 1.0, "石"));
-        buildingRewards.put(Material.COBBLESTONE, new BuildingReward(0.3, 0.8, "丸石"));
-        buildingRewards.put(Material.STONE_BRICKS, new BuildingReward(1.0, 2.0, "石レンガ"));
+        // 基本建築材料（上方修正版）
+        buildingRewards.put(Material.STONE, new BuildingReward(2.0, 1.0, "石"));                     // 0.5→2.0 (+300%)
+        buildingRewards.put(Material.COBBLESTONE, new BuildingReward(1.5, 0.8, "丸石"));             // 0.3→1.5 (+400%)
+        buildingRewards.put(Material.STONE_BRICKS, new BuildingReward(3.0, 2.0, "石レンガ"));        // 1.0→3.0 (+200%)
         
-        // 木材系
-        buildingRewards.put(Material.OAK_PLANKS, new BuildingReward(0.8, 1.5, "オークの板材"));
-        buildingRewards.put(Material.BIRCH_PLANKS, new BuildingReward(0.8, 1.5, "シラカバの板材"));
-        buildingRewards.put(Material.SPRUCE_PLANKS, new BuildingReward(0.8, 1.5, "トウヒの板材"));
-        buildingRewards.put(Material.JUNGLE_PLANKS, new BuildingReward(1.0, 2.0, "ジャングルの板材"));
-        buildingRewards.put(Material.ACACIA_PLANKS, new BuildingReward(1.0, 2.0, "アカシアの板材"));
-        buildingRewards.put(Material.DARK_OAK_PLANKS, new BuildingReward(1.0, 2.0, "ダークオークの板材"));
+        // 木材系（上方修正版）
+        buildingRewards.put(Material.OAK_PLANKS, new BuildingReward(2.0, 1.5, "オークの板材"));      // 0.8→2.0 (+150%)
+        buildingRewards.put(Material.BIRCH_PLANKS, new BuildingReward(2.0, 1.5, "シラカバの板材"));  // 0.8→2.0 (+150%)
+        buildingRewards.put(Material.SPRUCE_PLANKS, new BuildingReward(2.0, 1.5, "トウヒの板材"));   // 0.8→2.0 (+150%)
+        buildingRewards.put(Material.JUNGLE_PLANKS, new BuildingReward(2.5, 2.0, "ジャングルの板材"));
+        buildingRewards.put(Material.ACACIA_PLANKS, new BuildingReward(2.5, 2.0, "アカシアの板材"));
+        buildingRewards.put(Material.DARK_OAK_PLANKS, new BuildingReward(2.5, 2.0, "ダークオークの板材"));
         
-        // レンガ系
-        buildingRewards.put(Material.BRICKS, new BuildingReward(2.0, 4.0, "レンガ"));
-        buildingRewards.put(Material.NETHER_BRICKS, new BuildingReward(3.0, 6.0, "ネザーレンガ"));
-        buildingRewards.put(Material.RED_NETHER_BRICKS, new BuildingReward(3.5, 7.0, "赤いネザーレンガ"));
+        // レンガ系（上方修正版）
+        buildingRewards.put(Material.BRICKS, new BuildingReward(5.0, 4.0, "レンガ"));                // 2.0→5.0 (+150%)
+        buildingRewards.put(Material.NETHER_BRICKS, new BuildingReward(7.0, 6.0, "ネザーレンガ"));   // 3.0→7.0 (+133%)
+        buildingRewards.put(Material.RED_NETHER_BRICKS, new BuildingReward(8.0, 7.0, "赤いネザーレンガ"));
         
-        // 高級建築材料
-        buildingRewards.put(Material.QUARTZ_BLOCK, new BuildingReward(5.0, 10.0, "クォーツブロック"));
-        buildingRewards.put(Material.CHISELED_QUARTZ_BLOCK, new BuildingReward(6.0, 12.0, "模様入りクォーツ"));
-        buildingRewards.put(Material.QUARTZ_PILLAR, new BuildingReward(6.0, 12.0, "クォーツの柱"));
+        // 高級建築材料（上方修正版）
+        buildingRewards.put(Material.QUARTZ_BLOCK, new BuildingReward(10.0, 10.0, "クォーツブロック"));        // 5.0→10.0 (+100%)
+        buildingRewards.put(Material.CHISELED_QUARTZ_BLOCK, new BuildingReward(12.0, 12.0, "模様入りクォーツ"));
+        buildingRewards.put(Material.QUARTZ_PILLAR, new BuildingReward(12.0, 12.0, "クォーツの柱"));
         
-        // 特殊ブロック
-        buildingRewards.put(Material.OBSIDIAN, new BuildingReward(10.0, 20.0, "黒曜石"));
-        buildingRewards.put(Material.END_STONE, new BuildingReward(8.0, 15.0, "エンドストーン"));
-        buildingRewards.put(Material.PURPUR_BLOCK, new BuildingReward(7.0, 14.0, "プルプァブロック"));
+        // 特殊ブロック（上方修正版）
+        buildingRewards.put(Material.OBSIDIAN, new BuildingReward(15.0, 20.0, "黒曜石"));            // 10.0→15.0 (+50%)
+        buildingRewards.put(Material.END_STONE, new BuildingReward(12.0, 15.0, "エンドストーン"));   // 8.0→12.0 (+50%)
+        buildingRewards.put(Material.PURPUR_BLOCK, new BuildingReward(12.0, 14.0, "プルプァブロック")); // 7.0→12.0 (+71%)
+        buildingRewards.put(Material.END_STONE_BRICKS, new BuildingReward(15.0, 16.0, "エンドストーンレンガ")); // 新規追加
+        buildingRewards.put(Material.PRISMARINE, new BuildingReward(10.0, 12.0, "プリズマリン"));    // 新規追加
+        buildingRewards.put(Material.PRISMARINE_BRICKS, new BuildingReward(12.0, 14.0, "プリズマリンレンガ")); // 新規追加
+        buildingRewards.put(Material.DARK_PRISMARINE, new BuildingReward(14.0, 16.0, "ダークプリズマリン")); // 新規追加
         
-        // 装飾ブロック
-        buildingRewards.put(Material.CHISELED_STONE_BRICKS, new BuildingReward(3.0, 6.0, "模様入り石レンガ"));
-        buildingRewards.put(Material.MOSSY_STONE_BRICKS, new BuildingReward(2.5, 5.0, "苔石レンガ"));
-        buildingRewards.put(Material.CRACKED_STONE_BRICKS, new BuildingReward(2.0, 4.0, "ひび入り石レンガ"));
+        // 装飾ブロック（上方修正版）
+        buildingRewards.put(Material.CHISELED_STONE_BRICKS, new BuildingReward(6.0, 6.0, "模様入り石レンガ"));
+        buildingRewards.put(Material.MOSSY_STONE_BRICKS, new BuildingReward(5.0, 5.0, "苔石レンガ"));
+        buildingRewards.put(Material.CRACKED_STONE_BRICKS, new BuildingReward(4.0, 4.0, "ひび入り石レンガ"));
         
-        // ガラス系
-        buildingRewards.put(Material.GLASS, new BuildingReward(1.5, 3.0, "ガラス"));
-        buildingRewards.put(Material.WHITE_STAINED_GLASS, new BuildingReward(2.0, 4.0, "白色のガラス"));
-        buildingRewards.put(Material.BLUE_STAINED_GLASS, new BuildingReward(2.0, 4.0, "青色のガラス"));
+        // ガラス系（上方修正版）
+        buildingRewards.put(Material.GLASS, new BuildingReward(3.0, 3.0, "ガラス"));                 // 1.5→3.0 (+100%)
+        buildingRewards.put(Material.WHITE_STAINED_GLASS, new BuildingReward(4.0, 4.0, "白色のガラス"));
+        buildingRewards.put(Material.BLUE_STAINED_GLASS, new BuildingReward(4.0, 4.0, "青色のガラス"));
         // 他の色ガラスも同様に設定...
         
-        // 1.16以降のブロック
-        buildingRewards.put(Material.BLACKSTONE, new BuildingReward(1.0, 2.0, "ブラックストーン"));
-        buildingRewards.put(Material.POLISHED_BLACKSTONE, new BuildingReward(2.0, 4.0, "磨かれたブラックストーン"));
-        buildingRewards.put(Material.CHISELED_POLISHED_BLACKSTONE, new BuildingReward(3.0, 6.0, "模様入り磨かれたブラックストーン"));
+        // 1.16以降のブロック（上方修正版）
+        buildingRewards.put(Material.BLACKSTONE, new BuildingReward(3.0, 2.0, "ブラックストーン"));
+        buildingRewards.put(Material.POLISHED_BLACKSTONE, new BuildingReward(5.0, 4.0, "磨かれたブラックストーン"));
+        buildingRewards.put(Material.CHISELED_POLISHED_BLACKSTONE, new BuildingReward(7.0, 6.0, "模様入り磨かれたブラックストーン"));
     }
     
     /**
@@ -134,7 +139,7 @@ public class BuildingEventHandler {
         Material material = block.getType();
         
         // 建築家の職業チェック
-        PlayerJob builderJob = jobManager.getPlayerJob(player, "builder");
+        PlayerJob builderJob = jobManager.getPlayerJob(player, "architect");
         if (builderJob == null || !builderJob.isActive()) {
             // 建築家でない場合は装飾ブロック制限をチェック
             if (decorativeBlocks.contains(material) && !hasDecorativePermission(player, material)) {
@@ -174,14 +179,25 @@ public class BuildingEventHandler {
         double finalExperience = reward.getExperience() * levelMultiplier;
         double finalIncome = reward.getIncome() * levelMultiplier;
         
+        // 高所設置ボーナス (+30%) - Y座標100以上
+        if (location.getY() >= 100) {
+            finalExperience *= 1.30;
+            finalIncome *= 1.30;
+        }
+        
         // 建築プロジェクトボーナスをチェック
         double projectBonus = checkBuildingProjectBonus(player, location, material);
         finalExperience *= projectBonus;
         finalIncome *= projectBonus;
         
-        // 非同期で経験値を付与（収入システムは無効化）
+        // 非同期で経験値と収入を付与
         String playerUUID = player.getUniqueId().toString();
-        asyncUpdater.updateJobExperience(playerUUID, "builder", finalExperience);
+        asyncUpdater.updateJobExperience(playerUUID, "architect", finalExperience);
+        
+        // 収入を銀行預金に加算
+        if (finalIncome > 0) {
+            asyncUpdater.updatePlayerBalance(playerUUID, finalIncome, "建築報酬: " + reward.getDisplayName());
+        }
         
         // 建築スキル発動チェック
         checkBuildingSkills(player, builderJob, material, location);
@@ -217,14 +233,16 @@ public class BuildingEventHandler {
         if (project.isRelatedBlock(location, material)) {
             project.addBlock(location, material);
             
-            // プロジェクト規模によるボーナス
+            // プロジェクト規模によるボーナス（閾値緩和版）
             int blockCount = project.getBlockCount();
             if (blockCount >= 100) {
                 return 2.0; // 大規模建築：100%ボーナス
             } else if (blockCount >= 50) {
                 return 1.5; // 中規模建築：50%ボーナス
-            } else if (blockCount >= 20) {
-                return 1.2; // 小規模建築：20%ボーナス
+            } else if (blockCount >= 25) {
+                return 1.3; // 小規模建築：30%ボーナス（新規追加）
+            } else if (blockCount >= 10) {  // 20→10に緩和
+                return 1.2; // 超小規模建築：20%ボーナス
             }
         } else {
             // 新しいプロジェクト開始

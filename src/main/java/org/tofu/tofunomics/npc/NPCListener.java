@@ -17,6 +17,7 @@ import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.tutorial.TutorialEventListener;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -151,6 +152,12 @@ public class NPCListener implements Listener {
         if (handled) {
             // 取引セッションを記録
             activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "banker"));
+
+            // チュートリアル進捗: ステップ3（銀行NPC）完了チェック
+            TutorialEventListener tutorialListener = plugin.getTutorialEventListener();
+            if (tutorialListener != null) {
+                tutorialListener.onBankNPCUsed(player);
+            }
         }
     }
     
@@ -166,6 +173,18 @@ public class NPCListener implements Listener {
         if (activeSession != null && activeSession.getNpcId().equals(npcId) && 
             activeSession.getSessionType().equals("trader")) {
             
+            // 営業時間チェックを追加（継続取引の前）
+            NPCManager.NPCData npcData = npcManager.getNPCData(npcId);
+            if (npcData != null) {
+                TradingNPCManager.TradingPost tradingPost = tradingNPCManager.getTradingPostByNPCId(npcId);
+                if (tradingPost != null && !tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+                    player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+                    // セッションをクリア
+                    activeTradingSessions.remove(player.getUniqueId());
+                    return;
+                }
+            }
+            
             // 継続取引：手持ちアイテムを売却処理
             processItemSaleFromInventory(player, npcId);
         } else {
@@ -173,6 +192,12 @@ public class NPCListener implements Listener {
             boolean handled = tradingNPCManager.handleTradingNPCInteraction(player, npcId);
             if (handled) {
                 activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "trader"));
+
+                // チュートリアル進捗: ステップ4（取引NPC）完了チェック
+                TutorialEventListener tutorialListener = plugin.getTutorialEventListener();
+                if (tutorialListener != null) {
+                    tutorialListener.onTradingNPCUsed(player);
+                }
             }
         }
     }
@@ -248,6 +273,16 @@ public class NPCListener implements Listener {
     }
     
     private void processItemSaleFromInventory(Player player, UUID npcId) {
+        // 営業時間チェックを追加（二重チェックとして）
+        NPCManager.NPCData npcData = npcManager.getNPCData(npcId);
+        if (npcData != null) {
+            TradingNPCManager.TradingPost tradingPost = tradingNPCManager.getTradingPostByNPCId(npcId);
+            if (tradingPost != null && !tradingNPCManager.isWithinTradingHours(player, tradingPost)) {
+                player.sendMessage(configManager.getMessage("npc.trading.outside_hours"));
+                return;
+            }
+        }
+
         List<ItemStack> sellableItems = new ArrayList<>();
         
         // プレイヤーのインベントリから売却可能アイテムを収集

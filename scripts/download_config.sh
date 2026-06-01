@@ -49,9 +49,9 @@ echo "  サーバー: ${SERVER_USER}@${SERVER_HOST}"
 echo "  リモートパス: ${SERVER_CONFIG_PATH}"
 echo "  ローカルパス: ${LOCAL_CONFIG_PATH}"
 
-# 既存ファイルがある場合はバックアップ
+# 既存ファイルがある場合はバックアップ（固定名で上書き）
 if [ -f "${PROJECT_ROOT}/${LOCAL_CONFIG_PATH}" ]; then
-    BACKUP_PATH="${PROJECT_ROOT}/${LOCAL_CONFIG_PATH}.backup.$(date +%Y%m%d_%H%M%S)"
+    BACKUP_PATH="${PROJECT_ROOT}/${LOCAL_CONFIG_PATH}.backup"
     echo -e "${YELLOW}既存ファイルをバックアップしています: ${BACKUP_PATH}${NC}"
     cp "${PROJECT_ROOT}/${LOCAL_CONFIG_PATH}" "${BACKUP_PATH}"
 fi

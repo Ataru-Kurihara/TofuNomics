@@ -57,18 +57,26 @@ public class CurrencyConverter {
         double bankAmount = convertNuggetsToBalance(nuggetAmount);
         
         org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());
+        boolean success;
         if (tofuPlayer == null) {
             tofuPlayer = new org.tofu.tofunomics.models.Player();
             tofuPlayer.setUuid(player.getUniqueId().toString());
             tofuPlayer.setBalance(0.0); // 現金は0
             tofuPlayer.setBankBalance(bankAmount); // 銀行預金に追加
-            return playerDAO.insertPlayer(tofuPlayer);
+            success = playerDAO.insertPlayer(tofuPlayer);
         } else {
             tofuPlayer.addBankBalance(bankAmount); // 銀行預金に追加
-            return playerDAO.updatePlayerData(tofuPlayer);
+            success = playerDAO.updatePlayerData(tofuPlayer);
         }
+        
+        // DB更新成功時、tohu-app APIに通知（入金額を送信）
+        if (success) {
+            notifyBankBalanceChange(player, bankAmount);
+        }
+
+        return success;
     }
-    
+
     public boolean depositAllGoldNuggets(Player player) {
         int availableNuggets = itemManager.countGoldNuggetsInInventory(player);
         return availableNuggets > 0 && depositGoldNuggets(player, availableNuggets);
@@ -109,7 +117,10 @@ public class CurrencyConverter {
             playerDAO.updatePlayerData(tofuPlayer);
             return WithdrawResult.INSUFFICIENT_INVENTORY_SPACE;
         }
-        
+
+        // tohu-app APIに預金残高を通知（出金額を負の値で送信）
+        notifyBankBalanceChange(player, -exactAmount);
+
         return WithdrawResult.SUCCESS;
     }
     
@@ -222,24 +233,44 @@ public class CurrencyConverter {
         
         double newBalance = tofuPlayer.getBankBalance() + amount;
         tofuPlayer.setBankBalance(newBalance);
-        return playerDAO.updatePlayerData(tofuPlayer);
+        boolean success = playerDAO.updatePlayerData(tofuPlayer);
+        
+        // DB更新成功時、プレイヤーがオンラインならtohu-app APIに通知（入金額を送信）
+        if (success) {
+            Player onlinePlayer = org.bukkit.Bukkit.getPlayer(uuid);
+            if (onlinePlayer != null && onlinePlayer.isOnline()) {
+                notifyBankBalanceChange(onlinePlayer, amount);
+            }
+        }
+
+        return success;
     }
-    
+
     public boolean subtractBalance(java.util.UUID uuid, double amount) {
         if (amount <= 0) {
             return false;
         }
-        
+
         org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid.toString());
         if (tofuPlayer == null || tofuPlayer.getBankBalance() < amount) {
             return false;
         }
-        
+
         double newBalance = tofuPlayer.getBankBalance() - amount;
         tofuPlayer.setBankBalance(newBalance);
-        return playerDAO.updatePlayerData(tofuPlayer);
+        boolean success = playerDAO.updatePlayerData(tofuPlayer);
+
+        // tohu-app APIに預金残高を通知（出金額を負の値で送信）
+        if (success) {
+            org.bukkit.entity.Player player = org.bukkit.Bukkit.getPlayer(uuid);
+            if (player != null) {
+                notifyBankBalanceChange(player, -amount);
+            }
+        }
+
+        return success;
     }
-    
+
     // 所持金での支払い処理（金塊をインベントリから削除）
     public boolean payWithCash(Player player, double amount) {
         if (amount <= 0) {
@@ -310,5 +341,25 @@ public class CurrencyConverter {
         
         int requiredNuggets = convertBalanceToNuggets(amount);
         return hasEnoughGoldNuggets(player, requiredNuggets);
+    }
+    
+    /**
+     * 預金残高の変化量をtohu-app APIに通知するヘルパーメソッド（差分送信方式）
+     *
+     * @param player 入出金したプレイヤー
+     * @param changeAmount 変化量（入金時は正、出金時は負）
+     */
+    private void notifyBankBalanceChange(Player player, double changeAmount) {
+        try {
+            org.tofu.tofunomics.TofuNomics plugin = org.tofu.tofunomics.TofuNomics.getInstance();
+            if (plugin != null && plugin.getBankBalanceUpdateNotifier() != null) {
+                plugin.getBankBalanceUpdateNotifier().notifyBankBalanceChange(player, changeAmount);
+            }
+        } catch (Exception e) {
+            // 通知失敗は入出金処理に影響させない
+            org.bukkit.Bukkit.getLogger().warning(
+                "[CurrencyConverter] 預金残高通知に失敗しました: " + e.getMessage()
+            );
+        }
     }
 }

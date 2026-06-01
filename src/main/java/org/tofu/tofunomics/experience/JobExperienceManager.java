@@ -21,6 +21,8 @@ import org.tofu.tofunomics.jobs.ExperienceManager;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.tools.JobToolManager;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.tutorial.TutorialEventListener;
 
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +39,7 @@ public class JobExperienceManager implements Listener {
     private final JobManager jobManager;
     private final JobToolManager jobToolManager;
     private final ExperienceManager experienceManager;
+    private final org.tofu.tofunomics.events.AsyncEventUpdater asyncUpdater;
     
     // 経験値テーブル
     private final Map<Material, Double> miningExperience;
@@ -50,13 +53,15 @@ public class JobExperienceManager implements Listener {
     
     public JobExperienceManager(ConfigManager configManager, PlayerJobDAO playerJobDAO, 
                                JobDAO jobDAO, JobManager jobManager, JobToolManager jobToolManager,
-                               ExperienceManager experienceManager) {
+                               ExperienceManager experienceManager,
+                               org.tofu.tofunomics.events.AsyncEventUpdater asyncUpdater) {
         this.configManager = configManager;
         this.playerJobDAO = playerJobDAO;
         this.jobDAO = jobDAO;
         this.jobManager = jobManager;
         this.jobToolManager = jobToolManager;
         this.experienceManager = experienceManager;
+        this.asyncUpdater = asyncUpdater;
         
         this.miningExperience = new HashMap<>();
         this.loggingExperience = new HashMap<>();
@@ -72,10 +77,10 @@ public class JobExperienceManager implements Listener {
     
     private void initializeExperienceTables() {
         // 採掘経験値テーブル
-        miningExperience.put(Material.COAL_ORE, 2.0);
+        miningExperience.put(Material.COAL_ORE, 2.5);
         miningExperience.put(Material.IRON_ORE, 5.0);
         miningExperience.put(Material.GOLD_ORE, 8.0);
-        miningExperience.put(Material.DIAMOND_ORE, 25.0);
+        miningExperience.put(Material.DIAMOND_ORE, 20.0);
         miningExperience.put(Material.EMERALD_ORE, 20.0);
         miningExperience.put(Material.LAPIS_ORE, 4.0);
         miningExperience.put(Material.REDSTONE_ORE, 3.0);
@@ -86,63 +91,85 @@ public class JobExperienceManager implements Listener {
         // COBBLESTONE: 経験値なし（設置→採掘での無限経験値防止）
         
         // 伐採経験値テーブル
-        loggingExperience.put(Material.OAK_LOG, 2.0);
-        loggingExperience.put(Material.BIRCH_LOG, 2.0);
-        loggingExperience.put(Material.SPRUCE_LOG, 2.0);
-        loggingExperience.put(Material.JUNGLE_LOG, 3.0);
-        loggingExperience.put(Material.ACACIA_LOG, 3.0);
-        loggingExperience.put(Material.DARK_OAK_LOG, 3.0);
-        loggingExperience.put(Material.WARPED_STEM, 4.0);
-        loggingExperience.put(Material.CRIMSON_STEM, 4.0);
+        loggingExperience.put(Material.OAK_LOG, 3.0);
+        loggingExperience.put(Material.BIRCH_LOG, 3.0);
+        loggingExperience.put(Material.SPRUCE_LOG, 3.0);
+        loggingExperience.put(Material.JUNGLE_LOG, 4.0);
+        loggingExperience.put(Material.ACACIA_LOG, 4.0);
+        loggingExperience.put(Material.DARK_OAK_LOG, 4.0);
+        loggingExperience.put(Material.WARPED_STEM, 5.0);
+        loggingExperience.put(Material.CRIMSON_STEM, 5.0);
         
         // 農業経験値テーブル
-        farmingExperience.put(Material.WHEAT, 1.5);
-        farmingExperience.put(Material.POTATO, 1.2);
-        farmingExperience.put(Material.CARROT, 1.2);
-        farmingExperience.put(Material.BEETROOT, 2.0);
-        farmingExperience.put(Material.PUMPKIN, 3.0);
-        farmingExperience.put(Material.MELON, 2.5);
-        farmingExperience.put(Material.SUGAR_CANE, 1.0);
-        farmingExperience.put(Material.COCOA_BEANS, 2.5);
-        farmingExperience.put(Material.NETHER_WART, 3.0);
+        farmingExperience.put(Material.WHEAT, 3.0);
+        farmingExperience.put(Material.POTATO, 2.5);
+        farmingExperience.put(Material.CARROT, 2.5);
+        farmingExperience.put(Material.BEETROOT, 3.0);
+        farmingExperience.put(Material.PUMPKIN, 3.5);
+        farmingExperience.put(Material.MELON, 3.0);
+        farmingExperience.put(Material.SUGAR_CANE, 2.0);
+        farmingExperience.put(Material.COCOA_BEANS, 3.0);
+        farmingExperience.put(Material.NETHER_WART, 3.5);
         
-        // 釣り経験値テーブル
-        fishingExperience.put(PlayerFishEvent.State.CAUGHT_FISH, 5.0);
-        fishingExperience.put(PlayerFishEvent.State.CAUGHT_ENTITY, 8.0);
-        fishingExperience.put(PlayerFishEvent.State.IN_GROUND, 1.0);
+        // 釣り経験値テーブル（上方修正版）
+        fishingExperience.put(PlayerFishEvent.State.CAUGHT_FISH, 10.0);      // 5.0 → 10.0 (+100%)
+        fishingExperience.put(PlayerFishEvent.State.CAUGHT_ENTITY, 15.0);    // 8.0 → 15.0 (+88%)
+        fishingExperience.put(PlayerFishEvent.State.IN_GROUND, 2.0);         // 1.0 → 2.0 (+100%)
         
-        // 製作経験値テーブル（鍛冶屋）
-        craftingExperience.put(Material.IRON_INGOT, 3.0);
-        craftingExperience.put(Material.GOLD_INGOT, 5.0);
-        craftingExperience.put(Material.IRON_SWORD, 8.0);
-        craftingExperience.put(Material.IRON_PICKAXE, 10.0);
-        craftingExperience.put(Material.IRON_AXE, 10.0);
-        craftingExperience.put(Material.IRON_SHOVEL, 6.0);
-        craftingExperience.put(Material.DIAMOND_SWORD, 20.0);
-        craftingExperience.put(Material.DIAMOND_PICKAXE, 25.0);
-        craftingExperience.put(Material.DIAMOND_AXE, 25.0);
-        craftingExperience.put(Material.NETHERITE_INGOT, 50.0);
+        // 製作経験値テーブル（鍛冶屋）- 上方修正版
+        craftingExperience.put(Material.IRON_INGOT, 5.0);           // 3.0 → 5.0 (+67%)
+        craftingExperience.put(Material.GOLD_INGOT, 8.0);           // 5.0 → 8.0 (+60%)
+        craftingExperience.put(Material.IRON_SWORD, 12.0);          // 8.0 → 12.0 (+50%)
+        craftingExperience.put(Material.IRON_PICKAXE, 15.0);        // 10.0 → 15.0 (+50%)
+        craftingExperience.put(Material.IRON_AXE, 15.0);            // 10.0 → 15.0 (+50%)
+        craftingExperience.put(Material.IRON_SHOVEL, 9.0);          // 6.0 → 9.0 (+50%)
+        craftingExperience.put(Material.DIAMOND_SWORD, 30.0);       // 20.0 → 30.0 (+50%)
+        craftingExperience.put(Material.DIAMOND_PICKAXE, 35.0);     // 25.0 → 35.0 (+40%)
+        craftingExperience.put(Material.DIAMOND_AXE, 35.0);         // 25.0 → 35.0 (+40%)
+        craftingExperience.put(Material.NETHERITE_INGOT, 75.0);     // 50.0 → 75.0 (+50%)
+        // 新規追加：防具カテゴリ
+        craftingExperience.put(Material.IRON_HELMET, 10.0);
+        craftingExperience.put(Material.IRON_CHESTPLATE, 10.0);
+        craftingExperience.put(Material.IRON_LEGGINGS, 10.0);
+        craftingExperience.put(Material.IRON_BOOTS, 10.0);
+        craftingExperience.put(Material.DIAMOND_HELMET, 25.0);
+        craftingExperience.put(Material.DIAMOND_CHESTPLATE, 25.0);
+        craftingExperience.put(Material.DIAMOND_LEGGINGS, 25.0);
+        craftingExperience.put(Material.DIAMOND_BOOTS, 25.0);
+        // 新規追加：その他装備・素材
+        craftingExperience.put(Material.SHIELD, 8.0);
+        craftingExperience.put(Material.GOLDEN_APPLE, 15.0);
+        craftingExperience.put(Material.IRON_BLOCK, 5.0);
         
-        // 醸造経験値テーブル
-        brewingExperience.put(Material.POTION, 5.0);
-        brewingExperience.put(Material.SPLASH_POTION, 8.0);
-        brewingExperience.put(Material.LINGERING_POTION, 12.0);
+        // 醸造経験値テーブル（上方修正版）
+        brewingExperience.put(Material.POTION, 10.0);               // 5.0 → 10.0 (+100%)
+        brewingExperience.put(Material.SPLASH_POTION, 15.0);        // 8.0 → 15.0 (+88%)
+        brewingExperience.put(Material.LINGERING_POTION, 22.0);     // 12.0 → 22.0 (+83%)
         
-        // エンチャント経験値テーブル（エンチャントレベル別）
-        enchantingExperience.put(1, 10.0);
-        enchantingExperience.put(2, 15.0);
-        enchantingExperience.put(3, 25.0);
-        enchantingExperience.put(4, 35.0);
-        enchantingExperience.put(5, 50.0);
+        // エンチャント経験値テーブル（エンチャントレベル別）- 上方修正版
+        enchantingExperience.put(1, 15.0);      // 10.0 → 15.0 (+50%)
+        enchantingExperience.put(2, 25.0);      // 15.0 → 25.0 (+67%)
+        enchantingExperience.put(3, 40.0);      // 25.0 → 40.0 (+60%)
+        enchantingExperience.put(4, 55.0);      // 35.0 → 55.0 (+57%)
+        enchantingExperience.put(5, 75.0);      // 50.0 → 75.0 (+50%)
         
-        // 建築経験値テーブル
-        buildingExperience.put(Material.STONE, 0.2);
-        buildingExperience.put(Material.COBBLESTONE, 0.1);
-        buildingExperience.put(Material.STONE_BRICKS, 0.5);
-        buildingExperience.put(Material.QUARTZ_BLOCK, 1.0);
-        buildingExperience.put(Material.PRISMARINE, 1.5);
-        buildingExperience.put(Material.PURPUR_BLOCK, 2.0);
-        buildingExperience.put(Material.END_STONE_BRICKS, 2.5);
+        // 建築経験値テーブル（上方修正版）
+        buildingExperience.put(Material.STONE, 0.8);                // 0.2 → 0.8 (+300%)
+        buildingExperience.put(Material.COBBLESTONE, 0.5);          // 0.1 → 0.5 (+400%)
+        buildingExperience.put(Material.STONE_BRICKS, 1.5);         // 0.5 → 1.5 (+200%)
+        buildingExperience.put(Material.QUARTZ_BLOCK, 3.0);         // 1.0 → 3.0 (+200%)
+        buildingExperience.put(Material.PRISMARINE, 4.0);           // 1.5 → 4.0 (+167%)
+        buildingExperience.put(Material.PURPUR_BLOCK, 5.0);         // 2.0 → 5.0 (+150%)
+        buildingExperience.put(Material.END_STONE_BRICKS, 6.0);     // 2.5 → 6.0 (+140%)
+        // 新規追加：板材・レンガ・ガラス
+        buildingExperience.put(Material.OAK_PLANKS, 0.6);
+        buildingExperience.put(Material.BIRCH_PLANKS, 0.6);
+        buildingExperience.put(Material.SPRUCE_PLANKS, 0.6);
+        buildingExperience.put(Material.JUNGLE_PLANKS, 0.6);
+        buildingExperience.put(Material.ACACIA_PLANKS, 0.6);
+        buildingExperience.put(Material.DARK_OAK_PLANKS, 0.6);
+        buildingExperience.put(Material.BRICKS, 2.0);
+        buildingExperience.put(Material.GLASS, 1.0);
     }
     
     @EventHandler
@@ -179,9 +206,52 @@ public class JobExperienceManager implements Listener {
             
             Player player = event.getPlayer();
             if (jobManager.hasJob(player, "fisherman")) {
-                double baseExp = fishingExperience.getOrDefault(event.getState(), 5.0);
+                double baseExp = fishingExperience.getOrDefault(event.getState(), 10.0);
+                
+                // 基本収入（魚自体はNPCで売却可能。直接収入は釣りの待機時間に対する最低保証）
+                double baseIncome = 1.0;  // 通常魚の直接収入
+                boolean isTreasure = false;
+
+                // 宝物釣りボーナス（エンチャント本、鞍、名札など）
+                if (event.getCaught() != null && event.getCaught() instanceof org.bukkit.entity.Item) {
+                    org.bukkit.entity.Item item = (org.bukkit.entity.Item) event.getCaught();
+                    Material itemType = item.getItemStack().getType();
+                    if (itemType == Material.ENCHANTED_BOOK || itemType == Material.SADDLE ||
+                        itemType == Material.NAME_TAG || itemType == Material.NAUTILUS_SHELL ||
+                        itemType == Material.BOW || itemType.name().contains("FISHING_ROD")) {
+                        baseExp += 15.0;  // 宝物釣りボーナス +15exp
+                        baseIncome = 5.0;  // 宝物収入（宝物自体の売却が主収入）
+                        isTreasure = true;
+                        player.sendMessage("§e§l[釣り] §6宝物ボーナス! §e+15経験値 §6+5金塊");
+                    }
+                }
+
+                // エンティティ釣りボーナス
+                if (event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY && !isTreasure) {
+                    baseIncome = 1.5;  // エンティティを釣った場合
+                }
+
+                // 雨天ボーナス（経験値のみ +20%。収入には適用しない）
+                if (player.getWorld().hasStorm()) {
+                    baseExp *= 1.20;
+                }
+
+                // 深夜ボーナス（経験値のみ +15%。収入には適用しない）- 13000-23000 tick
+                long time = player.getWorld().getTime();
+                if (time >= 13000 && time <= 23000) {
+                    baseExp *= 1.15;
+                }
+                
                 double multipliedExp = applyJobMultiplier(player, "fisherman", baseExp);
                 giveJobExperience(player, "fisherman", multipliedExp);
+                
+                // 収入を銀行預金に加算
+                if (asyncUpdater != null && baseIncome > 0) {
+                    asyncUpdater.updatePlayerBalance(player.getUniqueId().toString(), baseIncome, "釣り人報酬");
+                    if (!isTreasure) {
+                        player.sendMessage("§e§l[釣り] §a+" + String.format("%.1f", multipliedExp) + "経験値 §6+" + String.format("%.1f", baseIncome) + "金塊");
+                    }
+                }
             }
         }
     }
@@ -259,8 +329,14 @@ public class JobExperienceManager implements Listener {
         
         // 経験値獲得メッセージ（5経験値以上の場合のみ表示）
         if (experience >= 5.0) {
-            player.sendMessage(ChatColor.GREEN + String.format("+ %.1f %s経験値", 
+            player.sendMessage(ChatColor.GREEN + String.format("+ %.1f %s経験値",
                 experience, configManager.getJobDisplayName(jobName)));
+        }
+
+        // チュートリアル進捗: ステップ2（初収入）完了チェック
+        TutorialEventListener tutorialListener = TofuNomics.getInstance().getTutorialEventListener();
+        if (tutorialListener != null) {
+            tutorialListener.onFirstIncome(player);
         }
     }
     
@@ -296,8 +372,10 @@ public class JobExperienceManager implements Listener {
         PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
         if (playerJob == null) return baseExperience;
         
-        // レベルが高いほど経験値獲得効率が下がる（現実的な成長曲線）
-        double levelPenalty = Math.max(0.1, 1.0 - (playerJob.getLevel() * 0.01));
+        // レベルが高いほど経験値獲得効率が下がる（config.yml の leveling.experience.level_penalty）
+        double penaltyFactor = configManager.getLevelPenaltyFactor();
+        double penaltyMinimum = configManager.getLevelPenaltyMinimum();
+        double levelPenalty = Math.max(penaltyMinimum, 1.0 - (playerJob.getLevel() * penaltyFactor));
         
         // 設定ファイルの経験値倍率を適用
         Job job = jobDAO.getJobByNameSafe(jobName);

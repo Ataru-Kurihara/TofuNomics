@@ -19,6 +19,8 @@ import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.scoreboard.ScoreboardManager;
 import org.tofu.tofunomics.inventory.PlayerInventoryManager;
 import org.tofu.tofunomics.rules.RulesManager;
+import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.tutorial.TutorialManager;
 
 import java.util.List;
 import java.util.Map;
@@ -249,12 +251,15 @@ public class PlayerJoinHandler implements Listener {
                 // 新規プレイヤーの場合
                 createNewPlayer(player);
                 logger.info("新規プレイヤーを登録しました: " + player.getName());
-                
+
                 // ルール確認システムは外部サイトURL方式に変更（GUI廃止）
                 // 新規プレイヤーにはウェルカムメッセージで /rules コマンドを案内
-                
+
                 // 新規プレイヤーメッセージを表示するフラグを設定
                 scheduleNewPlayerMessages(player);
+
+                // チュートリアル自動開始をスケジュール
+                scheduleTutorialStart(player);
             } else {
                 // 既存プレイヤーの場合
                 // ルール確認システムは外部サイトURL方式に変更（GUI廃止）
@@ -359,7 +364,24 @@ public class PlayerJoinHandler implements Listener {
         WelcomeBackMessageTask welcomeBackTask = new WelcomeBackMessageTask(player);
         welcomeBackTask.runTaskLater(plugin, 100L); // 5秒後に表示
     }
-    
+
+    /**
+     * チュートリアル自動開始のスケジュール
+     */
+    private void scheduleTutorialStart(Player player) {
+        TutorialManager tutorialManager = TofuNomics.getInstance().getTutorialManager();
+        if (tutorialManager == null || !tutorialManager.isAutoStartEnabled()) {
+            return;
+        }
+
+        int delaySeconds = tutorialManager.getStartDelaySeconds();
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline()) {
+                tutorialManager.startTutorial(player);
+            }
+        }, delaySeconds * 20L);
+    }
+
     /**
      * ウェルカムメッセージの表示
      */
@@ -454,9 +476,11 @@ public class PlayerJoinHandler implements Listener {
             int x = configManager.getSpawnX();
             int y = configManager.getSpawnY();
             int z = configManager.getSpawnZ();
+            float yaw = configManager.getSpawnYaw();
+            float pitch = configManager.getSpawnPitch();
             int delay = configManager.getSpawnTeleportDelay();
             
-            logger.info("スポーン座標設定 - ワールド: " + worldName + ", 座標: (" + x + ", " + y + ", " + z + "), 遅延: " + delay + " tick");
+            logger.info("スポーン座標設定 - ワールド: " + worldName + ", 座標: (" + x + ", " + y + ", " + z + "), 向き: (yaw=" + yaw + ", pitch=" + pitch + "), 遅延: " + delay + " tick");
             
             // ワールドを取得
             World world = Bukkit.getWorld(worldName);
@@ -465,11 +489,11 @@ public class PlayerJoinHandler implements Listener {
                 return;
             }
             
-            // スポーン座標を作成
-            Location spawnLocation = new Location(world, x + 0.5, y, z + 0.5);
+            // スポーン座標を作成（向きも設定）
+            Location spawnLocation = new Location(world, x + 0.5, y, z + 0.5, yaw, pitch);
             
             // 遅延付きでテレポート実行
-            SpawnTeleportTask teleportTask = new SpawnTeleportTask(player, spawnLocation, x, y, z, worldName);
+            SpawnTeleportTask teleportTask = new SpawnTeleportTask(player, spawnLocation, x, y, z, yaw, pitch, worldName);
             teleportTask.runTaskLater(plugin, delay);
             
         } catch (Exception e) {
@@ -662,14 +686,17 @@ public class PlayerJoinHandler implements Listener {
         private final Player player;
         private final Location spawnLocation;
         private final int x, y, z;
+        private final float yaw, pitch;
         private final String worldName;
         
-        public SpawnTeleportTask(Player player, Location spawnLocation, int x, int y, int z, String worldName) {
+        public SpawnTeleportTask(Player player, Location spawnLocation, int x, int y, int z, float yaw, float pitch, String worldName) {
             this.player = player;
             this.spawnLocation = spawnLocation;
             this.x = x;
             this.y = y;
             this.z = z;
+            this.yaw = yaw;
+            this.pitch = pitch;
             this.worldName = worldName;
         }
         
@@ -678,7 +705,7 @@ public class PlayerJoinHandler implements Listener {
             if (player.isOnline()) {
                 player.teleport(spawnLocation);
                 logger.info("プレイヤー " + player.getName() + " をスポーン座標にテレポートしました: " + 
-                          x + ", " + y + ", " + z + " (" + worldName + ")");
+                          x + ", " + y + ", " + z + " (yaw=" + yaw + ", pitch=" + pitch + ") (" + worldName + ")");
             }
         }
     }
