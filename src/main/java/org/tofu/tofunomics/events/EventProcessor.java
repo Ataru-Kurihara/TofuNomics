@@ -29,6 +29,9 @@ public class EventProcessor {
     
     // 除外ワールドのキャッシュ
     private final Set<String> excludedWorlds;
+
+    // 経済機能を有効にするワールド（ホワイトリスト）のキャッシュ
+    private final Set<String> enabledWorlds;
     
     // 除外ゲームモード
     private final Set<GameMode> excludedGameModes;
@@ -37,8 +40,9 @@ public class EventProcessor {
         this.configManager = configManager;
         this.jobManager = jobManager;
         this.excludedWorlds = new HashSet<>();
+        this.enabledWorlds = new HashSet<>();
         this.excludedGameModes = new HashSet<>();
-        
+
         initializeExclusions();
     }
     
@@ -51,7 +55,13 @@ public class EventProcessor {
         if (worlds != null) {
             excludedWorlds.addAll(worlds);
         }
-        
+
+        // 経済機能を有効にするワールド（ホワイトリスト）の設定
+        List<String> economyWorlds = configManager.getEconomyEnabledWorlds();
+        if (economyWorlds != null) {
+            enabledWorlds.addAll(economyWorlds);
+        }
+
         // 除外ゲームモードの設定
         excludedGameModes.add(GameMode.CREATIVE);
         excludedGameModes.add(GameMode.SPECTATOR);
@@ -168,10 +178,17 @@ public class EventProcessor {
         }
         
         String worldName = world.getName();
+        // 除外ワールドはスキップ
         if (excludedWorlds.contains(worldName)) {
             return false;
         }
-        
+
+        // 経済機能を有効にするワールドのホワイトリストチェック
+        // （リストが空の場合は全ワールドで有効：後方互換）
+        if (!enabledWorlds.isEmpty() && !enabledWorlds.contains(worldName)) {
+            return false;
+        }
+
         return true;
     }
     

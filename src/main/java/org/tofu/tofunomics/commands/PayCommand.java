@@ -32,6 +32,10 @@ public class PayCommand implements CommandExecutor {
         }
         
         Player fromPlayer = (Player) sender;
+        if (!configManager.isEconomyEnabledInWorld(fromPlayer.getWorld().getName())) {
+            sender.sendMessage(ChatColor.RED + "このワールドではTofuNomicsの経済機能を利用できません。");
+            return true;
+        }
         String targetPlayerName = args[0];
         String amountString = args[1];
         

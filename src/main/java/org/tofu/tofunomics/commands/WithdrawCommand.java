@@ -35,7 +35,13 @@ public class WithdrawCommand implements CommandExecutor {
         }
         
         Player player = (Player) sender;
-        
+
+        // ワールド制限チェック
+        if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
+            player.sendMessage(ChatColor.RED + "このワールドではTofuNomicsの経済機能を利用できません。");
+            return true;
+        }
+
         // 場所制限チェック
         if (!bankLocationManager.isPlayerNearBankOrAtm(player)) {
             String deniedMessage = bankLocationManager.getLocationDeniedMessage(player);

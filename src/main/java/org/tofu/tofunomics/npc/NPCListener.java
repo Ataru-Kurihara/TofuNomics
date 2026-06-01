@@ -85,7 +85,12 @@ public class NPCListener implements Listener {
         plugin.getLogger().info("NPCがクリックされました: " + npcId + " by プレイヤー: " + player.getName());
         
         event.setCancelled(true); // デフォルトの村人取引を無効化
-        
+
+        // ワールド制限チェック（経済機能が無効なワールドではNPC機能を提供しない）
+        if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
+            return;
+        }
+
         try {
             NPCManager.NPCData npcData = npcManager.getNPCData(npcId);
             if (npcData == null) {

@@ -429,6 +429,25 @@ public class ConfigManager {
     public java.util.List<String> getExcludedWorlds() {
         return config.getStringList("events.excluded_worlds");
     }
+
+    /**
+     * 経済機能を有効にするワールド一覧を取得（ホワイトリスト）
+     */
+    public java.util.List<String> getEconomyEnabledWorlds() {
+        return config.getStringList("economy.enabled_worlds");
+    }
+
+    /**
+     * 指定されたワールドでTofuNomicsの経済機能が有効かどうか
+     * 設定リストが空の場合は全ワールドで有効（後方互換）
+     */
+    public boolean isEconomyEnabledInWorld(String worldName) {
+        java.util.List<String> enabledWorlds = getEconomyEnabledWorlds();
+        if (enabledWorlds == null || enabledWorlds.isEmpty()) {
+            return true;
+        }
+        return enabledWorlds.contains(worldName);
+    }
     
     public java.util.List<String> getExcludedGameModes() {
         return config.getStringList("events.excluded_game_modes");
