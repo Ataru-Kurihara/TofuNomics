@@ -1312,6 +1312,10 @@ public final class TofuNomics extends JavaPlugin {
             // 既存のオンラインプレイヤーに対してルール同意チェック
             getServer().getScheduler().runTaskLater(this, () -> {
                 for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
+                    // 対象ワールド外（tofunomics系以外）のプレイヤーはルール同意システムの対象外
+                    if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
+                        continue;
+                    }
                     boolean hasAgreed = rulesManager.hasAgreedToRules(player.getUniqueId());
                     if (!hasAgreed) {
                         getLogger().info("オンラインプレイヤー " + player.getName() + " はルール未同意です");

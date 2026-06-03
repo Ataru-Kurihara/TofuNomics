@@ -272,6 +272,15 @@ public class RulesManager implements Listener {
     public boolean isUnagreed(UUID uuid) {
         return unagreedPlayers.contains(uuid);
     }
+
+    /**
+     * 現在のワールドでルール制限を適用すべきか確認
+     * economy.enabled_worlds（ワールド制限ホワイトリスト）に従い、
+     * 対象ワールド外（tofunomics系以外）ではルール同意システムを動作させない
+     */
+    private boolean isRulesEnabledInWorld(Player player) {
+        return configManager.isEconomyEnabledInWorld(player.getWorld().getName());
+    }
     
     // ========== イベントハンドラ：未同意プレイヤーの行動制限 ==========
     
@@ -281,8 +290,8 @@ public class RulesManager implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        
-        if (isUnagreed(player.getUniqueId())) {
+
+        if (isUnagreed(player.getUniqueId()) && isRulesEnabledInWorld(player)) {
             // 移動先と移動元が異なるブロックの場合のみキャンセル
             if (event.getFrom().getBlockX() != event.getTo().getBlockX() ||
                 event.getFrom().getBlockY() != event.getTo().getBlockY() ||
@@ -300,12 +309,12 @@ public class RulesManager implements Listener {
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         
-        if (isUnagreed(player.getUniqueId())) {
+        if (isUnagreed(player.getUniqueId()) && isRulesEnabledInWorld(player)) {
             event.setCancelled(true);
             player.sendMessage(configManager.getMessage("rules.action_blocked"));
         }
     }
-    
+
     /**
      * ブロック設置制限
      */
@@ -313,20 +322,20 @@ public class RulesManager implements Listener {
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
         
-        if (isUnagreed(player.getUniqueId())) {
+        if (isUnagreed(player.getUniqueId()) && isRulesEnabledInWorld(player)) {
             event.setCancelled(true);
             player.sendMessage(configManager.getMessage("rules.action_blocked"));
         }
     }
-    
+
     /**
      * アイテム使用制限
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        
-        if (isUnagreed(player.getUniqueId())) {
+
+        if (isUnagreed(player.getUniqueId()) && isRulesEnabledInWorld(player)) {
             // ルールブック使用は許可（右クリックでGUI開く）
             ItemStack item = event.getItem();
             if (item != null && item.getType() == Material.WRITTEN_BOOK) {
@@ -355,8 +364,8 @@ public class RulesManager implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
-        
-        if (isUnagreed(player.getUniqueId())) {
+
+        if (isUnagreed(player.getUniqueId()) && isRulesEnabledInWorld(player)) {
             String command = event.getMessage().toLowerCase();
             
             // /rules コマンドは許可
