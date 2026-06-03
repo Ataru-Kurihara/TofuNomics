@@ -69,8 +69,20 @@ public class ScoreboardManager implements Listener {
      */
     public void disableScoreboard(Player player) {
         scoreboardEnabled.put(player.getUniqueId(), false);
-        // メインスコアボードに戻す代わりにヒントスコアボードを表示
+        // 対象ワールド外ではTofuNomicsのスコアボードを一切表示しない（ヒントも含めてクリア）
+        if (!isScoreboardEnabledInCurrentWorld(player)) {
+            clearScoreboard(player);
+            return;
+        }
+        // 対象ワールド内でユーザーが手動で非表示にした場合のみヒントスコアボードを表示
         showHintScoreboard(player);
+    }
+
+    /**
+     * プレイヤーのスコアボードをメインスコアボードに戻す（サイドバー表示を消す）
+     */
+    private void clearScoreboard(Player player) {
+        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
     /**
