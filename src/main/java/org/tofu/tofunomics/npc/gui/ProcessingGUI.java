@@ -271,7 +271,7 @@ public class ProcessingGUI implements Listener {
             buttonMaterial = Material.LIME_DYE;
             buttonName = "§a全ての原木を加工する";
             buttonLore.add("§f加工する原木: §e" + totalLogs + "個");
-            buttonLore.add("§f受け取る板材: §a" + (totalLogs * 4) + "個");
+            buttonLore.add("§f受け取る板材: §a" + (totalLogs * processingNPCManager.getPlanksPerLog()) + "個");
             if (totalFee > 0) {
                 buttonLore.add("§f加工料金: §e" + String.format("%.0f", totalFee) + "G");
             } else {
@@ -311,7 +311,7 @@ public class ProcessingGUI implements Listener {
         
         lore.add("§f所持数: §e" + amount + "個");
         lore.add("§7↓");
-        lore.add("§f板材: §a" + (amount * 4) + "個");
+        lore.add("§f板材: §a" + (amount * processingNPCManager.getPlanksPerLog()) + "個");
         
         boolean isWoodcutter = isWoodcutter(player);
         double feePerLog = isWoodcutter ? 

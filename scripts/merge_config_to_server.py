@@ -19,7 +19,11 @@
   python3 scripts/merge_config_to_server.py \
       src/main/resources/config.yml src/main/resources/server_config.yml [--dry-run]
 """
+import os
 import sys
+
+# どのカレントディレクトリから実行してもbulkスクリプトをimportできるようにする
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     import yaml

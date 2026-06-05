@@ -643,9 +643,17 @@ public class ProcessingNPCManager {
      * 加工NPCをリロード
      */
     public void reloadProcessingNPCs() {
+        initializeLogToPlanksMapping(); // config再読込でwood_types/planks_per_logを反映
         removeProcessingNPCs();
         spawnProcessingNPCs();
         plugin.getLogger().info("加工NPCのリロードが完了しました");
+    }
+
+    /**
+     * 原木1個あたりの板材産出数を取得（GUI表示用）
+     */
+    public int getPlanksPerLog() {
+        return planksPerLog;
     }
 
     
