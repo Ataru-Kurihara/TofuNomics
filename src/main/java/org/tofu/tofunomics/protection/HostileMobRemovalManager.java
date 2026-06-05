@@ -155,7 +155,6 @@ public class HostileMobRemovalManager {
 
         } catch (Exception e) {
             logger.severe("モブスキャン中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 

@@ -129,48 +129,30 @@ public class JobBlockPermissionManager {
      * @return 採掘可能な場合true
      */
     public boolean canPlayerBreakBlock(Player player, Material blockType) {
-        System.out.println("=== canPlayerBreakBlock デバッグ開始 ===");
-        System.out.println("プレイヤー: " + player.getName());
-        System.out.println("ブロックタイプ: " + blockType.name());
-        
         // 職業制限システムが無効の場合は常に許可
-        boolean isRestrictionEnabled = configManager.isJobBlockRestrictionEnabled();
-        System.out.println("ブロック制限システム有効: " + isRestrictionEnabled);
-        if (!isRestrictionEnabled) {
-            System.out.println("判定結果: ブロック制限システムが無効のため許可");
+        if (!configManager.isJobBlockRestrictionEnabled()) {
             return true;
         }
-        
+
         // 管理者権限を持つ場合は常に許可
-        boolean hasAdminPermission = player.hasPermission("tofunomics.admin.break");
-        System.out.println("管理者権限: " + hasAdminPermission);
-        if (hasAdminPermission) {
-            System.out.println("判定結果: 管理者権限のため許可");
+        if (player.hasPermission("tofunomics.admin.break")) {
             return true;
         }
-        
+
         // 基本ブロックの場合は常に許可
-        boolean isBasicBlock = basicBlocks.contains(blockType);
-        System.out.println("基本ブロック: " + isBasicBlock);
-        if (isBasicBlock) {
-            System.out.println("判定結果: 基本ブロックのため許可");
+        if (basicBlocks.contains(blockType)) {
             return true;
         }
-        
+
         // 制限ブロックかチェック
         String requiredJob = getRequiredJobForBlock(blockType);
-        System.out.println("必要な職業: " + (requiredJob != null ? requiredJob : "なし"));
         if (requiredJob == null) {
             // 制限されていないブロックは誰でも採掘可能
-            System.out.println("判定結果: 制限されていないブロックのため許可");
             return true;
         }
-        
+
         // プレイヤーが必要な職業を持っているかチェック
-        boolean hasRequiredJob = jobManager.hasJob(player, requiredJob);
-        System.out.println("必要職業の保有: " + hasRequiredJob);
-        System.out.println("判定結果: " + (hasRequiredJob ? "必要職業保有のため許可" : "必要職業なしのため拒否"));
-        return hasRequiredJob;
+        return jobManager.hasJob(player, requiredJob);
     }
     
     /**

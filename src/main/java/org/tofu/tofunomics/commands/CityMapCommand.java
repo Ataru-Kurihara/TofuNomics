@@ -67,7 +67,7 @@ public class CityMapCommand implements CommandExecutor {
         } catch (Exception e) {
             player.sendMessage("§c地図の配布に失敗しました。");
             player.sendMessage("§cImageOnMapプラグインが導入されているか確認してください。");
-            e.printStackTrace();
+            Bukkit.getLogger().severe("地図の配布に失敗しました: " + e.getMessage());
             return false;
         }
         

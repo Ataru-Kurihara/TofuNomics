@@ -215,18 +215,7 @@ public class JobDAO {
             // TofuNomicsインスタンスの安全な取得
             TofuNomics plugin = TofuNomics.getInstance();
             if (plugin != null) {
-                Logger logger = plugin.getLogger();
-                logger.info("=== JobDAO.getAllJobsSafe() Debug ===");
-                logger.info("Executing getAllJobs() query...");
-                
-                List<Job> jobs = getAllJobs();
-                logger.info("Query executed successfully. Jobs found: " + jobs.size());
-                
-                for (Job job : jobs) {
-                    logger.info("Job: " + job.getName() + " (" + job.getDisplayName() + ") ID: " + job.getId());
-                }
-                
-                return jobs;
+                return getAllJobs();
             } else {
                 // テスト環境などでプラグインインスタンスが存在しない場合
                 // 接続が閉じられている可能性があるため、空のリストを返す
@@ -236,12 +225,9 @@ public class JobDAO {
             // エラーログの安全な出力
             TofuNomics plugin = TofuNomics.getInstance();
             if (plugin != null) {
-                Logger logger = plugin.getLogger();
-                logger.severe("SQLException in getAllJobsSafe(): " + e.getMessage());
-                e.printStackTrace();
+                plugin.getLogger().severe("職業一覧の取得に失敗しました: " + e.getMessage());
             } else {
-                System.err.println("SQLException in getAllJobsSafe(): " + e.getMessage());
-                e.printStackTrace();
+                Logger.getLogger(JobDAO.class.getName()).severe("職業一覧の取得に失敗しました: " + e.getMessage());
             }
             return new ArrayList<>();
         }

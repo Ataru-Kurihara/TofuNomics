@@ -69,7 +69,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("設定ファイルのリロード中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -428,6 +427,25 @@ public class ConfigManager {
     
     public java.util.List<String> getExcludedWorlds() {
         return config.getStringList("events.excluded_worlds");
+    }
+
+    /**
+     * 経済機能を有効にするワールド一覧を取得（ホワイトリスト）
+     */
+    public java.util.List<String> getEconomyEnabledWorlds() {
+        return config.getStringList("economy.enabled_worlds");
+    }
+
+    /**
+     * 指定されたワールドでTofuNomicsの経済機能が有効かどうか
+     * 設定リストが空の場合は全ワールドで有効（後方互換）
+     */
+    public boolean isEconomyEnabledInWorld(String worldName) {
+        java.util.List<String> enabledWorlds = getEconomyEnabledWorlds();
+        if (enabledWorlds == null || enabledWorlds.isEmpty()) {
+            return true;
+        }
+        return enabledWorlds.contains(worldName);
     }
     
     public java.util.List<String> getExcludedGameModes() {
@@ -1506,7 +1524,14 @@ public class ConfigManager {
     public int getScoreboardUpdateInterval() {
         return (Integer) getCachedValue("scoreboard.update_interval", 1);
     }
-    
+
+    /**
+     * 職業レベルをバニラ経験値バーに反映するかどうか
+     */
+    public boolean isVanillaExpBarEnabled() {
+        return (Boolean) getCachedValue("scoreboard.vanilla_exp_bar", true);
+    }
+
     /**
      * スコアボードでプレイヤー名を表示するかどうか
      */
@@ -1990,6 +2015,50 @@ public class ConfigManager {
         return config.getInt("npc_system.trading_npcs.trading_hours.end", 22);
     }
 
+    // ==================== UX/UI演出設定（ux_enhancements） ====================
+
+    /**
+     * クリック/ホバー可能なリッチテキストメッセージを有効にするか
+     */
+    public boolean isClickableMessagesEnabled() {
+        return (Boolean) getCachedValue("ux_enhancements.clickable_messages", true);
+    }
+
+    /**
+     * レベルアップ時のTitle演出を有効にするか
+     */
+    public boolean isLevelUpTitleEnabled() {
+        return (Boolean) getCachedValue("ux_enhancements.levelup_title", true);
+    }
+
+    /**
+     * レベルアップ時のパーティクル演出を有効にするか
+     */
+    public boolean isLevelUpParticleEnabled() {
+        return (Boolean) getCachedValue("ux_enhancements.levelup_particle", true);
+    }
+
+    /**
+     * 送金受取時のActionBar通知を有効にするか
+     */
+    public boolean isPayActionBarEnabled() {
+        return (Boolean) getCachedValue("ux_enhancements.pay_actionbar", true);
+    }
+
+    /**
+     * 取引営業時間のBossBar表示を有効にするか
+     */
+    public boolean isTradingBossBarEnabled() {
+        return (Boolean) getCachedValue("ux_enhancements.trading_bossbar", true);
+    }
+
+    /**
+     * GUIの枠装飾を有効にするか
+     */
+    public boolean isGuiDecorationEnabled() {
+        return (Boolean) getCachedValue("ux_enhancements.gui_decoration", true);
+    }
+
     /**
      * 別職業での購入時の価格倍率を取得
      * @return 価格倍率（デフォルト: 1.5 = 50%増）
@@ -2133,7 +2202,6 @@ public class ConfigManager {
 
         } catch (Exception e) {
             plugin.getLogger().severe("取引所データの追加に失敗しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -2318,7 +2386,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("銀行NPCデータの追加に失敗しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -2396,7 +2463,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("食料NPCデータの追加に失敗しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -2405,8 +2471,6 @@ public class ConfigManager {
      */
     public void ensureNPCMessagesExist() {
         try {
-            plugin.getLogger().info("NPCメッセージ設定を確認・初期化しています...");
-            
             // 基本メッセージを確保
             ensureMessagePath("messages.npc.unknown_type", "&cNPCの種類が不明です。");
             ensureMessagePath("messages.npc.service_error", 
@@ -2446,7 +2510,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("NPCメッセージ初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -2475,8 +2538,6 @@ public class ConfigManager {
      */
     public void ensureCraftRestrictionMessagesExist() {
         try {
-            plugin.getLogger().info("クラフト制限メッセージ設定を確認・初期化しています...");
-            
             // 基本クラフト制限メッセージを確保
             ensureMessagePath("messages.craft.no_job_required", 
                 "&c職業に就いていないため、このアイテムをクラフトできません。");
@@ -2489,7 +2550,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("クラフト制限メッセージ初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -2498,8 +2558,6 @@ public class ConfigManager {
      */
     public void ensurePlayerJoinSettingsExist() {
         try {
-            plugin.getLogger().info("player_join設定を確認・初期化しています...");
-            
             // スポーン座標設定を確保
             ensureConfigPath("player_join.spawn_location.enabled", true);
             ensureConfigPath("player_join.spawn_location.world", "tofuNomics");
@@ -2544,7 +2602,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("player_join設定初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -2602,7 +2659,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("取引所データ削除エラー: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -2657,7 +2713,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("銀行NPCデータ削除エラー: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -2710,7 +2765,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("食料NPCデータ削除エラー: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -2725,7 +2779,6 @@ public class ConfigManager {
             plugin.getLogger().info("すべての取引所データを削除しました");
         } catch (Exception e) {
             plugin.getLogger().severe("取引所データ全削除エラー: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -2734,10 +2787,6 @@ public class ConfigManager {
      */
     public void markNPCAsDeleted(String npcName, String npcType) {
         try {
-            plugin.getLogger().info("NPC削除フラグ設定開始: " + npcName + " (" + npcType + ")");
-            
-            plugin.getLogger().info("=== 包括的NPC削除処理開始: " + npcName + " (タイプ: " + npcType + ") ===");
-        
         boolean anyDeletionOccurred = false;
         
         // 1. 指定されたタイプでの物理削除
@@ -2783,7 +2832,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("NPC削除フラグ設定エラー: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -3081,7 +3129,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("設定ファイルの自動更新中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -3112,7 +3159,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("デフォルト設定ファイルの生成中にエラーが発生: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -3189,7 +3235,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("設定の自動修正中にエラーが発生: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -3405,7 +3450,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("NPCメッセージの再読み込み中にエラーが発生: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -3715,6 +3759,29 @@ public class ConfigManager {
     public int getProcessingMaxLogsPerProcess() {
         return config.getInt("npc_system.processing_npc.pricing.max_logs_per_process", 64);
     }
+
+    /**
+     * 加工対応木材マッピングを取得（原木Material名 -> 板材Material名）
+     * config.ymlの npc_system.processing_npc.wood_types を読み込む。
+     * 未定義の場合は空マップを返す（呼び出し側でデフォルトにフォールバック）。
+     */
+    public Map<String, String> getProcessingWoodTypes() {
+        Map<String, String> woodTypes = new LinkedHashMap<>();
+        ConfigurationSection section = config.getConfigurationSection("npc_system.processing_npc.wood_types");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                woodTypes.put(key, section.getString(key));
+            }
+        }
+        return woodTypes;
+    }
+
+    /**
+     * 原木1個あたりの板材産出数を取得（デフォルト4）
+     */
+    public int getProcessingPlanksPerLog() {
+        return config.getInt("npc_system.processing_npc.planks_per_log", 4);
+    }
     
     /**
      * 加工NPCメッセージを取得
@@ -3844,7 +3911,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("加工NPCデータの追加に失敗しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -3927,7 +3993,6 @@ public class ConfigManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("設定ファイルのマイグレーション中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     

@@ -1,5 +1,3 @@
-# TofuNomics プラグイン設定ファイル
-# Minecraftサーバー「Tofu」独自経済プラグイン
 messages:
   npc:
     unknown_type: '&cNPCの種類が不明です。'
@@ -711,7 +709,7 @@ npc_system:
         name: §c精肉店
         items:
         - cooked_beef
-        - cooked_pork
+        - cooked_porkchop
         - cooked_chicken
         - cooked_mutton
         - cooked_rabbit
@@ -734,6 +732,9 @@ npc_system:
         - sweet_berries
         - melon_slice
         - baked_potato
+        - glow_berries
+        - melon
+        - golden_carrot
         price_multiplier: 1.0
       specialty:
         name: §d特産品店
@@ -741,6 +742,11 @@ npc_system:
         - mushroom_stew
         - rabbit_stew
         - suspicious_stew
+        - golden_apple
+        - enchanted_golden_apple
+        - honey_bottle
+        - chorus_fruit
+        - beetroot_soup
         price_multiplier: 1.0
     food_items:
       bread: 2.5
@@ -748,7 +754,7 @@ npc_system:
       carrot: 1.5
       apple: 2.0
       cooked_beef: 5.2
-      cooked_pork: 4.8
+      cooked_porkchop: 4.8
       cooked_chicken: 4.2
       cooked_mutton: 4.5
       mushroom_stew: 3.5
@@ -766,6 +772,15 @@ npc_system:
       cake: 8.0
       cooked_rabbit: 4.0
       suspicious_stew: 5.0
+      golden_apple: 50
+      enchanted_golden_apple: 200
+      golden_carrot: 4
+      glow_berries: 2
+      honey_bottle: 3
+      milk_bucket: 4
+      melon: 4
+      chorus_fruit: 3
+      beetroot_soup: 4
     messages:
       greeting: §6「夜分にすみません、%player%さん」
       welcome: §e「緊急時の食料でしたら、こちらで調達できますよ」
@@ -775,58 +790,259 @@ npc_system:
       purchase_success: §a%item% x%amount%を %price% で購入しました
       insufficient_funds: '§c残高が不足しています。必要: %required%'
   item_prices:
-    coal: 1
-    iron_ingot: 4
-    gold_ingot: 8
-    diamond: 60.0
-    emerald: 30.0
+    coal: 1.5
+    iron_ingot: 6
+    gold_ingot: 10
+    diamond: 35.0
+    emerald: 20.0
     redstone: 1
     lapis_lazuli: 2
     copper_ingot: 2
-    iron_ore: 3
-    gold_ore: 6
-    diamond_ore: 45.0
-    emerald_ore: 22.0
-    coal_ore: 0.5
-    copper_ore: 1
-    oak_log: 0.2
-    birch_log: 0.2
-    spruce_log: 0.2
-    jungle_log: 0.4
-    acacia_log: 0.4
-    dark_oak_log: 0.4
-    mangrove_log: 0.4
-    cherry_log: 0.4
-    oak_planks: 0.1
-    birch_planks: 0.1
-    spruce_planks: 0.1
-    wheat: 0.3
-    potato: 0.2
-    carrot: 0.2
-    beetroot: 0.3
-    pumpkin: 1
-    melon: 1
-    sugar_cane: 0.2
-    cocoa_beans: 1
+    iron_ore: 5
+    gold_ore: 8
+    diamond_ore: 28.0
+    emerald_ore: 16.0
+    coal_ore: 1
+    copper_ore: 1.5
+    oak_log: 0.5
+    birch_log: 0.5
+    spruce_log: 0.5
+    jungle_log: 0.7
+    acacia_log: 0.7
+    dark_oak_log: 0.7
+    mangrove_log: 0.7
+    cherry_log: 0.7
+    oak_planks: 0.12
+    birch_planks: 0.12
+    spruce_planks: 0.12
+    wheat: 1.2
+    potato: 0.9
+    carrot: 0.9
+    beetroot: 1.2
+    pumpkin: 2
+    melon: 1.5
+    sugar_cane: 0.8
+    cocoa_beans: 1.5
+    nether_wart: 2
     beef: 2
-    pork: 2
-    chicken: 1
-    mutton: 1
+    porkchop: 2
+    chicken: 1.5
+    mutton: 1.5
     leather: 2
     milk_bucket: 2
-    egg: 0.3
-    cod: 3.5
-    salmon: 4.5
-    tropical_fish: 7.0
-    pufferfish: 9.5
+    egg: 0.5
+    cod: 7
+    salmon: 8
+    tropical_fish: 11
+    pufferfish: 14
     prismarine_shard: 8.0
     prismarine_crystals: 12.0
-    nautilus_shell: 25.0
-    heart_of_the_sea: 150.0
+    nautilus_shell: 30.0
+    heart_of_the_sea: 120.0
     experience_bottle: 15.0
     blaze_rod: 20.0
     ender_pearl: 18.0
     ghast_tear: 35.0
+    iron_pickaxe: 14
+    iron_sword: 10
+    iron_axe: 14
+    iron_shovel: 6
+    iron_hoe: 8
+    iron_helmet: 18
+    iron_chestplate: 30
+    iron_leggings: 26
+    iron_boots: 16
+    diamond_pickaxe: 70
+    diamond_sword: 50
+    diamond_axe: 70
+    shield: 8
+    stone_bricks: 1
+    smooth_stone: 1
+    quartz_block: 3
+    polished_blackstone: 2
+    bricks: 2
+    blaze_powder: 10
+    glowstone_dust: 3
+    fermented_spider_eye: 6
+    glistering_melon_slice: 5
+    magma_cream: 7
+    deepslate_coal_ore: 1.2
+    deepslate_iron_ore: 5.5
+    deepslate_gold_ore: 9
+    deepslate_diamond_ore: 30
+    deepslate_emerald_ore: 18
+    deepslate_redstone_ore: 1.2
+    deepslate_lapis_ore: 2.5
+    deepslate_copper_ore: 1.8
+    nether_gold_ore: 6
+    nether_quartz_ore: 2
+    ancient_debris: 90
+    netherite_scrap: 95
+    netherite_ingot: 320
+    raw_iron: 5
+    raw_gold: 8
+    raw_copper: 1.5
+    quartz: 2
+    amethyst_shard: 4
+    jungle_planks: 0.12
+    acacia_planks: 0.12
+    dark_oak_planks: 0.12
+    mangrove_planks: 0.12
+    cherry_planks: 0.12
+    crimson_planks: 0.18
+    warped_planks: 0.18
+    bamboo_planks: 0.1
+    bamboo: 0.3
+    stick: 0.05
+    stripped_oak_log: 0.5
+    stripped_birch_log: 0.5
+    stripped_spruce_log: 0.5
+    stripped_jungle_log: 0.7
+    stripped_acacia_log: 0.7
+    stripped_dark_oak_log: 0.7
+    stripped_mangrove_log: 0.7
+    stripped_cherry_log: 0.7
+    oak_sapling: 0.5
+    birch_sapling: 0.5
+    spruce_sapling: 0.5
+    jungle_sapling: 0.7
+    acacia_sapling: 0.7
+    dark_oak_sapling: 0.7
+    cherry_sapling: 0.7
+    mangrove_propagule: 0.7
+    melon_slice: 0.3
+    glow_berries: 1.0
+    apple: 1.5
+    wheat_seeds: 0.1
+    beetroot_seeds: 0.1
+    pumpkin_seeds: 0.1
+    melon_seeds: 0.1
+    bone_meal: 0.5
+    bone: 1.0
+    rabbit: 1.5
+    rabbit_hide: 0.8
+    feather: 0.5
+    hay_block: 10
+    honeycomb: 2
+    honey_bottle: 2
+    brown_mushroom: 0.5
+    red_mushroom: 0.5
+    poppy: 0.3
+    dandelion: 0.3
+    blue_orchid: 0.4
+    allium: 0.4
+    cornflower: 0.4
+    sunflower: 0.5
+    wither_rose: 3
+    cooked_cod: 8
+    cooked_salmon: 9
+    kelp: 0.3
+    dried_kelp: 0.5
+    sea_pickle: 1.5
+    seagrass: 0.3
+    ink_sac: 1.5
+    glow_ink_sac: 3
+    sponge: 8
+    wet_sponge: 6
+    turtle_egg: 5
+    turtle_scute: 8
+    cod_bucket: 8
+    tropical_fish_bucket: 14
+    lily_pad: 0.5
+    fishing_rod: 3
+    name_tag: 30
+    saddle: 25
+    diamond_shovel: 30
+    diamond_hoe: 35
+    diamond_helmet: 40
+    diamond_chestplate: 64
+    diamond_leggings: 56
+    diamond_boots: 36
+    chainmail_helmet: 10
+    chainmail_chestplate: 18
+    chainmail_leggings: 16
+    chainmail_boots: 9
+    golden_helmet: 12
+    golden_chestplate: 20
+    golden_leggings: 18
+    golden_boots: 11
+    golden_sword: 6
+    golden_pickaxe: 8
+    golden_axe: 8
+    golden_shovel: 5
+    golden_hoe: 5
+    netherite_helmet: 200
+    netherite_chestplate: 280
+    netherite_leggings: 250
+    netherite_boots: 180
+    netherite_sword: 240
+    netherite_pickaxe: 260
+    netherite_axe: 260
+    netherite_shovel: 220
+    netherite_hoe: 230
+    bow: 4
+    crossbow: 6
+    flint_and_steel: 2
+    shears: 2
+    bucket: 4
+    spider_eye: 2
+    golden_carrot: 3
+    rabbit_foot: 7
+    phantom_membrane: 10
+    nether_wart_block: 18
+    sugar: 0.3
+    glass_bottle: 0.5
+    dragon_breath: 25
+    turtle_helmet: 25
+    gunpowder: 2
+    slime_ball: 1.5
+    ender_eye: 22
+    enchanted_book: 25
+    book: 2
+    bookshelf: 6
+    paper: 0.3
+    writable_book: 3
+    lapis_block: 18
+    amethyst_block: 16
+    glowstone: 4
+    sea_lantern: 6
+    stone: 0.3
+    cobblestone: 0.1
+    smooth_stone_slab: 0.5
+    chiseled_stone_bricks: 1.2
+    cracked_stone_bricks: 0.9
+    mossy_stone_bricks: 1.2
+    deepslate: 0.3
+    cobbled_deepslate: 0.2
+    polished_deepslate: 0.5
+    deepslate_bricks: 0.8
+    deepslate_tiles: 0.8
+    tuff: 0.2
+    calcite: 0.5
+    dripstone_block: 0.5
+    sandstone: 0.5
+    smooth_sandstone: 0.8
+    red_sandstone: 0.5
+    prismarine: 3
+    prismarine_bricks: 4
+    dark_prismarine: 4
+    purpur_block: 4
+    end_stone: 1
+    end_stone_bricks: 5
+    nether_bricks: 1.5
+    red_nether_bricks: 2
+    blackstone: 1
+    polished_blackstone_bricks: 2.5
+    gilded_blackstone: 6
+    glass: 0.3
+    glass_pane: 0.2
+    terracotta: 0.5
+    white_concrete: 0.6
+    quartz_pillar: 3
+    quartz_bricks: 3
+    copper_block: 18
+    cut_copper: 18
+    oxidized_copper: 18
   trading_posts:
   - world: tofuNomics
     name: §6総合取引所
@@ -864,6 +1080,24 @@ npc_system:
     - lapis_lazuli
     - copper_ore
     - copper_ingot
+    - deepslate_coal_ore
+    - deepslate_iron_ore
+    - deepslate_gold_ore
+    - deepslate_diamond_ore
+    - deepslate_emerald_ore
+    - deepslate_redstone_ore
+    - deepslate_lapis_ore
+    - deepslate_copper_ore
+    - nether_gold_ore
+    - nether_quartz_ore
+    - ancient_debris
+    - netherite_scrap
+    - netherite_ingot
+    - raw_iron
+    - raw_gold
+    - raw_copper
+    - quartz
+    - amethyst_shard
     purchase_prices:
       wooden_pickaxe: 15
       stone_pickaxe: 15
@@ -891,6 +1125,24 @@ npc_system:
     - lapis_lazuli
     - copper_ore
     - copper_ingot
+    - deepslate_coal_ore
+    - deepslate_iron_ore
+    - deepslate_gold_ore
+    - deepslate_diamond_ore
+    - deepslate_emerald_ore
+    - deepslate_redstone_ore
+    - deepslate_lapis_ore
+    - deepslate_copper_ore
+    - nether_gold_ore
+    - nether_quartz_ore
+    - ancient_debris
+    - netherite_scrap
+    - netherite_ingot
+    - raw_iron
+    - raw_gold
+    - raw_copper
+    - quartz
+    - amethyst_shard
     purchase_prices:
       wooden_pickaxe: 15
       stone_pickaxe: 15
@@ -918,6 +1170,24 @@ npc_system:
     - lapis_lazuli
     - copper_ore
     - copper_ingot
+    - deepslate_coal_ore
+    - deepslate_iron_ore
+    - deepslate_gold_ore
+    - deepslate_diamond_ore
+    - deepslate_emerald_ore
+    - deepslate_redstone_ore
+    - deepslate_lapis_ore
+    - deepslate_copper_ore
+    - nether_gold_ore
+    - nether_quartz_ore
+    - ancient_debris
+    - netherite_scrap
+    - netherite_ingot
+    - raw_iron
+    - raw_gold
+    - raw_copper
+    - quartz
+    - amethyst_shard
     purchase_prices:
       wooden_pickaxe: 15
       stone_pickaxe: 15
@@ -942,6 +1212,32 @@ npc_system:
     - oak_planks
     - birch_planks
     - spruce_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - mangrove_planks
+    - cherry_planks
+    - crimson_planks
+    - warped_planks
+    - bamboo_planks
+    - bamboo
+    - stick
+    - stripped_oak_log
+    - stripped_birch_log
+    - stripped_spruce_log
+    - stripped_jungle_log
+    - stripped_acacia_log
+    - stripped_dark_oak_log
+    - stripped_mangrove_log
+    - stripped_cherry_log
+    - oak_sapling
+    - birch_sapling
+    - spruce_sapling
+    - jungle_sapling
+    - acacia_sapling
+    - dark_oak_sapling
+    - cherry_sapling
+    - mangrove_propagule
     purchase_prices:
       wooden_axe: 15
       stone_axe: 15
@@ -966,6 +1262,32 @@ npc_system:
     - oak_planks
     - birch_planks
     - spruce_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - mangrove_planks
+    - cherry_planks
+    - crimson_planks
+    - warped_planks
+    - bamboo_planks
+    - bamboo
+    - stick
+    - stripped_oak_log
+    - stripped_birch_log
+    - stripped_spruce_log
+    - stripped_jungle_log
+    - stripped_acacia_log
+    - stripped_dark_oak_log
+    - stripped_mangrove_log
+    - stripped_cherry_log
+    - oak_sapling
+    - birch_sapling
+    - spruce_sapling
+    - jungle_sapling
+    - acacia_sapling
+    - dark_oak_sapling
+    - cherry_sapling
+    - mangrove_propagule
     purchase_prices:
       wooden_axe: 15
       stone_axe: 15
@@ -990,6 +1312,32 @@ npc_system:
     - oak_planks
     - birch_planks
     - spruce_planks
+    - jungle_planks
+    - acacia_planks
+    - dark_oak_planks
+    - mangrove_planks
+    - cherry_planks
+    - crimson_planks
+    - warped_planks
+    - bamboo_planks
+    - bamboo
+    - stick
+    - stripped_oak_log
+    - stripped_birch_log
+    - stripped_spruce_log
+    - stripped_jungle_log
+    - stripped_acacia_log
+    - stripped_dark_oak_log
+    - stripped_mangrove_log
+    - stripped_cherry_log
+    - oak_sapling
+    - birch_sapling
+    - spruce_sapling
+    - jungle_sapling
+    - acacia_sapling
+    - dark_oak_sapling
+    - cherry_sapling
+    - mangrove_propagule
     purchase_prices:
       wooden_axe: 15
       stone_axe: 15
@@ -1012,12 +1360,37 @@ npc_system:
     - sugar_cane
     - cocoa_beans
     - beef
-    - pork
+    - porkchop
     - chicken
     - mutton
     - leather
     - milk_bucket
     - egg
+    - nether_wart
+    - melon_slice
+    - glow_berries
+    - apple
+    - wheat_seeds
+    - beetroot_seeds
+    - pumpkin_seeds
+    - melon_seeds
+    - bone_meal
+    - bone
+    - rabbit
+    - rabbit_hide
+    - feather
+    - hay_block
+    - honeycomb
+    - honey_bottle
+    - brown_mushroom
+    - red_mushroom
+    - poppy
+    - dandelion
+    - blue_orchid
+    - allium
+    - cornflower
+    - sunflower
+    - wither_rose
     purchase_prices:
       wooden_hoe: 15
       stone_hoe: 15
@@ -1041,12 +1414,37 @@ npc_system:
     - sugar_cane
     - cocoa_beans
     - beef
-    - pork
+    - porkchop
     - chicken
     - mutton
     - leather
     - milk_bucket
     - egg
+    - nether_wart
+    - melon_slice
+    - glow_berries
+    - apple
+    - wheat_seeds
+    - beetroot_seeds
+    - pumpkin_seeds
+    - melon_seeds
+    - bone_meal
+    - bone
+    - rabbit
+    - rabbit_hide
+    - feather
+    - hay_block
+    - honeycomb
+    - honey_bottle
+    - brown_mushroom
+    - red_mushroom
+    - poppy
+    - dandelion
+    - blue_orchid
+    - allium
+    - cornflower
+    - sunflower
+    - wither_rose
     purchase_prices:
       wooden_hoe: 15
       stone_hoe: 15
@@ -1070,12 +1468,37 @@ npc_system:
     - sugar_cane
     - cocoa_beans
     - beef
-    - pork
+    - porkchop
     - chicken
     - mutton
     - leather
     - milk_bucket
     - egg
+    - nether_wart
+    - melon_slice
+    - glow_berries
+    - apple
+    - wheat_seeds
+    - beetroot_seeds
+    - pumpkin_seeds
+    - melon_seeds
+    - bone_meal
+    - bone
+    - rabbit
+    - rabbit_hide
+    - feather
+    - hay_block
+    - honeycomb
+    - honey_bottle
+    - brown_mushroom
+    - red_mushroom
+    - poppy
+    - dandelion
+    - blue_orchid
+    - allium
+    - cornflower
+    - sunflower
+    - wither_rose
     purchase_prices:
       wooden_hoe: 15
       stone_hoe: 15
@@ -1099,12 +1522,37 @@ npc_system:
     - sugar_cane
     - cocoa_beans
     - beef
-    - pork
+    - porkchop
     - chicken
     - mutton
     - leather
     - milk_bucket
     - egg
+    - nether_wart
+    - melon_slice
+    - glow_berries
+    - apple
+    - wheat_seeds
+    - beetroot_seeds
+    - pumpkin_seeds
+    - melon_seeds
+    - bone_meal
+    - bone
+    - rabbit
+    - rabbit_hide
+    - feather
+    - hay_block
+    - honeycomb
+    - honey_bottle
+    - brown_mushroom
+    - red_mushroom
+    - poppy
+    - dandelion
+    - blue_orchid
+    - allium
+    - cornflower
+    - sunflower
+    - wither_rose
     purchase_prices:
       wooden_hoe: 15
       stone_hoe: 15
@@ -1128,12 +1576,37 @@ npc_system:
     - sugar_cane
     - cocoa_beans
     - beef
-    - pork
+    - porkchop
     - chicken
     - mutton
     - leather
     - milk_bucket
     - egg
+    - nether_wart
+    - melon_slice
+    - glow_berries
+    - apple
+    - wheat_seeds
+    - beetroot_seeds
+    - pumpkin_seeds
+    - melon_seeds
+    - bone_meal
+    - bone
+    - rabbit
+    - rabbit_hide
+    - feather
+    - hay_block
+    - honeycomb
+    - honey_bottle
+    - brown_mushroom
+    - red_mushroom
+    - poppy
+    - dandelion
+    - blue_orchid
+    - allium
+    - cornflower
+    - sunflower
+    - wither_rose
     purchase_prices:
       wooden_hoe: 15
       stone_hoe: 15
@@ -1157,12 +1630,37 @@ npc_system:
     - sugar_cane
     - cocoa_beans
     - beef
-    - pork
+    - porkchop
     - chicken
     - mutton
     - leather
     - milk_bucket
     - egg
+    - nether_wart
+    - melon_slice
+    - glow_berries
+    - apple
+    - wheat_seeds
+    - beetroot_seeds
+    - pumpkin_seeds
+    - melon_seeds
+    - bone_meal
+    - bone
+    - rabbit
+    - rabbit_hide
+    - feather
+    - hay_block
+    - honeycomb
+    - honey_bottle
+    - brown_mushroom
+    - red_mushroom
+    - poppy
+    - dandelion
+    - blue_orchid
+    - allium
+    - cornflower
+    - sunflower
+    - wither_rose
     purchase_prices:
       wooden_hoe: 15
       stone_hoe: 15
@@ -1185,6 +1683,24 @@ npc_system:
     - prismarine_crystals
     - nautilus_shell
     - heart_of_the_sea
+    - cooked_cod
+    - cooked_salmon
+    - kelp
+    - dried_kelp
+    - sea_pickle
+    - seagrass
+    - ink_sac
+    - glow_ink_sac
+    - sponge
+    - wet_sponge
+    - turtle_egg
+    - turtle_scute
+    - cod_bucket
+    - tropical_fish_bucket
+    - lily_pad
+    - fishing_rod
+    - name_tag
+    - saddle
     purchase_prices:
       string: 5
   - world: tofuNomics
@@ -1205,6 +1721,24 @@ npc_system:
     - prismarine_crystals
     - nautilus_shell
     - heart_of_the_sea
+    - cooked_cod
+    - cooked_salmon
+    - kelp
+    - dried_kelp
+    - sea_pickle
+    - seagrass
+    - ink_sac
+    - glow_ink_sac
+    - sponge
+    - wet_sponge
+    - turtle_egg
+    - turtle_scute
+    - cod_bucket
+    - tropical_fish_bucket
+    - lily_pad
+    - fishing_rod
+    - name_tag
+    - saddle
     purchase_prices:
       string: 5
   - world: tofuNomics
@@ -1225,6 +1759,24 @@ npc_system:
     - prismarine_crystals
     - nautilus_shell
     - heart_of_the_sea
+    - cooked_cod
+    - cooked_salmon
+    - kelp
+    - dried_kelp
+    - sea_pickle
+    - seagrass
+    - ink_sac
+    - glow_ink_sac
+    - sponge
+    - wet_sponge
+    - turtle_egg
+    - turtle_scute
+    - cod_bucket
+    - tropical_fish_bucket
+    - lily_pad
+    - fishing_rod
+    - name_tag
+    - saddle
     purchase_prices:
       string: 5
   - world: tofuNomics
@@ -1245,6 +1797,24 @@ npc_system:
     - prismarine_crystals
     - nautilus_shell
     - heart_of_the_sea
+    - cooked_cod
+    - cooked_salmon
+    - kelp
+    - dried_kelp
+    - sea_pickle
+    - seagrass
+    - ink_sac
+    - glow_ink_sac
+    - sponge
+    - wet_sponge
+    - turtle_egg
+    - turtle_scute
+    - cod_bucket
+    - tropical_fish_bucket
+    - lily_pad
+    - fishing_rod
+    - name_tag
+    - saddle
     purchase_prices:
       string: 5
   - world: tofuNomics
@@ -1265,6 +1835,24 @@ npc_system:
     - prismarine_crystals
     - nautilus_shell
     - heart_of_the_sea
+    - cooked_cod
+    - cooked_salmon
+    - kelp
+    - dried_kelp
+    - sea_pickle
+    - seagrass
+    - ink_sac
+    - glow_ink_sac
+    - sponge
+    - wet_sponge
+    - turtle_egg
+    - turtle_scute
+    - cod_bucket
+    - tropical_fish_bucket
+    - lily_pad
+    - fishing_rod
+    - name_tag
+    - saddle
     purchase_prices:
       string: 5
   - world: tofuNomics
@@ -1285,6 +1873,24 @@ npc_system:
     - prismarine_crystals
     - nautilus_shell
     - heart_of_the_sea
+    - cooked_cod
+    - cooked_salmon
+    - kelp
+    - dried_kelp
+    - sea_pickle
+    - seagrass
+    - ink_sac
+    - glow_ink_sac
+    - sponge
+    - wet_sponge
+    - turtle_egg
+    - turtle_scute
+    - cod_bucket
+    - tropical_fish_bucket
+    - lily_pad
+    - fishing_rod
+    - name_tag
+    - saddle
     purchase_prices:
       string: 5
   - world: tofuNomics
@@ -1318,6 +1924,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -1352,6 +1988,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -1386,6 +2052,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -1420,6 +2116,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -1454,6 +2180,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -1488,6 +2244,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -1512,6 +2298,22 @@ npc_system:
     - gunpowder
     - dragon_breath
     - brewing_stand
+    - fermented_spider_eye
+    - glistering_melon_slice
+    - magma_cream
+    - blaze_rod
+    - ender_pearl
+    - ghast_tear
+    - experience_bottle
+    - spider_eye
+    - golden_carrot
+    - rabbit_foot
+    - phantom_membrane
+    - nether_wart_block
+    - sugar
+    - turtle_helmet
+    - slime_ball
+    - ender_eye
     purchase_prices:
       glass_bottle: 5
       brewing_stand: 100
@@ -1536,6 +2338,22 @@ npc_system:
     - gunpowder
     - dragon_breath
     - brewing_stand
+    - fermented_spider_eye
+    - glistering_melon_slice
+    - magma_cream
+    - blaze_rod
+    - ender_pearl
+    - ghast_tear
+    - experience_bottle
+    - spider_eye
+    - golden_carrot
+    - rabbit_foot
+    - phantom_membrane
+    - nether_wart_block
+    - sugar
+    - turtle_helmet
+    - slime_ball
+    - ender_eye
     purchase_prices:
       glass_bottle: 5
       brewing_stand: 100
@@ -1560,6 +2378,22 @@ npc_system:
     - gunpowder
     - dragon_breath
     - brewing_stand
+    - fermented_spider_eye
+    - glistering_melon_slice
+    - magma_cream
+    - blaze_rod
+    - ender_pearl
+    - ghast_tear
+    - experience_bottle
+    - spider_eye
+    - golden_carrot
+    - rabbit_foot
+    - phantom_membrane
+    - nether_wart_block
+    - sugar
+    - turtle_helmet
+    - slime_ball
+    - ender_eye
     purchase_prices:
       glass_bottle: 5
       brewing_stand: 100
@@ -1579,6 +2413,12 @@ npc_system:
     - bookshelf
     - book
     - enchanting_table
+    - paper
+    - writable_book
+    - lapis_block
+    - amethyst_block
+    - glowstone
+    - sea_lantern
     purchase_prices:
       book: 10
       lapis_lazuli: 25
@@ -1598,6 +2438,12 @@ npc_system:
     - bookshelf
     - book
     - enchanting_table
+    - paper
+    - writable_book
+    - lapis_block
+    - amethyst_block
+    - glowstone
+    - sea_lantern
     purchase_prices:
       book: 10
       lapis_lazuli: 25
@@ -1617,6 +2463,12 @@ npc_system:
     - bookshelf
     - book
     - enchanting_table
+    - paper
+    - writable_book
+    - lapis_block
+    - amethyst_block
+    - glowstone
+    - sea_lantern
     purchase_prices:
       book: 10
       lapis_lazuli: 25
@@ -1649,6 +2501,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -1682,6 +2567,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -1715,6 +2633,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -1748,6 +2699,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -1781,6 +2765,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -1814,6 +2831,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -1839,6 +2889,22 @@ npc_system:
     - gunpowder
     - dragon_breath
     - brewing_stand
+    - fermented_spider_eye
+    - glistering_melon_slice
+    - magma_cream
+    - blaze_rod
+    - ender_pearl
+    - ghast_tear
+    - experience_bottle
+    - spider_eye
+    - golden_carrot
+    - rabbit_foot
+    - phantom_membrane
+    - nether_wart_block
+    - sugar
+    - turtle_helmet
+    - slime_ball
+    - ender_eye
     purchase_prices:
       glass_bottle: 5
       brewing_stand: 100
@@ -1863,6 +2929,22 @@ npc_system:
     - gunpowder
     - dragon_breath
     - brewing_stand
+    - fermented_spider_eye
+    - glistering_melon_slice
+    - magma_cream
+    - blaze_rod
+    - ender_pearl
+    - ghast_tear
+    - experience_bottle
+    - spider_eye
+    - golden_carrot
+    - rabbit_foot
+    - phantom_membrane
+    - nether_wart_block
+    - sugar
+    - turtle_helmet
+    - slime_ball
+    - ender_eye
     purchase_prices:
       glass_bottle: 5
       brewing_stand: 100
@@ -1887,6 +2969,22 @@ npc_system:
     - gunpowder
     - dragon_breath
     - brewing_stand
+    - fermented_spider_eye
+    - glistering_melon_slice
+    - magma_cream
+    - blaze_rod
+    - ender_pearl
+    - ghast_tear
+    - experience_bottle
+    - spider_eye
+    - golden_carrot
+    - rabbit_foot
+    - phantom_membrane
+    - nether_wart_block
+    - sugar
+    - turtle_helmet
+    - slime_ball
+    - ender_eye
     purchase_prices:
       glass_bottle: 5
       brewing_stand: 100
@@ -1906,6 +3004,12 @@ npc_system:
     - bookshelf
     - book
     - enchanting_table
+    - paper
+    - writable_book
+    - lapis_block
+    - amethyst_block
+    - glowstone
+    - sea_lantern
     purchase_prices:
       book: 10
       lapis_lazuli: 25
@@ -1925,6 +3029,12 @@ npc_system:
     - bookshelf
     - book
     - enchanting_table
+    - paper
+    - writable_book
+    - lapis_block
+    - amethyst_block
+    - glowstone
+    - sea_lantern
     purchase_prices:
       book: 10
       lapis_lazuli: 25
@@ -1944,6 +3054,12 @@ npc_system:
     - bookshelf
     - book
     - enchanting_table
+    - paper
+    - writable_book
+    - lapis_block
+    - amethyst_block
+    - glowstone
+    - sea_lantern
     purchase_prices:
       book: 10
       lapis_lazuli: 25
@@ -1976,6 +3092,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -2009,6 +3158,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -2042,6 +3224,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -2075,6 +3290,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -2108,6 +3356,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -2141,6 +3422,39 @@ npc_system:
     - light_gray_concrete
     - bricks
     - sandstone
+    - smooth_stone
+    - polished_blackstone
+    - smooth_stone_slab
+    - chiseled_stone_bricks
+    - cracked_stone_bricks
+    - mossy_stone_bricks
+    - deepslate
+    - cobbled_deepslate
+    - polished_deepslate
+    - deepslate_bricks
+    - deepslate_tiles
+    - tuff
+    - calcite
+    - dripstone_block
+    - smooth_sandstone
+    - red_sandstone
+    - prismarine
+    - prismarine_bricks
+    - dark_prismarine
+    - purpur_block
+    - end_stone
+    - end_stone_bricks
+    - nether_bricks
+    - red_nether_bricks
+    - blackstone
+    - polished_blackstone_bricks
+    - gilded_blackstone
+    - glass_pane
+    - quartz_pillar
+    - quartz_bricks
+    - copper_block
+    - cut_copper
+    - oxidized_copper
     purchase_prices:
       lantern: 5
       torch: 5
@@ -2176,6 +3490,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -2210,6 +3554,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -2244,6 +3618,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -2278,6 +3682,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -2312,6 +3746,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -2346,6 +3810,36 @@ npc_system:
     - diamond_leggings
     - diamond_boots
     - anvil
+    - iron_hoe
+    - diamond_hoe
+    - chainmail_helmet
+    - chainmail_chestplate
+    - chainmail_leggings
+    - chainmail_boots
+    - golden_helmet
+    - golden_chestplate
+    - golden_leggings
+    - golden_boots
+    - golden_sword
+    - golden_pickaxe
+    - golden_axe
+    - golden_shovel
+    - golden_hoe
+    - netherite_helmet
+    - netherite_chestplate
+    - netherite_leggings
+    - netherite_boots
+    - netherite_sword
+    - netherite_pickaxe
+    - netherite_axe
+    - netherite_shovel
+    - netherite_hoe
+    - shield
+    - bow
+    - crossbow
+    - flint_and_steel
+    - shears
+    - bucket
     purchase_prices:
       coal: 10
       stone: 10
@@ -2400,6 +3894,19 @@ npc_system:
       dark_oak_log: dark_oak_planks
       crimson_stem: crimson_planks
       warped_stem: warped_planks
+      mangrove_log: mangrove_planks
+      cherry_log: cherry_planks
+      bamboo_block: bamboo_planks
+      stripped_oak_log: oak_planks
+      stripped_birch_log: birch_planks
+      stripped_spruce_log: spruce_planks
+      stripped_jungle_log: jungle_planks
+      stripped_acacia_log: acacia_planks
+      stripped_dark_oak_log: dark_oak_planks
+      stripped_mangrove_log: mangrove_planks
+      stripped_cherry_log: cherry_planks
+      stripped_crimson_stem: crimson_planks
+      stripped_warped_stem: warped_planks
     messages:
       greeting: §6いらっしゃいませ、%player%さん！木材加工サービスへようこそ。
       service_start: §a原木を板材に加工いたします。
@@ -2410,6 +3917,7 @@ npc_system:
       success: §a%log_amount%個の原木を%plank_amount%個の板材に加工しました。
       fee_charged: '§e加工料金: %fee%'
       outside_hours: §c申し訳ありませんが、営業時間外です。
+    planks_per_log: 4
   bank_npc:
     locations:
     - world: tofuNomics
@@ -2581,6 +4089,227 @@ jobs:
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
+      guide_book:
+        enabled: true
+        title: '&6&l鉱夫ガイドブック'
+        author: TofuNomics職業組合
+        pages:
+        - '&0&l【鉱夫の仕事】
+
+
+          &0鉱夫は鉱物資源と
+
+          石材の供給を担当
+
+          する職業です。
+
+
+          採掘で経験値と
+
+          報酬を獲得できます。
+
+          '
+        - '&0&l【主な収入源】
+
+
+          &8採掘した鉱石を
+
+          &8取引所NPCで売却！
+
+
+          &0・石炭/鉄が基本
+
+          &0・金/ダイヤが高額
+
+          &0・エメラルドも◎
+
+
+          &eレベルUPで
+
+          &e売却ボーナス増加！
+
+          '
+        - '&0&l【経験値の上げ方】
+
+
+          &0対象の鉱石や石を
+
+          採掘すると職業
+
+          経験値を獲得！
+
+
+          &8■自分で掘った
+
+          　ブロックが対象
+
+          &8■設置した石は
+
+          　経験値対象外
+
+
+          &e掘るほど成長！
+
+          '
+        - '&0&l【経験値一覧①】
+
+
+          &8採掘1個あたり:
+
+
+          &8■石炭鉱石 25
+
+          &8■鉄鉱石 50
+
+          &8■金鉱石 80
+
+          &8■レッドストーン 30
+
+          &8■ラピスラズリ 40
+
+          &8■石 50
+
+          '
+        - '&0&l【経験値一覧②】
+
+
+          &8採掘1個あたり:
+
+
+          &8■ダイヤ鉱石 200
+
+          &8■エメラルド鉱石 200
+
+          &8■ネザークォーツ 60
+
+          &8■古代の残骸 500
+
+
+          &e希少な鉱石ほど
+
+          &e経験値も大量！
+
+          '
+        - '&0&l【必要経験値】
+
+
+          &8レベルUPに必要な
+
+          &8累計経験値:
+
+
+          &8■Lv5: 1,393
+
+          &8■Lv10: 6,502
+
+          &8■Lv25: 41,918
+
+          &8■Lv50: 162,694
+
+          &8■Lv100: 619,023
+
+
+          &8高Lvほど経験値
+
+          &8効率が低下します
+
+          '
+        - '&0&l【職業スキル①】
+
+
+          &6幸運の一撃
+
+          &8Lv10〜 発動5〜25%
+
+          &8ドロップ量が1.5倍
+
+
+          &6鉱脈発見
+
+          &8Lv25〜 発動8〜30%
+
+          &8周囲3マスも採掘
+
+          '
+        - '&0&l【職業スキル②】
+
+
+          &6採掘の極意
+
+          &8Lv50〜 発動10〜40%
+
+          &8ツール耐久を
+
+          &830%節約できる
+
+
+          &eスキルはレベルUPで
+
+          &e発動率が上昇！
+
+          '
+        - '&0&l【レベルUP特典】
+
+
+          &8到達報酬:
+
+          &8■Lv10: 200金塊
+
+          &8■Lv25: 500金塊
+
+          &8　＋ダイヤのツルハシ
+
+          &8■Lv50: 1000金塊
+
+          &8■Lv75: 2000金塊
+
+
+          &8レベルに応じて
+
+          &8称号も変化！
+
+
+          &eLv50で転職可能！
+
+          '
+        - '&0&l【稼ぐコツ】
+
+
+          &8■まず石炭と鉄を
+
+          　集めて売ろう
+
+          &8■ツルハシの耐久
+
+          　に注意
+
+          &8■ダイヤ/エメラルド
+
+          　は特に高経験値
+
+          &8■洞窟や廃坑が
+
+          　おすすめ
+
+          '
+        - '&0&l【便利なコマンド】
+
+
+          &0/jobs stats
+
+          &8→ 職業の統計情報
+
+
+          &0/jobs info
+
+          &8→ 職業の詳細
+
+
+          &0/jobs guide
+
+          &8→ この本を再取得
+
+          '
     woodcutter:
       display_name: 木こり
       description: 木材の供給を担当
@@ -2588,6 +4317,212 @@ jobs:
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
+      guide_book:
+        enabled: true
+        title: '&2&l木こりガイドブック'
+        author: TofuNomics職業組合
+        pages:
+        - '&0&l【木こりの仕事】
+
+
+          &0木こりは木材の
+
+          供給を担当する
+
+          職業です。
+
+
+          伐採で経験値と
+
+          報酬を獲得できます。
+
+          '
+        - '&0&l【主な収入源】
+
+
+          &8原木を取引所NPCで
+
+          &8売却して稼ごう！
+
+
+          &0・苗木も売れる
+
+          &0・ダークオークが
+
+          　 高額
+
+          &0・レベルUPで
+
+          　 売却ボーナス増加
+
+          '
+        - '&0&l【経験値の上げ方】
+
+
+          &0対象の原木を
+
+          伐採すると職業
+
+          経験値を獲得！
+
+
+          &8■原木の種類で
+
+          　経験値が変化
+
+          &8■苗木を植えて
+
+          　持続的に伐採
+
+
+          &a森を育てよう！
+
+          '
+        - '&0&l【経験値一覧】
+
+
+          &8伐採1本あたり:
+
+
+          &8■オーク原木 30
+
+          &8■白樺原木 30
+
+          &8■トウヒ原木 30
+
+          &8■ジャングル原木 40
+
+          &8■アカシア原木 40
+
+          &8■ダークオーク原木 40
+
+          &8■歪んだ幹 50
+
+          &8■真紅の幹 50
+
+          '
+        - '&0&l【必要経験値】
+
+
+          &8レベルUPに必要な
+
+          &8累計経験値:
+
+
+          &8■Lv5: 1,393
+
+          &8■Lv10: 6,502
+
+          &8■Lv25: 41,918
+
+          &8■Lv50: 162,694
+
+          &8■Lv100: 619,023
+
+
+          &8高Lvほど経験値
+
+          &8効率が低下します
+
+          '
+        - '&0&l【職業スキル①】
+
+
+          &2一斉伐採
+
+          &8Lv15〜 発動10〜35%
+
+          &8木全体を一括伐採
+
+          &8(最大64ブロック)
+
+
+          &2苗木の恵み
+
+          &8Lv30〜 発動15〜50%
+
+          &8苗木が追加ドロップ
+
+          '
+        - '&0&l【職業スキル②】
+
+
+          &2森の番人
+
+          &8Lv45〜 発動5〜20%
+
+          &8木材の品質が
+
+          &81.8倍に向上
+
+
+          &aスキルはレベルUPで
+
+          &a発動率が上昇！
+
+          '
+        - '&0&l【レベルUP特典】
+
+
+          &8到達報酬:
+
+          &8■Lv10: 200金塊
+
+          &8■Lv25: 500金塊
+
+          &8　＋ダイヤの斧
+
+          &8■Lv50: 1000金塊
+
+          &8■Lv75: 2000金塊
+
+
+          &8レベルに応じて
+
+          &8称号も変化！
+
+
+          &aLv50で転職可能！
+
+          '
+        - '&0&l【稼ぐコツ】
+
+
+          &8■オークや白樺は
+
+          　育てやすい
+
+          &8■苗木を植えて
+
+          　持続可能に
+
+          &8■ダークオークが
+
+          　高値で売れる
+
+          &8■斧の耐久に
+
+          　注意しよう
+
+          '
+        - '&0&l【便利なコマンド】
+
+
+          &0/jobs stats
+
+          &8→ 職業の統計情報
+
+
+          &0/jobs info
+
+          &8→ 職業の詳細
+
+
+          &0/jobs guide
+
+          &8→ この本を再取得
+
+          '
     farmer:
       display_name: 農家
       description: 農作物・畜産物の供給を担当
@@ -2595,6 +4530,226 @@ jobs:
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
+      guide_book:
+        enabled: true
+        title: '&a&l農家ガイドブック'
+        author: TofuNomics職業組合
+        pages:
+        - '&0&l【農家の仕事】
+
+
+          &0農家は農作物と
+
+          畜産物の供給を
+
+          担当する職業です。
+
+
+          収穫で経験値と
+
+          報酬を獲得できます。
+
+          '
+        - '&0&l【主な収入源】
+
+
+          &8農作物を取引所NPCで
+
+          &8売却して稼ごう！
+
+
+          &0・小麦/にんじんが
+
+          　 基本
+
+          &0・かぼちゃ/スイカ
+
+          　 が高額
+
+          &0・レベルUPで
+
+          　 売却ボーナス増加
+
+          '
+        - '&0&l【経験値の上げ方】
+
+
+          &0育てた農作物を
+
+          収穫すると職業
+
+          経験値を獲得！
+
+
+          &8■成熟した作物を
+
+          　収穫しよう
+
+          &8■種を撒いて
+
+          　再び育てよう
+
+
+          &a畑を広げよう！
+
+          '
+        - '&0&l【経験値一覧①】
+
+
+          &8収穫1個あたり:
+
+
+          &8■小麦 30
+
+          &8■にんじん 25
+
+          &8■じゃがいも 25
+
+          &8■ビートルート 30
+
+          &8■サトウキビ 20
+
+          '
+        - '&0&l【経験値一覧②】
+
+
+          &8収穫1個あたり:
+
+
+          &8■かぼちゃ 35
+
+          &8■スイカ 30
+
+          &8■カカオ豆 30
+
+          &8■ネザーウォート 35
+
+
+          &e作物の種類で
+
+          &e経験値が変化
+
+          '
+        - '&0&l【必要経験値】
+
+
+          &8レベルUPに必要な
+
+          &8累計経験値:
+
+
+          &8■Lv5: 1,393
+
+          &8■Lv10: 6,502
+
+          &8■Lv25: 41,918
+
+          &8■Lv50: 162,694
+
+          &8■Lv100: 619,023
+
+
+          &8高Lvほど経験値
+
+          &8効率が低下します
+
+          '
+        - '&0&l【職業スキル①】
+
+
+          &a豊穣の恵み
+
+          &8Lv10〜 発動12〜40%
+
+          &8収穫量が50%増加
+
+
+          &a双子の奇跡
+
+          &8Lv15〜 発動10〜25%
+
+          &8繁殖で双子が誕生
+
+          '
+        - '&0&l【職業スキル②】
+
+
+          &a成長促進
+
+          &8Lv30〜 発動20〜60%
+
+          &8作物の成長が
+
+          &825%加速
+
+
+          &a品種改良
+
+          &8Lv50〜 発動5〜15%
+
+          &8品質が2.0倍に
+
+          '
+        - '&0&l【レベルUP特典】
+
+
+          &8到達報酬:
+
+          &8■Lv10: 200金塊
+
+          &8■Lv25: 500金塊
+
+          &8■Lv50: 1000金塊
+
+          &8■Lv75: 2000金塊
+
+
+          &8レベルに応じて
+
+          &8称号も変化！
+
+
+          &aLv50で転職可能！
+
+          '
+        - '&0&l【稼ぐコツ】
+
+
+          &8■水源の近くに
+
+          　畑を作ろう
+
+          &8■かぼちゃ/スイカが
+
+          　高値で売れる
+
+          &8■骨粉で成長を
+
+          　早めよう
+
+          &8■動物の繁殖でも
+
+          　収入を得られる
+
+          '
+        - '&0&l【便利なコマンド】
+
+
+          &0/jobs stats
+
+          &8→ 職業の統計情報
+
+
+          &0/jobs info
+
+          &8→ 職業の詳細
+
+
+          &0/jobs guide
+
+          &8→ この本を再取得
+
+          '
     fisherman:
       display_name: 釣り人
       description: 魚と宝の供給を担当
@@ -2602,6 +4757,206 @@ jobs:
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
+      guide_book:
+        enabled: true
+        title: '&b&l釣り人ガイドブック'
+        author: TofuNomics職業組合
+        pages:
+        - '&0&l【釣り人の仕事】
+
+
+          &0釣り人は魚と宝の
+
+          供給を担当する
+
+          職業です。
+
+
+          釣りで経験値と
+
+          報酬を獲得できます。
+
+          '
+        - '&0&l【主な収入源】
+
+
+          &8釣った魚を取引所
+
+          &8NPCで売却！
+
+
+          &0・タラ/サケが基本
+
+          &0・宝物もドロップ
+
+          &0・レベルUPで
+
+          　 売却ボーナス増加
+
+
+          &bレア魚は高額！
+
+          '
+        - '&0&l【経験値の上げ方】
+
+
+          &0釣りをすると
+
+          職業経験値を
+
+          獲得できます。
+
+
+          &8■魚や宝物を
+
+          　釣り上げよう
+
+          &8■雨や夜は
+
+          　経験値ボーナス
+
+
+          &b釣り続けよう！
+
+          '
+        - '&0&l【経験値一覧】
+
+
+          &8釣り1回あたり:
+
+
+          &8■魚を釣る 100
+
+          &8■生物を釣る 150
+
+          &8■宝物ボーナス +150
+
+
+          &8天候ボーナス:
+
+          &8■雨天時 経験値1.2倍
+
+          &8■夜間 経験値1.15倍
+
+          '
+        - '&0&l【必要経験値】
+
+
+          &8レベルUPに必要な
+
+          &8累計経験値:
+
+
+          &8■Lv5: 1,393
+
+          &8■Lv10: 6,502
+
+          &8■Lv25: 41,918
+
+          &8■Lv50: 162,694
+
+          &8■Lv100: 619,023
+
+
+          &8高Lvほど経験値
+
+          &8効率が低下します
+
+          '
+        - '&0&l【職業スキル①】
+
+
+          &b大物釣り
+
+          &8Lv20〜 発動8〜30%
+
+          &8魚のサイズが1.5倍
+
+
+          &b宝探し
+
+          &8Lv35〜 発動5〜20%
+
+          &8宝物の確率が1.8倍
+
+          '
+        - '&0&l【職業スキル②】
+
+
+          &b海の加護
+
+          &8Lv50〜 常時発動
+
+          &8天候による
+
+          &8釣果のムラを解消
+
+
+          &bスキルはレベルUPで
+
+          &b発動率が上昇！
+
+          '
+        - '&0&l【レベルUP特典】
+
+
+          &8到達報酬:
+
+          &8■Lv10: 200金塊
+
+          &8■Lv25: 500金塊
+
+          &8■Lv50: 1000金塊
+
+          &8■Lv75: 2000金塊
+
+
+          &8レベルに応じて
+
+          &8称号も変化！
+
+
+          &bLv50で転職可能！
+
+          '
+        - '&0&l【稼ぐコツ】
+
+
+          &8■雨の日は
+
+          　釣り効率UP
+
+          &8■宝釣りエンチャント
+
+          　を付けよう
+
+          &8■開けた水場が
+
+          　ベスト
+
+          &8■宝物は高値で
+
+          　売れる
+
+          '
+        - '&0&l【便利なコマンド】
+
+
+          &0/jobs stats
+
+          &8→ 職業の統計情報
+
+
+          &0/jobs info
+
+          &8→ 職業の詳細
+
+
+          &0/jobs guide
+
+          &8→ この本を再取得
+
+          '
     blacksmith:
       display_name: 鍛冶屋
       description: ツール、武器、防具の生産と修理を担当
@@ -2609,6 +4964,231 @@ jobs:
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
+      guide_book:
+        enabled: true
+        title: '&8&l鍛冶屋ガイドブック'
+        author: TofuNomics職業組合
+        pages:
+        - '&0&l【鍛冶屋の仕事】
+
+
+          &0鍛冶屋はツール、
+
+          武器、防具の生産
+
+          と修理を担当する
+
+          職業です。
+
+
+          作成で経験値と
+
+          報酬を獲得できます。
+
+          '
+        - '&0&l【主な収入源】
+
+
+          &8作成した装備を
+
+          &8取引所NPCで売却！
+
+
+          &0・鉄装備が基本
+
+          &0・ダイヤ装備が高額
+
+          &0・レベルUPで
+
+          　 売却ボーナス増加
+
+
+          &7高品質ほど高額！
+
+          '
+        - '&0&l【経験値の上げ方】
+
+
+          &0作業台で装備や
+
+          ツールを作成すると
+
+          職業経験値を獲得！
+
+
+          &8■高品質な装備
+
+          　ほど高経験値
+
+          &8■素材は鉱夫から
+
+          　仕入れよう
+
+
+          &7名工を目指せ！
+
+          '
+        - '&0&l【経験値一覧①】
+
+
+          &8作成1個あたり:
+
+
+          &8■鉄インゴット 50
+
+          &8■金インゴット 80
+
+          &8■鉄の剣 120
+
+          &8■鉄ツルハシ/斧 150
+
+          &8■鉄シャベル 90
+
+          &8■鉄防具 各100
+
+          &8■盾 80
+
+          '
+        - '&0&l【経験値一覧②】
+
+
+          &8作成1個あたり:
+
+
+          &8■ダイヤの剣 300
+
+          &8■ダイヤツール 350
+
+          &8■ダイヤ防具 各250
+
+          &8■ネザライト 750
+
+          &8■金リンゴ 150
+
+
+          &e高級品ほど高経験値
+
+          '
+        - '&0&l【必要経験値】
+
+
+          &8レベルUPに必要な
+
+          &8累計経験値:
+
+
+          &8■Lv5: 1,393
+
+          &8■Lv10: 6,502
+
+          &8■Lv25: 41,918
+
+          &8■Lv50: 162,694
+
+          &8■Lv100: 619,023
+
+
+          &8高Lvほど経験値
+
+          &8効率が低下します
+
+          '
+        - '&0&l【職業スキル①】
+
+
+          &7完璧な修理
+
+          &8Lv10〜 発動15〜50%
+
+          &8修理時に耐久を
+
+          &820%上乗せ
+
+
+          &7名工の技
+
+          &8Lv25〜 発動10〜35%
+
+          &8装備の品質1.5倍
+
+          '
+        - '&0&l【職業スキル②】
+
+
+          &7神器創造
+
+          &8Lv60〜 発動2〜8%
+
+          &8特殊エンチャントが
+
+          &8付与される
+
+
+          &7スキルはレベルUPで
+
+          &7発動率が上昇！
+
+          '
+        - '&0&l【レベルUP特典】
+
+
+          &8到達報酬:
+
+          &8■Lv10: 200金塊
+
+          &8■Lv25: 500金塊
+
+          &8■Lv50: 1000金塊
+
+          &8■Lv75: 2000金塊
+
+
+          &8レベルに応じて
+
+          &8称号も変化！
+
+
+          &7Lv50で転職可能！
+
+          '
+        - '&0&l【稼ぐコツ】
+
+
+          &8■まず鉄装備から
+
+          　作り始めよう
+
+          &8■作業台と金床を
+
+          　用意しよう
+
+          &8■ダイヤ装備は
+
+          　高値で売れる
+
+          &8■鉱夫と協力して
+
+          　素材を確保
+
+          '
+        - '&0&l【便利なコマンド】
+
+
+          &0/jobs stats
+
+          &8→ 職業の統計情報
+
+
+          &0/jobs info
+
+          &8→ 職業の詳細
+
+
+          &0/jobs guide
+
+          &8→ この本を再取得
+
+          '
     alchemist:
       display_name: ポーション屋
       description: ポーションの生産を担当
@@ -2616,6 +5196,208 @@ jobs:
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
+      guide_book:
+        enabled: true
+        title: '&5&lポーション屋ガイドブック'
+        author: TofuNomics職業組合
+        pages:
+        - '&0&l【ポーション屋の仕事】
+
+
+          &0ポーション屋は
+
+          各種ポーションの
+
+          生産を担当する
+
+          職業です。
+
+
+          醸造で経験値と
+
+          報酬を獲得できます。
+
+          '
+        - '&0&l【主な収入源】
+
+
+          &8ポーションを取引所
+
+          &8NPCで売却！
+
+
+          &0・基本ポーション
+
+          　 から始めよう
+
+          &0・高効果ほど高額
+
+          &0・レベルUPで
+
+          　 売却ボーナス増加
+
+          '
+        - '&0&l【経験値の上げ方】
+
+
+          &0醸造台でポーション
+
+          を醸造すると職業
+
+          経験値を獲得！
+
+
+          &8■醸造が完了する
+
+          　たびに経験値
+
+          &8■醸造台の近くに
+
+          　いる必要あり
+
+
+          &5醸造を続けよう！
+
+          '
+        - '&0&l【経験値一覧】
+
+
+          &8醸造1回あたり:
+
+
+          &8■ポーション醸造 100
+
+
+          &7※醸造台での醸造が
+
+          &7完了するたびに
+
+          &7経験値を獲得
+
+
+          &eどの種類でも
+
+          &e経験値は同じです
+
+          '
+        - '&0&l【必要経験値】
+
+
+          &8レベルUPに必要な
+
+          &8累計経験値:
+
+
+          &8■Lv5: 1,393
+
+          &8■Lv10: 6,502
+
+          &8■Lv25: 41,918
+
+          &8■Lv50: 162,694
+
+          &8■Lv100: 619,023
+
+
+          &8高Lvほど経験値
+
+          &8効率が低下します
+
+          '
+        - '&0&l【職業スキル①】
+
+
+          &5材料節約
+
+          &8Lv15〜 発動20〜60%
+
+          &8醸造材料を50%節約
+
+
+          &5二重醸造
+
+          &8Lv30〜 発動10〜25%
+
+          &8ポーションが追加生成
+
+          '
+        - '&0&l【職業スキル②】
+
+
+          &5錬金の極意
+
+          &8Lv50〜 発動15〜40%
+
+          &8ポーションの効果
+
+          &8時間が1.5倍に
+
+
+          &5スキルはレベルUPで
+
+          &5発動率が上昇！
+
+          '
+        - '&0&l【レベルUP特典】
+
+
+          &8到達報酬:
+
+          &8■Lv10: 200金塊
+
+          &8■Lv25: 500金塊
+
+          &8■Lv50: 1000金塊
+
+          &8■Lv75: 2000金塊
+
+
+          &8レベルに応じて
+
+          &8称号も変化！
+
+
+          &5Lv50で転職可能！
+
+          '
+        - '&0&l【稼ぐコツ】
+
+
+          &8■醸造台とブレイズ
+
+          　パウダーが必須
+
+          &8■ネザーウォートを
+
+          　確保しよう
+
+          &8■高効果ポーション
+
+          　ほど高値で売れる
+
+          &8■残留ポーションが
+
+          　最も高額
+
+          '
+        - '&0&l【便利なコマンド】
+
+
+          &0/jobs stats
+
+          &8→ 職業の統計情報
+
+
+          &0/jobs info
+
+          &8→ 職業の詳細
+
+
+          &0/jobs guide
+
+          &8→ この本を再取得
+
+          '
     enchanter:
       display_name: エンチャンター
       description: エンチャントサービスを担当
@@ -2623,6 +5405,209 @@ jobs:
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
+      guide_book:
+        enabled: true
+        title: '&d&lエンチャンターガイドブック'
+        author: TofuNomics職業組合
+        pages:
+        - '&0&l【エンチャンターの仕事】
+
+
+          &0エンチャンターは
+
+          エンチャントサービス
+
+          を担当する職業です。
+
+
+          エンチャントで
+
+          経験値と報酬を
+
+          獲得できます。
+
+          '
+        - '&0&l【主な収入源】
+
+
+          &8エンチャント済み
+
+          &8アイテムを取引所
+
+          &8NPCで売却！
+
+
+          &0・高レベルエンチャ
+
+          　 ほど高額
+
+          &0・レベルUPで
+
+          　 売却ボーナス増加
+
+          '
+        - '&0&l【経験値の上げ方】
+
+
+          &0エンチャント台で
+
+          エンチャントすると
+
+          職業経験値を獲得！
+
+
+          &8■付与レベルの
+
+          　合計が高いほど
+
+          　経験値も多い
+
+
+          &dラピスを用意！
+
+          '
+        - '&0&l【経験値一覧】
+
+
+          &8エンチャント1回:
+
+          &8(付与Lv合計で変化)
+
+
+          &8■合計Lv1 150
+
+          &8■合計Lv2 250
+
+          &8■合計Lv3 400
+
+          &8■合計Lv4 550
+
+          &8■合計Lv5 750
+
+
+          &d高レベルほど高経験値
+
+          '
+        - '&0&l【必要経験値】
+
+
+          &8レベルUPに必要な
+
+          &8累計経験値:
+
+
+          &8■Lv5: 1,393
+
+          &8■Lv10: 6,502
+
+          &8■Lv25: 41,918
+
+          &8■Lv50: 162,694
+
+          &8■Lv100: 619,023
+
+
+          &8高Lvほど経験値
+
+          &8効率が低下します
+
+          '
+        - '&0&l【職業スキル①】
+
+
+          &d経験値節約
+
+          &8Lv10〜 発動25〜70%
+
+          &8エンチャントコスト
+
+          &8を30%削減
+
+
+          &dボーナスエンチャント
+
+          &8Lv25〜 発動8〜25%
+
+          &8エンチャレベル+1
+
+          '
+        - '&0&l【職業スキル②】
+
+
+          &d魔術の神秘
+
+          &8Lv45〜 発動5〜15%
+
+          &8希少エンチャントの
+
+          &8確率が2.0倍に
+
+
+          &dスキルはレベルUPで
+
+          &d発動率が上昇！
+
+          '
+        - '&0&l【レベルUP特典】
+
+
+          &8到達報酬:
+
+          &8■Lv10: 200金塊
+
+          &8■Lv25: 500金塊
+
+          &8■Lv50: 1000金塊
+
+          &8■Lv75: 2000金塊
+
+
+          &8レベルに応じて
+
+          &8称号も変化！
+
+
+          &dLv50で転職可能！
+
+          '
+        - '&0&l【稼ぐコツ】
+
+
+          &8■本棚15個で
+
+          　最大レベル解放
+
+          &8■経験値を貯めて
+
+          　おこう
+
+          &8■高レベルエンチャント
+
+          　は高値で売れる
+
+          &8■ラピスラズリを
+
+          　常備しよう
+
+          '
+        - '&0&l【便利なコマンド】
+
+
+          &0/jobs stats
+
+          &8→ 職業の統計情報
+
+
+          &0/jobs info
+
+          &8→ 職業の詳細
+
+
+          &0/jobs guide
+
+          &8→ この本を再取得
+
+          '
     architect:
       display_name: 建築家
       description: 建築と装飾を担当
@@ -2630,6 +5615,226 @@ jobs:
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
+      guide_book:
+        enabled: true
+        title: '&e&l建築家ガイドブック'
+        author: TofuNomics職業組合
+        pages:
+        - '&0&l【建築家の仕事】
+
+
+          &0建築家は建築と
+
+          装飾を担当する
+
+          職業です。
+
+
+          建築で経験値と
+
+          報酬を獲得できます。
+
+          '
+        - '&0&l【主な収入源】
+
+
+          &8建築ブロックを
+
+          &8取引所NPCで売却！
+
+
+          &0・石系ブロックが
+
+          　 基本
+
+          &0・装飾ブロックが
+
+          　 高額
+
+          &0・レベルUPで
+
+          　 売却ボーナス増加
+
+          '
+        - '&0&l【経験値の上げ方】
+
+
+          &0対象ブロックを
+
+          設置すると職業
+
+          経験値を獲得！
+
+
+          &8■設置するブロック
+
+          　の種類で変化
+
+          &8■装飾ブロックは
+
+          　高経験値
+
+
+          &e建てて稼ごう！
+
+          '
+        - '&0&l【経験値一覧①】
+
+
+          &8ブロック設置1個:
+
+
+          &8■石 8
+
+          &8■丸石 5
+
+          &8■各種板材 6
+
+          &8■レンガ 20
+
+          &8■ガラス 10
+
+          '
+        - '&0&l【経験値一覧②】
+
+
+          &8ブロック設置1個:
+
+
+          &8■石レンガ 15
+
+          &8■クォーツブロック 30
+
+          &8■プリズマリン 40
+
+          &8■プルプァブロック 50
+
+          &8■エンドレンガ 60
+
+
+          &e装飾系ほど高経験値
+
+          '
+        - '&0&l【必要経験値】
+
+
+          &8レベルUPに必要な
+
+          &8累計経験値:
+
+
+          &8■Lv5: 1,393
+
+          &8■Lv10: 6,502
+
+          &8■Lv25: 41,918
+
+          &8■Lv50: 162,694
+
+          &8■Lv100: 619,023
+
+
+          &8高Lvほど経験値
+
+          &8効率が低下します
+
+          '
+        - '&0&l【職業スキル①】
+
+
+          &e材料節約
+
+          &8Lv10〜 発動15〜45%
+
+          &8建築材料を25%節約
+
+
+          &e建築の美学
+
+          &8Lv30〜 発動20〜60%
+
+          &8美観ボーナスで
+
+          &8価値が1.5倍
+
+          '
+        - '&0&l【職業スキル②】
+
+
+          &e巨匠の設計
+
+          &8Lv50〜 規模で発動
+
+          &8100ブロック以上の
+
+          &8建築でボーナス
+
+
+          &eスキルはレベルUPで
+
+          &e効果が上昇！
+
+          '
+        - '&0&l【レベルUP特典】
+
+
+          &8到達報酬:
+
+          &8■Lv10: 200金塊
+
+          &8■Lv25: 500金塊
+
+          &8■Lv50: 1000金塊
+
+          &8■Lv75: 2000金塊
+
+
+          &8レベルに応じて
+
+          &8称号も変化！
+
+
+          &eLv50で転職可能！
+
+          '
+        - '&0&l【稼ぐコツ】
+
+
+          &8■石系ブロックが
+
+          　基本素材
+
+          &8■装飾ブロックは
+
+          　高値で売れる
+
+          &8■大規模建築で
+
+          　スキル発動
+
+          &8■染料で彩りを
+
+          　加えよう
+
+          '
+        - '&0&l【便利なコマンド】
+
+
+          &0/jobs stats
+
+          &8→ 職業の統計情報
+
+
+          &0/jobs info
+
+          &8→ 職業の詳細
+
+
+          &0/jobs guide
+
+          &8→ この本を再取得
+
+          '
 land_protection:
   worldguard_integration: true
   urban_land_price: 100.0
@@ -2673,9 +5878,6 @@ events:
   excluded_worlds:
   - creative_world
   - test_world
-  - world
-  - world_nether
-  - world_the_end
   excluded_game_modes:
   - ADVENTURE
   caching:
@@ -2727,14 +5929,14 @@ trade_system:
   confirmation_required: true
   global_price_multiplier: 1.0
   job_price_multipliers:
-    miner: 1.5
+    miner: 1.2
     woodcutter: 1.0
     farmer: 1.0
-    fisherman: 1.5
-    blacksmith: 2.0
-    alchemist: 2.0
-    enchanter: 2.0
-    architect: 1.5
+    fisherman: 1.2
+    blacksmith: 1.4
+    alchemist: 1.4
+    enchanter: 1.4
+    architect: 1.2
   history:
     max_days: 30
     max_records_per_player: 1000
@@ -2919,7 +6121,10 @@ job_skills:
 leveling:
   experience:
     base_multiplier: 100
-    exponent: 2.0
+    exponent: 1.9
+    level_penalty:
+      factor: 0.005
+      minimum: 0.4
     level_scaling:
       early_levels:
         min_level: 1
@@ -3424,3 +6629,65 @@ city_map:
   - '§7  - §b🏪 取引所§7: アイテムの売買'
   - '§7  - §b🍖 食料店§7: 食料の購入'
   - '§7  - §b🏘️ 商店街§7: プレイヤー間取引'
+api:
+  tohu_app:
+    enabled: true
+    base_url: https://tohu-backend-prod-994007613494.asia-northeast1.run.app
+    token: ''
+    world_id: 5
+    retry:
+      max_attempts: 3
+      initial_delay_seconds: 5
+    debug: true
+tutorial:
+  enabled: true
+  auto_start: true
+  start_delay_seconds: 10
+  step_message_delay: 60
+  completion_rewards:
+    enabled: true
+    money: 50.0
+  messages:
+    start:
+    - '&e%player%さん、ようこそ！基本を案内します &7(/tutorial skip でスキップ)'
+    step1:
+      title: '&6【1/4】&f職業に就こう → &e/jobs join <職業名>'
+      description:
+      - '&7職業: 鉱夫, 木こり, 農家, 釣り人, 鍛冶屋, ポーション屋, エンチャンター, 建築家'
+      complete: '&a✓ 職業に就職しました！'
+    step2:
+      title: '&6【2/4】&fお金を稼ごう'
+      description:
+      - '&7職業に応じた作業（採掘、伐採、収穫など）をしてみましょう'
+      complete: '&a✓ 初めての収入を獲得！'
+    step3:
+      title: '&6【3/4】&f銀行NPCに話しかけよう'
+      description:
+      - '&7街にいる銀行員を右クリックして預け入れ・引き出しができます'
+      complete: '&a✓ 銀行を利用しました！'
+    step4:
+      title: '&6【4/4】&f取引NPCでアイテムを売ろう'
+      description:
+      - '&7街にいる商人を右クリックしてアイテムを売買できます'
+      complete: '&a✓ 取引所を利用しました！'
+    completed:
+    - '&a🎉 チュートリアル完了！自由に経済活動を楽しんでください'
+    completed_reward: '&6報酬: &f%money%%currency% &6獲得！'
+    skip_confirm: '&eチュートリアルをスキップしますか？ &f/tutorial skip confirm &eで確定'
+    skip_success: '&aチュートリアルをスキップしました。'
+    skip_note: '&7いつでも &f/tutorial restart &7でやり直せます。'
+    progress:
+      header: '&6▬▬▬▬▬▬▬▬ チュートリアル進捗 ▬▬▬▬▬▬▬▬'
+      current_step: '&e現在のステップ: &f%step%'
+      step_complete: '&a✓ %step_name% - 完了'
+      step_current: '&e→ %step_name% - 進行中'
+      step_pending: '&7○ %step_name% - 未完了'
+    already_completed: '&eチュートリアルは既に完了しています。'
+    not_started: '&cチュートリアルがまだ開始されていません。'
+    restart_success: '&aチュートリアルを最初からやり直します。'
+    admin_reset_success: '&a%player%さんのチュートリアルをリセットしました。'
+guide_book_settings:
+  enabled: true
+  prevent_duplicate: true
+  drop_when_full: true
+  give_message: '&a【職業ガイド】&f%job%のガイドブックを受け取りました！'

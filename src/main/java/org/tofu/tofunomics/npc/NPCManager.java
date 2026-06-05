@@ -84,7 +84,11 @@ public class NPCManager {
             villager.setSilent(true);
             villager.setInvulnerable(true);
             villager.setRemoveWhenFarAway(false);
-            
+            // エンティティ衝突による押し出しを無効化し、その場に固定する
+            villager.setCollidable(false);
+            villager.setGravity(false);
+            villager.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+
             // NPCの向きを設定（Locationからyaw/pitchを取得）
             Location npcLocation = villager.getLocation();
             npcLocation.setYaw(location.getYaw());
@@ -108,15 +112,12 @@ public class NPCManager {
             // NPCデータを保存
             NPCData npcData = new NPCData(villager.getUniqueId(), npcType, name, location, villager);
             npcs.put(villager.getUniqueId(), npcData);
-            
-            plugin.getLogger().info("NPCを生成しました: " + name + " (" + npcType + ") at " + 
-                location.getX() + ", " + location.getY() + ", " + location.getZ() + 
-                " (yaw: " + location.getYaw() + ", pitch: " + location.getPitch() + ")");
-            
+
+            plugin.getLogger().info("NPCを生成しました: " + name + " (" + npcType + ")");
+
             return villager;
         } catch (Exception e) {
             plugin.getLogger().severe("NPC生成中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
             return null;
         }
     }
@@ -153,6 +154,10 @@ public class NPCManager {
         villager.setInvulnerable(true);
         villager.setRemoveWhenFarAway(false);
         villager.setCustomNameVisible(true);
+        // エンティティ衝突による押し出しを無効化し、その場に固定する
+        villager.setCollidable(false);
+        villager.setGravity(false);
+        villager.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
         
         // 取引を無効化
         villager.setRecipes(new ArrayList<>());
@@ -304,7 +309,8 @@ public class NPCManager {
         // 内部データもクリア
         npcs.clear();
         
-        plugin.getLogger().info("既存システムNPCを " + removedCount + " 個削除しました");
+        plugin.getLogger().info("既存システムNPCを " + removedCount + " 個削除しました" +
+            "（未ロードチャンク内のNPCはチャンクロード時に重複排除されます）");
     }
     
     /**
@@ -376,7 +382,6 @@ public class NPCManager {
             plugin.getLogger().info("設定ファイルからNPCを生成しました");
         } catch (Exception e) {
             plugin.getLogger().severe("設定ファイルからのNPC生成中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     

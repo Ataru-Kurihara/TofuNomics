@@ -29,6 +29,9 @@ public class EventProcessor {
     
     // 除外ワールドのキャッシュ
     private final Set<String> excludedWorlds;
+
+    // 経済機能を有効にするワールド（ホワイトリスト）のキャッシュ
+    private final Set<String> enabledWorlds;
     
     // 除外ゲームモード
     private final Set<GameMode> excludedGameModes;
@@ -37,8 +40,9 @@ public class EventProcessor {
         this.configManager = configManager;
         this.jobManager = jobManager;
         this.excludedWorlds = new HashSet<>();
+        this.enabledWorlds = new HashSet<>();
         this.excludedGameModes = new HashSet<>();
-        
+
         initializeExclusions();
     }
     
@@ -51,7 +55,13 @@ public class EventProcessor {
         if (worlds != null) {
             excludedWorlds.addAll(worlds);
         }
-        
+
+        // 経済機能を有効にするワールド（ホワイトリスト）の設定
+        List<String> economyWorlds = configManager.getEconomyEnabledWorlds();
+        if (economyWorlds != null) {
+            enabledWorlds.addAll(economyWorlds);
+        }
+
         // 除外ゲームモードの設定
         excludedGameModes.add(GameMode.CREATIVE);
         excludedGameModes.add(GameMode.SPECTATOR);
@@ -168,10 +178,17 @@ public class EventProcessor {
         }
         
         String worldName = world.getName();
+        // 除外ワールドはスキップ
         if (excludedWorlds.contains(worldName)) {
             return false;
         }
-        
+
+        // 経済機能を有効にするワールドのホワイトリストチェック
+        // （リストが空の場合は全ワールドで有効：後方互換）
+        if (!enabledWorlds.isEmpty() && !enabledWorlds.contains(worldName)) {
+            return false;
+        }
+
         return true;
     }
     
@@ -248,35 +265,24 @@ public class EventProcessor {
      * 有効な職業を持っているかチェック
      */
     private boolean hasValidJob(Player player, Event event) {
-        System.out.println("=== hasValidJob デバッグ開始 ===");
-        System.out.println("プレイヤー: " + player.getName());
-        System.out.println("イベント: " + event.getClass().getSimpleName());
-        
         // 特定のイベントは職業なしでも処理可能
         if (isJobOptionalEvent(event)) {
-            System.out.println("職業不要イベントのため許可");
             return true;
         }
-        
+
         // プレイヤーが少なくとも1つの職業を持っているかチェック
         List<PlayerJob> jobs = jobManager.getPlayerJobs(player);
-        System.out.println("取得した職業リスト: " + (jobs != null ? jobs.size() + "個" : "null"));
-        
         if (jobs == null || jobs.isEmpty()) {
-            System.out.println("判定結果: 職業なしのため拒否");
             return false;
         }
-        
+
         // アクティブな職業があるかチェック
         for (PlayerJob job : jobs) {
-            System.out.println("職業チェック: JobID=" + job.getJobId() + ", レベル=" + job.getLevel() + ", アクティブ: " + job.isActive());
             if (job.isActive()) {
-                System.out.println("判定結果: アクティブな職業があるため許可");
                 return true;
             }
         }
-        
-        System.out.println("判定結果: アクティブな職業がないため拒否");
+
         return false;
     }
     

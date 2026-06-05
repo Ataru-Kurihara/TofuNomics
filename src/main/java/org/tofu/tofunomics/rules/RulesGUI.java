@@ -170,13 +170,10 @@ public class RulesGUI implements Listener {
             
             activeSessions.put(player.getUniqueId(), session);
             player.openInventory(gui);
-            
-            plugin.getLogger().info("ルールGUIを開きました: " + player.getName() + " - ページ " + page);
-            
+
         } catch (Exception e) {
             plugin.getLogger().severe("ルールGUI作成中にエラーが発生しました: " + e.getMessage());
             player.sendMessage("§cルールGUIの表示中にエラーが発生しました");
-            e.printStackTrace();
         }
     }
     

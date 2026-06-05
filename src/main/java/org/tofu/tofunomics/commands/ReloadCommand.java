@@ -90,7 +90,6 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             sender.sendMessage(ChatColor.RED + "設定のリロードに失敗しました: " + e.getMessage());
             plugin.getLogger().severe("設定リロード中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -114,7 +113,6 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             sender.sendMessage(ChatColor.RED + "設定ファイルのリロードに失敗しました: " + e.getMessage());
             plugin.getLogger().severe("設定ファイルリロード中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -158,7 +156,6 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             sender.sendMessage(ChatColor.RED + "設定ファイルの検証に失敗しました: " + e.getMessage());
             plugin.getLogger().severe("設定検証中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -195,7 +192,6 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             sender.sendMessage(ChatColor.RED + "設定エラーの自動修正に失敗しました: " + e.getMessage());
             plugin.getLogger().severe("設定自動修正中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -235,7 +231,6 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             sender.sendMessage(ChatColor.RED + "完全リロード処理に失敗しました: " + e.getMessage());
             plugin.getLogger().severe("完全リロード中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     

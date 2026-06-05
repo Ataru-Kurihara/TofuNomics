@@ -306,18 +306,12 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         }
         
         try {
-            plugin.getLogger().info("=== 食料NPCスポーン処理開始 ===");
-            plugin.getLogger().info("プレイヤー: " + player.getName() + ", NPC名: " + npcName + ", タイプ: " + npcType);
-            
             // 食料NPCを生成
             org.bukkit.entity.Villager foodNPC = npcManager.createNPC(spawnLocation, "food_merchant", npcName);
-            
+
             if (foodNPC != null) {
-                plugin.getLogger().info("NPCManagerでの作成成功: UUID=" + foodNPC.getUniqueId());
-                
                 // FoodNPCManagerに登録
                 if (foodNPCManager != null) {
-                    plugin.getLogger().info("FoodNPCManagerへの登録を開始");
                     foodNPCManager.registerFoodNPC(foodNPC, npcName, npcType);
                     
                     // 食料NPCデータをconfig.ymlに自動追加
@@ -343,8 +337,6 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                     int endHour = configManager.getFoodNPCEndHour();
                     player.sendMessage(String.format("§e営業時間: %d:00-%d:00", startHour, endHour));
                     player.sendMessage("§e§l右クリックで取引開始");
-                    
-                    plugin.getLogger().info("=== 食料NPCスポーン処理完了 ===");
                 } else {
                     player.sendMessage("§c警告: 食料NPCは生成されましたが、システムへの登録に失敗しました");
                     plugin.getLogger().warning("FoodNPCManagerがnullのため、食料NPCの登録に失敗しました");
@@ -358,7 +350,6 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             player.sendMessage("§c食料NPC生成中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("食料NPC生成エラー: " + e.getMessage());
-            e.printStackTrace();
             return true;
         }
     }
@@ -369,15 +360,10 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             "§6木材加工職人";
             
         try {
-            plugin.getLogger().info("=== 加工NPCスポーン処理開始 ===");
-            plugin.getLogger().info("プレイヤー: " + player.getName() + ", NPC名: " + npcName);
-            
             // 加工NPCを生成
             Villager processingNPC = npcManager.createNPC(spawnLocation, "processing", npcName);
-            
+
             if (processingNPC != null) {
-                plugin.getLogger().info("NPCManagerでの作成成功: UUID=" + processingNPC.getUniqueId());
-                
                 // 加工NPCデータをconfig.ymlに自動追加
                 try {
                     configManager.addProcessingNPC(npcName, spawnLocation);
@@ -412,8 +398,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage("§7場所: " + formatLocation(spawnLocation));
                     player.sendMessage("§7UUID: " + processingNPC.getUniqueId());
                 }
-                
-                plugin.getLogger().info("=== 加工NPCスポーン処理完了 ===");
+
                 return true;
             } else {
                 player.sendMessage("§c加工NPCの生成に失敗しました");
@@ -422,7 +407,6 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             player.sendMessage("§c加工NPC生成中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("加工NPC生成エラー: " + e.getMessage());
-            e.printStackTrace();
             return true;
         }
     }
@@ -631,8 +615,6 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         
         try {
             // 既存NPCを削除せずに、内部データのみリロード
-            plugin.getLogger().info("=== NPCデータリロード開始 ===");
-            
             int reloadedCount = 0;
             
             // 取引NPCデータをリロード
@@ -649,8 +631,8 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage("§a加工NPCデータをリロードしました");
             }
             
-            plugin.getLogger().info("=== NPCデータリロード完了 (" + reloadedCount + "種類) ===");
-            
+            plugin.getLogger().info("NPCデータをリロードしました (" + reloadedCount + "種類)");
+
             sender.sendMessage("§aNPCデータのリロードが完了しました。");
             sender.sendMessage("§7既存のNPCは保持され、config.ymlの設定と照合されました。");
             sender.sendMessage("§e詳細はサーバーログを確認してください。");
@@ -659,7 +641,6 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             sender.sendMessage("§cNPCリロード中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("NPCリロード中にエラーが発生: " + e.getMessage());
-            e.printStackTrace();
         }
         
         return true;

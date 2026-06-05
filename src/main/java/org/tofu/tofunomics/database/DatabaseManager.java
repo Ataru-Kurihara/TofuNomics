@@ -342,6 +342,28 @@ public class DatabaseManager {
                 
                 logger.info("players テーブルに last_login カラムを追加しました");
             }
+
+            // housing_rentals テーブルの start_tick カラムが存在するかチェック
+            try {
+                statement.executeQuery("SELECT start_tick FROM housing_rentals LIMIT 1");
+            } catch (SQLException e) {
+                logger.info("housing_rentals テーブルに start_tick カラムを追加しています...");
+                statement.executeUpdate("ALTER TABLE housing_rentals ADD COLUMN start_tick INTEGER DEFAULT 0");
+                logger.info("housing_rentals テーブルに start_tick カラムを追加しました");
+            }
+
+            // housing_rentals テーブルの end_tick カラムが存在するかチェック
+            try {
+                statement.executeQuery("SELECT end_tick FROM housing_rentals LIMIT 1");
+            } catch (SQLException e) {
+                logger.info("housing_rentals テーブルに end_tick カラムを追加しています...");
+                statement.executeUpdate("ALTER TABLE housing_rentals ADD COLUMN end_tick INTEGER DEFAULT 0");
+                logger.info("housing_rentals テーブルに end_tick カラムを追加しました");
+            }
+
+            // 期限切れ検索高速化用インデックス（存在しなければ作成）
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_housing_rentals_end_tick ON housing_rentals(end_tick)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_housing_rentals_status_end_tick ON housing_rentals(status, end_tick)");
         } catch (SQLException e) {
             logger.warning("マイグレーション処理に失敗しました: " + e.getMessage());
         }

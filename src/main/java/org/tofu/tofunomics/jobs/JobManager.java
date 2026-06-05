@@ -236,7 +236,7 @@ public class JobManager {
             return jobDAO.getJobById(jobId);
         } catch (java.sql.SQLException e) {
             // エラーログを出力してnullを返す
-            System.err.println("Failed to get job by id: " + jobId + " - " + e.getMessage());
+            TofuNomics.getInstance().getLogger().severe("職業IDからの取得に失敗しました (jobId=" + jobId + "): " + e.getMessage());
             return null;
         }
     }

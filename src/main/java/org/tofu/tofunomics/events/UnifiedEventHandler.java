@@ -113,64 +113,45 @@ public class UnifiedEventHandler implements Listener {
     
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        System.out.println("=== UnifiedEventHandler.onBlockBreak デバッグ開始 ===");
-        System.out.println("イベント: " + event.getClass().getSimpleName());
-        
         // 基本的なイベント処理チェック
         if (!shouldProcessEvent(event)) {
-            System.out.println("shouldProcessEventでfalse、処理をスキップ");
             return;
         }
-        
+
         Player player = event.getPlayer();
         Material blockType = event.getBlock().getType();
-        
-        System.out.println("プレイヤー: " + player.getName());
-        System.out.println("ブロック: " + blockType.name());
-        
-        
-        
+
         // 職業ブロック制限チェック（優先度HIGHで早期チェック）
         if (!blockPermissionManager.canPlayerBreakBlock(player, blockType)) {
-            System.out.println("blockPermissionManagerで拒否されました");
             event.setCancelled(true);
             String message = blockPermissionManager.getDeniedMessage(player, blockType);
             player.sendMessage(message);
             return;
         }
-        
-        System.out.println("ブロック破壊許可 - 通常処理を継続");
-        
+
         // プレイヤーが設置したブロックかチェック（メモリ内追跡）
         String blockKey = getBlockLocationKey(event.getBlock().getLocation());
         boolean isPlayerPlaced = playerPlacedBlocks.contains(blockKey);
-        
-        System.out.println("プレイヤー設置ブロック: " + isPlayerPlaced);
-        
+
         // 設置ブロックの場合はセットから削除
         if (isPlayerPlaced) {
             playerPlacedBlocks.remove(blockKey);
         }
-        
+
         // キャッシュチェック
         if (eventCache.isRecentlyProcessed(player, "block_break", 50)) {
-            System.out.println("重複イベントのためスキップ");
             return; // 50ms以内の重複イベントは無視
         }
-        
+
         // 既存のマネージャーに処理を委譲（収入システムは無効化）
         // プレイヤーが設置したブロックの場合は経験値を付与しない
         if (!isPlayerPlaced) {
             experienceManager.onBlockBreak(event);
-        } else {
-            System.out.println("プレイヤー設置ブロックのため経験値なし");
         }
         questManager.onBlockBreak(event);
-        
+
         // キャッシュに記録
         eventCache.markAsProcessed(player, "block_break");
-        
-        System.out.println("=== ブロック破壊イベント処理完了 ===");
     }
     
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -218,38 +199,28 @@ public class UnifiedEventHandler implements Listener {
     
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCraftItem(CraftItemEvent event) {
-        plugin.getLogger().info("=== onCraftItem メソッド開始 ===");
         if (!shouldProcessEvent(event)) return;
         if (!(event.getWhoClicked() instanceof Player)) return;
-        
+
         Player player = (Player) event.getWhoClicked();
         Material craftedItem = event.getRecipe().getResult().getType();
-        
+
         // クラフト制限チェック（優先度HIGH で先にチェック）
         TofuNomics tofuPlugin = (TofuNomics) plugin;
-        plugin.getLogger().info("=== CraftItemEvent処理開始 ===");
-        plugin.getLogger().info("プレイヤー: " + player.getName() + ", アイテム: " + craftedItem.name());
-        
         if (tofuPlugin.getJobCraftPermissionManager() != null) {
-            plugin.getLogger().info("JobCraftPermissionManager: 初期化済み");
-            
             if (!tofuPlugin.getJobCraftPermissionManager().canPlayerCraftItem(player, craftedItem)) {
                 // クラフトを禁止
                 event.setCancelled(true);
-                
+
                 // 制限メッセージを送信
                 String message = tofuPlugin.getJobCraftPermissionManager().getCraftDeniedMessage(player, craftedItem);
                 player.sendMessage(message);
-                
-                plugin.getLogger().info("クラフト制限: " + player.getName() + " が " + craftedItem.name() + " のクラフトを禁止されました");
                 return;
-            } else {
-                plugin.getLogger().info("クラフト許可: " + player.getName() + " が " + craftedItem.name() + " のクラフトを許可");
             }
         } else {
             plugin.getLogger().warning("JobCraftPermissionManager: 未初期化のため制限チェックをスキップ");
         }
-        
+
         // キャッシュチェック
         if (eventCache.isRecentlyProcessed(player, "craft_item", 100)) {
             return;
@@ -414,27 +385,13 @@ public class UnifiedEventHandler implements Listener {
      * イベント処理を行うべきかチェック
      */
     private boolean shouldProcessEvent(Event event) {
-        plugin.getLogger().info("=== shouldProcessEvent 診断開始 ===");
-        plugin.getLogger().info("イベントタイプ: " + event.getClass().getSimpleName());
-        
         // 設定でイベントシステムが無効化されている場合
-        boolean isEventSystemEnabled = configManager.isEventSystemEnabled();
-        plugin.getLogger().info("イベントシステム有効: " + isEventSystemEnabled);
-        if (!isEventSystemEnabled) {
-            plugin.getLogger().info("判定結果: イベントシステムが無効のため処理スキップ");
+        if (!configManager.isEventSystemEnabled()) {
             return false;
         }
-        
+
         // イベント処理プロセッサでの判定
-        boolean shouldProcessByProcessor = eventProcessor.shouldProcessEvent(event);
-        plugin.getLogger().info("イベントプロセッサ判定: " + shouldProcessByProcessor);
-        if (!shouldProcessByProcessor) {
-            plugin.getLogger().info("判定結果: イベントプロセッサが処理を拒否");
-            return false;
-        }
-        
-        plugin.getLogger().info("判定結果: イベント処理を実行");
-        return true;
+        return eventProcessor.shouldProcessEvent(event);
     }
     
     /**

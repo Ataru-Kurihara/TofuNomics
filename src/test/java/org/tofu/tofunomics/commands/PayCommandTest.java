@@ -82,6 +82,12 @@ public class PayCommandTest {
         when(targetPlayer.getUniqueId()).thenReturn(targetUuid);
         when(fromPlayer.getName()).thenReturn("TestSender");
         when(targetPlayer.getName()).thenReturn("TestReceiver");
+
+        // ワールド制限チェック用モック（経済機能が有効なワールドとして扱う）
+        org.bukkit.World mockWorld = mock(org.bukkit.World.class);
+        when(mockWorld.getName()).thenReturn("tofuNomics");
+        when(fromPlayer.getWorld()).thenReturn(mockWorld);
+        when(configManager.isEconomyEnabledInWorld(anyString())).thenReturn(true);
     }
 
     @Test

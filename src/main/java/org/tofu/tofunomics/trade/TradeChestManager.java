@@ -58,7 +58,7 @@ public class TradeChestManager {
             }
             
         } catch (SQLException e) {
-            System.err.println("取引チェストの読み込みに失敗しました: " + e.getMessage());
+            configManager.getPlugin().getLogger().severe("取引チェストの読み込みに失敗しました: " + e.getMessage());
         }
     }
     
@@ -127,7 +127,7 @@ public class TradeChestManager {
             }
             
         } catch (SQLException e) {
-            System.err.println("取引チェストの保存に失敗しました: " + e.getMessage());
+            configManager.getPlugin().getLogger().severe("取引チェストの保存に失敗しました: " + e.getMessage());
         }
         
         return false;
@@ -158,7 +158,7 @@ public class TradeChestManager {
             }
             
         } catch (SQLException e) {
-            System.err.println("取引チェストの削除に失敗しました: " + e.getMessage());
+            configManager.getPlugin().getLogger().severe("取引チェストの削除に失敗しました: " + e.getMessage());
         }
         
         return false;
@@ -228,7 +228,7 @@ public class TradeChestManager {
             }
             
         } catch (SQLException e) {
-            System.err.println("取引履歴の保存に失敗しました: " + e.getMessage());
+            configManager.getPlugin().getLogger().severe("取引履歴の保存に失敗しました: " + e.getMessage());
         }
         
         return false;
@@ -252,7 +252,7 @@ public class TradeChestManager {
             }
             
         } catch (SQLException e) {
-            System.err.println("取引履歴の取得に失敗しました: " + e.getMessage());
+            configManager.getPlugin().getLogger().severe("取引履歴の取得に失敗しました: " + e.getMessage());
         }
         
         return histories;

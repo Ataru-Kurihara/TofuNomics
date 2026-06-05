@@ -45,7 +45,12 @@ public class TradeCommand implements CommandExecutor, TabCompleter {
         }
         
         Player player = (Player) sender;
-        
+
+        if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
+            player.sendMessage(ChatColor.RED + "このワールドではTofuNomicsの経済機能を利用できません。");
+            return true;
+        }
+
         if (args.length == 0) {
             showTradeHelp(player);
             return true;

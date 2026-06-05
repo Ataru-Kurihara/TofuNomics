@@ -32,6 +32,10 @@ public class PayCommand implements CommandExecutor {
         }
         
         Player fromPlayer = (Player) sender;
+        if (!configManager.isEconomyEnabledInWorld(fromPlayer.getWorld().getName())) {
+            sender.sendMessage(ChatColor.RED + "このワールドではTofuNomicsの経済機能を利用できません。");
+            return true;
+        }
         String targetPlayerName = args[0];
         String amountString = args[1];
         
@@ -104,9 +108,17 @@ public class PayCommand implements CommandExecutor {
             fromPlayer.sendMessage(ChatColor.translateAlternateColorCodes('&', 
                 configManager.getMessagePrefix() + senderMessage));
             
-            targetPlayer.sendMessage(ChatColor.translateAlternateColorCodes('&', 
+            targetPlayer.sendMessage(ChatColor.translateAlternateColorCodes('&',
                 configManager.getMessagePrefix() + receiverMessage));
-            
+
+            // 受取側へActionBarで通知（チャット欄を汚さず気づける）
+            if (configManager.isPayActionBarEnabled()) {
+                double newBalance = currencyConverter.getBalance(targetPlayer.getUniqueId());
+                new org.tofu.tofunomics.util.NotificationManager().sendActionBar(targetPlayer,
+                    "&a+ " + formattedAmount + " " + currencySymbol +
+                    " &7受取 &f(残高: " + currencyConverter.formatCurrency(newBalance) + " " + currencySymbol + ")");
+            }
+
             if (fee > 0) {
                 fromPlayer.sendMessage(ChatColor.YELLOW + "送金手数料: " + 
                     currencyConverter.formatCurrency(fee) + " " + currencySymbol);

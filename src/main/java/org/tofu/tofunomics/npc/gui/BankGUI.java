@@ -74,13 +74,12 @@ public class BankGUI implements Listener {
             
             activeSessions.put(player.getUniqueId(), session);
             player.openInventory(gui);
-            
+
             plugin.getLogger().info("銀行GUIを開きました: " + player.getName() + " -> " + npcData.getName());
-            
+
         } catch (Exception e) {
             plugin.getLogger().severe("銀行GUI作成中にエラーが発生しました: " + e.getMessage());
             player.sendMessage(configManager.getMessage("npc.bank.gui_error"));
-            e.printStackTrace();
         }
     }
     
@@ -182,11 +181,13 @@ public class BankGUI implements Listener {
         );
         gui.setItem(26, closeItem);
         
-        // 装飾アイテム
-        ItemStack glassPane = createGUIItem(Material.GRAY_STAINED_GLASS_PANE, "§r", Collections.emptyList());
-        int[] decorationSlots = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 14, 16, 17, 18, 20, 23, 24, 25};
-        for (int slot : decorationSlots) {
-            gui.setItem(slot, glassPane);
+        // 装飾アイテム（銀行テーマ: 水色ガラス。無効時は装飾なし）
+        if (configManager.isGuiDecorationEnabled()) {
+            ItemStack glassPane = createGUIItem(Material.LIGHT_BLUE_STAINED_GLASS_PANE, "§r", Collections.emptyList());
+            int[] decorationSlots = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 14, 16, 17, 18, 20, 23, 24, 25};
+            for (int slot : decorationSlots) {
+                gui.setItem(slot, glassPane);
+            }
         }
     }
     
@@ -229,7 +230,6 @@ public class BankGUI implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("銀行GUIクリック処理中にエラーが発生しました: " + e.getMessage());
             player.sendMessage(configManager.getMessage("npc.bank.action_error"));
-            e.printStackTrace();
         }
     }
     
@@ -511,10 +511,7 @@ public class BankGUI implements Listener {
         Player player = (Player) event.getPlayer();
         UUID playerId = player.getUniqueId();
         
-        BankGUISession session = activeSessions.remove(playerId);
-        if (session != null) {
-            plugin.getLogger().info("銀行GUIを閉じました: " + player.getName());
-        }
+        activeSessions.remove(playerId);
     }
     
     public void closeAllGUIs() {

@@ -57,22 +57,36 @@ public class BalanceTopCommand implements CommandExecutor {
         String currencySymbol = configManager.getCurrencySymbol();
         
         sender.sendMessage(ChatColor.GOLD + "==================== 残高ランキング TOP " + limit + " ====================");
-        
+
+        // Playerかつ演出有効時はホバーで詳細を表示するリッチテキストを使用
+        boolean richDisplay = (sender instanceof org.bukkit.entity.Player)
+            && configManager.isClickableMessagesEnabled();
+
         for (int i = 0; i < topPlayers.size(); i++) {
             org.tofu.tofunomics.models.Player tofuPlayer = topPlayers.get(i);
             int rank = i + 1;
-            
+
             String playerName = getPlayerName(tofuPlayer.getUuid().toString());
             String formattedBalance = currencyConverter.formatCurrency(tofuPlayer.getBalance());
-            
+
             ChatColor rankColor = getRankColor(rank);
-            
+
             String rankText = getRankText(rank);
-            
-            sender.sendMessage(String.format("%s%s %s%s: %s%s %s", 
+
+            String rowText = String.format("%s%s %s%s: %s%s %s",
                 rankColor, rankText,
                 ChatColor.WHITE, playerName,
-                ChatColor.GREEN, formattedBalance, currencySymbol));
+                ChatColor.GREEN, formattedBalance, currencySymbol);
+
+            if (richDisplay) {
+                String hover = String.format("&6%s位&7: &f%s\n&a残高: %s %s",
+                    rank, playerName, formattedBalance, currencySymbol);
+                org.tofu.tofunomics.util.RichMessageBuilder.create()
+                    .hoverText(rowText, hover)
+                    .sendTo((org.bukkit.entity.Player) sender);
+            } else {
+                sender.sendMessage(rowText);
+            }
         }
         
         sender.sendMessage(ChatColor.GOLD + "================================================================");

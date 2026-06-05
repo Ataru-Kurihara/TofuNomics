@@ -92,7 +92,6 @@ public class ProcessingGUI implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("加工GUI作成中にエラーが発生しました: " + e.getMessage());
             player.sendMessage("§cGUIの作成に失敗しました。管理者にお知らせください。");
-            e.printStackTrace();
         }
     }
     
@@ -272,7 +271,7 @@ public class ProcessingGUI implements Listener {
             buttonMaterial = Material.LIME_DYE;
             buttonName = "§a全ての原木を加工する";
             buttonLore.add("§f加工する原木: §e" + totalLogs + "個");
-            buttonLore.add("§f受け取る板材: §a" + (totalLogs * 4) + "個");
+            buttonLore.add("§f受け取る板材: §a" + (totalLogs * processingNPCManager.getPlanksPerLog()) + "個");
             if (totalFee > 0) {
                 buttonLore.add("§f加工料金: §e" + String.format("%.0f", totalFee) + "G");
             } else {
@@ -312,7 +311,7 @@ public class ProcessingGUI implements Listener {
         
         lore.add("§f所持数: §e" + amount + "個");
         lore.add("§7↓");
-        lore.add("§f板材: §a" + (amount * 4) + "個");
+        lore.add("§f板材: §a" + (amount * processingNPCManager.getPlanksPerLog()) + "個");
         
         boolean isWoodcutter = isWoodcutter(player);
         double feePerLog = isWoodcutter ? 
@@ -481,8 +480,6 @@ public class ProcessingGUI implements Listener {
             additionalInfo,
             // 確定時のコールバック
             (p, selectedQuantity) -> {
-                plugin.getLogger().info("数量選択加工開始: " + p.getName() + " - " + selectedQuantity + "個");
-                
                 // 原木を再収集（GUIを閉じている間に変わっている可能性がある）
                 List<ItemStack> currentLogItems = new ArrayList<>();
                 for (ItemStack item : p.getInventory().getContents()) {
@@ -505,7 +502,6 @@ public class ProcessingGUI implements Listener {
             },
             // キャンセル時のコールバック
             () -> {
-                plugin.getLogger().info("数量選択がキャンセルされました: " + player.getName());
             }
         );
     }
@@ -527,9 +523,7 @@ public class ProcessingGUI implements Listener {
             player.closeInventory();
             return;
         }
-        
-        plugin.getLogger().info("加工処理開始: " + player.getName());
-        
+
         // 加工処理実行
         ProcessingNPCManager.ProcessingResult result = processingNPCManager.processWoodConversion(
             player, session.getNpcId(), logItems
@@ -559,7 +553,6 @@ public class ProcessingGUI implements Listener {
         
         if (session != null && event.getInventory().equals(session.getInventory())) {
             activeSessions.remove(player.getUniqueId());
-            plugin.getLogger().info("加工GUIを閉じました: " + player.getName());
         }
     }
     

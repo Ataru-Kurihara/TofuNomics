@@ -43,13 +43,10 @@ public class BankNPCManager {
             plugin.getLogger().info("銀行NPCシステムを初期化しました");
         } catch (Exception e) {
             plugin.getLogger().severe("銀行NPCシステムの初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
-    
+
     private void spawnBankNPCs() {
-        plugin.getLogger().info("銀行NPCをスポーンしています...");
-        
         // 既にスポーンした座標を記録するSet（重複防止用）
         java.util.Set<String> spawnedLocations = new java.util.HashSet<>();
         
@@ -57,8 +54,6 @@ public class BankNPCManager {
         java.util.List<java.util.Map<?, ?>> bankNPCLocations = configManager.getBankNPCLocations();
         
         if (!bankNPCLocations.isEmpty()) {
-            plugin.getLogger().info("config.ymlから" + bankNPCLocations.size() + "個の銀行NPC設定を読み込みました");
-            
             for (java.util.Map<?, ?> npcData : bankNPCLocations) {
                 try {
                     String worldName = (String) npcData.get("world");
@@ -104,7 +99,6 @@ public class BankNPCManager {
                     }
                 } catch (Exception e) {
                     plugin.getLogger().severe("銀行NPCのスポーン中にエラー: " + e.getMessage());
-                    e.printStackTrace();
                 }
             }
         } else {
@@ -227,8 +221,6 @@ public class BankNPCManager {
     }
     
     public void removeBankNPCs() {
-        plugin.getLogger().info("全ての銀行NPCを削除しています...");
-        
         Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
         int removedCount = 0;
         
@@ -243,7 +235,6 @@ public class BankNPCManager {
     }
     
     public void reloadBankNPCs() {
-        plugin.getLogger().info("銀行NPCをリロードしています...");
         removeBankNPCs();
         spawnBankNPCs();
         plugin.getLogger().info("銀行NPCのリロードが完了しました");

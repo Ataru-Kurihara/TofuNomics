@@ -5,6 +5,7 @@ api-version: '1.21'
 description: tofunomicsワールド専用経済プラグイン
 author: TofuNomics Team
 website: https://github.com/tofu-server/TofuNomics
+depend: [WorldGuard]
 
 commands:
   balance:

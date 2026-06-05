@@ -71,7 +71,6 @@ public class PlayerInventoryManager {
 
         } catch (Exception e) {
             logger.severe("インベントリ保存中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -123,7 +122,6 @@ public class PlayerInventoryManager {
 
         } catch (Exception e) {
             logger.severe("インベントリ復元中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -145,7 +143,6 @@ public class PlayerInventoryManager {
 
         } catch (Exception e) {
             logger.severe("インベントリデータ削除中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -157,7 +154,6 @@ public class PlayerInventoryManager {
         // 5分ごとにオンラインのプレイヤーのインベントリを保存
         autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             try {
-                logger.info("インベントリ自動保存を実行中...");
                 int savedCount = 0;
 
                 for (Player player : Bukkit.getOnlinePlayers()) {

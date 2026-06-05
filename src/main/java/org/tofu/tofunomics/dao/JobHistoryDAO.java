@@ -5,13 +5,16 @@ import org.tofu.tofunomics.models.JobHistory;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * 職業履歴データアクセスクラス
  * プレイヤーが退職した職業の情報を管理
  */
 public class JobHistoryDAO {
-    
+
+    private static final Logger logger = Logger.getLogger(JobHistoryDAO.class.getName());
+
     private final Connection connection;
     
     public JobHistoryDAO(Connection connection) {
@@ -34,11 +37,11 @@ public class JobHistoryDAO {
             
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("職業履歴の登録に失敗しました: " + e.getMessage());
             return false;
         }
     }
-    
+
     /**
      * プレイヤーの職業履歴を全て取得
      * @param uuid プレイヤーUUID
@@ -63,9 +66,9 @@ public class JobHistoryDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("職業履歴一覧の取得に失敗しました: " + e.getMessage());
         }
-        
+
         return histories;
     }
     
@@ -76,19 +79,19 @@ public class JobHistoryDAO {
      */
     public int getMaxLevelAchieved(String uuid) {
         String query = "SELECT MAX(max_level) as highest_level FROM job_history WHERE uuid = ?";
-        
+
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, uuid);
-            
+
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
                     return resultSet.getInt("highest_level");
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("最高到達レベルの取得に失敗しました: " + e.getMessage());
         }
-        
+
         return 0;
     }
     
@@ -111,9 +114,9 @@ public class JobHistoryDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("職業別最高到達レベルの取得に失敗しました: " + e.getMessage());
         }
-        
+
         return 0;
     }
     
@@ -143,9 +146,9 @@ public class JobHistoryDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("最新職業履歴の取得に失敗しました: " + e.getMessage());
         }
-        
+
         return null;
     }
     
@@ -170,7 +173,7 @@ public class JobHistoryDAO {
             statement.setString(1, uuid);
             return statement.executeUpdate() >= 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("職業履歴の削除に失敗しました: " + e.getMessage());
             return false;
         }
     }
