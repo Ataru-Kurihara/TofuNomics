@@ -30,8 +30,11 @@ public class ProcessingNPCManager {
     
     // 原木→板材のマッピング
     private final Map<Material, Material> logToPlanksMap;
-    
-    public ProcessingNPCManager(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager, 
+
+    // 原木1個あたりの板材産出数（config駆動）
+    private int planksPerLog;
+
+    public ProcessingNPCManager(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
                                CurrencyConverter currencyConverter, JobManager jobManager) {
         this.plugin = plugin;
         this.configManager = configManager;
@@ -40,14 +43,46 @@ public class ProcessingNPCManager {
         this.jobManager = jobManager;
         this.processingStations = new HashMap<>();
         this.logToPlanksMap = new HashMap<>();
-        
+
         initializeLogToPlanksMapping();
     }
-    
+
     /**
-     * 原木→板材のマッピングを初期化
+     * 原木→板材のマッピングを初期化（config.ymlのwood_types駆動）
+     * configが空または未定義の場合はデフォルトのハードコードマッピングにフォールバック
      */
     private void initializeLogToPlanksMapping() {
+        logToPlanksMap.clear();
+        this.planksPerLog = configManager.getProcessingPlanksPerLog();
+
+        Map<String, String> woodTypes = configManager.getProcessingWoodTypes();
+        if (woodTypes.isEmpty()) {
+            loadDefaultLogMapping();
+            return;
+        }
+
+        for (Map.Entry<String, String> entry : woodTypes.entrySet()) {
+            try {
+                Material log = Material.valueOf(entry.getKey().toUpperCase());
+                Material planks = Material.valueOf(entry.getValue().toUpperCase());
+                logToPlanksMap.put(log, planks);
+            } catch (IllegalArgumentException ex) {
+                plugin.getLogger().warning(String.format(
+                    "加工設定の無効なMaterial名をスキップしました: %s -> %s",
+                    entry.getKey(), entry.getValue()));
+            }
+        }
+
+        // configが全て無効だった場合もデフォルトにフォールバック
+        if (logToPlanksMap.isEmpty()) {
+            loadDefaultLogMapping();
+        }
+    }
+
+    /**
+     * デフォルトの原木→板材マッピング（後方互換用フォールバック）
+     */
+    private void loadDefaultLogMapping() {
         logToPlanksMap.put(Material.OAK_LOG, Material.OAK_PLANKS);
         logToPlanksMap.put(Material.SPRUCE_LOG, Material.SPRUCE_PLANKS);
         logToPlanksMap.put(Material.BIRCH_LOG, Material.BIRCH_PLANKS);
@@ -56,8 +91,6 @@ public class ProcessingNPCManager {
         logToPlanksMap.put(Material.DARK_OAK_LOG, Material.DARK_OAK_PLANKS);
         logToPlanksMap.put(Material.CRIMSON_STEM, Material.CRIMSON_PLANKS);
         logToPlanksMap.put(Material.WARPED_STEM, Material.WARPED_PLANKS);
-        
-        plugin.getLogger().info("原木→板材マッピング初期化完了: " + logToPlanksMap.size() + "種類");
     }
     
     /**
@@ -97,16 +130,13 @@ public class ProcessingNPCManager {
             plugin.getLogger().info("加工NPCシステムを初期化しました");
         } catch (Exception e) {
             plugin.getLogger().severe("加工NPCシステムの初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
-    
+
     /**
      * 加工NPCを生成
      */
     private void spawnProcessingNPCs() {
-        plugin.getLogger().info("=== 加工NPC生成開始 ===");
-        
         processingStations.clear();
         
         // 現在スポーン中の全NPCを取得（座標ベースでの重複チェック用）
@@ -125,12 +155,9 @@ public class ProcessingNPCManager {
                 existingNPCsNameByLocation.put(locationKey, npc.getName());
             }
         }
-        
-        plugin.getLogger().info("既存の加工NPC数: " + existingNPCsByLocation.size());
-        
+
         List<Map<?, ?>> processingConfigs = configManager.getProcessingNPCConfigs();
-        plugin.getLogger().info("設定から " + processingConfigs.size() + " 個の加工所を読み込み");
-        
+
         // config.ymlに記載されている座標を記録（警告用）
         Set<String> configLocationKeys = new HashSet<>();
         
@@ -177,12 +204,10 @@ public class ProcessingNPCManager {
                     
                     if (existingNPC != null) {
                         processingNPC = existingNPC.getEntity();
-                        plugin.getLogger().info("既存の加工NPCを再利用: " + name + " (UUID: " + npcId + ")");
-                        
+
                         // 名前が変更されている場合は更新
                         if (!name.equals(existingNPC.getName())) {
                             processingNPC.setCustomName(name);
-                            plugin.getLogger().info("  NPC名を更新: " + existingNPC.getName() + " -> " + name);
                         }
                     } else {
                         // NPCDataが見つからない場合は新規作成
@@ -198,9 +223,8 @@ public class ProcessingNPCManager {
                     }
                 } else {
                     // 新規作成
-                    plugin.getLogger().info("加工NPCを新規生成中: " + name + " at [" + x + ", " + y + ", " + z + "]");
                     processingNPC = npcManager.createNPC(location, "processing", name);
-                    
+
                     if (processingNPC != null) {
                         npcId = processingNPC.getUniqueId();
                         setupProcessingNPC(processingNPC);
@@ -209,27 +233,19 @@ public class ProcessingNPCManager {
                         continue;
                     }
                 }
-                
+
                 // 加工所データを登録
                 ProcessingStation station = new ProcessingStation(id, name, location, npcId);
                 processingStations.put(id, station);
-                
-                plugin.getLogger().info("========================================");
-                plugin.getLogger().info("加工所登録成功:");
-                plugin.getLogger().info("  名前: " + name);
-                plugin.getLogger().info("  ID: " + id);
-                plugin.getLogger().info("  UUID: " + npcId);
-                plugin.getLogger().info("  座標: [" + x + ", " + y + ", " + z + "]");
-                plugin.getLogger().info("========================================");
-                
+
+                plugin.getLogger().info("加工所を登録しました: " + name + " [" + x + ", " + y + ", " + z + "]");
+
             } catch (Exception e) {
                 plugin.getLogger().warning("加工NPC処理中にエラーが発生しました: " + e.getMessage());
-                e.printStackTrace();
             }
         }
-        
+
         // config.ymlに記載されていないNPCを検出して警告
-        plugin.getLogger().info("=== config.yml未登録NPCチェック ===");
         int orphanedCount = 0;
         for (Map.Entry<String, UUID> entry : existingNPCsByLocation.entrySet()) {
             String locationKey = entry.getKey();
@@ -244,11 +260,7 @@ public class ProcessingNPCManager {
         
         if (orphanedCount > 0) {
             plugin.getLogger().warning("config.yml未登録の加工NPC: " + orphanedCount + "体");
-        } else {
-            plugin.getLogger().info("全ての加工NPCがconfig.ymlに登録されています");
         }
-        
-        plugin.getLogger().info("=== 加工NPC生成完了 ===");
     }
     
     /**
@@ -264,9 +276,6 @@ public class ProcessingNPCManager {
      * 加工NPCとのインタラクション処理
      */
     public boolean handleProcessingNPCInteraction(Player player, UUID npcId) {
-        plugin.getLogger().info("=== 加工NPC相互作用開始 ===");
-        plugin.getLogger().info("プレイヤー: " + player.getName() + ", NPC ID: " + npcId);
-        
         try {
             // NPC存在チェック
             if (!npcManager.isNPCEntity(npcId)) {
@@ -303,7 +312,6 @@ public class ProcessingNPCManager {
             
         } catch (Exception e) {
             plugin.getLogger().severe("加工NPC処理中に例外発生: " + e.getMessage());
-            e.printStackTrace();
             player.sendMessage("§c処理中にエラーが発生しました。");
             return true;
         }
@@ -391,7 +399,7 @@ public class ProcessingNPCManager {
             
             if (planksType != null) {
                 int logAmount = item.getAmount();
-                int planksAmount = logAmount * 4; // 原木1個→板材4個
+                int planksAmount = logAmount * planksPerLog; // 原木1個→板材planksPerLog個
                 
                 // 原木を削除
                 item.setAmount(0);
@@ -465,7 +473,7 @@ public class ProcessingNPCManager {
         }
         
         // インベントリ空き容量チェック（板材は原木の4倍になる）
-        int requiredSlots = (int) Math.ceil((actualQuantity * 4) / 64.0);
+        int requiredSlots = (int) Math.ceil((actualQuantity * planksPerLog) / 64.0);
         if (!hasEnoughInventorySpace(player, requiredSlots)) {
             return new ProcessingResult(false, configManager.getProcessingNPCMessage("inventory_full"), actualQuantity, 0, totalFee);
         }
@@ -496,7 +504,7 @@ public class ProcessingNPCManager {
                 item.setAmount(itemAmount - toProcess);
                 
                 // 板材を付与
-                int planksAmount = toProcess * 4;
+                int planksAmount = toProcess * planksPerLog;
                 ItemStack planks = new ItemStack(planksType, planksAmount);
                 player.getInventory().addItem(planks);
                 
@@ -540,7 +548,7 @@ public class ProcessingNPCManager {
     private int calculateRequiredSlots(Map<Material, Integer> logsToProcess) {
         int totalPlanks = 0;
         for (int logAmount : logsToProcess.values()) {
-            totalPlanks += logAmount * 4;
+            totalPlanks += logAmount * planksPerLog;
         }
         // 64個（1スタック）で割って切り上げ
         return (int) Math.ceil(totalPlanks / 64.0);
@@ -635,7 +643,6 @@ public class ProcessingNPCManager {
      * 加工NPCをリロード
      */
     public void reloadProcessingNPCs() {
-        plugin.getLogger().info("加工NPCをリロードしています...");
         removeProcessingNPCs();
         spawnProcessingNPCs();
         plugin.getLogger().info("加工NPCのリロードが完了しました");
@@ -648,24 +655,16 @@ public class ProcessingNPCManager {
      */
     public void registerProcessingNPC(UUID npcId, String id, String name, Location location) {
         try {
-            plugin.getLogger().info("=== 加工NPC即座登録開始 ===");
-            plugin.getLogger().info("  NPC UUID: " + npcId);
-            plugin.getLogger().info("  加工所ID: " + id);
-            plugin.getLogger().info("  NPC名: " + name);
-            
             // ProcessingStationオブジェクトを作成
             ProcessingStation station = new ProcessingStation(id, name, location, npcId);
-            
+
             // processingStationsマップに登録
             processingStations.put(id, station);
-            
-            plugin.getLogger().info("加工NPCを即座に登録完了: " + name + " (UUID: " + npcId + ")");
-            plugin.getLogger().info("登録済み加工所数: " + processingStations.size());
-            plugin.getLogger().info("=== 加工NPC即座登録完了 ===");
-            
+
+            plugin.getLogger().info("加工NPCを登録しました: " + name);
+
         } catch (Exception e) {
             plugin.getLogger().severe("加工NPC即座登録中にエラーが発生: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -673,8 +672,6 @@ public class ProcessingNPCManager {
      * 設定変更後に加工所データを再読み込み（NPCスポーン後の即座反映用）
      */
     public void reloadProcessingStations() {
-        plugin.getLogger().info("加工所データを再読み込みしています...");
-        
         // 現在の設定ファイルから加工所一覧を取得
         List<Map<?, ?>> configProcessingStations = configManager.getProcessingNPCConfigs();
         Set<String> configNPCNames = new HashSet<>();
@@ -694,18 +691,17 @@ public class ProcessingNPCManager {
         for (NPCManager.NPCData npcData : allNPCs) {
             if ("processing".equals(npcData.getNpcType()) && !configNPCNames.contains(npcData.getName())) {
                 npcToRemove.add(npcData);
-                plugin.getLogger().info("設定ファイルから削除されたNPCを除去: " + npcData.getName());
             }
         }
-        
+
         // 削除対象のNPCを除去
         for (NPCManager.NPCData npc : npcToRemove) {
             npcManager.removeNPC(npc.getEntityId());
         }
-        
+
         // processingStationsマップを更新（既存NPCは再スポーンしない）
         updateProcessingStationsFromConfig();
-        
+
         plugin.getLogger().info("加工所データの再読み込みが完了しました");
     }
     
@@ -713,26 +709,11 @@ public class ProcessingNPCManager {
      * 設定ファイルからprocessingStationsマップを更新（既存NPCは再スポーンしない）
      */
     private void updateProcessingStationsFromConfig() {
-        plugin.getLogger().info("=== 加工所マップ更新開始 ===");
-        
         // 既存の加工所データをクリア
         processingStations.clear();
-        
-        // デバッグ: 現在スポーンしている全NPCを確認
-        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
-        plugin.getLogger().info("現在スポーン中のNPC総数: " + allNPCs.size());
-        int processingCount = 0;
-        for (NPCManager.NPCData npc : allNPCs) {
-            if ("processing".equals(npc.getNpcType())) {
-                processingCount++;
-                plugin.getLogger().info("  加工NPC: " + npc.getName() + " (UUID: " + npc.getEntityId() + ", タイプ: " + npc.getNpcType() + ")");
-            }
-        }
-        plugin.getLogger().info("加工NPCの数: " + processingCount);
-        
+
         List<Map<?, ?>> processingConfigs = configManager.getProcessingNPCConfigs();
-        plugin.getLogger().info("設定から " + processingConfigs.size() + " 個の加工所を読み込み");
-        
+
         for (Map<?, ?> config : processingConfigs) {
             try {
                 String id = (String) config.get("id");
@@ -760,36 +741,22 @@ public class ProcessingNPCManager {
                 }
                 
                 Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
-                
-                plugin.getLogger().info("--- 加工所設定処理: " + name + " ---");
-                plugin.getLogger().info("  設定ID: " + id);
-                plugin.getLogger().info("  名前（色コード付き）: " + name);
-                plugin.getLogger().info("  名前（色コード除去）: " + org.bukkit.ChatColor.stripColor(name));
-                
+
                 // 既存のスポーン済みNPCを名前で検索
                 UUID npcId = findExistingProcessingNPCIdByName(name);
-                
+
                 if (npcId != null) {
                     // 既存NPCが見つかった場合、データのみ登録
                     ProcessingStation station = new ProcessingStation(id, name, location, npcId);
                     processingStations.put(id, station);
-                    
-                    plugin.getLogger().info("  ✓ 加工所データ登録成功: " + name + " (既存NPC UUID: " + npcId + ")");
                 } else {
-                    plugin.getLogger().warning("  ✗ 加工所 " + name + " に対応するNPCが見つかりません");
-                    plugin.getLogger().warning("  - config.ymlに設定はあるが、スポーン済みNPCが見つからない");
-                    plugin.getLogger().warning("  - NPCを手動削除した、またはワールドがロードされていない可能性");
-                    plugin.getLogger().warning("  - 解決方法1: /npc spawn processing コマンドで再作成");
-                    plugin.getLogger().warning("  - 解決方法2: config.ymlから該当の設定を削除");
+                    plugin.getLogger().warning("加工所 " + name + " に対応するNPCが見つかりません");
                 }
-                
+
             } catch (Exception e) {
                 plugin.getLogger().warning("加工所データ更新中にエラーが発生しました: " + e.getMessage());
-                e.printStackTrace();
             }
         }
-        
-        plugin.getLogger().info("=== 加工所マップ更新完了: " + processingStations.size() + "個 ===");
     }
     
     /**
@@ -799,28 +766,17 @@ public class ProcessingNPCManager {
         Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
         // 色コードを除去した検索名
         String searchName = org.bukkit.ChatColor.stripColor(name);
-        
-        plugin.getLogger().info("  加工NPCを検索中: " + name + " → " + searchName);
-        plugin.getLogger().info("  検索対象NPC総数: " + allNPCs.size());
-        
-        int matchAttempts = 0;
+
         for (NPCManager.NPCData npcData : allNPCs) {
             if ("processing".equals(npcData.getNpcType())) {
-                matchAttempts++;
                 // NPCの名前からも色コードを除去して比較
                 String npcName = org.bukkit.ChatColor.stripColor(npcData.getName());
-                plugin.getLogger().info("    比較 #" + matchAttempts + ": [" + npcData.getName() + "] → [" + npcName + "]");
-                
                 if (searchName.equals(npcName)) {
-                    plugin.getLogger().info("    ✓ マッチ成功！UUID: " + npcData.getEntityId());
                     return npcData.getEntityId();
-                } else {
-                    plugin.getLogger().info("    ✗ マッチ失敗: [" + searchName + "] != [" + npcName + "]");
                 }
             }
         }
-        
-        plugin.getLogger().warning("  検索結果: NPCが見つかりませんでした（" + matchAttempts + "個の加工NPCを確認）");
+
         return null;
     }
     

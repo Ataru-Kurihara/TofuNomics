@@ -78,12 +78,9 @@ public class NPCListener implements Listener {
         
         // システムのNPCかチェック
         if (!npcManager.isNPCEntity(npcId)) {
-            plugin.getLogger().info("非NPCエンティティがクリックされました: " + npcId);
             return;
         }
-        
-        plugin.getLogger().info("NPCがクリックされました: " + npcId + " by プレイヤー: " + player.getName());
-        
+
         event.setCancelled(true); // デフォルトの村人取引を無効化
 
         // ワールド制限チェック（経済機能が無効なワールドではNPC機能を提供しない）
@@ -97,9 +94,7 @@ public class NPCListener implements Listener {
                 plugin.getLogger().warning("NPCデータが見つかりません: " + npcId);
                 return;
             }
-            
-            plugin.getLogger().info("NPCタイプを確認: " + npcData.getNpcType() + " (名前: " + npcData.getName() + ")");
-            
+
             // プレイヤーの方を向く機能（設定で有効な場合）
             if (configManager.isLookAtPlayerEnabled()) {
                 makeNPCLookAtPlayer(villager, player);
@@ -107,25 +102,21 @@ public class NPCListener implements Listener {
             
             switch (npcData.getNpcType()) {
                 case "banker":
-                    plugin.getLogger().info("銀行NPCとの相互作用を開始: " + npcData.getName());
                     handleBankNPCInteraction(player, npcId);
                     break;
-                    
+
                 case "trader":
-                    plugin.getLogger().info("取引NPCとの相互作用を開始: " + npcData.getName());
                     handleTradingNPCInteraction(player, npcId);
                     break;
-                    
+
                 case "food_merchant":
-                    plugin.getLogger().info("食料NPCとの相互作用を開始: " + npcData.getName());
                     handleFoodNPCInteraction(player, npcId);
                     break;
-                    
+
                 case "processing":
-                    plugin.getLogger().info("加工NPCとの相互作用を開始: " + npcData.getName());
                     handleProcessingNPCInteraction(player, npcId);
                     break;
-                    
+
                 default:
                     plugin.getLogger().warning("不明なNPCタイプ: " + npcData.getNpcType());
                     player.sendMessage(configManager.getMessage("npc.unknown_type"));
@@ -135,7 +126,6 @@ public class NPCListener implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("NPC取引処理中にエラーが発生しました: " + e.getMessage());
             player.sendMessage(configManager.getMessage("npc.service_error"));
-            e.printStackTrace();
         }
     }
     
@@ -193,8 +183,6 @@ public class NPCListener implements Listener {
         }
         
         try {
-            plugin.getLogger().info("加工NPC相互作用処理開始: " + player.getName() + ", NPC ID: " + npcId);
-            
             if (processingNPCManager != null) {
                 boolean handled = processingNPCManager.handleProcessingNPCInteraction(player, npcId);
                 if (handled) {
@@ -212,7 +200,6 @@ public class NPCListener implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("加工NPC相互作用処理中に例外が発生しました: " + e.getMessage());
             player.sendMessage("§c処理中にエラーが発生しました。管理者にお知らせください。");
-            e.printStackTrace();
         }
     }
     
@@ -227,8 +214,6 @@ public class NPCListener implements Listener {
         }
         
         try {
-            plugin.getLogger().info("食料NPC相互作用処理開始: " + player.getName() + ", NPC ID: " + npcId);
-            
             if (foodNPCManager != null) {
                 boolean handled = foodNPCManager.handleFoodNPCInteraction(player, npcId);
                 if (handled) {
@@ -248,7 +233,6 @@ public class NPCListener implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("食料NPC相互作用処理中に例外が発生しました: " + e.getMessage());
             player.sendMessage("§c処理中にエラーが発生しました。管理者にお知らせください。");
-            e.printStackTrace();
         }
     }
     
@@ -417,18 +401,71 @@ public class NPCListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkLoad(ChunkLoadEvent event) {
-        // チャンク内の全エンティティをチェック
+        // チャンク内のシステムNPCを「タイプ+整数座標」でグルーピング
+        // （サーバー再起動でNBT復元された旧NPCと新規NPCが重複するため、ここで排除する）
+        Map<String, List<Villager>> npcsByLocation = new HashMap<>();
         for (org.bukkit.entity.Entity entity : event.getChunk().getEntities()) {
             if (entity instanceof Villager) {
                 Villager villager = (Villager) entity;
-                
-                // システムNPCかチェック（PDCベース）
                 if (npcManager.isSystemNPC(villager)) {
-                    // NPC設定を再適用
-                    npcManager.reapplyNPCSettings(villager);
+                    String key = getNPCLocationKey(villager);
+                    npcsByLocation.computeIfAbsent(key, k -> new ArrayList<>()).add(villager);
                 }
             }
         }
+
+        // 同一キーに複数体ある場合は1体だけ残して残りを削除
+        for (Map.Entry<String, List<Villager>> entry : npcsByLocation.entrySet()) {
+            List<Villager> duplicates = entry.getValue();
+            Villager keep = selectNPCToKeep(duplicates);
+
+            for (Villager villager : duplicates) {
+                if (villager == keep) {
+                    continue;
+                }
+                plugin.getLogger().info("重複NPCを削除: " + villager.getCustomName() +
+                    " at " + entry.getKey());
+                villager.remove();
+            }
+
+            // 残った1体にのみ設定を再適用
+            if (keep != null) {
+                npcManager.reapplyNPCSettings(keep);
+            }
+        }
+    }
+
+    /**
+     * NPCの重複判定用キーを生成（タイプ + 整数化したブロック座標）
+     */
+    private String getNPCLocationKey(Villager villager) {
+        Location loc = villager.getLocation();
+        String npcType = "unknown";
+        org.bukkit.persistence.PersistentDataContainer pdc = villager.getPersistentDataContainer();
+        org.bukkit.NamespacedKey typeKey = new org.bukkit.NamespacedKey(plugin, "npc_type");
+        if (pdc.has(typeKey, org.bukkit.persistence.PersistentDataType.STRING)) {
+            String type = pdc.get(typeKey, org.bukkit.persistence.PersistentDataType.STRING);
+            if (type != null) {
+                npcType = type;
+            }
+        } else if (villager.hasMetadata("tofunomics_npc_type")) {
+            npcType = villager.getMetadata("tofunomics_npc_type").get(0).asString();
+        }
+        return npcType + ":" + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ();
+    }
+
+    /**
+     * 重複NPC群から残す1体を選定する
+     * 内部マップ（npcs）に登録済み=今回の起動で正規生成された個体を最優先で残す
+     */
+    private Villager selectNPCToKeep(List<Villager> duplicates) {
+        for (Villager villager : duplicates) {
+            if (npcManager.getNPCData(villager.getUniqueId()) != null) {
+                return villager;
+            }
+        }
+        // 正規個体が見つからなければ最初の1体を残す
+        return duplicates.isEmpty() ? null : duplicates.get(0);
     }
 
     /**

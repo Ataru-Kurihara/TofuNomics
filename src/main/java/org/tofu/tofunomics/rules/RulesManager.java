@@ -254,7 +254,6 @@ public class RulesManager implements Listener {
             return true;
         } catch (Exception e) {
             plugin.getLogger().severe("ルール同意状態のリセットに失敗しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }

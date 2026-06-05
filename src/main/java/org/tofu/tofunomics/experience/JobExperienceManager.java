@@ -21,6 +21,7 @@ import org.tofu.tofunomics.jobs.ExperienceManager;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.tools.JobToolManager;
+import org.tofu.tofunomics.util.NotificationManager;
 
 import java.util.HashMap;
 import java.util.List;
@@ -37,7 +38,11 @@ public class JobExperienceManager implements Listener {
     private final JobManager jobManager;
     private final JobToolManager jobToolManager;
     private final ExperienceManager experienceManager;
-    
+    private final NotificationManager notificationManager = new NotificationManager();
+
+    // バニラ経験値バーへの即時反映用（setter注入。null許容）
+    private org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager;
+
     // 経験値テーブル
     private final Map<Material, Double> miningExperience;
     private final Map<Material, Double> loggingExperience;
@@ -69,7 +74,14 @@ public class JobExperienceManager implements Listener {
         
         initializeExperienceTables();
     }
-    
+
+    /**
+     * バニラ経験値バー反映用のScoreboardManagerを注入する
+     */
+    public void setScoreboardManager(org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager) {
+        this.scoreboardManager = scoreboardManager;
+    }
+
     private void initializeExperienceTables() {
         // 採掘経験値テーブル
         miningExperience.put(Material.COAL_ORE, 2.0);
@@ -256,7 +268,12 @@ public class JobExperienceManager implements Listener {
         
         // データベース更新
         playerJobDAO.updatePlayerJobData(playerJob);
-        
+
+        // バニラ経験値バーへ即時反映（経験値獲得・レベルアップを即座に表示）
+        if (scoreboardManager != null) {
+            scoreboardManager.updateExperienceBar(player);
+        }
+
         // 経験値獲得メッセージ（5経験値以上の場合のみ表示）
         if (experience >= 5.0) {
             player.sendMessage(ChatColor.GREEN + String.format("+ %.1f %s経験値", 
@@ -271,19 +288,39 @@ public class JobExperienceManager implements Listener {
         while (canPlayerLevelUp(playerJob)) {
             playerJob.levelUp();
             int newLevel = playerJob.getLevel();
-            
-            // レベルアップメッセージ
-            player.sendMessage(ChatColor.GOLD + "★ レベルアップ！ " + 
-                configManager.getJobDisplayName(jobName) + " レベル " + newLevel + " に到達！");
-            
+            String displayName = configManager.getJobDisplayName(jobName);
+
+            // レベルアップメッセージ（ログとしてチャットにも残す）
+            player.sendMessage(ChatColor.GOLD + "★ レベルアップ！ " +
+                displayName + " レベル " + newLevel + " に到達！");
+
+            // Title演出（画面中央に大きく表示）
+            if (configManager.isLevelUpTitleEnabled()) {
+                notificationManager.sendTitle(player,
+                    "&6&l★ LEVEL UP ★",
+                    "&e" + displayName + " &fLv." + newLevel,
+                    10, 50, 20);
+            }
+
+            // パーティクル演出
+            if (configManager.isLevelUpParticleEnabled()) {
+                notificationManager.playCelebrationEffect(player);
+            }
+
             // 新しいツールの付与チェック
             jobToolManager.checkAndGiveNewTools(player, jobName, newLevel);
-            
+
             // 職業レベル最大値チェック
             Job job = jobDAO.getJobByNameSafe(jobName);
             if (job != null && newLevel >= job.getMaxLevel()) {
-                player.sendMessage(ChatColor.LIGHT_PURPLE + "★ おめでとうございます！ " + 
-                    configManager.getJobDisplayName(jobName) + " の最大レベルに到達しました！");
+                player.sendMessage(ChatColor.LIGHT_PURPLE + "★ おめでとうございます！ " +
+                    displayName + " の最大レベルに到達しました！");
+                if (configManager.isLevelUpTitleEnabled()) {
+                    notificationManager.sendTitle(player,
+                        "&d&l★ MAX LEVEL ★",
+                        "&d" + displayName + " &f最大レベル到達！",
+                        10, 60, 20);
+                }
                 break;
             }
         }

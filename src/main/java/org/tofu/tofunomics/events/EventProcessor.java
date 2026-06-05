@@ -265,35 +265,24 @@ public class EventProcessor {
      * 有効な職業を持っているかチェック
      */
     private boolean hasValidJob(Player player, Event event) {
-        System.out.println("=== hasValidJob デバッグ開始 ===");
-        System.out.println("プレイヤー: " + player.getName());
-        System.out.println("イベント: " + event.getClass().getSimpleName());
-        
         // 特定のイベントは職業なしでも処理可能
         if (isJobOptionalEvent(event)) {
-            System.out.println("職業不要イベントのため許可");
             return true;
         }
-        
+
         // プレイヤーが少なくとも1つの職業を持っているかチェック
         List<PlayerJob> jobs = jobManager.getPlayerJobs(player);
-        System.out.println("取得した職業リスト: " + (jobs != null ? jobs.size() + "個" : "null"));
-        
         if (jobs == null || jobs.isEmpty()) {
-            System.out.println("判定結果: 職業なしのため拒否");
             return false;
         }
-        
+
         // アクティブな職業があるかチェック
         for (PlayerJob job : jobs) {
-            System.out.println("職業チェック: JobID=" + job.getJobId() + ", レベル=" + job.getLevel() + ", アクティブ: " + job.isActive());
             if (job.isActive()) {
-                System.out.println("判定結果: アクティブな職業があるため許可");
                 return true;
             }
         }
-        
-        System.out.println("判定結果: アクティブな職業がないため拒否");
+
         return false;
     }
     

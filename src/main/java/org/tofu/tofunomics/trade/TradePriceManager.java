@@ -384,25 +384,16 @@ public class TradePriceManager {
      * NPCシステム用の最終価格計算メソッド
      */
     public double calculateFinalPrice(String itemName, String jobType, double basePrice) {
-        System.out.println("[TradePriceManager] calculateFinalPrice - itemName: " + itemName + ", jobType: " + jobType + ", basePrice: " + basePrice);
-        
         // 職業倍率を取得（無職の場合は1.0）
         double jobMultiplier = (jobType == null || jobType.isEmpty()) ? 1.0 : configManager.getJobPriceMultiplier(jobType);
-        System.out.println("[TradePriceManager] jobMultiplier: " + jobMultiplier);
-        
+
         double finalPrice = basePrice * jobMultiplier;
-        System.out.println("[TradePriceManager] After job multiplier: " + finalPrice);
-        
+
         // グローバル倍率を適用
         double globalMultiplier = configManager.getTradePriceMultiplier();
-        System.out.println("[TradePriceManager] globalMultiplier: " + globalMultiplier);
-        
         finalPrice *= globalMultiplier;
-        System.out.println("[TradePriceManager] After global multiplier: " + finalPrice);
-        
+
         // 個数を掛ける前の価格を返す（切り捨ては呼び出し側で行う）
-        System.out.println("[TradePriceManager] Returning finalPrice (before floor): " + finalPrice);
-        
         return finalPrice;
     }
 }

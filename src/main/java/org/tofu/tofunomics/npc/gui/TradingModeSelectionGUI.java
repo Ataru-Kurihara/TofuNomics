@@ -62,8 +62,6 @@ public class TradingModeSelectionGUI implements Listener {
      * モード選択GUIを開く
      */
     public void openModeSelectionGUI(Player player, TradingNPCManager.TradingPost tradingPost) {
-        plugin.getLogger().info("モード選択GUI開起: プレイヤー=" + player.getName() + ", 取引所=" + tradingPost.getName());
-
         try {
             // GUIタイトル
             String title = "§6" + tradingPost.getName() + " - モード選択";
@@ -87,12 +85,9 @@ public class TradingModeSelectionGUI implements Listener {
             // GUI開起
             player.openInventory(gui);
 
-            plugin.getLogger().info("モード選択GUI開起完了: " + player.getName());
-
         } catch (Exception e) {
             plugin.getLogger().severe("モード選択GUI作成中にエラーが発生しました: " + e.getMessage());
             player.sendMessage("§c画面の表示中にエラーが発生しました。");
-            e.printStackTrace();
         }
     }
 
@@ -203,7 +198,6 @@ public class TradingModeSelectionGUI implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("モード選択処理中にエラーが発生しました: " + e.getMessage());
             player.sendMessage("§c処理中にエラーが発生しました。");
-            e.printStackTrace();
         }
     }
 
@@ -216,7 +210,6 @@ public class TradingModeSelectionGUI implements Listener {
         switch (slot) {
             case 11: // 売却モード
                 if (material == Material.EMERALD) {
-                    plugin.getLogger().info("売却モード選択: " + player.getName());
                     player.closeInventory();
                     // 売却モードで取引GUIを開く
                     tradingGUI.openTradingGUIWithMode(player, tradingPost, TradingGUI.TradingMode.SELL);
@@ -225,7 +218,6 @@ public class TradingModeSelectionGUI implements Listener {
 
             case 15: // 購入モード
                 if (material == Material.GOLD_INGOT) {
-                    plugin.getLogger().info("購入モード選択: " + player.getName());
                     player.closeInventory();
                     // 購入モードで取引GUIを開く
                     tradingGUI.openTradingGUIWithMode(player, tradingPost, TradingGUI.TradingMode.BUY);
@@ -234,7 +226,6 @@ public class TradingModeSelectionGUI implements Listener {
 
             case 22: // 閉じる
                 if (material == Material.BARRIER) {
-                    plugin.getLogger().info("モード選択GUI閉じる: " + player.getName());
                     player.closeInventory();
                 }
                 break;
@@ -258,10 +249,7 @@ public class TradingModeSelectionGUI implements Listener {
         UUID playerId = player.getUniqueId();
 
         // セッションを削除
-        ModeSelectionSession session = activeSessions.remove(playerId);
-        if (session != null) {
-            plugin.getLogger().info("モード選択GUI閉じました: " + player.getName());
-        }
+        activeSessions.remove(playerId);
     }
 
     /**

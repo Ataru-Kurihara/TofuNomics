@@ -3,9 +3,12 @@ package org.tofu.tofunomics.dao;
 import org.tofu.tofunomics.models.JobChange;
 
 import java.sql.*;
+import java.util.logging.Logger;
 
 public class JobChangeDAO {
-    
+
+    private static final Logger logger = Logger.getLogger(JobChangeDAO.class.getName());
+
     private final Connection connection;
     
     public JobChangeDAO(Connection connection) {
@@ -29,12 +32,12 @@ public class JobChangeDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("職業変更履歴の取得に失敗しました: " + e.getMessage());
         }
-        
+
         return null;
     }
-    
+
     public boolean insertJobChange(JobChange jobChange) {
         String query = "INSERT INTO job_changes (uuid, last_change_date, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
         
@@ -44,11 +47,11 @@ public class JobChangeDAO {
             
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("職業変更履歴の登録に失敗しました: " + e.getMessage());
             return false;
         }
     }
-    
+
     public boolean updateJobChange(JobChange jobChange) {
         String query = "UPDATE job_changes SET last_change_date = ?, updated_at = CURRENT_TIMESTAMP WHERE uuid = ?";
         
@@ -58,11 +61,11 @@ public class JobChangeDAO {
             
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("職業変更履歴の更新に失敗しました: " + e.getMessage());
             return false;
         }
     }
-    
+
     public boolean upsertJobChange(JobChange jobChange) {
         JobChange existing = getJobChangeByUUID(jobChange.getUuid());
         if (existing != null) {
@@ -89,7 +92,7 @@ public class JobChangeDAO {
             statement.setString(1, uuid);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("職業変更履歴の削除に失敗しました: " + e.getMessage());
             return false;
         }
     }

@@ -10,8 +10,11 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 public class PlayerDAO {
+    private static final Logger logger = Logger.getLogger(PlayerDAO.class.getName());
+
     private final Connection connection;
 
     public PlayerDAO(Connection connection) {
@@ -297,7 +300,7 @@ public class PlayerDAO {
                 return result.getBoolean("rules_agreed");
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("ルール同意状態の取得に失敗しました: " + e.getMessage());
         }
         return false;
     }
@@ -312,7 +315,7 @@ public class PlayerDAO {
             statement.setString(2, uuid.toString());
             statement.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.severe("ルール同意状態の更新に失敗しました: " + e.getMessage());
         }
     }
 }

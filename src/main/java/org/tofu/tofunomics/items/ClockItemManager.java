@@ -56,6 +56,10 @@ public class ClockItemManager implements Listener {
         
         actionBarTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
+                // 対象外ワールドのプレイヤーには時刻アクションバーを表示しない
+                if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
+                    continue;
+                }
                 if (hasClockItem(player)) {
                     updateActionBar(player);
                 }

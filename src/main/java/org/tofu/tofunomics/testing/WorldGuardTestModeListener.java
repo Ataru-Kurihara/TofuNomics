@@ -23,6 +23,7 @@ public class WorldGuardTestModeListener implements Listener {
     private final Logger logger;
     private final TestModeManager testModeManager;
     private final org.tofu.tofunomics.integration.WorldGuardIntegration worldGuardIntegration;
+    private final org.tofu.tofunomics.config.ConfigManager configManager;
     
     // テストモード中に操作を制限するブロックタイプ
     private static final Set<Material> PROTECTED_BLOCKS = EnumSet.of(
@@ -104,10 +105,12 @@ public class WorldGuardTestModeListener implements Listener {
         Material.LECTERN
     );
     
-    public WorldGuardTestModeListener(Plugin plugin, TestModeManager testModeManager, 
+    public WorldGuardTestModeListener(Plugin plugin, org.tofu.tofunomics.config.ConfigManager configManager,
+                                      TestModeManager testModeManager,
                                       org.tofu.tofunomics.integration.WorldGuardIntegration worldGuardIntegration) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
+        this.configManager = configManager;
         this.testModeManager = testModeManager;
         this.worldGuardIntegration = worldGuardIntegration;
     }
@@ -118,47 +121,40 @@ public class WorldGuardTestModeListener implements Listener {
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerInteract(PlayerInteractEvent event) {
-        // テストモード無効時は何もしない
         Player player = event.getPlayer();
-        
-        // デバッグ: イベントハンドラーが呼ばれたことをログ
-        logger.info("WorldGuardTestModeListener: PlayerInteractEvent発生 - プレイヤー: " + player.getName());
-        
-        if (!testModeManager.isInTestMode(player)) {
-            logger.info("WorldGuardTestModeListener: " + player.getName() + " はテストモード中ではありません");
+
+        // ワールド制限: 経済機能が無効なワールドではテストモード判定を行わない
+        if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
             return;
         }
-        
-        logger.info("WorldGuardTestModeListener: " + player.getName() + " はテストモード中です");
-        
+
+        // テストモード無効時は何もしない
+        if (!testModeManager.isInTestMode(player)) {
+            return;
+        }
+
         // 右クリックまたは左クリックのブロックインタラクションのみチェック
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.LEFT_CLICK_BLOCK) {
             return;
         }
-        
+
         Block clickedBlock = event.getClickedBlock();
         if (clickedBlock == null) {
             return;
         }
-        
+
         Material blockType = clickedBlock.getType();
-        
-        logger.info("WorldGuardTestModeListener: クリックされたブロック: " + blockType);
-        
+
         // 保護対象ブロックタイプかチェック
         if (!PROTECTED_BLOCKS.contains(blockType)) {
-            logger.info("WorldGuardTestModeListener: " + blockType + " は保護対象ブロックではありません");
             return;
         }
-        
-        logger.info("WorldGuardTestModeListener: " + blockType + " は保護対象ブロックです");
-        
+
         // テストモード中は、WorldGuardの権限チェックを厳密に実行
         // OP権限を持っていてもWorldGuardの保護をバイパスさせない
         // canInteractメソッドはプレイヤーのメンバー権限も考慮する
         boolean canInteract = worldGuardIntegration.canInteract(player, clickedBlock.getLocation());
-        logger.info("WorldGuardTestModeListener: 操作可否チェック結果: " + (canInteract ? "許可" : "拒否"));
-        
+
         if (!canInteract) {
             // WorldGuardの権限チェックで操作不可の場合は拒否
             event.setCancelled(true);

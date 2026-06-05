@@ -93,7 +93,6 @@ public class FoodGUI implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("食料GUI作成中にエラーが発生しました: " + e.getMessage());
             player.sendMessage("§cGUIの作成に失敗しました。管理者にお知らせください。");
-            e.printStackTrace();
         }
     }
     
@@ -147,8 +146,7 @@ public class FoodGUI implements Listener {
     private void setupFoodItems(Inventory gui, Player player, UUID npcId) {
         // 常に設定ファイルから商品リストを取得
         Map<Material, Double> itemPrices = getCurrentFoodPrices(npcId);
-        plugin.getLogger().info("FoodGUI: 商品データ取得完了 - 商品数: " + itemPrices.size());
-        
+
         Map<Material, Integer> storeInventory = foodNPCManager.getStoreInventory(npcId);
         Map<Material, Integer> playerPurchases = foodNPCManager.getPlayerDailyPurchases(player.getUniqueId());
         int dailyLimit = configManager.getFoodNPCDailyLimitPerItem();
@@ -258,9 +256,7 @@ public class FoodGUI implements Listener {
     private String getNPCType(UUID npcId) {
         FoodNPCManager.FoodStore foodStore = foodNPCManager.getFoodStore(npcId);
         if (foodStore != null) {
-            String npcType = foodStore.getNpcType();
-            plugin.getLogger().info("FoodGUI: NPCタイプ取得 - NPC ID: " + npcId + ", タイプ: " + npcType);
-            return npcType;
+            return foodStore.getNpcType();
         }
         plugin.getLogger().warning("FoodGUI: FoodStoreが見つかりません - NPC ID: " + npcId + ", デフォルトタイプを使用");
         return "general_store"; // フォールバック
@@ -401,7 +397,6 @@ public class FoodGUI implements Listener {
         
         if (session != null && event.getInventory().equals(session.getInventory())) {
             activeSessions.remove(player.getUniqueId());
-            plugin.getLogger().info("食料GUIを閉じました: " + player.getName());
         }
     }
     

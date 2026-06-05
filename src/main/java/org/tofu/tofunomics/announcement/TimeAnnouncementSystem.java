@@ -62,8 +62,11 @@ public class TimeAnnouncementSystem {
      * 時刻をチェックして必要に応じて放送
      */
     private void checkAndAnnounce() {
-        // メインワールドを取得
-        World world = Bukkit.getWorlds().get(0);
+        // 営業時間の判定基準となるワールドを取得
+        // ボスバー/スコアボードはプレイヤーがいる経済対象ワールド(tofuNomics)の時刻で
+        // 営業状態を表示するため、告知も同じ経済対象ワールドの時刻を基準にする。
+        // メインワールドを参照すると時刻がずれて営業状態表示が食い違う。
+        World world = getAnnouncementWorld();
         if (world == null) {
             return;
         }
@@ -102,10 +105,29 @@ public class TimeAnnouncementSystem {
     }
     
     /**
-     * 全プレイヤーにメッセージを放送
+     * 営業時間の判定基準となるワールドを取得する。
+     * 経済対象ワールド(enabled_worlds)のうち実在する最初のワールドを返す。
+     * 見つからない場合はサーバーのメインワールドにフォールバックする。
+     */
+    private World getAnnouncementWorld() {
+        for (String worldName : configManager.getEconomyEnabledWorlds()) {
+            World w = Bukkit.getWorld(worldName);
+            if (w != null) {
+                return w;
+            }
+        }
+        return Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+    }
+
+    /**
+     * 対象ワールドのプレイヤーにメッセージを放送
+     * 対象外ワールドのプレイヤーには送信しない
      */
     private void broadcastMessage(String message) {
         for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
+                continue;
+            }
             player.sendMessage(message);
         }
     }

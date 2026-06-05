@@ -104,7 +104,6 @@ public class ClockCommand implements CommandExecutor, TabCompleter {
         } catch (Exception e) {
             player.sendMessage("§c時計の購入中にエラーが発生しました。");
             plugin.getLogger().severe("時計購入エラー: " + e.getMessage());
-            e.printStackTrace();
         }
         
         return true;

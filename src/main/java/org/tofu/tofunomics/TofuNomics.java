@@ -83,7 +83,9 @@ public final class TofuNomics extends JavaPlugin {
 
     // スコアボードシステム
     private org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager;
-    
+    // 取引営業時間BossBarシステム
+    private org.tofu.tofunomics.scoreboard.BossBarManager bossBarManager;
+
     // NPCシステム（新機能）
     private org.tofu.tofunomics.npc.NPCManager npcManager;
     private org.tofu.tofunomics.npc.BankNPCManager bankNPCManager;
@@ -207,6 +209,11 @@ public final class TofuNomics extends JavaPlugin {
             scoreboardManager.shutdown();
         }
 
+        // BossBarシステムのクリーンアップ
+        if (bossBarManager != null) {
+            bossBarManager.shutdown();
+        }
+
         // NPCシステムのクリーンアップ
         cleanupNPCSystem();
 
@@ -258,7 +265,6 @@ public final class TofuNomics extends JavaPlugin {
             return true;
         } catch (Exception e) {
             getLogger().severe("データベース初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -309,10 +315,9 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("マネージャーを初期化しました");
         } catch (Exception e) {
             getLogger().severe("マネージャー初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
-    
+
     private void initializePhase3Managers() {
         try {
             // JobToolManagerの初期化
@@ -364,7 +369,6 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("Phase 3 職業特化機能を初期化しました");
         } catch (Exception e) {
             getLogger().severe("Phase 3 マネージャー初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -400,13 +404,10 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("Phase 4 取引システムを初期化しました");
         } catch (Exception e) {
             getLogger().severe("Phase 4 取引システム初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
-        
+
         // Phase 6 クラフト制限システムの初期化
         try {
-            getLogger().info("Phase 6 クラフト制限システム初期化開始");
-            
             // JobCraftPermissionManagerの初期化
             jobCraftPermissionManager = new org.tofu.tofunomics.jobs.JobCraftPermissionManager(
                 this,
@@ -415,7 +416,6 @@ public final class TofuNomics extends JavaPlugin {
             );
             
             // クラフト制限メッセージの強制初期化（緊急対応）
-            getLogger().info("クラフト制限メッセージの強制初期化を実行");
             configManager.ensureCraftRestrictionMessagesExist();
             saveConfig(); // 設定を確実に保存
             configManager.reloadConfig(); // リロードで反映
@@ -426,7 +426,6 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("Phase 6 クラフト制限システムを初期化しました");
         } catch (Exception e) {
             getLogger().severe("Phase 6 クラフト制限システム初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -435,10 +434,7 @@ public final class TofuNomics extends JavaPlugin {
      */
     private void initializeAutoConfig() {
         try {
-            getLogger().info("=== 設定自動初期化開始 ===");
-            
             // 新しい自動更新機能（バージョン2.0対応）
-            getLogger().info("設定ファイルの自動更新を実行中...");
             configManager.updateConfigWithDefaults();
             
             // NPC関連設定の自動初期化
@@ -452,12 +448,11 @@ public final class TofuNomics extends JavaPlugin {
             
             // 設定を保存
             saveConfig();
-            
-            getLogger().info("=== 設定自動初期化完了 ===");
-            
+
+            getLogger().info("設定の自動初期化が完了しました");
+
         } catch (Exception e) {
             getLogger().severe("設定自動初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -469,7 +464,6 @@ public final class TofuNomics extends JavaPlugin {
             }
             
             // UnifiedEventHandlerの初期化
-            getLogger().info("UnifiedEventHandler初期化開始");
             try {
                 unifiedEventHandler = new org.tofu.tofunomics.events.UnifiedEventHandler(
                     this,
@@ -481,16 +475,13 @@ public final class TofuNomics extends JavaPlugin {
                     jobQuestManager,
                     jobBlockPermissionManager
                 );
-                getLogger().info("UnifiedEventHandler初期化完了");
             } catch (Exception e) {
                 getLogger().severe("UnifiedEventHandler初期化エラー: " + e.getMessage());
-                e.printStackTrace();
             }
-            
+
             getLogger().info("Phase 5 統合イベントシステムを初期化しました");
         } catch (Exception e) {
             getLogger().severe("Phase 5 統合イベントシステム初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -508,7 +499,6 @@ public final class TofuNomics extends JavaPlugin {
                 this,
                 configManager,
                 playerDAO,
-                scoreboardManager,
                 inventoryManager,
                 rulesManager
             );
@@ -516,7 +506,6 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("プレイヤー参加時処理を初期化しました");
         } catch (Exception e) {
             getLogger().severe("プレイヤー参加時処理の初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -537,9 +526,17 @@ public final class TofuNomics extends JavaPlugin {
             );
             
             getLogger().info("スコアボードシステムを初期化しました");
+
+            // 職業レベルのバニラ経験値バー反映を即時化するため、JobExperienceManagerに注入
+            if (jobExperienceManager != null) {
+                jobExperienceManager.setScoreboardManager(scoreboardManager);
+            }
+
+            // 取引営業時間BossBarシステムの初期化
+            bossBarManager = new org.tofu.tofunomics.scoreboard.BossBarManager(this, configManager);
+            getLogger().info("取引営業時間BossBarシステムを初期化しました");
         } catch (Exception e) {
             getLogger().severe("スコアボードシステムの初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -580,6 +577,12 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(scoreboardManager, this);
                 getLogger().info("スコアボードシステムリスナーを登録しました");
             }
+
+            // BossBarマネージャーリスナーの登録
+            if (bossBarManager != null) {
+                getServer().getPluginManager().registerEvents(bossBarManager, this);
+                getLogger().info("BossBarシステムリスナーを登録しました");
+            }
             
             // NPCシステムリスナーの登録
             registerNPCEventListeners();
@@ -605,15 +608,14 @@ public final class TofuNomics extends JavaPlugin {
             // ルール確認システムリスナーの登録
             if (rulesManager != null) {
                 getServer().getPluginManager().registerEvents(rulesManager, this);
-                // RulesGUIは廃止（外部サイトURL方式に変更）
-                // getServer().getPluginManager().registerEvents(rulesManager.getRulesGUI(), this);
+                // ルールGUIのクリック・クローズイベントを登録（同意ボタン等を機能させる）
+                getServer().getPluginManager().registerEvents(rulesManager.getRulesGUI(), this);
                 getLogger().info("ルール確認システムリスナーを登録しました");
             }
 
             getLogger().info("全てのイベントリスナーを登録しました");
         } catch (Exception e) {
             getLogger().severe("イベントリスナー登録中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -697,7 +699,6 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("コマンドハンドラーを登録しました");
         } catch (Exception e) {
             getLogger().severe("コマンド登録中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -762,50 +763,39 @@ public final class TofuNomics extends JavaPlugin {
                 return;
             }
             
-            getLogger().info("=== NPCシステム初期化開始 ===");
-            
             // NPCマネージャーの初期化
-            getLogger().info("NPCマネージャー初期化中...");
             npcManager = new org.tofu.tofunomics.npc.NPCManager(this, configManager);
-            getLogger().info("NPCマネージャー初期化完了: " + (npcManager != null ? "成功" : "失敗"));
-            
+
             // GUIの初期化（NPCマネージャーより先に）
-            getLogger().info("BankGUIインスタンス作成開始...");
             bankGUI = new org.tofu.tofunomics.npc.gui.BankGUI(
-                this, 
-                configManager, 
-                currencyConverter, 
+                this,
+                configManager,
+                currencyConverter,
                 itemManager
             );
-            getLogger().info("BankGUIインスタンス作成完了: " + (bankGUI != null ? "成功" : "失敗"));
-            
+
             // 銀行NPCマネージャーの初期化
-            getLogger().info("BankNPCマネージャー初期化中...");
             bankNPCManager = new org.tofu.tofunomics.npc.BankNPCManager(
-                this, 
-                configManager, 
-                npcManager, 
-                bankLocationManager, 
+                this,
+                configManager,
+                npcManager,
+                bankLocationManager,
                 currencyConverter,
                 bankGUI
             );
-            getLogger().info("BankNPCマネージャー初期化完了: " + (bankNPCManager != null ? "成功" : "失敗"));
-            
+
             // 取引NPCマネージャーの初期化
-            getLogger().info("TradingNPCマネージャー初期化中...");
             tradingNPCManager = new org.tofu.tofunomics.npc.TradingNPCManager(
-                this, 
-                configManager, 
-                npcManager, 
-                currencyConverter, 
-                jobManager, 
-                tradePriceManager, 
+                this,
+                configManager,
+                npcManager,
+                currencyConverter,
+                jobManager,
+                tradePriceManager,
                 playerDAO
             );
-            getLogger().info("TradingNPCマネージャー初期化完了: " + (tradingNPCManager != null ? "成功" : "失敗"));
-            
+
             // 食料NPCマネージャーの初期化
-            getLogger().info("FoodNPCマネージャー初期化中...");
             foodNPCManager = new org.tofu.tofunomics.npc.FoodNPCManager(
                 this,
                 configManager,
@@ -813,10 +803,8 @@ public final class TofuNomics extends JavaPlugin {
                 currencyConverter,
                 playerDAO
             );
-            getLogger().info("FoodNPCマネージャー初期化完了: " + (foodNPCManager != null ? "成功" : "失敗"));
-            
+
             // 加工NPCマネージャーの初期化
-            getLogger().info("ProcessingNPCマネージャー初期化中...");
             processingNPCManager = new org.tofu.tofunomics.npc.ProcessingNPCManager(
                 this,
                 configManager,
@@ -824,142 +812,99 @@ public final class TofuNomics extends JavaPlugin {
                 currencyConverter,
                 jobManager
             );
-            getLogger().info("ProcessingNPCマネージャー初期化完了: " + (processingNPCManager != null ? "成功" : "失敗"));
-            
+
             // NPCリスナーの初期化
-            getLogger().info("NPCリスナー初期化中...");
             npcListener = new org.tofu.tofunomics.npc.NPCListener(
-                this, 
-                configManager, 
-                npcManager, 
-                bankNPCManager, 
+                this,
+                configManager,
+                npcManager,
+                bankNPCManager,
                 tradingNPCManager,
                 foodNPCManager,
                 processingNPCManager
             );
-            getLogger().info("NPCリスナー初期化完了: " + (npcListener != null ? "成功" : "失敗"));
-            
-            // ===== 重要: TradingGUIの初期化 =====
-            getLogger().info("=== TradingGUI初期化開始 ===");
-            getLogger().info("依存コンポーネント確認:");
-            getLogger().info("  - ConfigManager: " + (configManager != null ? "OK" : "NULL"));
-            getLogger().info("  - CurrencyConverter: " + (currencyConverter != null ? "OK" : "NULL"));
-            getLogger().info("  - JobManager: " + (jobManager != null ? "OK" : "NULL"));
-            getLogger().info("  - TradingNPCManager: " + (tradingNPCManager != null ? "OK" : "NULL"));
-            getLogger().info("  - TradePriceManager: " + (tradePriceManager != null ? "OK" : "NULL"));
-            
+
+            // TradingGUIの初期化
             try {
                 tradingGUI = new org.tofu.tofunomics.npc.gui.TradingGUI(
-                    this, 
-                    configManager, 
-                    currencyConverter, 
-                    jobManager, 
-                    tradingNPCManager, 
+                    this,
+                    configManager,
+                    currencyConverter,
+                    jobManager,
+                    tradingNPCManager,
                     tradePriceManager
                 );
-                
-                if (tradingGUI != null) {
-                    getLogger().info("✓ TradingGUIインスタンス作成成功！");
-                } else {
-                    getLogger().severe("✗ TradingGUIインスタンスがnullです！");
-                }
             } catch (Exception e) {
-                getLogger().severe("✗ TradingGUI初期化中に例外が発生しました:");
-                getLogger().severe("  エラーメッセージ: " + e.getMessage());
-                getLogger().severe("  エラークラス: " + e.getClass().getName());
-                e.printStackTrace();
+                getLogger().severe("TradingGUIの初期化中にエラーが発生しました: " + e.getMessage());
                 tradingGUI = null;
             }
-            getLogger().info("=== TradingGUI初期化完了 ===");
-            
+
             // TradingModeSelectionGUIの初期化
-            getLogger().info("TradingModeSelectionGUIインスタンス作成開始...");
             try {
                 tradingModeSelectionGUI = new org.tofu.tofunomics.npc.gui.TradingModeSelectionGUI(
                     this,
                     configManager,
                     tradingGUI
                 );
-                getLogger().info("TradingModeSelectionGUIインスタンス作成完了: " + (tradingModeSelectionGUI != null ? "成功" : "失敗"));
             } catch (Exception e) {
-                getLogger().severe("TradingModeSelectionGUI初期化エラー: " + e.getMessage());
-                e.printStackTrace();
+                getLogger().severe("TradingModeSelectionGUIの初期化中にエラーが発生しました: " + e.getMessage());
                 tradingModeSelectionGUI = null;
             }
-            
+
             // FoodGUIの初期化
-            getLogger().info("FoodGUIインスタンス作成開始...");
             try {
                 foodGUI = new org.tofu.tofunomics.npc.gui.FoodGUI(
-                    this, 
-                    configManager, 
-                    currencyConverter, 
+                    this,
+                    configManager,
+                    currencyConverter,
                     foodNPCManager
                 );
-                getLogger().info("FoodGUIインスタンス作成完了: " + (foodGUI != null ? "成功" : "失敗"));
             } catch (Exception e) {
-                getLogger().severe("FoodGUI初期化エラー: " + e.getMessage());
-                e.printStackTrace();
+                getLogger().severe("FoodGUIの初期化中にエラーが発生しました: " + e.getMessage());
                 foodGUI = null;
             }
-            
+
             // QuantitySelectorGUIの初期化
-            getLogger().info("QuantitySelectorGUIインスタンス作成開始...");
             try {
                 quantitySelectorGUI = new org.tofu.tofunomics.npc.gui.QuantitySelectorGUI(this);
-                getLogger().info("QuantitySelectorGUIインスタンス作成完了: " + (quantitySelectorGUI != null ? "成功" : "失敗"));
             } catch (Exception e) {
-                getLogger().severe("QuantitySelectorGUI初期化エラー: " + e.getMessage());
-                e.printStackTrace();
+                getLogger().severe("QuantitySelectorGUIの初期化中にエラーが発生しました: " + e.getMessage());
                 quantitySelectorGUI = null;
             }
-            
+
             // ProcessingGUIの初期化
-            getLogger().info("ProcessingGUIインスタンス作成開始...");
             try {
                 processingGUI = new org.tofu.tofunomics.npc.gui.ProcessingGUI(
-                    this, 
-                    configManager, 
-                    currencyConverter, 
+                    this,
+                    configManager,
+                    currencyConverter,
                     processingNPCManager,
                     jobManager,
                     quantitySelectorGUI
                 );
-                getLogger().info("ProcessingGUIインスタンス作成完了: " + (processingGUI != null ? "成功" : "失敗"));
             } catch (Exception e) {
-                getLogger().severe("ProcessingGUI初期化エラー: " + e.getMessage());
-                e.printStackTrace();
+                getLogger().severe("ProcessingGUIの初期化中にエラーが発生しました: " + e.getMessage());
                 processingGUI = null;
             }
-            
+
             // 既存のシステムNPCを削除（重複防止）
-            getLogger().info("既存システムNPCの削除中...");
             npcManager.removeExistingSystemNPCs();
-            
+
             // エンティティ削除が完全に処理されるまで待機（2秒 = 40 ticks）
-            getLogger().info("エンティティ削除処理の完了を待機中（2秒）...");
             getServer().getScheduler().runTaskLater(this, () -> {
                 // NPCの生成（各マネージャーが個別に生成）
-                getLogger().info("各マネージャーによるNPC生成開始...");
                 bankNPCManager.initializeBankNPCs();
                 tradingNPCManager.initializeTradingNPCs();
                 foodNPCManager.initializeFoodNPCs();
                 processingNPCManager.initializeProcessingNPCs();
-                
-                getLogger().info("=== NPCシステム初期化完了（遅延生成） ===");
+
+                getLogger().info("NPCの生成が完了しました");
             }, 40L);  // 40 ticks = 2秒待機
-            
-            getLogger().info("=== GUI初期化完了 ===");
-            getLogger().info("GUI初期化結果サマリー:");
-            getLogger().info("  - NPCManager: " + (npcManager != null ? "✓" : "✗"));
-            getLogger().info("  - BankGUI: " + (bankGUI != null ? "✓" : "✗"));
-            getLogger().info("  - TradingGUI: " + (tradingGUI != null ? "✓" : "✗"));
-            getLogger().info("  - FoodGUI: " + (foodGUI != null ? "✓" : "✗"));
-            getLogger().info("  - ProcessingGUI: " + (processingGUI != null ? "✓" : "✗"));
-            
+
+            getLogger().info("NPCシステムを初期化しました");
+
         } catch (Exception e) {
             getLogger().severe("NPCシステムの初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -1064,7 +1009,6 @@ public final class TofuNomics extends JavaPlugin {
     }
     
     public org.tofu.tofunomics.npc.gui.TradingGUI getTradingGUI() {
-        getLogger().info("TradingGUIインスタンス取得要求: " + (tradingGUI != null ? "存在" : "null"));
         if (tradingGUI == null) {
             getLogger().warning("TradingGUIがnullです。初期化に問題がある可能性があります。");
         }
@@ -1116,7 +1060,6 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("エリアシステムを正常に初期化しました（エリア数: " + areaManager.getAreaCount() + "）");
         } catch (Exception e) {
             getLogger().severe("エリアシステムの初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -1153,7 +1096,7 @@ public final class TofuNomics extends JavaPlugin {
             this.testModeManager = new org.tofu.tofunomics.testing.TestModeManager(this);
             
             // WorldGuardテストモードリスナーの初期化（worldGuardIntegrationとtestModeManager両方が準備できてから）
-            this.worldGuardTestModeListener = new org.tofu.tofunomics.testing.WorldGuardTestModeListener(this, testModeManager, worldGuardIntegration);
+            this.worldGuardTestModeListener = new org.tofu.tofunomics.testing.WorldGuardTestModeListener(this, configManager, testModeManager, worldGuardIntegration);
             
             // HousingRentalManager の初期化
             this.housingRentalManager = new org.tofu.tofunomics.housing.HousingRentalManager(
@@ -1184,7 +1127,6 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("住居賃貸システムを正常に初期化しました");
         } catch (Exception e) {
             getLogger().severe("住居賃貸システムの初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -1254,7 +1196,6 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("時刻放送システムが初期化されました");
         } catch (Exception e) {
             getLogger().severe("時刻放送システムの初期化に失敗しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -1281,7 +1222,6 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("時計アイテムシステムが初期化されました");
         } catch (Exception e) {
             getLogger().severe("時計アイテムシステムの初期化に失敗しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -1332,7 +1272,6 @@ public final class TofuNomics extends JavaPlugin {
             
         } catch (Exception e) {
             getLogger().severe("ルール確認システムの初期化に失敗しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     

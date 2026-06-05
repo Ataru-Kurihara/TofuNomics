@@ -115,34 +115,22 @@ public class TradingGUI implements Listener {
     }
     
     public void openTradingGUI(Player player, TradingNPCManager.TradingPost tradingPost) {
-        plugin.getLogger().info("TradingGUI.openTradingGUI開始: プレイヤー=" + player.getName() + ", 取引所=" + tradingPost.getName());
-        
         try {
             String playerJob = jobManager.getPlayerJob(player.getUniqueId());
-            plugin.getLogger().info("TradingGUI内での職業確認: " + (playerJob != null ? playerJob : "職業なし"));
-            
+
             // 無職の場合、この取引所が無職を受け入れるかチェック
             if (playerJob == null) {
-                plugin.getLogger().info("TradingGUI: 無職プレイヤーの受け入れ判定中...");
                 boolean acceptsNoJob = tradingPost.acceptsJob(null);
-                plugin.getLogger().info("TradingGUI: 取引所「" + tradingPost.getName() + "」の無職受け入れ: " + (acceptsNoJob ? "可能" : "不可"));
-                
+
                 if (!acceptsNoJob) {
                     // この取引所は無職を受け入れない
-                    plugin.getLogger().info("TradingGUI: 職業なしのため処理中断");
                     String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());
                     configManager.sendNPCSpecificMessageList(player, npcType, "no_job");
                     return;
                 }
-                
-                // この取引所は無職も受け入れる
-                plugin.getLogger().info("TradingGUI: この取引所は無職も受け入れます。GUI作成を続行");
             } else {
                 // 職業がある場合、職業対応チェック
-                plugin.getLogger().info("TradingGUI: 職業対応チェック - プレイヤー職業=" + playerJob + ", 対応職業=" + String.join(", ", tradingPost.getAcceptedJobTypes()));
-                
                 if (!tradingPost.acceptsJob(playerJob)) {
-                    plugin.getLogger().info("TradingGUI: 職業不対応のため処理中断");
                     String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());
                     String acceptedJobsStr = String.join(", ", tradingPost.getAcceptedJobTypes());
                     configManager.sendNPCSpecificMessageList(player, npcType, "job_not_accepted", 
@@ -154,33 +142,27 @@ public class TradingGUI implements Listener {
             }
             
             String title = "§6" + tradingPost.getName() + " - アイテム取引";
-            plugin.getLogger().info("TradingGUI: GUIタイトル設定完了: " + title);
-            
+
             Inventory gui = Bukkit.createInventory(null, 54, title);
-            plugin.getLogger().info("TradingGUI: インベントリ作成完了");
-            
+
             TradingGUISession session = new TradingGUISession(
                 player.getUniqueId(),
                 tradingPost.getId(),
                 gui
             );
-            plugin.getLogger().info("TradingGUI: セッション作成完了");
-            
+
             setupTradingGUIItems(gui, player, tradingPost, session);
-            plugin.getLogger().info("TradingGUI: GUIアイテム設定完了");
-            
+
             activeSessions.put(player.getUniqueId(), session);
             player.openInventory(gui);
-            plugin.getLogger().info("TradingGUI: インベントリ開起完了");
-            
+
             plugin.getLogger().info("取引GUIを開きました: " + player.getName() + " -> " + tradingPost.getName());
-            
+
         } catch (Exception e) {
             plugin.getLogger().severe("取引GUI作成中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("プレイヤー: " + player.getName() + ", 取引所: " + tradingPost.getName());
             player.sendMessage("§c取引画面の表示中にエラーが発生しました。");
             player.sendMessage("§c管理者にお知らせください。詳細はサーバーログを確認してください。");
-            e.printStackTrace();
         }
     }
     
@@ -191,25 +173,15 @@ public class TradingGUI implements Listener {
      * @param initialMode 初期モード（SELL or BUY）
      */
     public void openTradingGUIWithMode(Player player, TradingNPCManager.TradingPost tradingPost, TradingMode initialMode) {
-        plugin.getLogger().info("TradingGUI.openTradingGUIWithMode開始: プレイヤー=" + player.getName() +
-                               ", 取引所=" + tradingPost.getName() + ", モード=" + initialMode);
-
         try {
             String playerJob = jobManager.getPlayerJob(player.getUniqueId());
-            plugin.getLogger().info("TradingGUI内での職業確認: " + (playerJob != null ? playerJob : "職業なし"));
 
             // 職業チェック（購入と売却で異なる制限）
             boolean isMatchingJob = tradingPost.isMatchingJob(playerJob);
 
             if (!isMatchingJob) {
-                // 別職業または無職の場合
-                plugin.getLogger().info("TradingGUI: 別職業または無職 - プレイヤー職業=" +
-                    (playerJob != null ? playerJob : "無職") + ", 対応職業=" +
-                    String.join(", ", tradingPost.getAcceptedJobTypes()));
-
-                // 売却モードの場合のみ制限
+                // 別職業または無職の場合、売却モードのみ制限
                 if (initialMode == TradingMode.SELL) {
-                    plugin.getLogger().info("TradingGUI: 売却モードのため職業制限を適用");
                     String acceptedJobsStr = String.join("、", tradingPost.getAcceptedJobTypes());
 
                     player.sendMessage("§c売却はこの取引所の対応職業のみ可能です");
@@ -221,44 +193,34 @@ public class TradingGUI implements Listener {
                     }
                     return;
                 }
-
-                // 購入モードの場合は職業に関係なく続行
-                plugin.getLogger().info("TradingGUI: 購入モードのため職業に関係なくGUI開起を続行（割増価格適用）");
-            } else {
-                plugin.getLogger().info("TradingGUI: 対応職業です。購入・売却ともに可能");
+                // 購入モードの場合は職業に関係なく続行（割増価格適用）
             }
-            
+
             String title = "§6" + tradingPost.getName() + " - アイテム取引";
-            plugin.getLogger().info("TradingGUI: GUIタイトル設定完了: " + title);
-            
+
             Inventory gui = Bukkit.createInventory(null, 54, title);
-            plugin.getLogger().info("TradingGUI: インベントリ作成完了");
-            
+
             TradingGUISession session = new TradingGUISession(
                 player.getUniqueId(),
                 tradingPost.getId(),
                 gui
             );
-            
+
             // 初期モードを設定
             session.setTradingMode(initialMode);
-            plugin.getLogger().info("TradingGUI: セッション作成完了（初期モード: " + initialMode + "）");
-            
+
             setupTradingGUIItems(gui, player, tradingPost, session);
-            plugin.getLogger().info("TradingGUI: GUIアイテム設定完了");
-            
+
             activeSessions.put(player.getUniqueId(), session);
             player.openInventory(gui);
-            plugin.getLogger().info("TradingGUI: インベントリ開起完了");
-            
+
             plugin.getLogger().info("取引GUIを開きました: " + player.getName() + " -> " + tradingPost.getName() + " (" + initialMode + "モード)");
-            
+
         } catch (Exception e) {
             plugin.getLogger().severe("取引GUI作成中にエラーが発生しました: " + e.getMessage());
             plugin.getLogger().severe("プレイヤー: " + player.getName() + ", 取引所: " + tradingPost.getName());
             player.sendMessage("§c取引画面の表示中にエラーが発生しました。");
             player.sendMessage("§c管理者にお知らせください。詳細はサーバーログを確認してください。");
-            e.printStackTrace();
         }
     }
     
@@ -316,11 +278,7 @@ public class TradingGUI implements Listener {
 
                 // 木こりが原木を見る場合、GUI表示にも木こりボーナスを適用
                 if ("woodcutter".equals(playerJob) && isLogItem(material)) {
-                    plugin.getLogger().info("[TradingGUI] GUI表示: 木こりボーナス適用前 finalPrice=" + finalPrice + ", material=" + material);
                     finalPrice *= 2.0;
-                    plugin.getLogger().info("[TradingGUI] GUI表示: 木こりボーナス適用後 finalPrice=" + finalPrice);
-                } else {
-                    plugin.getLogger().info("[TradingGUI] GUI表示: playerJob=" + playerJob + ", isLogItem=" + isLogItem(material) + ", finalPrice=" + finalPrice + ", material=" + material);
                 }
 
                 int playerAmount = countPlayerItems(player, material);
@@ -423,13 +381,7 @@ public class TradingGUI implements Listener {
             
             double displayBasePrice = basePrice * displayMultiplier;
             double displayFinalPrice = finalPrice * displayMultiplier;
-            
-            plugin.getLogger().info("[TradingGUI] createTradingItem: material=" + material + 
-                ", basePrice=" + basePrice + 
-                ", finalPrice=" + finalPrice + 
-                ", displayMultiplier=" + displayMultiplier +
-                ", displayFinalPrice=" + displayFinalPrice);
-            
+
             lore.add("§f基本価格: §e" + currencyConverter.formatCurrency(displayBasePrice) + unitSuffix);
             
             if (Math.abs(finalPrice - basePrice) > 0.01) {
@@ -698,8 +650,13 @@ public class TradingGUI implements Listener {
     }
     
     private void fillEmptySlots(Inventory gui) {
-        ItemStack glassPane = createGUIItem(Material.GRAY_STAINED_GLASS_PANE, "§r", Collections.emptyList());
-        
+        // 装飾が無効な場合は枠を付けない
+        if (!configManager.isGuiDecorationEnabled()) {
+            return;
+        }
+        // 取引テーマ: 緑ガラス
+        ItemStack glassPane = createGUIItem(Material.LIME_STAINED_GLASS_PANE, "§r", Collections.emptyList());
+
         // 上段と下段の装飾
         for (int i = 0; i < 9; i++) {
             if (gui.getItem(i) == null) gui.setItem(i, glassPane);
@@ -741,7 +698,6 @@ public class TradingGUI implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("取引GUIクリック処理中にエラーが発生しました: " + e.getMessage());
             player.sendMessage(configManager.getMessage("npc.trading.action_error"));
-            e.printStackTrace();
         }
     }
     
@@ -893,49 +849,34 @@ public class TradingGUI implements Listener {
         // 事前にスペースをチェック（売却金額を計算して必要なスロット数を確認）
         double totalEarnings = 0.0;
 
-        plugin.getLogger().info("[TradingGUI] DEBUG ===== 売却処理開始 =====");
-        plugin.getLogger().info("[TradingGUI] DEBUG - itemsToSell.size(): " + itemsToSell.size());
-        plugin.getLogger().info("[TradingGUI] DEBUG - playerJob: " + playerJob);
-        
         // 売却金額の合計を計算（木こりボーナスも考慮）
         for (ItemStack sellItem : itemsToSell) {
             Material mat = sellItem.getType();
             double basePrice = tradingPost.getItemPrice(mat);
-            
-            plugin.getLogger().info("[TradingGUI] DEBUG - Material: " + mat + ", basePrice: " + basePrice + ", playerJob: " + playerJob + ", amount: " + sellItem.getAmount());
-            
+
             if (basePrice > 0) {
                 double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), playerJob, basePrice);
-                
-                plugin.getLogger().info("[TradingGUI] DEBUG - After calculateFinalPrice: " + finalPrice);
-                
+
                 // 木こりが原木を売る場合は価格を2倍に
                 if ("woodcutter".equals(playerJob) && isLogItem(mat)) {
                     finalPrice *= 2.0;
-                    plugin.getLogger().info("[TradingGUI] DEBUG - After woodcutter bonus: " + finalPrice);
                 }
-                
+
                 double itemTotal = finalPrice * sellItem.getAmount();
-                plugin.getLogger().info("[TradingGUI] DEBUG - itemTotal (before floor): " + itemTotal);
-                
+
                 // 個数を掛けた後に切り捨て
                 itemTotal = Math.floor(itemTotal);
-                plugin.getLogger().info("[TradingGUI] DEBUG - itemTotal (after floor): " + itemTotal);
-                
+
                 totalEarnings += itemTotal;
             }
         }
 
         // 必要な金塊数を計算
         int requiredNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
-        
-        // デバッグログ
-        plugin.getLogger().info("[TradingGUI] 事前チェック - totalEarnings: " + totalEarnings + ", requiredNuggets: " + requiredNuggets);
-        
+
         // ItemManager.hasInventorySpaceを使用（既存の金塊スタックの空きスペースも考慮される）
         boolean hasSpace = currencyConverter.getItemManager().hasInventorySpace(player, requiredNuggets);
-        plugin.getLogger().info("[TradingGUI] 事前チェック - hasInventorySpace result: " + hasSpace);
-        
+
         if (!hasSpace) {
             player.sendMessage("§cインベントリに空きがありません。金塊を受け取るスペースを確保してください。");
             return;
@@ -1022,7 +963,6 @@ public class TradingGUI implements Listener {
         if (isCrossJob) {
             double multiplier = configManager.getCrossJobPurchaseMultiplier();
             unitPrice *= multiplier;
-            plugin.getLogger().info("別職業購入: " + playerJob + " が " + tradingPost.getName() + " で購入（" + multiplier + "倍）");
         }
 
         // 合計金額を計算
@@ -1088,49 +1028,34 @@ public class TradingGUI implements Listener {
         String playerJob = jobManager.getPlayerJob(player.getUniqueId());
         double totalEarnings = 0.0;
 
-        plugin.getLogger().info("[TradingGUI] DEBUG ===== 全アイテム売却処理開始 =====");
-        plugin.getLogger().info("[TradingGUI] DEBUG - allItems.size(): " + allItems.size());
-        plugin.getLogger().info("[TradingGUI] DEBUG - playerJob: " + playerJob);
-        
         // 売却金額の合計を計算（木こりボーナスも考慮）
         for (ItemStack sellItem : allItems) {
             Material mat = sellItem.getType();
             double basePrice = tradingPost.getItemPrice(mat);
-            
-            plugin.getLogger().info("[TradingGUI] DEBUG - Material: " + mat + ", basePrice: " + basePrice + ", playerJob: " + playerJob + ", amount: " + sellItem.getAmount());
-            
+
             if (basePrice > 0) {
                 double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), playerJob, basePrice);
-                
-                plugin.getLogger().info("[TradingGUI] DEBUG - After calculateFinalPrice: " + finalPrice);
-                
+
                 // 木こりが原木を売る場合は価格を2倍に
                 if ("woodcutter".equals(playerJob) && isLogItem(mat)) {
                     finalPrice *= 2.0;
-                    plugin.getLogger().info("[TradingGUI] DEBUG - After woodcutter bonus: " + finalPrice);
                 }
-                
+
                 double itemTotal = finalPrice * sellItem.getAmount();
-                plugin.getLogger().info("[TradingGUI] DEBUG - itemTotal (before floor): " + itemTotal);
-                
+
                 // 個数を掛けた後に切り捨て
                 itemTotal = Math.floor(itemTotal);
-                plugin.getLogger().info("[TradingGUI] DEBUG - itemTotal (after floor): " + itemTotal);
-                
+
                 totalEarnings += itemTotal;
             }
         }
 
         // 必要な金塊数を計算
         int requiredNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
-        
-        // デバッグログ
-        plugin.getLogger().info("[TradingGUI] 事前チェック - totalEarnings: " + totalEarnings + ", requiredNuggets: " + requiredNuggets);
-        
+
         // ItemManager.hasInventorySpaceを使用（既存の金塊スタックの空きスペースも考慮される）
         boolean hasSpace = currencyConverter.getItemManager().hasInventorySpace(player, requiredNuggets);
-        plugin.getLogger().info("[TradingGUI] 事前チェック - hasInventorySpace result: " + hasSpace);
-        
+
         if (!hasSpace) {
             player.sendMessage("§cインベントリに空きがありません。金塊を受け取るスペースを確保してください。");
             return;
@@ -1194,10 +1119,7 @@ public class TradingGUI implements Listener {
         Player player = (Player) event.getPlayer();
         UUID playerId = player.getUniqueId();
         
-        TradingGUISession session = activeSessions.remove(playerId);
-        if (session != null) {
-            plugin.getLogger().info("取引GUIを閉じました: " + player.getName());
-        }
+        activeSessions.remove(playerId);
     }
     
     public void closeAllGUIs() {

@@ -116,7 +116,6 @@ public class WorldGuardIntegration {
                 logger.info("WorldGuard領域 " + regionId + " をディスクに保存しました");
             } catch (Exception saveException) {
                 logger.severe("WorldGuard領域の保存に失敗しました: " + saveException.getMessage());
-                saveException.printStackTrace();
                 // 保存失敗時はリージョンを削除してロールバック
                 regionManager.removeRegion(regionId);
                 return false;
@@ -127,7 +126,6 @@ public class WorldGuardIntegration {
 
         } catch (Exception e) {
             logger.severe("WorldGuard領域の作成に失敗しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -167,7 +165,6 @@ public class WorldGuardIntegration {
                 logger.info("プレイヤー " + playerUuid + " を領域 " + regionId + " のメンバーに追加し、保存しました");
             } catch (Exception saveException) {
                 logger.severe("メンバー追加の保存に失敗しました: " + saveException.getMessage());
-                saveException.printStackTrace();
                 return false;
             }
             
@@ -214,7 +211,6 @@ public class WorldGuardIntegration {
                 logger.info("プレイヤー " + playerUuid + " を領域 " + regionId + " のメンバーから削除し、保存しました");
             } catch (Exception saveException) {
                 logger.severe("メンバー削除の保存に失敗しました: " + saveException.getMessage());
-                saveException.printStackTrace();
                 return false;
             }
             
@@ -252,7 +248,6 @@ public class WorldGuardIntegration {
                     logger.info("領域 " + regionId + " を削除し、保存しました");
                 } catch (Exception saveException) {
                     logger.severe("領域削除の保存に失敗しました: " + saveException.getMessage());
-                    saveException.printStackTrace();
                     return false;
                 }
                 return true;
@@ -299,12 +294,10 @@ public class WorldGuardIntegration {
                     // いずれかの領域のメンバーまたはオーナーかチェック
                     for (ProtectedRegion region : regions) {
                         if (region.isMember(localPlayer) || region.isOwner(localPlayer)) {
-                            logger.fine("プレイヤー " + player.getName() + " は領域 " + region.getId() + " のメンバーです");
                             return true;
                         }
                     }
                     // どの領域のメンバーでもオーナーでもない場合は拒否
-                    logger.fine("プレイヤー " + player.getName() + " は保護領域のメンバーではありません");
                     return false;
                 }
             }
@@ -314,7 +307,6 @@ public class WorldGuardIntegration {
             
         } catch (Exception e) {
             logger.warning("WorldGuard保護チェック中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
             // エラー時は安全側に倒して操作を拒否
             return false;
         }
@@ -328,11 +320,7 @@ public class WorldGuardIntegration {
      * @return 保護領域内の場合true、領域外の場合false
      */
     public boolean isInProtectedRegion(org.bukkit.Location location) {
-        logger.info("WorldGuardIntegration.isInProtectedRegion: チェック開始 - 座標: " + 
-            location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ());
-        
         if (!enabled) {
-            logger.info("WorldGuardIntegration.isInProtectedRegion: WorldGuardが無効");
             // WorldGuardが無効な場合は保護されていないとみなす
             return false;
         }
@@ -340,7 +328,6 @@ public class WorldGuardIntegration {
         try {
             RegionManager regionManager = regionContainer.get(BukkitAdapter.adapt(location.getWorld()));
             if (regionManager == null) {
-                logger.warning("WorldGuardIntegration.isInProtectedRegion: RegionManagerがnull");
                 return false;
             }
 
@@ -350,19 +337,12 @@ public class WorldGuardIntegration {
                 location.getBlockY(),
                 location.getBlockZ()
             );
-            
+
             // 適用される領域のセットを取得
             java.util.Set<ProtectedRegion> regions = regionManager.getApplicableRegions(position).getRegions();
-            
-            logger.info("WorldGuardIntegration.isInProtectedRegion: 検出された領域数: " + regions.size());
-            for (ProtectedRegion region : regions) {
-                logger.info("WorldGuardIntegration.isInProtectedRegion: 領域名: " + region.getId());
-            }
-            
+
             // 領域が1つでも存在すれば保護領域内
-            boolean result = !regions.isEmpty();
-            logger.info("WorldGuardIntegration.isInProtectedRegion: 最終結果: " + (result ? "保護領域内" : "保護領域外"));
-            return result;
+            return !regions.isEmpty();
 
         } catch (Exception e) {
             logger.warning("保護領域チェック中にエラーが発生しました: " + e.getMessage());
@@ -442,7 +422,6 @@ public class WorldGuardIntegration {
                     logger.info("リージョン " + childRegionId + " の親リージョンを " + parentRegionId + " に設定し、保存しました");
                 } catch (Exception saveException) {
                     logger.severe("親リージョン設定の保存に失敗しました: " + saveException.getMessage());
-                    saveException.printStackTrace();
                     // 保存失敗時は親設定をロールバック
                     childRegion.setParent(null);
                     return false;
@@ -456,7 +435,6 @@ public class WorldGuardIntegration {
 
         } catch (Exception e) {
             logger.severe("親リージョンの設定に失敗しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -551,7 +529,6 @@ public class WorldGuardIntegration {
                 logger.info("リージョン " + regionId + " のフラグ " + flagName + " を " + state + " に設定し、保存しました");
             } catch (Exception saveException) {
                 logger.severe("フラグ設定の保存に失敗しました: " + saveException.getMessage());
-                saveException.printStackTrace();
                 return false;
             }
             
@@ -559,7 +536,6 @@ public class WorldGuardIntegration {
 
         } catch (Exception e) {
             logger.severe("フラグの設定に失敗しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
@@ -656,7 +632,6 @@ public class WorldGuardIntegration {
                 logger.info("リージョン " + regionId + " の設定を保存しました");
             } catch (Exception saveException) {
                 logger.severe("設定の保存に失敗しました: " + saveException.getMessage());
-                saveException.printStackTrace();
                 return false;
             }
 
@@ -664,7 +639,6 @@ public class WorldGuardIntegration {
 
         } catch (Exception e) {
             logger.severe("敵対的モブのスポーン制御設定に失敗しました: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }

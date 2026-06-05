@@ -99,23 +99,18 @@ public class FoodNPCManager {
             plugin.getLogger().info("食料NPCシステムを初期化しました");
         } catch (Exception e) {
             plugin.getLogger().severe("食料NPCシステムの初期化中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
-    
+
     /**
      * 食料NPCをスポーンする
      */
     private void spawnFoodNPCs() {
-        plugin.getLogger().info("=== 食料NPC生成開始 ===");
-        
         // 既存の食料店データをクリア
         foodStores.clear();
-        plugin.getLogger().info("既存の食料店データをクリアしました");
-        
+
         List<Map<?, ?>> foodNPCConfigs = configManager.getFoodNPCConfigs();
-        plugin.getLogger().info("設定から " + foodNPCConfigs.size() + " 個の食料NPCを読み込み");
-        
+
         for (Map<?, ?> config : foodNPCConfigs) {
             try {
                 String name = (String) config.get("name");
@@ -142,23 +137,19 @@ public class FoodNPCManager {
                 }
                 
                 Location location = new Location(plugin.getServer().getWorld(world), x + 0.5, y, z + 0.5, yaw, pitch);
-                plugin.getLogger().info("食料NPCを生成中: " + name + " at [" + x + ", " + y + ", " + z + "] (world: " + world + ")");
-                
+
                 Villager foodNPC = npcManager.createNPC(location, "food_merchant", name);
-                
+
                 if (foodNPC != null) {
                     setupFoodNPC(foodNPC);
-                    
+
                     // config.ymlからnpc_typeを読み込む（存在しない場合はデフォルト）
                     String npcType = "general_store"; // デフォルトタイプ
                     if (config.containsKey("npc_type")) {
                         Object npcTypeObj = config.get("npc_type");
                         if (npcTypeObj instanceof String) {
                             npcType = (String) npcTypeObj;
-                            plugin.getLogger().info("config.ymlからNPCタイプを読み込みました: " + npcType);
                         }
-                    } else {
-                        plugin.getLogger().info("config.ymlにnpc_typeがないため、デフォルト値を使用: " + npcType);
                     }
                     Map<Material, Double> prices = buildFoodItemPrices(npcType);
                     FoodStore foodStore = new FoodStore(foodNPC.getUniqueId(), name, location, prices, npcType);
@@ -166,21 +157,14 @@ public class FoodNPCManager {
                     
                     // 在庫を初期化
                     initializeStoreInventory(foodNPC.getUniqueId());
-                    
-                    plugin.getLogger().info("========================================");
-                    plugin.getLogger().info("食料NPC配置成功:");
-                    plugin.getLogger().info("  名前: " + name);
-                    plugin.getLogger().info("  UUID: " + foodNPC.getUniqueId());
-                    plugin.getLogger().info("  座標: [" + x + ", " + y + ", " + z + "]");
-                    plugin.getLogger().info("  ワールド: " + world);
-                    plugin.getLogger().info("========================================");
+
+                    plugin.getLogger().info("食料NPCを配置しました: " + name + " [" + x + ", " + y + ", " + z + "]");
                 } else {
                     plugin.getLogger().severe("食料NPCの生成に失敗しました: " + name + " at [" + x + ", " + y + ", " + z + "]");
                 }
-                
+
             } catch (Exception e) {
                 plugin.getLogger().warning("食料NPC生成中にエラーが発生しました: " + e.getMessage());
-                e.printStackTrace();
             }
         }
     }
@@ -223,7 +207,6 @@ public class FoodNPCManager {
             }
         }
         
-        plugin.getLogger().info("NPCタイプ " + npcType + " の商品価格構築完了: " + filteredPrices.size() + "アイテム (倍率: " + priceMultiplier + ")");
         return filteredPrices;
     }
     
@@ -271,16 +254,11 @@ public class FoodNPCManager {
      * 食料NPC相互作用の処理
      */
     public boolean handleFoodNPCInteraction(Player player, UUID npcId) {
-        plugin.getLogger().info("=== 食料NPC相互作用開始 ===");
-        plugin.getLogger().info("プレイヤー: " + player.getName() + ", NPC ID: " + npcId);
-        
         try {
             // NPCデータ取得
             FoodStore foodStore = foodStores.get(npcId);
             if (foodStore == null) {
                 plugin.getLogger().warning("食料店データが見つかりません: " + npcId);
-                plugin.getLogger().warning("登録済み食料店数: " + foodStores.size());
-                plugin.getLogger().warning("登録済み食料店ID: " + foodStores.keySet());
                 return false;
             }
             
@@ -322,7 +300,6 @@ public class FoodNPCManager {
         } catch (Exception e) {
             plugin.getLogger().severe("食料NPC処理中にエラーが発生しました: " + e.getMessage());
             player.sendMessage("§c処理中にエラーが発生しました。管理者にお知らせください。");
-            e.printStackTrace();
             return true;
         }
     }
@@ -368,19 +345,13 @@ public class FoodNPCManager {
         
         int startHour = configManager.getFoodNPCStartHour();
         int endHour = configManager.getFoodNPCEndHour();
-        
-        plugin.getLogger().info("食料NPC営業時間チェック - worldTime: " + worldTime + ", 現在時刻: " + currentHour + ":00, 営業時間: " + startHour + ":00-" + endHour + ":00");
-        
+
         // 日をまたぐ営業時間の場合（例：22:00-8:00）
         if (startHour > endHour) {
-            boolean result = currentHour >= startHour || currentHour < endHour;
-            plugin.getLogger().info("営業時間判定結果（日またぎ）: " + result);
-            return result;
+            return currentHour >= startHour || currentHour < endHour;
         } else {
             // 通常の営業時間の場合（例：6:00-22:00）
-            boolean result = currentHour >= startHour && currentHour < endHour;
-            plugin.getLogger().info("営業時間判定結果: " + result);
-            return result;
+            return currentHour >= startHour && currentHour < endHour;
         }
     }
     
@@ -546,7 +517,6 @@ public class FoodNPCManager {
      * 食料NPCのリロード
      */
     public void reloadFoodNPCs() {
-        plugin.getLogger().info("食料NPCをリロードしています...");
         removeFoodNPCs();
         initializeFoodNPCs();
         plugin.getLogger().info("食料NPCのリロードが完了しました");
@@ -579,43 +549,34 @@ public class FoodNPCManager {
     public void registerFoodNPC(Villager villager, String name, String npcType) {
         UUID npcId = villager.getUniqueId();
         Location location = villager.getLocation();
-        
-        plugin.getLogger().info("=== 食料NPC登録開始 ===");
-        plugin.getLogger().info("手動スポーンされた食料NPCを登録中: " + name + " (ID: " + npcId + ")");
-        plugin.getLogger().info("Location: " + location.toString());
-        
+
         try {
             // Villagerの設定
             setupFoodNPC(villager);
-            plugin.getLogger().info("VillagerのセットアップOK");
-            
+
             // NPCタイプの検証
             if (npcType == null || npcType.isEmpty()) {
                 npcType = "general_store"; // デフォルト
             }
-            
+
             // 有効なNPCタイプかチェック
             if (!configManager.getFoodNPCTypes().contains(npcType)) {
                 plugin.getLogger().warning("無効なNPCタイプ: " + npcType + "。general_storeを使用します。");
                 npcType = "general_store";
             }
-            
+
             // FoodStoreデータを作成
             Map<Material, Double> prices = buildFoodItemPrices(npcType);
-            plugin.getLogger().info("価格データ作成OK: " + prices.size() + "アイテム");
-            
+
             FoodStore foodStore = new FoodStore(npcId, name, location, prices, npcType);
             foodStores.put(npcId, foodStore);
-            plugin.getLogger().info("FoodStoreデータ登録OK - 現在の登録数: " + foodStores.size());
-            
+
             // 在庫を初期化
             initializeStoreInventory(npcId);
-            plugin.getLogger().info("在庫初期化OK");
-            
-            plugin.getLogger().info("=== 食料NPCの登録が完了しました: " + name + " ===");
+
+            plugin.getLogger().info("食料NPCを登録しました: " + name);
         } catch (Exception e) {
             plugin.getLogger().severe("食料NPC登録中にエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     

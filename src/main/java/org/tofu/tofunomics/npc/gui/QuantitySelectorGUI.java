@@ -122,12 +122,9 @@ public class QuantitySelectorGUI implements Listener {
             activeSessions.put(player.getUniqueId(), session);
             player.openInventory(gui);
 
-            plugin.getLogger().info("数量選択GUIを開きました: " + player.getName());
-
         } catch (Exception e) {
             plugin.getLogger().severe("数量選択GUI作成中にエラーが発生しました: " + e.getMessage());
             player.sendMessage("§cGUIの作成に失敗しました。");
-            e.printStackTrace();
         }
     }
 
@@ -354,7 +351,6 @@ public class QuantitySelectorGUI implements Listener {
 
         if (session != null && event.getInventory().equals(session.getInventory())) {
             activeSessions.remove(player.getUniqueId());
-            plugin.getLogger().info("数量選択GUIを閉じました: " + player.getName());
         }
     }
 

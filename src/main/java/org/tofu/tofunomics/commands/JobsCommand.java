@@ -61,36 +61,63 @@ public class JobsCommand implements CommandExecutor {
     }
 
     private boolean handleJobsList(Player player) {
+        boolean clickable = configManager.isClickableMessagesEnabled();
         player.sendMessage(ChatColor.GOLD + "=== 利用可能な職業 ===");
-        
+
         for (String jobName : jobManager.getJobNames()) {
             String displayName = jobManager.getJobDisplayName(jobName);
             String description = configManager.getJobDescription(jobName);
             int maxLevel = configManager.getJobMaxLevel(jobName);
             double incomeMultiplier = configManager.getJobIncomeMultiplier(jobName);
-            
-            player.sendMessage(ChatColor.YELLOW + "▶ " + displayName + ChatColor.GRAY + " (" + jobName + ")");
-            if (description != null && !description.isEmpty()) {
-                player.sendMessage(ChatColor.WHITE + "  " + description);
-            }
-            player.sendMessage(ChatColor.AQUA + "  最大レベル: " + maxLevel + 
-                             " | 収入倍率: " + String.format("%.1f", incomeMultiplier) + "x");
-            
-            // プレイヤーがこの職業に就いているかチェック
-            if (jobManager.hasJob(player, jobName)) {
-                PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
-                if (playerJob != null) {
-                    int currentLevel = playerJob.getLevel();
-                    double currentExp = playerJob.getExperience();
-                    int requiredExp = configManager.calculateRequiredExperience(currentLevel + 1);
-                    
-                    player.sendMessage(ChatColor.GREEN + "  ★ 現在就職中 - レベル " + currentLevel + 
-                                     " (経験値: " + (int)currentExp + "/" + requiredExp + ")");
+            boolean employed = jobManager.hasJob(player, jobName);
+
+            if (clickable) {
+                // ホバーで詳細（説明・最大レベル・収入倍率）を表示するツールチップを構築
+                StringBuilder hover = new StringBuilder();
+                hover.append("&e").append(displayName).append(" &7(").append(jobName).append(")\n");
+                if (description != null && !description.isEmpty()) {
+                    hover.append("&f").append(description).append("\n");
                 }
+                hover.append("&b最大レベル: ").append(maxLevel)
+                     .append(" &7| &b収入倍率: ").append(String.format("%.1f", incomeMultiplier)).append("x");
+
+                org.tofu.tofunomics.util.RichMessageBuilder builder =
+                    org.tofu.tofunomics.util.RichMessageBuilder.create()
+                        .hoverText("&e▶ " + displayName + " &7(" + jobName + ")  ", hover.toString());
+
+                if (employed) {
+                    PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
+                    int currentLevel = playerJob != null ? playerJob.getLevel() : 0;
+                    builder.text("&a[現在就職中 Lv." + currentLevel + "]");
+                } else {
+                    // クリックで就職できるボタン
+                    builder.runButton("&a&l[就職する]", "/jobs join " + jobName,
+                        "&aクリックで " + displayName + " に就職します");
+                }
+                builder.sendTo(player);
+            } else {
+                player.sendMessage(ChatColor.YELLOW + "▶ " + displayName + ChatColor.GRAY + " (" + jobName + ")");
+                if (description != null && !description.isEmpty()) {
+                    player.sendMessage(ChatColor.WHITE + "  " + description);
+                }
+                player.sendMessage(ChatColor.AQUA + "  最大レベル: " + maxLevel +
+                                 " | 収入倍率: " + String.format("%.1f", incomeMultiplier) + "x");
+
+                if (employed) {
+                    PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
+                    if (playerJob != null) {
+                        int currentLevel = playerJob.getLevel();
+                        double currentExp = playerJob.getExperience();
+                        int requiredExp = configManager.calculateRequiredExperience(currentLevel + 1);
+
+                        player.sendMessage(ChatColor.GREEN + "  ★ 現在就職中 - レベル " + currentLevel +
+                                         " (経験値: " + (int)currentExp + "/" + requiredExp + ")");
+                    }
+                }
+                player.sendMessage("");
             }
-            player.sendMessage("");
         }
-        
+
         player.sendMessage(ChatColor.GOLD + "職業に就くには: " + ChatColor.WHITE + "/jobs join <職業名>");
         return true;
     }
