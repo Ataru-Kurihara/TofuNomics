@@ -331,14 +331,17 @@ public class UnifiedEventHandler implements Listener {
      * 鉱石ブロックかどうかを判定
      */
     private boolean isOreBlock(Material blockType) {
-        return blockType == Material.COAL_ORE || 
+        // 深層岩鉱石（DEEPSLATE_*_ORE）も通常鉱石へ正規化して判定対象に含める
+        blockType = org.tofu.tofunomics.util.BlockNormalizer.normalizeForJob(blockType);
+        return blockType == Material.COAL_ORE ||
                blockType == Material.IRON_ORE || 
                blockType == Material.GOLD_ORE || 
                blockType == Material.DIAMOND_ORE || 
                blockType == Material.EMERALD_ORE || 
                blockType == Material.LAPIS_ORE || 
-               blockType == Material.REDSTONE_ORE || 
+               blockType == Material.REDSTONE_ORE ||
                blockType == Material.NETHER_QUARTZ_ORE ||
+               blockType == Material.COPPER_ORE ||
                blockType == Material.ANCIENT_DEBRIS;
     }
     
@@ -361,7 +364,11 @@ public class UnifiedEventHandler implements Listener {
         // 鉱石類は設置禁止のため追跡不要（isOreBlockで判定）
         
         // STONE, COBBLESTONE（無限経験値防止）
-        if (blockType == Material.STONE || blockType == Material.COBBLESTONE) {
+        // 深層岩石材（DEEPSLATE/COBBLED_DEEPSLATE/TUFF）はSTONEへ正規化され採掘経験値の対象になるため、
+        // 設置→採掘による無限経験値を防ぐべく追跡する
+        if (blockType == Material.STONE || blockType == Material.COBBLESTONE ||
+            blockType == Material.DEEPSLATE || blockType == Material.COBBLED_DEEPSLATE ||
+            blockType == Material.TUFF) {
             return true;
         }
         
