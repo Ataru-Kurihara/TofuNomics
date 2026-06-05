@@ -84,7 +84,9 @@ public class NPCManager {
             villager.setSilent(true);
             villager.setInvulnerable(true);
             villager.setRemoveWhenFarAway(false);
-            // エンティティ衝突による押し出しを無効化し、その場に固定する
+            // チャンクセーブでエンティティを永続化（消失防止の本質。これがあれば setGravity(false) と併用しても保持される）
+            villager.setPersistent(true);
+            // エンティティ衝突・重力を無効化してその場に固定（永続化は setPersistent で担保済み）
             villager.setCollidable(false);
             villager.setGravity(false);
             villager.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
@@ -154,7 +156,9 @@ public class NPCManager {
         villager.setInvulnerable(true);
         villager.setRemoveWhenFarAway(false);
         villager.setCustomNameVisible(true);
-        // エンティティ衝突による押し出しを無効化し、その場に固定する
+        // チャンクセーブでエンティティを永続化（消失防止の本質。これがあれば setGravity(false) と併用しても保持される）
+        villager.setPersistent(true);
+        // エンティティ衝突・重力を無効化してその場に固定（永続化は setPersistent で担保済み）
         villager.setCollidable(false);
         villager.setGravity(false);
         villager.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
