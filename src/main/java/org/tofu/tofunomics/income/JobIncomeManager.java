@@ -53,6 +53,7 @@ public class JobIncomeManager implements Listener {
         minerIncome.put(Material.EMERALD_ORE, new IncomeData(20.0, 35.0));
         minerIncome.put(Material.ANCIENT_DEBRIS, new IncomeData(100.0, 150.0));
         minerIncome.put(Material.NETHER_QUARTZ_ORE, new IncomeData(6.0, 10.0));
+        minerIncome.put(Material.COPPER_ORE, new IncomeData(5.0, 8.0));  // 1.17追加。鉄鉱石相当
         jobIncomeMap.put("miner", minerIncome);
         
         // 木こりの収入データ
@@ -65,6 +66,8 @@ public class JobIncomeManager implements Listener {
         woodcutterIncome.put(Material.DARK_OAK_LOG, new IncomeData(2.0, 4.0));
         woodcutterIncome.put(Material.WARPED_STEM, new IncomeData(5.0, 8.0));
         woodcutterIncome.put(Material.CRIMSON_STEM, new IncomeData(5.0, 8.0));
+        woodcutterIncome.put(Material.MANGROVE_LOG, new IncomeData(2.0, 4.0));  // 1.19追加。jungle/acacia相当
+        woodcutterIncome.put(Material.CHERRY_LOG, new IncomeData(2.0, 4.0));    // 1.20追加。jungle/acacia相当
         jobIncomeMap.put("woodcutter", woodcutterIncome);
         
         // 農家の収入データ
@@ -169,7 +172,10 @@ public class JobIncomeManager implements Listener {
         if (!jobManager.hasJob(player, jobName)) {
             return;
         }
-        
+
+        // 深層岩鉱石・深層岩石材を通常版へ正規化してから収入マップを引く
+        material = org.tofu.tofunomics.util.BlockNormalizer.normalizeForJob(material);
+
         Map<Material, IncomeData> jobIncome = jobIncomeMap.get(jobName);
         if (jobIncome == null || !jobIncome.containsKey(material)) {
             return;

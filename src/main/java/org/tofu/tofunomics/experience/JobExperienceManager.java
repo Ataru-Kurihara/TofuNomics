@@ -92,6 +92,7 @@ public class JobExperienceManager implements Listener {
         miningExperience.put(Material.LAPIS_ORE, 4.0);
         miningExperience.put(Material.REDSTONE_ORE, 3.0);
         miningExperience.put(Material.NETHER_QUARTZ_ORE, 6.0);
+        miningExperience.put(Material.COPPER_ORE, 5.0);  // 1.17追加。鉄鉱石相当
         miningExperience.put(Material.ANCIENT_DEBRIS, 50.0);
         // STONE: 自然生成のみ経験値獲得（プレイヤー設置はUnifiedEventHandlerで除外）
         miningExperience.put(Material.STONE, 5.0);  // 0.5 → 5.0（メッセージ表示のため）
@@ -106,6 +107,8 @@ public class JobExperienceManager implements Listener {
         loggingExperience.put(Material.DARK_OAK_LOG, 3.0);
         loggingExperience.put(Material.WARPED_STEM, 4.0);
         loggingExperience.put(Material.CRIMSON_STEM, 4.0);
+        loggingExperience.put(Material.MANGROVE_LOG, 3.0);  // 1.19追加。jungle/acacia相当
+        loggingExperience.put(Material.CHERRY_LOG, 3.0);    // 1.20追加。jungle/acacia相当
         
         // 農業経験値テーブル
         farmingExperience.put(Material.WHEAT, 1.5);
@@ -160,8 +163,9 @@ public class JobExperienceManager implements Listener {
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        Material blockType = event.getBlock().getType();
-        
+        // 深層岩鉱石・深層岩石材を通常版へ正規化してから経験値マップを引く
+        Material blockType = org.tofu.tofunomics.util.BlockNormalizer.normalizeForJob(event.getBlock().getType());
+
         // 鉱夫の採掘経験値
         if (jobManager.hasJob(player, "miner") && miningExperience.containsKey(blockType)) {
             double baseExp = miningExperience.get(blockType);

@@ -146,7 +146,8 @@ jobs:
         - "LAPIS_ORE"
         - "REDSTONE_ORE"
         - "NETHER_QUARTZ_ORE"
-      
+        - "COPPER_ORE"
+
       # 木こり専用ブロック（木材類）- Minecraft 1.16.5対応
       woodcutter:
         # 葉ブロック類
@@ -219,7 +220,7 @@ jobs:
         - "ENCHANTING_TABLE"
         - "BOOKSHELF"
         - "LECTERN"
-        - "LAPIS_LAZULI_BLOCK"
+        - "LAPIS_BLOCK"
 
       architect:
         - "SCAFFOLDING"

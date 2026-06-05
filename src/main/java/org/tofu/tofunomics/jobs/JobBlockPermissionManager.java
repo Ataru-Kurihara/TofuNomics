@@ -75,7 +75,8 @@ public class JobBlockPermissionManager {
             Material.EMERALD_ORE,
             Material.LAPIS_ORE,
             Material.REDSTONE_ORE,
-            Material.NETHER_QUARTZ_ORE
+            Material.NETHER_QUARTZ_ORE,
+            Material.COPPER_ORE  // 1.17追加。深層岩鉱石は正規化で本セットへ寄せる
         ));
         jobRestrictedBlocks.put("miner", minerBlocks);
         
@@ -138,6 +139,9 @@ public class JobBlockPermissionManager {
         if (player.hasPermission("tofunomics.admin.break")) {
             return true;
         }
+
+        // 深層岩鉱石・深層岩石材を通常版へ正規化（深層岩鉱石の採掘抜け穴を塞ぐ）
+        blockType = org.tofu.tofunomics.util.BlockNormalizer.normalizeForJob(blockType);
 
         // 基本ブロックの場合は常に許可
         if (basicBlocks.contains(blockType)) {
