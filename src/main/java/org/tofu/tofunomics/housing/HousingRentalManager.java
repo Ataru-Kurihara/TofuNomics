@@ -343,8 +343,16 @@ public class HousingRentalManager {
             }
 
             // 支払い成功後に契約を延長
-            rental.extend(additionalDays, additionalCost);
-            rentalDAO.updateRental(rental);
+            try {
+                rental.extend(additionalDays, additionalCost);
+                rentalDAO.updateRental(rental);
+            } catch (SQLException e) {
+                // 契約更新に失敗した場合は支払い済み金額を銀行へ返金（資産消失を防ぐ）
+                player.addBankBalance(additionalCost);
+                playerDAO.updatePlayer(player);
+                logger.severe("契約延長のDB更新に失敗したため返金しました: " + e.getMessage());
+                return new RentalResult(false, "データベースエラーが発生しました（料金は返金されました）");
+            }
             
             // 履歴追加
             HousingRentalHistory history = new HousingRentalHistory(
@@ -366,7 +374,7 @@ public class HousingRentalManager {
     /**
      * 契約をキャンセル
      */
-    public RentalResult cancelRental(UUID tenantUuid, int propertyId) {
+    public synchronized RentalResult cancelRental(UUID tenantUuid, int propertyId) {
         try {
             HousingRental rental = rentalDAO.getActiveRentalByProperty(propertyId);
             
@@ -612,6 +620,9 @@ public class HousingRentalManager {
             }
 
             property.setDailyRent(newDailyRent);
+            // 週額・月額を日額からの自動計算に委ねるためリセット（古い固定値が残るのを防ぐ）
+            property.setWeeklyRent(null);
+            property.setMonthlyRent(null);
             propertyDAO.updateProperty(property);
 
             logger.info("物件の賃料を変更しました: ID " + propertyId + " -> 日額 " + newDailyRent);
