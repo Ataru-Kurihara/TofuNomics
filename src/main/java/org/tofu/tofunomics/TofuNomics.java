@@ -746,6 +746,10 @@ public final class TofuNomics extends JavaPlugin {
     public JobManager getJobManager() {
         return jobManager;
     }
+
+    public org.tofu.tofunomics.events.UnifiedEventHandler getUnifiedEventHandler() {
+        return unifiedEventHandler;
+    }
     
     public ExperienceManager getExperienceManager() {
         return experienceManager;

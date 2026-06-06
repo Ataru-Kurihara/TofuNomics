@@ -78,7 +78,20 @@ public class EventProcessor {
             }
         }
     }
-    
+
+    /**
+     * 設定の再読み込み（リロードコマンド時に呼び出し）
+     * enabledWorlds / excludedWorlds / excludedGameModes を config から再構築する。
+     * これを呼ばないと /tofunomics reload では economy.enabled_worlds 等が反映されず、
+     * 起動時の値（空＝全ワールド対象）のまま動作し続けてしまう。
+     */
+    public void reloadConfiguration() {
+        excludedWorlds.clear();
+        enabledWorlds.clear();
+        excludedGameModes.clear();
+        initializeExclusions();
+    }
+
     /**
      * イベント処理を行うべきか判定
      * @param event イベント
