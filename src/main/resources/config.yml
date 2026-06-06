@@ -1974,6 +1974,17 @@ npc_system:
     copper_block: 18
     cut_copper: 18
     oxidized_copper: 18
+    # --- 本番items整合: 設備・羊毛・ポーション・建材（売却対応のため価格設定）---
+    anvil: 30
+    brewing_stand: 8
+    enchanting_table: 20
+    white_wool: 1.5
+    black_wool: 2
+    red_wool: 2
+    light_gray_concrete: 0.6
+    potion: 10
+    splash_potion: 12
+    lingering_potion: 15
 
 # 土地保護システム設定
 land_protection:
