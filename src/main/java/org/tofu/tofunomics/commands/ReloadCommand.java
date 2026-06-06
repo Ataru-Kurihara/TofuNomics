@@ -194,9 +194,10 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
             
             // 自動修正を実行
             configValidator.autoFixAllErrors();
-            
+            reloadEventWorldSettings();
+
             long endTime = System.currentTimeMillis();
-            
+
             sender.sendMessage(ChatColor.GREEN + "設定エラーの自動修正が完了しました。");
             sender.sendMessage(ChatColor.GRAY + "処理時間: " + (endTime - startTime) + "ms");
             

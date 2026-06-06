@@ -36,8 +36,6 @@ economy:
   # 空リストの場合は全ワールドで有効（後方互換）
   enabled_worlds:
     - "tofuNomics"
-    - "tofuNomics_nether"
-    - "tofuNomics_the_end"
 
   # 送金設定
   pay:
