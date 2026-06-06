@@ -429,8 +429,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
      * 管理者: 物件一覧
      */
     private boolean handleAdminList(CommandSender sender) {
-        List<HousingProperty> properties = rentalManager.getAvailableProperties();
-        
+        List<HousingProperty> properties = rentalManager.getAllProperties();
+
         sender.sendMessage("§6========= 全物件一覧 =========");
         for (HousingProperty property : properties) {
             sender.sendMessage(String.format(
@@ -459,16 +459,12 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             int propertyId = Integer.parseInt(args[1]);
             double newDailyRent = Double.parseDouble(args[2]);
 
-            HousingProperty property = rentalManager.getProperty(propertyId);
-            if (property == null) {
-                sender.sendMessage("§c物件が見つかりません");
-                return true;
+            HousingRentalManager.RentalResult result = rentalManager.updatePropertyRent(propertyId, newDailyRent);
+            if (result.isSuccess()) {
+                sender.sendMessage("§a物件#" + propertyId + "の日額賃料を" + newDailyRent + "に変更しました");
+            } else {
+                sender.sendMessage("§c" + result.getMessage());
             }
-
-            property.setDailyRent(newDailyRent);
-            // TODO: propertyDAO.updateProperty(property) を呼び出す処理をHousingRentalManagerに追加
-
-            sender.sendMessage("§a物件#" + propertyId + "の日額賃料を" + newDailyRent + "に変更しました");
 
         } catch (NumberFormatException e) {
             sender.sendMessage("§c数値の形式が正しくありません");

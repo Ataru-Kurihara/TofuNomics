@@ -133,8 +133,13 @@ public class HousingRentalManager {
     /**
      * 賃貸契約を締結
      */
-    public RentalResult rentProperty(UUID tenantUuid, int propertyId, String period, int units) {
+    public synchronized RentalResult rentProperty(UUID tenantUuid, int propertyId, String period, int units) {
         try {
+            // 契約期間（単位数）の妥当性チェック（0以下だと即時期限切れや永久契約を招くため弾く）
+            if (units <= 0) {
+                return new RentalResult(false, "契約期間は1以上を指定してください");
+            }
+
             // 物件の確認
             HousingProperty property = propertyDAO.getProperty(propertyId);
             if (property == null) {
@@ -215,6 +220,8 @@ public class HousingRentalManager {
                             player.addBankBalance(bankBalance);
                             playerDAO.updatePlayer(player);
                         }
+                        // 作成済みの契約レコードを削除（物件が永久ロックされるのを防ぐ）
+                        rentalDAO.deleteRental(rentalId);
                         return new RentalResult(false, "支払い処理に失敗しました");
                     }
                 }
@@ -265,8 +272,13 @@ public class HousingRentalManager {
     /**
      * 契約を延長
      */
-    public RentalResult extendRental(UUID tenantUuid, int propertyId, int additionalDays) {
+    public synchronized RentalResult extendRental(UUID tenantUuid, int propertyId, int additionalDays) {
         try {
+            // 追加日数の妥当性チェック（0以下を弾く）
+            if (additionalDays <= 0) {
+                return new RentalResult(false, "追加日数は1以上を指定してください");
+            }
+
             HousingRental rental = rentalDAO.getActiveRentalByProperty(propertyId);
             
             if (rental == null) {
@@ -300,14 +312,10 @@ public class HousingRentalManager {
                     currencyConverter.formatCurrency(totalBalance) + ")");
             }
             
-            // 契約延長
-            rental.extend(additionalDays, additionalCost);
-            rentalDAO.updateRental(rental);
-            
-            // 支払い処理（銀行残高優先、足りない分を現金から）
+            // 先に支払い処理を行い、成功した場合のみ契約を延長する（DB不整合・無料延長を防ぐ）
             org.tofu.tofunomics.models.Player player = playerDAO.getOrCreatePlayer(tenantUuid);
             double bankBalance = player.getBankBalance();
-            
+
             if (bankBalance >= additionalCost) {
                 // 銀行残高のみで支払い可能
                 player.removeBankBalance(additionalCost);
@@ -315,27 +323,28 @@ public class HousingRentalManager {
             } else {
                 // 銀行残高+現金で支払い
                 double remainingCost = additionalCost;
-                
+
                 if (bankBalance > 0) {
                     // 銀行残高を全額使用
                     player.removeBankBalance(bankBalance);
                     playerDAO.updatePlayer(player);
                     remainingCost -= bankBalance;
                 }
-                
+
                 // 残りを現金から支払い
                 if (!currencyConverter.payWithCash(onlinePlayer, remainingCost)) {
-                    // 支払い失敗時はロールバック（銀行残高と契約状態を戻す）
+                    // 支払い失敗時は銀行残高を戻す（契約は未変更のため巻き戻し不要）
                     if (bankBalance > 0) {
                         player.addBankBalance(bankBalance);
                         playerDAO.updatePlayer(player);
                     }
-                    // 契約延長を元に戻す
-                    rental.extend(-additionalDays, -additionalCost);
-                    rentalDAO.updateRental(rental);
                     return new RentalResult(false, "支払い処理に失敗しました");
                 }
             }
+
+            // 支払い成功後に契約を延長
+            rental.extend(additionalDays, additionalCost);
+            rentalDAO.updateRental(rental);
             
             // 履歴追加
             HousingRentalHistory history = new HousingRentalHistory(
@@ -492,6 +501,18 @@ public class HousingRentalManager {
     }
 
     /**
+     * 全物件一覧を取得（運営用：賃貸中の物件も含む）
+     */
+    public List<HousingProperty> getAllProperties() {
+        try {
+            return propertyDAO.getAllProperties();
+        } catch (SQLException e) {
+            logger.severe("全物件一覧の取得に失敗しました: " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
      * 物件情報を取得
      */
     public HousingProperty getProperty(int propertyId) {
@@ -575,6 +596,28 @@ public class HousingRentalManager {
             
         } catch (SQLException e) {
             logger.severe("物件の削除に失敗しました: " + e.getMessage());
+            return new RentalResult(false, "データベースエラーが発生しました");
+        }
+    }
+
+    /**
+     * 物件の日額賃料を更新（運営用）
+     * 週額・月額は日額から自動計算されるため、ここでは日額のみ更新する
+     */
+    public RentalResult updatePropertyRent(int propertyId, double newDailyRent) {
+        try {
+            HousingProperty property = propertyDAO.getProperty(propertyId);
+            if (property == null) {
+                return new RentalResult(false, "物件が見つかりません");
+            }
+
+            property.setDailyRent(newDailyRent);
+            propertyDAO.updateProperty(property);
+
+            logger.info("物件の賃料を変更しました: ID " + propertyId + " -> 日額 " + newDailyRent);
+            return new RentalResult(true, "賃料を変更しました");
+        } catch (SQLException e) {
+            logger.severe("賃料変更に失敗しました: " + e.getMessage());
             return new RentalResult(false, "データベースエラーが発生しました");
         }
     }
