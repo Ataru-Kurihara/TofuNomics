@@ -1151,7 +1151,9 @@ public final class TofuNomics extends JavaPlugin {
         int intervalSeconds = getConfig().getInt("housing_rental.expire_check_interval", 3600);
         long intervalTicks = intervalSeconds * 20L; // 秒をTickに変換
         
-        getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+        // processExpiredRentalsはWorld/Player等のBukkit APIを使用するため、
+        // 必ずメインスレッドで実行する（非同期スレッドからの呼び出しはクラッシュの原因になる）
+        getServer().getScheduler().runTaskTimer(this, () -> {
             try {
                 housingRentalManager.processExpiredRentals();
             } catch (Exception e) {

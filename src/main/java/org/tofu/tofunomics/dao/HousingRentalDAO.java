@@ -272,8 +272,10 @@ public class HousingRentalDAO {
             rental.setEndTick(rs.getLong("end_tick"));
         } catch (SQLException e) {
             // カラムが存在しない場合（後方互換性のため）
+            // endTickに0を設定すると期限切れ判定で即時期限切れ扱いになり
+            // 全契約が誤って強制終了されるため、安全側（期限切れにしない値）に倒す
             rental.setStartTick(0);
-            rental.setEndTick(0);
+            rental.setEndTick(Long.MAX_VALUE);
         }
         
         rental.setStatus(rs.getString("status"));
