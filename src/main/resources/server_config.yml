@@ -761,8 +761,8 @@ npc_system:
       rabbit_stew: 4.0
       dried_kelp: 0.8
       sweet_berries: 1.2
-      cooked_cod: 7
-      cooked_salmon: 8
+      cooked_cod: 6
+      cooked_salmon: 7
       kelp: 0.5
       potato: 0.2
       beetroot: 1.2
