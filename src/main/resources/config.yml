@@ -1481,8 +1481,8 @@ npc_system:
       sweet_berries: 2      # スイートベリー      # スイートベリー
       
       # 魚屋用商品
-      cooked_cod: 6         # 焼いた鱈
-      cooked_salmon: 7      # 焼いた鮭
+      cooked_cod: 7         # 焼いた鱈
+      cooked_salmon: 8      # 焼いた鮭
       kelp: 1               # 昆布               # 昆布
       
       # 八百屋用商品
