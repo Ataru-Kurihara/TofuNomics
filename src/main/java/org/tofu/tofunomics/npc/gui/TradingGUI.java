@@ -270,14 +270,16 @@ public class TradingGUI implements Listener {
                 displayItem = createPurchaseItem(material, purchasePrice, playerJob, isCrossJob);
             } else {
                 // 売却モード
+                // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素の価格）
+                String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
                 double finalPrice = tradePriceManager.calculateFinalPrice(
                     material.toString().toLowerCase(),
-                    playerJob,
+                    effectiveJob,
                     price
                 );
 
-                // 木こりが原木を見る場合、GUI表示にも木こりボーナスを適用
-                if ("woodcutter".equals(playerJob) && isLogItem(material)) {
+                // 木こりが原木を見る場合、GUI表示にも木こりボーナスを適用（職業専用取引所のみ）
+                if (!tradingPost.isGeneralStore() && "woodcutter".equals(playerJob) && isLogItem(material)) {
                     finalPrice *= 2.0;
                 }
 
@@ -302,7 +304,7 @@ public class TradingGUI implements Listener {
             Arrays.asList(
                 "§f現在の残高: §a" + currencyConverter.formatCurrency(balance),
                 "§f職業: §e" + (playerJob != null ? playerJob : "無職"),
-                "§f職業ボーナス: §a" + (playerJob != null ? String.format("%.0f%%", (configManager.getJobPriceMultiplier(playerJob) - 1.0) * 100) : "なし"),
+                "§f職業ボーナス: §a" + ((playerJob != null && !tradingPost.isGeneralStore()) ? String.format("%.0f%%", (configManager.getJobPriceMultiplier(playerJob) - 1.0) * 100) : "なし"),
                 "",
                 "§7アイテムをクリックして売却"
             )
@@ -855,10 +857,12 @@ public class TradingGUI implements Listener {
             double basePrice = tradingPost.getItemPrice(mat);
 
             if (basePrice > 0) {
-                double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), playerJob, basePrice);
+                // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素のitem_prices×1.0）
+                String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
+                double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), effectiveJob, basePrice);
 
-                // 木こりが原木を売る場合は価格を2倍に
-                if ("woodcutter".equals(playerJob) && isLogItem(mat)) {
+                // 木こりが原木を売る場合は価格を2倍に（職業専用取引所のみ）
+                if (!tradingPost.isGeneralStore() && "woodcutter".equals(playerJob) && isLogItem(mat)) {
                     finalPrice *= 2.0;
                 }
 
@@ -1034,10 +1038,12 @@ public class TradingGUI implements Listener {
             double basePrice = tradingPost.getItemPrice(mat);
 
             if (basePrice > 0) {
-                double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), playerJob, basePrice);
+                // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素のitem_prices×1.0）
+                String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
+                double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), effectiveJob, basePrice);
 
-                // 木こりが原木を売る場合は価格を2倍に
-                if ("woodcutter".equals(playerJob) && isLogItem(mat)) {
+                // 木こりが原木を売る場合は価格を2倍に（職業専用取引所のみ）
+                if (!tradingPost.isGeneralStore() && "woodcutter".equals(playerJob) && isLogItem(mat)) {
                     finalPrice *= 2.0;
                 }
 

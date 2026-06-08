@@ -146,6 +146,14 @@ public class TradingNPCManager {
         }
 
         /**
+         * 総合取引所（全職業対応）かどうか。
+         * 職業ボーナス（職業倍率・木こり原木2倍）を職業専用NPCに限定するための判定。
+         */
+        public boolean isGeneralStore() {
+            return acceptedJobTypes.isEmpty() || acceptedJobTypes.contains("all");
+        }
+
+        /**
          * 売却時の職業チェック（従来の厳格な制限）
          * @param jobType プレイヤーの職業
          * @return 売却可能な場合true
@@ -616,10 +624,12 @@ public class TradingNPCManager {
             
             if (basePrice > 0) {
                 int amount = item.getAmount();
-                double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, basePrice);
-                
-                // 木こりが原木を売る場合は価格を2倍に
-                if (isWoodcutter(player) && isLogItem(material)) {
+                // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素のitem_prices×1.0）
+                String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
+                double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), effectiveJob, basePrice);
+
+                // 木こりが原木を売る場合は価格を2倍に（職業専用取引所のみ）
+                if (!tradingPost.isGeneralStore() && isWoodcutter(player) && isLogItem(material)) {
                     finalPrice *= 2.0;
                     plugin.getLogger().info("木こりボーナス適用: " + material + " の価格を2倍に");
                 }
@@ -669,10 +679,12 @@ public class TradingNPCManager {
             
             if (basePrice > 0) {
                 int amount = item.getAmount();
-                double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, basePrice);
-                
-                // 木こりが原木を売る場合は価格を2倍に
-                if (isWoodcutter(player) && isLogItem(material)) {
+                // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素のitem_prices×1.0）
+                String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
+                double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), effectiveJob, basePrice);
+
+                // 木こりが原木を売る場合は価格を2倍に（職業専用取引所のみ）
+                if (!tradingPost.isGeneralStore() && isWoodcutter(player) && isLogItem(material)) {
                     finalPrice *= 2.0;
                     plugin.getLogger().info("木こりボーナス適用: " + material + " の価格を2倍に");
                 }
@@ -1060,8 +1072,9 @@ public class TradingNPCManager {
                 Material material = entry.getKey();
                 double price = entry.getValue();
                 
-                // 職業ボーナスを適用
-                double finalPrice = Math.ceil(tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), playerJob, price));
+                // 職業ボーナスは職業専用取引所でのみ適用
+                String effectivePriceJob = tradingPost.isGeneralStore() ? null : playerJob;
+                double finalPrice = Math.ceil(tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), effectivePriceJob, price));
                 String formattedPrice = currencyConverter.formatCurrency(finalPrice);
                 
                 player.sendMessage("§f• " + material.toString().toLowerCase() + ": §a" + formattedPrice);
