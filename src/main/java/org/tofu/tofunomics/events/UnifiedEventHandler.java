@@ -203,23 +203,10 @@ public class UnifiedEventHandler implements Listener {
         if (!(event.getWhoClicked() instanceof Player)) return;
 
         Player player = (Player) event.getWhoClicked();
-        Material craftedItem = event.getRecipe().getResult().getType();
 
-        // クラフト制限チェック（優先度HIGH で先にチェック）
-        TofuNomics tofuPlugin = (TofuNomics) plugin;
-        if (tofuPlugin.getJobCraftPermissionManager() != null) {
-            if (!tofuPlugin.getJobCraftPermissionManager().canPlayerCraftItem(player, craftedItem)) {
-                // クラフトを禁止
-                event.setCancelled(true);
-
-                // 制限メッセージを送信
-                String message = tofuPlugin.getJobCraftPermissionManager().getCraftDeniedMessage(player, craftedItem);
-                player.sendMessage(message);
-                return;
-            }
-        } else {
-            plugin.getLogger().warning("JobCraftPermissionManager: 未初期化のため制限チェックをスキップ");
-        }
+        // 職業別クラフト制限は CraftRestrictionEventHandler(LOWEST) が担当する。
+        // そこでキャンセルされたイベントは ignoreCancelled = true により
+        // このハンドラーには届かないため、ここでは経験値・クエスト処理のみ行う。
 
         // キャッシュチェック
         if (eventCache.isRecentlyProcessed(player, "craft_item", 100)) {

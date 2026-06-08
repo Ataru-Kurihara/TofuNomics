@@ -420,7 +420,7 @@ public final class TofuNomics extends JavaPlugin {
             saveConfig(); // 設定を確実に保存
             configManager.reloadConfig(); // リロードで反映
             
-            // CraftRestrictionEventHandlerの初期化（緊急対応）
+            // CraftRestrictionEventHandlerの初期化（職業別クラフト制限の唯一の責任者）
             craftRestrictionEventHandler = new org.tofu.tofunomics.events.CraftRestrictionEventHandler(this);
             
             getLogger().info("Phase 6 クラフト制限システムを初期化しました");
@@ -560,7 +560,7 @@ public final class TofuNomics extends JavaPlugin {
                 getLogger().info("取引システムリスナーを登録しました");
             }
             
-            // Phase 6 クラフト制限イベントハンドラーの登録（緊急対応）
+            // Phase 6 クラフト制限イベントハンドラーの登録（職業別クラフト制限の唯一の責任者）
             if (craftRestrictionEventHandler != null) {
                 getServer().getPluginManager().registerEvents(craftRestrictionEventHandler, this);
                 getLogger().info("Phase 6 クラフト制限イベントハンドラーを登録しました");

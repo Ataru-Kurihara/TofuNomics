@@ -9,53 +9,79 @@ import org.bukkit.event.inventory.CraftItemEvent;
 import org.tofu.tofunomics.TofuNomics;
 
 /**
- * 専用のクラフト制限イベントハンドラー
- * UnifiedEventHandlerの問題回避のための緊急対応
+ * 職業別クラフト制限の唯一の責任を持つイベントハンドラー。
+ *
+ * UnifiedEventHandler の craft 処理は shouldProcessEvent でゲートされており、
+ * 無職・クリエイティブ・権限なしのプレイヤーでは制限がスキップされてしまう。
+ * そのため制限ロジックはこのハンドラーに集約する。
+ *
+ * 優先度を LOWEST にすることで、XP/クエストを付与する UnifiedEventHandler(HIGH)
+ * よりも先にキャンセルし、禁止クラフトに対する経験値付与を防ぐ。
+ * UnifiedEventHandler 側は ignoreCancelled = true のため、ここでキャンセルされた
+ * イベントは処理されない。
  */
 public class CraftRestrictionEventHandler implements Listener {
-    
+
     private final TofuNomics plugin;
-    
+
     public CraftRestrictionEventHandler(TofuNomics plugin) {
         this.plugin = plugin;
     }
-    
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onCraftItem(CraftItemEvent event) {
-        plugin.getLogger().info("=== CraftRestrictionEventHandler 開始 ===");
-        
         if (!(event.getWhoClicked() instanceof Player)) {
-            plugin.getLogger().info("プレイヤー以外のクリック - 処理スキップ");
             return;
         }
-        
+
         Player player = (Player) event.getWhoClicked();
         Material craftedItem = event.getRecipe().getResult().getType();
-        
-        plugin.getLogger().info("プレイヤー: " + player.getName());
-        plugin.getLogger().info("クラフト対象: " + craftedItem.name());
-        
-        // JobCraftPermissionManagerの取得
-        if (plugin.getJobCraftPermissionManager() == null) {
-            plugin.getLogger().warning("JobCraftPermissionManager が null - 制限をスキップ");
+
+        // ワールドチェック（EventProcessor.isValidWorldと同等の判定）
+        // 対象外ワールドでは職業クラフト制限を適用しない
+        if (!isCraftRestrictionEnabledWorld(player)) {
             return;
         }
-        
-        plugin.getLogger().info("JobCraftPermissionManager 確認完了");
-        
+
+        // JobCraftPermissionManagerの取得
+        if (plugin.getJobCraftPermissionManager() == null) {
+            plugin.getLogger().warning("JobCraftPermissionManager が null - クラフト制限をスキップ");
+            return;
+        }
+
         // クラフト制限チェック
         if (!plugin.getJobCraftPermissionManager().canPlayerCraftItem(player, craftedItem)) {
             // クラフトを禁止
             event.setCancelled(true);
-            
+
             // 制限メッセージを送信
             String message = plugin.getJobCraftPermissionManager().getCraftDeniedMessage(player, craftedItem);
             player.sendMessage(message);
-            
-            plugin.getLogger().info("クラフト制限実行: " + player.getName() + " が " + craftedItem.name() + " のクラフトを禁止");
-            return;
+
+            plugin.getLogger().info("クラフト制限: " + player.getName() + " が " + craftedItem.name() + " のクラフトを禁止");
         }
-        
-        plugin.getLogger().info("クラフト許可: " + player.getName() + " が " + craftedItem.name() + " のクラフトを許可");
+    }
+
+    /**
+     * クラフト制限を適用すべきワールドかどうかを判定する。
+     * EventProcessor.isValidWorld() と同じ判定基準（除外ワールド + economy.enabled_worlds ホワイトリスト）。
+     * 対象外ワールドでは制限を適用しない。
+     */
+    private boolean isCraftRestrictionEnabledWorld(Player player) {
+        if (plugin.getConfigManager() == null) {
+            // 設定が取得できない場合は安全側（制限なし）に倒す
+            return true;
+        }
+
+        String worldName = player.getWorld().getName();
+
+        // 除外ワールドはスキップ
+        java.util.List<String> excludedWorlds = plugin.getConfigManager().getExcludedWorlds();
+        if (excludedWorlds != null && excludedWorlds.contains(worldName)) {
+            return false;
+        }
+
+        // 経済機能を有効にするワールドのホワイトリスト（空の場合は全ワールドで有効：後方互換）
+        return plugin.getConfigManager().isEconomyEnabledInWorld(worldName);
     }
 }
