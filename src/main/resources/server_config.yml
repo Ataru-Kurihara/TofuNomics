@@ -761,8 +761,8 @@ npc_system:
       rabbit_stew: 4.0
       dried_kelp: 0.8
       sweet_berries: 1.2
-      cooked_cod: 3.0
-      cooked_salmon: 3.5
+      cooked_cod: 6
+      cooked_salmon: 7
       kelp: 0.5
       potato: 0.2
       beetroot: 1.2
@@ -934,8 +934,8 @@ npc_system:
     cornflower: 0.4
     sunflower: 0.5
     wither_rose: 3
-    cooked_cod: 8
-    cooked_salmon: 9
+    cooked_cod: 5
+    cooked_salmon: 6
     kelp: 0.3
     dried_kelp: 0.5
     sea_pickle: 1.5
@@ -1054,8 +1054,7 @@ npc_system:
     accepted_jobs:
     - all
     items: []
-    purchase_prices:
-      cobblestone: 4.0
+    purchase_prices: {}
   - world: tofuNomics
     name: §6鉱夫取引商人
     x: -195
@@ -1099,8 +1098,13 @@ npc_system:
     - quartz
     - amethyst_shard
     purchase_prices:
-      wooden_pickaxe: 15
-      stone_pickaxe: 15
+      torch: 1
+      iron_pickaxe: 25
+      bucket: 8
+      ladder: 1
+      rail: 2
+      wooden_pickaxe: 5
+      stone_pickaxe: 8
   - world: tofuNomics
     name: 岩男
     x: -214
@@ -1144,8 +1148,13 @@ npc_system:
     - quartz
     - amethyst_shard
     purchase_prices:
-      wooden_pickaxe: 15
-      stone_pickaxe: 15
+      torch: 1
+      iron_pickaxe: 25
+      bucket: 8
+      ladder: 1
+      rail: 2
+      wooden_pickaxe: 5
+      stone_pickaxe: 8
   - world: tofuNomics
     name: 鉄夫
     x: -223
@@ -1189,8 +1198,13 @@ npc_system:
     - quartz
     - amethyst_shard
     purchase_prices:
-      wooden_pickaxe: 15
-      stone_pickaxe: 15
+      torch: 1
+      iron_pickaxe: 25
+      bucket: 8
+      ladder: 1
+      rail: 2
+      wooden_pickaxe: 5
+      stone_pickaxe: 8
   - world: tofuNomics
     name: §6木こり取引商人
     x: -195
@@ -1239,8 +1253,13 @@ npc_system:
     - cherry_sapling
     - mangrove_propagule
     purchase_prices:
-      wooden_axe: 15
-      stone_axe: 15
+      iron_axe: 25
+      oak_sapling: 1.5
+      birch_sapling: 1.5
+      spruce_sapling: 1.5
+      bone_meal: 1
+      wooden_axe: 5
+      stone_axe: 8
   - world: tofuNomics
     name: 斧太郎
     x: -214
@@ -1289,8 +1308,13 @@ npc_system:
     - cherry_sapling
     - mangrove_propagule
     purchase_prices:
-      wooden_axe: 15
-      stone_axe: 15
+      iron_axe: 25
+      oak_sapling: 1.5
+      birch_sapling: 1.5
+      spruce_sapling: 1.5
+      bone_meal: 1
+      wooden_axe: 5
+      stone_axe: 8
   - world: tofuNomics
     name: 原木切夫
     x: -223
@@ -1339,8 +1363,13 @@ npc_system:
     - cherry_sapling
     - mangrove_propagule
     purchase_prices:
-      wooden_axe: 15
-      stone_axe: 15
+      iron_axe: 25
+      oak_sapling: 1.5
+      birch_sapling: 1.5
+      spruce_sapling: 1.5
+      bone_meal: 1
+      wooden_axe: 5
+      stone_axe: 8
   - world: tofuNomics
     name: §6農家取引商人
     x: -195
@@ -1392,9 +1421,13 @@ npc_system:
     - sunflower
     - wither_rose
     purchase_prices:
-      wooden_hoe: 15
-      stone_hoe: 15
-      bucket: 50
+      wheat_seeds: 1
+      beetroot_seeds: 1
+      bone_meal: 1
+      iron_hoe: 18
+      bucket: 8
+      wooden_hoe: 5
+      stone_hoe: 8
   - world: tofuNomics
     name: じゃが太郎
     x: -197
@@ -1446,9 +1479,13 @@ npc_system:
     - sunflower
     - wither_rose
     purchase_prices:
-      wooden_hoe: 15
-      stone_hoe: 15
-      bucket: 50
+      wheat_seeds: 1
+      beetroot_seeds: 1
+      bone_meal: 1
+      iron_hoe: 18
+      bucket: 8
+      wooden_hoe: 5
+      stone_hoe: 8
   - world: tofuNomics
     name: りんごちゃん
     x: -214
@@ -1500,9 +1537,13 @@ npc_system:
     - sunflower
     - wither_rose
     purchase_prices:
-      wooden_hoe: 15
-      stone_hoe: 15
-      bucket: 50
+      wheat_seeds: 1
+      beetroot_seeds: 1
+      bone_meal: 1
+      iron_hoe: 18
+      bucket: 8
+      wooden_hoe: 5
+      stone_hoe: 8
   - world: tofuNomics
     name: きの子
     x: -212
@@ -1554,9 +1595,13 @@ npc_system:
     - sunflower
     - wither_rose
     purchase_prices:
-      wooden_hoe: 15
-      stone_hoe: 15
-      bucket: 50
+      wheat_seeds: 1
+      beetroot_seeds: 1
+      bone_meal: 1
+      iron_hoe: 18
+      bucket: 8
+      wooden_hoe: 5
+      stone_hoe: 8
   - world: tofuNomics
     name: 稲作吾郎
     x: -223
@@ -1608,9 +1653,13 @@ npc_system:
     - sunflower
     - wither_rose
     purchase_prices:
-      wooden_hoe: 15
-      stone_hoe: 15
-      bucket: 50
+      wheat_seeds: 1
+      beetroot_seeds: 1
+      bone_meal: 1
+      iron_hoe: 18
+      bucket: 8
+      wooden_hoe: 5
+      stone_hoe: 8
   - world: tofuNomics
     name: 鍬次郎
     x: -225
@@ -1662,9 +1711,13 @@ npc_system:
     - sunflower
     - wither_rose
     purchase_prices:
-      wooden_hoe: 15
-      stone_hoe: 15
-      bucket: 50
+      wheat_seeds: 1
+      beetroot_seeds: 1
+      bone_meal: 1
+      iron_hoe: 18
+      bucket: 8
+      wooden_hoe: 5
+      stone_hoe: 8
   - world: tofuNomics
     name: 田中サーモン一郎
     x: -197
@@ -1702,7 +1755,10 @@ npc_system:
     - name_tag
     - saddle
     purchase_prices:
-      string: 5
+      fishing_rod: 6
+      string: 4
+      oak_boat: 5
+      name_tag: 50
   - world: tofuNomics
     name: 鮭田刺身
     x: -195
@@ -1740,7 +1796,10 @@ npc_system:
     - name_tag
     - saddle
     purchase_prices:
-      string: 5
+      fishing_rod: 6
+      string: 4
+      oak_boat: 5
+      name_tag: 50
   - world: tofuNomics
     name: フグ美
     x: -214
@@ -1778,7 +1837,10 @@ npc_system:
     - name_tag
     - saddle
     purchase_prices:
-      string: 5
+      fishing_rod: 6
+      string: 4
+      oak_boat: 5
+      name_tag: 50
   - world: tofuNomics
     name: 鮎子
     x: -212
@@ -1816,7 +1878,10 @@ npc_system:
     - name_tag
     - saddle
     purchase_prices:
-      string: 5
+      fishing_rod: 6
+      string: 4
+      oak_boat: 5
+      name_tag: 50
   - world: tofuNomics
     name: ニジマス夫
     x: -223
@@ -1854,7 +1919,10 @@ npc_system:
     - name_tag
     - saddle
     purchase_prices:
-      string: 5
+      fishing_rod: 6
+      string: 4
+      oak_boat: 5
+      name_tag: 50
   - world: tofuNomics
     name: わかめちゃん
     x: -225
@@ -1892,7 +1960,10 @@ npc_system:
     - name_tag
     - saddle
     purchase_prices:
-      string: 5
+      fishing_rod: 6
+      string: 4
+      oak_boat: 5
+      name_tag: 50
   - world: tofuNomics
     name: ゴードン
     x: -223
@@ -1955,8 +2026,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: バルカン
     x: -225
@@ -2019,8 +2093,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: アストリッド
     x: -214
@@ -2083,8 +2160,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: ブロック
     x: -212
@@ -2147,8 +2227,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: エルマー
     x: -195
@@ -2211,8 +2294,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: へファイストス
     x: -197
@@ -2275,8 +2361,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: メルクーリオ
     x: -223
@@ -2315,8 +2404,11 @@ npc_system:
     - slime_ball
     - ender_eye
     purchase_prices:
-      glass_bottle: 5
+      glass_bottle: 2
       brewing_stand: 100
+      blaze_powder: 15
+      nether_wart: 4
+      glowstone_dust: 5
   - world: tofuNomics
     name: パラケルスス
     x: -214
@@ -2355,8 +2447,11 @@ npc_system:
     - slime_ball
     - ender_eye
     purchase_prices:
-      glass_bottle: 5
+      glass_bottle: 2
       brewing_stand: 100
+      blaze_powder: 15
+      nether_wart: 4
+      glowstone_dust: 5
   - world: tofuNomics
     name: フルカネルリ
     x: -195
@@ -2395,8 +2490,11 @@ npc_system:
     - slime_ball
     - ender_eye
     purchase_prices:
-      glass_bottle: 5
+      glass_bottle: 2
       brewing_stand: 100
+      blaze_powder: 15
+      nether_wart: 4
+      glowstone_dust: 5
   - world: tofuNomics
     name: エルビア
     x: -195
@@ -2420,8 +2518,11 @@ npc_system:
     - glowstone
     - sea_lantern
     purchase_prices:
-      book: 10
-      lapis_lazuli: 25
+      book: 4
+      lapis_lazuli: 4
+      bookshelf: 12
+      experience_bottle: 25
+      paper: 1
   - world: tofuNomics
     name: アストラル
     x: -214
@@ -2445,8 +2546,11 @@ npc_system:
     - glowstone
     - sea_lantern
     purchase_prices:
-      book: 10
-      lapis_lazuli: 25
+      book: 4
+      lapis_lazuli: 4
+      bookshelf: 12
+      experience_bottle: 25
+      paper: 1
   - world: tofuNomics
     name: ミラクル
     x: -223
@@ -2470,8 +2574,11 @@ npc_system:
     - glowstone
     - sea_lantern
     purchase_prices:
-      book: 10
-      lapis_lazuli: 25
+      book: 4
+      lapis_lazuli: 4
+      bookshelf: 12
+      experience_bottle: 25
+      paper: 1
   - world: tofuNomics
     name: ヴィニオリ
     x: -195
@@ -2535,9 +2642,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: アールト
     x: -197
@@ -2601,9 +2712,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: ムラヤマ
     x: -214
@@ -2667,9 +2782,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: イニゴ
     x: -212
@@ -2733,9 +2852,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: レン
     x: -223
@@ -2799,9 +2922,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: アルベルティ
     x: -225
@@ -2865,9 +2992,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: 玄白
     x: 3
@@ -2906,8 +3037,11 @@ npc_system:
     - slime_ball
     - ender_eye
     purchase_prices:
-      glass_bottle: 5
+      glass_bottle: 2
       brewing_stand: 100
+      blaze_powder: 15
+      nether_wart: 4
+      glowstone_dust: 5
   - world: tofuNomics
     name: 千草
     x: 22
@@ -2946,8 +3080,11 @@ npc_system:
     - slime_ball
     - ender_eye
     purchase_prices:
-      glass_bottle: 5
+      glass_bottle: 2
       brewing_stand: 100
+      blaze_powder: 15
+      nether_wart: 4
+      glowstone_dust: 5
   - world: tofuNomics
     name: 道満
     x: 31
@@ -2986,8 +3123,11 @@ npc_system:
     - slime_ball
     - ender_eye
     purchase_prices:
-      glass_bottle: 5
+      glass_bottle: 2
       brewing_stand: 100
+      blaze_powder: 15
+      nether_wart: 4
+      glowstone_dust: 5
   - world: tofuNomics
     name: 安倍
     x: 31
@@ -3011,8 +3151,11 @@ npc_system:
     - glowstone
     - sea_lantern
     purchase_prices:
-      book: 10
-      lapis_lazuli: 25
+      book: 4
+      lapis_lazuli: 4
+      bookshelf: 12
+      experience_bottle: 25
+      paper: 1
   - world: tofuNomics
     name: 静
     x: 22
@@ -3036,8 +3179,11 @@ npc_system:
     - glowstone
     - sea_lantern
     purchase_prices:
-      book: 10
-      lapis_lazuli: 25
+      book: 4
+      lapis_lazuli: 4
+      bookshelf: 12
+      experience_bottle: 25
+      paper: 1
   - world: tofuNomics
     name: 空海
     x: 3
@@ -3061,8 +3207,11 @@ npc_system:
     - glowstone
     - sea_lantern
     purchase_prices:
-      book: 10
-      lapis_lazuli: 25
+      book: 4
+      lapis_lazuli: 4
+      bookshelf: 12
+      experience_bottle: 25
+      paper: 1
   - world: tofuNomics
     name: 飛騨
     x: 3
@@ -3126,9 +3275,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: 巌
     x: 5
@@ -3192,9 +3345,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: 匠
     x: 22
@@ -3258,9 +3415,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: 善次郎
     x: 20
@@ -3324,9 +3485,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: 檜山
     x: 31
@@ -3390,9 +3555,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: 左衛門
     x: 33
@@ -3456,9 +3625,13 @@ npc_system:
     - cut_copper
     - oxidized_copper
     purchase_prices:
-      lantern: 5
-      torch: 5
+      stone: 1
+      glass: 1
+      white_concrete: 1.5
+      sandstone: 1
       scaffolding: 10
+      lantern: 5
+      torch: 2
   - world: tofuNomics
     name: 源五郎
     x: 31
@@ -3521,8 +3694,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: 兼定
     x: 33
@@ -3585,8 +3761,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: 鉄斎
     x: 22
@@ -3649,8 +3828,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: 小鉄
     x: 20
@@ -3713,8 +3895,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: 正宗
     x: 3
@@ -3777,8 +3962,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: 玄武
     x: 5
@@ -3841,8 +4029,11 @@ npc_system:
     - shears
     - bucket
     purchase_prices:
-      coal: 10
-      stone: 10
+      coal: 3
+      furnace: 5
+      anvil: 100
+      grindstone: 15
+      flint_and_steel: 4
   - world: tofuNomics
     name: 24時間ショップ
     x: -109
