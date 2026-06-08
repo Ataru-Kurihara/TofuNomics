@@ -521,6 +521,22 @@ public class FoodNPCManager {
         initializeFoodNPCs();
         plugin.getLogger().info("食料NPCのリロードが完了しました");
     }
+
+    /**
+     * 食料NPCの価格のみを再構築する（NPCは再スポーンしない）
+     * config.ymlのfood_items/price_multiplier変更を /tofunomics reload で反映するために使用
+     */
+    public void reloadFoodPrices() {
+        int count = 0;
+        for (UUID npcId : new ArrayList<>(foodStores.keySet())) {
+            FoodStore old = foodStores.get(npcId);
+            if (old == null) continue;
+            Map<Material, Double> newPrices = buildFoodItemPrices(old.getNpcType());
+            foodStores.put(npcId, new FoodStore(old.getNpcId(), old.getName(), old.getLocation(), newPrices, old.getNpcType()));
+            count++;
+        }
+        plugin.getLogger().info("食料NPCの価格を再構築しました（" + count + "店舗）");
+    }
     
     /**
      * 指定プレイヤーの購入履歴取得

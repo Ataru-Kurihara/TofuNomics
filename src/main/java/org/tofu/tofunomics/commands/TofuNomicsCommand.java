@@ -21,11 +21,15 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private final NPCCommand npcCommand;
-    
-    public TofuNomicsCommand(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager, 
+    private final TradingNPCManager tradingNPCManager;
+    private final FoodNPCManager foodNPCManager;
+
+    public TofuNomicsCommand(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
                         BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager, FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager) {
     this.plugin = plugin;
     this.configManager = configManager;
+    this.tradingNPCManager = tradingNPCManager;
+    this.foodNPCManager = foodNPCManager;
     this.npcCommand = new NPCCommand(plugin, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager, processingNPCManager);
 }
     
@@ -66,11 +70,20 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§eTofuNomicsプラグインをリロード中...");
         
         try {
-            // 設定リロード
-            plugin.reloadConfig();
-            
+            // 設定リロード（ConfigManager経由で内部キャッシュ・参照も更新）
+            configManager.reloadConfig();
+
+            // NPCの価格データを再構築（configファイルだけでなくメモリ上の価格も更新）
+            // これがないとfood_items/item_pricesの変更がreloadで反映されない
+            if (tradingNPCManager != null) {
+                tradingNPCManager.reloadTradingPosts();
+            }
+            if (foodNPCManager != null) {
+                foodNPCManager.reloadFoodPrices();
+            }
+
             sender.sendMessage("§aTofuNomicsプラグインのリロードが完了しました。");
-            sender.sendMessage("§e注意: 完全なリロードにはプラグインの再起動が推奨されます。");
+            sender.sendMessage("§7（取引所・食料NPCの価格も再構築済み）");
             plugin.getLogger().info("プラグインがリロードされました（実行者: " + sender.getName() + "）");
         } catch (Exception e) {
             sender.sendMessage("§cリロード中にエラーが発生しました: " + e.getMessage());
