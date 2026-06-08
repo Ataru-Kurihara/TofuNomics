@@ -1481,8 +1481,8 @@ npc_system:
       sweet_berries: 2      # スイートベリー      # スイートベリー
       
       # 魚屋用商品
-      cooked_cod: 3         # 焼いた鱈
-      cooked_salmon: 4      # 焼いた鮭
+      cooked_cod: 6         # 焼いた鱈
+      cooked_salmon: 7      # 焼いた鮭
       kelp: 1               # 昆布               # 昆布
       
       # 八百屋用商品
@@ -1861,8 +1861,8 @@ npc_system:
     sunflower: 0.5
     wither_rose: 3
     # --- fisherman: 海洋素材 ---
-    cooked_cod: 8
-    cooked_salmon: 9
+    cooked_cod: 5
+    cooked_salmon: 6
     kelp: 0.3
     dried_kelp: 0.5
     sea_pickle: 1.5
