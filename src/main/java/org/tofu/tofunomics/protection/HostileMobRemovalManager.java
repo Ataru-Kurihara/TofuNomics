@@ -6,6 +6,10 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.tofu.tofunomics.integration.WorldGuardIntegration;
@@ -19,7 +23,7 @@ import java.util.logging.Logger;
 /**
  * WorldGuardリージョン内の敵対的モブを自動的に除去するマネージャー
  */
-public class HostileMobRemovalManager {
+public class HostileMobRemovalManager implements Listener {
     private final Plugin plugin;
     private final WorldGuardIntegration worldGuardIntegration;
     private final Logger logger;
@@ -155,6 +159,30 @@ public class HostileMobRemovalManager {
 
         } catch (Exception e) {
             logger.severe("モブスキャン中にエラーが発生しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 保護リージョン内で敵対的モブが死亡した際のドロップ・経験値を抑制
+     *
+     * 保護リージョンはMOB_DAMAGE=DENYのノーリスク地帯であり、プレイヤーが
+     * 安全にMobを倒してアイテム・経験値を無限に獲得できてしまう不正利用を防ぐ。
+     * 自動除去（entity.remove()）はEntityDeathEventを発火しないため、本ハンドラは
+     * プレイヤーキルや環境死など「実際の死亡」のみに作用する。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEntityDeath(EntityDeathEvent event) {
+        LivingEntity entity = event.getEntity();
+
+        // 敵対Mob以外（動物・村人など）は対象外
+        if (!isHostileMob(entity)) {
+            return;
+        }
+
+        // 自動除去と同じ判定: 保護リージョン内ならドロップ・経験値を抑制
+        if (worldGuardIntegration.isInProtectedRegion(entity.getLocation())) {
+            event.getDrops().clear();
+            event.setDroppedExp(0);
         }
     }
 
