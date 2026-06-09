@@ -634,23 +634,25 @@ public class TradingNPCManager {
                     plugin.getLogger().info("木こりボーナス適用: " + material + " の価格を2倍に");
                 }
                 
-                double itemTotal = finalPrice * amount;
-                
-                // 個数を掛けた後に切り捨て
-                itemTotal = Math.floor(itemTotal);
-                
-                totalEarnings += itemTotal;
+                // アイテム単位では切り捨てず、合計に端数を累積する
+                // （安価アイテムが floor で0になり売却不能になるのを防ぐ）
+                totalEarnings += finalPrice * amount;
                 soldItems.put(material, soldItems.getOrDefault(material, 0) + amount);
             }
         }
-        
-        if (totalEarnings > 0) {
-            // インベントリに金塊として支払い
-            if (!currencyConverter.receiveCash(player, totalEarnings)) {
+
+        // 累積した合計を通貨換算（四捨五入）。1コイン以上で売却成立
+        int payableNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
+        if (payableNuggets > 0) {
+            // 換算済みの金塊数を直接渡し、チェック値と支払い額を厳密に一致させる（二重丸め回避）
+            if (!currencyConverter.receiveCash(player, payableNuggets)) {
                 return new TradeResult(false, "インベントリに空きがありません。金塊を受け取るスペースを確保してください", 0.0, new HashMap<>());
             }
-            
-            return new TradeResult(true, "取引が完了しました", totalEarnings, soldItems);
+
+            return new TradeResult(true, "取引が完了しました", payableNuggets, soldItems);
+        } else if (!soldItems.isEmpty()) {
+            // 売却対象はあったが、合計額が安すぎて1コインに満たない
+            return new TradeResult(false, "売却額が少なすぎます。もう少しまとめて売却してください", 0.0, new HashMap<>());
         } else {
             return new TradeResult(false, "売却可能なアイテムがありませんでした", 0.0, new HashMap<>());
         }
@@ -689,23 +691,25 @@ public class TradingNPCManager {
                     plugin.getLogger().info("木こりボーナス適用: " + material + " の価格を2倍に");
                 }
                 
-                double itemTotal = finalPrice * amount;
-                
-                // 個数を掛けた後に切り捨て
-                itemTotal = Math.floor(itemTotal);
-                
-                totalEarnings += itemTotal;
+                // アイテム単位では切り捨てず、合計に端数を累積する
+                // （安価アイテムが floor で0になり売却不能になるのを防ぐ）
+                totalEarnings += finalPrice * amount;
                 soldItems.put(material, soldItems.getOrDefault(material, 0) + amount);
             }
         }
-        
-        if (totalEarnings > 0) {
-            // インベントリに金塊として支払い（スペースチェックスキップオプション付き）
-            if (!currencyConverter.receiveCash(player, totalEarnings, skipSpaceCheck)) {
+
+        // 累積した合計を通貨換算（四捨五入）。1コイン以上で売却成立
+        int payableNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
+        if (payableNuggets > 0) {
+            // 換算済みの金塊数を直接渡し、チェック値と支払い額を厳密に一致させる（二重丸め回避）
+            if (!currencyConverter.receiveCash(player, payableNuggets, skipSpaceCheck)) {
                 return new TradeResult(false, "インベントリに空きがありません。金塊を受け取るスペースを確保してください", 0.0, new HashMap<>());
             }
-            
-            return new TradeResult(true, "取引が完了しました", totalEarnings, soldItems);
+
+            return new TradeResult(true, "取引が完了しました", payableNuggets, soldItems);
+        } else if (!soldItems.isEmpty()) {
+            // 売却対象はあったが、合計額が安すぎて1コインに満たない
+            return new TradeResult(false, "売却額が少なすぎます。もう少しまとめて売却してください", 0.0, new HashMap<>());
         } else {
             return new TradeResult(false, "売却可能なアイテムがありませんでした", 0.0, new HashMap<>());
         }

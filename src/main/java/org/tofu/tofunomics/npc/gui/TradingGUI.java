@@ -866,12 +866,8 @@ public class TradingGUI implements Listener {
                     finalPrice *= 2.0;
                 }
 
-                double itemTotal = finalPrice * sellItem.getAmount();
-
-                // 個数を掛けた後に切り捨て
-                itemTotal = Math.floor(itemTotal);
-
-                totalEarnings += itemTotal;
+                // アイテム単位では切り捨てず合計に累積（processItemSaleの支払い計算と整合）
+                totalEarnings += finalPrice * sellItem.getAmount();
             }
         }
 
@@ -1047,12 +1043,8 @@ public class TradingGUI implements Listener {
                     finalPrice *= 2.0;
                 }
 
-                double itemTotal = finalPrice * sellItem.getAmount();
-
-                // 個数を掛けた後に切り捨て
-                itemTotal = Math.floor(itemTotal);
-
-                totalEarnings += itemTotal;
+                // アイテム単位では切り捨てず合計に累積（processItemSaleの支払い計算と整合）
+                totalEarnings += finalPrice * sellItem.getAmount();
             }
         }
 
