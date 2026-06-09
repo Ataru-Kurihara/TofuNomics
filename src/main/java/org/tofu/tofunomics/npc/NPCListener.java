@@ -14,7 +14,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.world.ChunkLoadEvent;
-import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
 
