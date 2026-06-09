@@ -6,11 +6,14 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitTask;
 import org.tofu.tofunomics.integration.WorldGuardIntegration;
 
@@ -183,6 +186,32 @@ public class HostileMobRemovalManager implements Listener {
         if (worldGuardIntegration.isInProtectedRegion(entity.getLocation())) {
             event.getDrops().clear();
             event.setDroppedExp(0);
+        }
+    }
+
+    /**
+     * 保護リージョン内の敵対的モブによる発射物（矢・ファイアボール等）の発射を抑制
+     *
+     * 自動除去はモブ本体（entity.remove()）のみを消すため、スケルトンが除去される前に
+     * 撃った矢などの発射物が地面に残ってしまう。MOB_DAMAGE=DENYは発射自体を止めないため、
+     * 発射元が敵対Mobかつ保護リージョン内の場合は発射をキャンセルし、矢の残留を防ぐ。
+     * プレイヤーやディスペンサー由来の発射物には影響しない。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        Projectile projectile = event.getEntity();
+        ProjectileSource shooter = projectile.getShooter();
+
+        // 発射元が敵対Mob以外（プレイヤー・ディスペンサー等）は対象外
+        if (!(shooter instanceof Entity) || !isHostileMob((Entity) shooter)) {
+            return;
+        }
+
+        // 発射元または発射物が保護リージョン内なら発射をキャンセル
+        Entity shooterEntity = (Entity) shooter;
+        if (worldGuardIntegration.isInProtectedRegion(shooterEntity.getLocation())
+                || worldGuardIntegration.isInProtectedRegion(projectile.getLocation())) {
+            event.setCancelled(true);
         }
     }
 
