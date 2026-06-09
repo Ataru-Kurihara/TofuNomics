@@ -1696,6 +1696,10 @@ npc_system:
   #   items: []  # 空リストまたは未指定で全アイテム対応
 # アイテム買取価格設定（基準価格）
   item_prices:
+    # 注: 耐久値を持つ装備・ツール（釣竿/各種防具/各種ツール/shield/bow/
+    #     crossbow/flint_and_steel/shears/turtle_helmet 等）は、耐久値を無視した
+    #     固定価格での転売悪用（安く買い消耗品を売り戻す）防止のため売却不可（item_prices非掲載）。
+    #     bucket/name_tag/saddle 等の耐久値を持たないアイテムは従来通り売却可。
     # 鉱物系（リリース前バランス調整: 高額アイテムを抑制し職業間格差を縮小）
     coal: 1.5
     iron_ingot: 6
@@ -1760,19 +1764,6 @@ npc_system:
     ender_pearl: 18
     ghast_tear: 35
     # 鍛冶屋のクラフト品（リリース前バランス調整: 上級職の売却先を整備）
-    iron_pickaxe: 14
-    iron_sword: 10
-    iron_axe: 14
-    iron_shovel: 6
-    iron_hoe: 8
-    iron_helmet: 18
-    iron_chestplate: 30
-    iron_leggings: 26
-    iron_boots: 16
-    diamond_pickaxe: 70
-    diamond_sword: 50
-    diamond_axe: 70
-    shield: 8
     # 建築家の建材（リリース前バランス調整: 上級職の売却先を整備）
     stone_bricks: 1
     smooth_stone: 1
@@ -1878,42 +1869,9 @@ npc_system:
     cod_bucket: 8
     tropical_fish_bucket: 14
     lily_pad: 0.5
-    fishing_rod: 3
     name_tag: 30
     saddle: 25
     # --- blacksmith: 装備・道具・netherite ---
-    diamond_shovel: 30
-    diamond_hoe: 35
-    diamond_helmet: 40
-    diamond_chestplate: 64
-    diamond_leggings: 56
-    diamond_boots: 36
-    chainmail_helmet: 10
-    chainmail_chestplate: 18
-    chainmail_leggings: 16
-    chainmail_boots: 9
-    golden_helmet: 12
-    golden_chestplate: 20
-    golden_leggings: 18
-    golden_boots: 11
-    golden_sword: 6
-    golden_pickaxe: 8
-    golden_axe: 8
-    golden_shovel: 5
-    golden_hoe: 5
-    netherite_helmet: 200
-    netherite_chestplate: 280
-    netherite_leggings: 250
-    netherite_boots: 180
-    netherite_sword: 240
-    netherite_pickaxe: 260
-    netherite_axe: 260
-    netherite_shovel: 220
-    netherite_hoe: 230
-    bow: 4
-    crossbow: 6
-    flint_and_steel: 2
-    shears: 2
     bucket: 4
     # --- alchemist: 醸造素材 ---
     spider_eye: 2
@@ -1924,7 +1882,6 @@ npc_system:
     sugar: 0.3
     glass_bottle: 0.5
     dragon_breath: 25
-    turtle_helmet: 25
     gunpowder: 2
     slime_ball: 1.5
     ender_eye: 22
