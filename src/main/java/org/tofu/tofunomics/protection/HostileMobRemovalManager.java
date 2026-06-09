@@ -199,6 +199,7 @@ public class HostileMobRemovalManager implements Listener {
         }
 
         // 追加で特定のエンティティタイプをチェック
+        // 注意: GHASTはMonsterを実装せず（Flying系）取りこぼすため明示的に含める
         EntityType type = entity.getType();
         switch (type) {
             case SLIME:
@@ -207,6 +208,7 @@ public class HostileMobRemovalManager implements Listener {
             case SHULKER:
             case HOGLIN:
             case ZOGLIN:
+            case GHAST:
                 return true;
             default:
                 return false;
