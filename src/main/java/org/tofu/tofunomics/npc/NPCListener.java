@@ -156,19 +156,13 @@ public class NPCListener implements Listener {
             return;
         }
         
-        // アクティブな取引セッションがあるかチェック
-        TradingSession activeSession = activeTradingSessions.get(player.getUniqueId());
-        if (activeSession != null && activeSession.getNpcId().equals(npcId) && 
-            activeSession.getSessionType().equals("trader")) {
-            
-            // 継続取引：手持ちアイテムを売却処理
-            processItemSaleFromInventory(player, npcId);
-        } else {
-            // 新規取引：取引NPCインターフェースを表示
-            boolean handled = tradingNPCManager.handleTradingNPCInteraction(player, npcId);
-            if (handled) {
-                activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "trader"));
-            }
+        // 取引NPCインターフェース（モード選択GUI）を表示
+        // ※ 自動全売却は廃止。売却はGUI内のアイテム選択／全売却ボタンからのみ実行する
+        //   （右クリック連打による意図しない全アイテム売却バグを防止するため）
+        boolean handled = tradingNPCManager.handleTradingNPCInteraction(player, npcId);
+        if (handled) {
+            // クールダウン管理用にセッションを記録
+            activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "trader"));
         }
     }
     
@@ -233,67 +227,6 @@ public class NPCListener implements Listener {
         } catch (Exception e) {
             plugin.getLogger().severe("食料NPC相互作用処理中に例外が発生しました: " + e.getMessage());
             player.sendMessage("§c処理中にエラーが発生しました。管理者にお知らせください。");
-        }
-    }
-    
-    private void processItemSaleFromInventory(Player player, UUID npcId) {
-        List<ItemStack> sellableItems = new ArrayList<>();
-        
-        // プレイヤーのインベントリから売却可能アイテムを収集
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getAmount() > 0) {
-                sellableItems.add(item.clone());
-            }
-        }
-        
-        if (sellableItems.isEmpty()) {
-            player.sendMessage(configManager.getMessage("npc.trading.no_items_to_sell"));
-            return;
-        }
-        
-        // 売却処理
-        TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(player, npcId, sellableItems);
-        
-        if (result.isSuccess()) {
-            // 成功メッセージ
-            String totalEarnings = String.format("%.2f", result.getTotalEarnings());
-            player.sendMessage(configManager.getMessage("npc.trading.sale_success", 
-                "total", totalEarnings));
-            
-            // 売却したアイテムの詳細を表示
-            if (configManager.showDetailedTradeInfo()) {
-                for (Map.Entry<org.bukkit.Material, Integer> entry : result.getSoldItems().entrySet()) {
-                    player.sendMessage("§f• " + entry.getKey().toString().toLowerCase() + " x" + entry.getValue());
-                }
-            }
-            
-            // インベントリから売却されたアイテムを削除
-            removeSoldItemsFromInventory(player, result.getSoldItems());
-            
-        } else {
-            player.sendMessage(result.getMessage());
-        }
-    }
-    
-    private void removeSoldItemsFromInventory(Player player, Map<org.bukkit.Material, Integer> soldItems) {
-        for (Map.Entry<org.bukkit.Material, Integer> entry : soldItems.entrySet()) {
-            org.bukkit.Material material = entry.getKey();
-            int amountToRemove = entry.getValue();
-            
-            for (ItemStack item : player.getInventory().getContents()) {
-                if (item != null && item.getType() == material) {
-                    int currentAmount = item.getAmount();
-                    if (currentAmount <= amountToRemove) {
-                        amountToRemove -= currentAmount;
-                        item.setAmount(0);
-                    } else {
-                        item.setAmount(currentAmount - amountToRemove);
-                        amountToRemove = 0;
-                    }
-                    
-                    if (amountToRemove <= 0) break;
-                }
-            }
         }
     }
     
