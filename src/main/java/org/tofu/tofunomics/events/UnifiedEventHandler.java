@@ -396,6 +396,14 @@ public class UnifiedEventHandler implements Listener {
         asyncUpdater.shutdown();
         logger.info("UnifiedEventHandler cleaned up successfully");
     }
+
+    /**
+     * 設定の再読み込み（リロードコマンド時に呼び出し）
+     * 内部の EventProcessor が保持するワールド/ゲームモード設定を再構築する。
+     */
+    public void reloadConfiguration() {
+        eventProcessor.reloadConfiguration();
+    }
     
     /**
      * 統計情報の取得

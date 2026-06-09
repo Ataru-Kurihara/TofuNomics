@@ -79,20 +79,32 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
         
         try {
             configManager.reloadConfig();
-            
+            reloadEventWorldSettings();
+
             long endTime = System.currentTimeMillis();
-            
+
             sender.sendMessage(ChatColor.GREEN + "設定のリロードが完了しました。");
             sender.sendMessage(ChatColor.GRAY + "処理時間: " + (endTime - startTime) + "ms");
             
             plugin.getLogger().info("設定が " + sender.getName() + " によってリロードされました。");
-            
+
         } catch (Exception e) {
             sender.sendMessage(ChatColor.RED + "設定のリロードに失敗しました: " + e.getMessage());
             plugin.getLogger().severe("設定リロード中にエラーが発生しました: " + e.getMessage());
         }
     }
-    
+
+    /**
+     * イベントシステムのワールド/ゲームモード設定を再読み込みする。
+     * economy.enabled_worlds 等は EventProcessor が起動時にのみメモリへ読み込むため、
+     * configManager.reloadConfig() だけでは反映されない。明示的に再構築する。
+     */
+    private void reloadEventWorldSettings() {
+        if (plugin.getUnifiedEventHandler() != null) {
+            plugin.getUnifiedEventHandler().reloadConfiguration();
+        }
+    }
+
     /**
      * 設定ファイルのみのリロードを実行
      */
@@ -104,9 +116,10 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
         try {
             plugin.reloadConfig();
             configManager.reloadConfig();
-            
+            reloadEventWorldSettings();
+
             long endTime = System.currentTimeMillis();
-            
+
             sender.sendMessage(ChatColor.GREEN + "設定ファイルのリロードが完了しました。");
             sender.sendMessage(ChatColor.GRAY + "処理時間: " + (endTime - startTime) + "ms");
             
@@ -181,9 +194,10 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
             
             // 自動修正を実行
             configValidator.autoFixAllErrors();
-            
+            reloadEventWorldSettings();
+
             long endTime = System.currentTimeMillis();
-            
+
             sender.sendMessage(ChatColor.GREEN + "設定エラーの自動修正が完了しました。");
             sender.sendMessage(ChatColor.GRAY + "処理時間: " + (endTime - startTime) + "ms");
             
@@ -220,7 +234,8 @@ public class ReloadCommand implements CommandExecutor, TabCompleter {
             // ステップ3: 設定リロード
             sender.sendMessage(ChatColor.YELLOW + "[3/3] 設定をリロード中...");
             configManager.reloadConfig();
-            
+            reloadEventWorldSettings();
+
             long endTime = System.currentTimeMillis();
             
             sender.sendMessage(ChatColor.GREEN + "完全なリロード処理が完了しました。");
