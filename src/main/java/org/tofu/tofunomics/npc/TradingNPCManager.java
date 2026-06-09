@@ -644,8 +644,8 @@ public class TradingNPCManager {
         // 累積した合計を通貨換算（四捨五入）。1コイン以上で売却成立
         int payableNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
         if (payableNuggets > 0) {
-            // インベントリに金塊として支払い
-            if (!currencyConverter.receiveCash(player, totalEarnings)) {
+            // 換算済みの金塊数を直接渡し、チェック値と支払い額を厳密に一致させる（二重丸め回避）
+            if (!currencyConverter.receiveCash(player, payableNuggets)) {
                 return new TradeResult(false, "インベントリに空きがありません。金塊を受け取るスペースを確保してください", 0.0, new HashMap<>());
             }
 
@@ -701,8 +701,8 @@ public class TradingNPCManager {
         // 累積した合計を通貨換算（四捨五入）。1コイン以上で売却成立
         int payableNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
         if (payableNuggets > 0) {
-            // インベントリに金塊として支払い（スペースチェックスキップオプション付き）
-            if (!currencyConverter.receiveCash(player, totalEarnings, skipSpaceCheck)) {
+            // 換算済みの金塊数を直接渡し、チェック値と支払い額を厳密に一致させる（二重丸め回避）
+            if (!currencyConverter.receiveCash(player, payableNuggets, skipSpaceCheck)) {
                 return new TradeResult(false, "インベントリに空きがありません。金塊を受け取るスペースを確保してください", 0.0, new HashMap<>());
             }
 
