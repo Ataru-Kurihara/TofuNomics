@@ -1744,8 +1744,9 @@ npc_system:
     milk_bucket: 2
     egg: 0.5
     # 魚類（リリース前バランス調整: 釣りの直接収入減額分を売却単価で補填）
-    cod: 7
-    salmon: 8
+    # 調理の手間を反映し、未調理(生)より調理済みを高く設定（cooked_cod/cooked_salmon参照）
+    cod: 5
+    salmon: 6
     tropical_fish: 11
     pufferfish: 14
     # 宝物・レア素材
@@ -1861,8 +1862,9 @@ npc_system:
     sunflower: 0.5
     wither_rose: 3
     # --- fisherman: 海洋素材 ---
-    cooked_cod: 5
-    cooked_salmon: 6
+    # 調理済みは未調理(生cod:5/salmon:6)より高く設定
+    cooked_cod: 7
+    cooked_salmon: 8
     kelp: 0.3
     dried_kelp: 0.5
     sea_pickle: 1.5
