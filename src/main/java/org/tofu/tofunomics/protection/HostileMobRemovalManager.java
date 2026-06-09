@@ -6,7 +6,14 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
+import org.bukkit.entity.Projectile;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitTask;
 import org.tofu.tofunomics.integration.WorldGuardIntegration;
 
@@ -19,7 +26,7 @@ import java.util.logging.Logger;
 /**
  * WorldGuardリージョン内の敵対的モブを自動的に除去するマネージャー
  */
-public class HostileMobRemovalManager {
+public class HostileMobRemovalManager implements Listener {
     private final Plugin plugin;
     private final WorldGuardIntegration worldGuardIntegration;
     private final Logger logger;
@@ -33,6 +40,9 @@ public class HostileMobRemovalManager {
 
     // スキャン間隔（ティック）
     private static final long SCAN_INTERVAL_TICKS = 100L; // 5秒 (100 ticks = 5秒)
+
+    // 保護リージョン境界の外側でMobが死亡した場合もドロップ抑制対象に含めるマージン（ブロック）
+    private static final int REGION_BUFFER_BLOCKS = 3;
 
     // 除去統計
     private long totalRemovedMobs = 0;
@@ -159,6 +169,90 @@ public class HostileMobRemovalManager {
     }
 
     /**
+     * 保護リージョン内で敵対的モブが死亡した際のドロップ・経験値を抑制
+     *
+     * 保護リージョンはMOB_DAMAGE=DENYのノーリスク地帯であり、プレイヤーが
+     * 安全にMobを倒してアイテム・経験値を無限に獲得できてしまう不正利用を防ぐ。
+     * 自動除去（entity.remove()）はEntityDeathEventを発火しないため、本ハンドラは
+     * プレイヤーキルや環境死など「実際の死亡」のみに作用する。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEntityDeath(EntityDeathEvent event) {
+        LivingEntity entity = event.getEntity();
+
+        // 敵対Mob以外（動物・村人など）は対象外
+        if (!isHostileMob(entity)) {
+            return;
+        }
+
+        // 保護リージョン内または境界付近（バッファ内）ならドロップ・経験値を抑制。
+        // Mobはリージョン壁際の数ブロック外で死ぬことがあり、厳密な点判定だけでは
+        // ドロップが漏れるため、周囲をサンプリングして近傍も対象に含める。
+        if (isInOrNearProtectedRegion(entity.getLocation())) {
+            event.getDrops().clear();
+            event.setDroppedExp(0);
+        }
+    }
+
+    /**
+     * 指定位置が保護リージョン内、またはその周囲バッファ内かを判定する。
+     *
+     * Mobがリージョン境界の数ブロック外で死亡してもドロップを抑制するため、
+     * 死亡地点に加えて周囲を水平方向にサンプリングし、リージョン内を含むか調べる。
+     * 軸方向4点＋対角4点をバッファ距離で確認することで、境界に対して垂直・斜めの
+     * いずれの位置で死んでもリージョン内のサンプル点を拾える。遠方の野外ドロップには影響しない。
+     *
+     * @param location 判定する位置
+     * @return リージョン内またはバッファ内ならtrue
+     */
+    private boolean isInOrNearProtectedRegion(org.bukkit.Location location) {
+        // まず死亡地点そのものを判定（多くはここで確定）
+        if (worldGuardIntegration.isInProtectedRegion(location)) {
+            return true;
+        }
+
+        // 周囲をサンプリング（軸方向4点＋対角4点）
+        final int b = REGION_BUFFER_BLOCKS;
+        final int[][] offsets = {
+            {b, 0}, {-b, 0}, {0, b}, {0, -b},
+            {b, b}, {b, -b}, {-b, b}, {-b, -b}
+        };
+        for (int[] off : offsets) {
+            org.bukkit.Location sample = location.clone().add(off[0], 0, off[1]);
+            if (worldGuardIntegration.isInProtectedRegion(sample)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 保護リージョン内の敵対的モブによる発射物（矢・ファイアボール等）の発射を抑制
+     *
+     * 自動除去はモブ本体（entity.remove()）のみを消すため、スケルトンが除去される前に
+     * 撃った矢などの発射物が地面に残ってしまう。MOB_DAMAGE=DENYは発射自体を止めないため、
+     * 発射元が敵対Mobかつ保護リージョン内の場合は発射をキャンセルし、矢の残留を防ぐ。
+     * プレイヤーやディスペンサー由来の発射物には影響しない。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        Projectile projectile = event.getEntity();
+        ProjectileSource shooter = projectile.getShooter();
+
+        // 発射元が敵対Mob以外（プレイヤー・ディスペンサー等）は対象外
+        if (!(shooter instanceof Entity) || !isHostileMob((Entity) shooter)) {
+            return;
+        }
+
+        // 発射元または発射物が保護リージョン内なら発射をキャンセル
+        Entity shooterEntity = (Entity) shooter;
+        if (worldGuardIntegration.isInProtectedRegion(shooterEntity.getLocation())
+                || worldGuardIntegration.isInProtectedRegion(projectile.getLocation())) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
      * エンティティが敵対的モブかチェック
      *
      * @param entity チェックするエンティティ
@@ -171,6 +265,7 @@ public class HostileMobRemovalManager {
         }
 
         // 追加で特定のエンティティタイプをチェック
+        // 注意: GHASTはMonsterを実装せず（Flying系）取りこぼすため明示的に含める
         EntityType type = entity.getType();
         switch (type) {
             case SLIME:
@@ -179,6 +274,7 @@ public class HostileMobRemovalManager {
             case SHULKER:
             case HOGLIN:
             case ZOGLIN:
+            case GHAST:
                 return true;
             default:
                 return false;

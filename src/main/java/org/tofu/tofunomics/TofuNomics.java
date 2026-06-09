@@ -1091,6 +1091,8 @@ public final class TofuNomics extends JavaPlugin {
             // HostileMobRemovalManagerの初期化（WorldGuard統合の後に初期化）
             this.hostileMobRemovalManager = new org.tofu.tofunomics.protection.HostileMobRemovalManager(this, worldGuardIntegration);
             this.hostileMobRemovalManager.startMonitoring();
+            // 保護リージョン内Mobドロップ抑制リスナーを登録（無限ドロップ脆弱性対策）
+            getServer().getPluginManager().registerEvents(this.hostileMobRemovalManager, this);
             
             // テストモードマネージャーの初期化
             this.testModeManager = new org.tofu.tofunomics.testing.TestModeManager(this);
