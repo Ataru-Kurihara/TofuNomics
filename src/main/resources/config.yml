@@ -3448,3 +3448,36 @@ guide_book_settings:
   
   # ガイドブック配布時のメッセージ
   give_message: "&a【職業ガイド】&f%job%のガイドブックを受け取りました！"
+
+# ===================================
+# 食事による職業経験値ブーストバフ設定
+# ===================================
+# 食材を食べると、一定時間その職業の経験値が上がりやすくなる。
+# カテゴリ（パン/野菜/魚/肉）ごとに効果量・持続時間を設定でき、
+# 高価な食材ほど強く・長いバフにすることで「高い食材を買う動機」を作る。
+# 重複時は一番強いバフが有効（弱い食材を食べても下がらない・延長されない）。
+food_buff:
+  # 機能の有効化（false で従来通りバフ無し）
+  enabled: true
+
+  # カテゴリ別のバフ設定
+  #   bonus_percent: 経験値の上昇割合(%)
+  #   duration_seconds: バフ持続時間(秒)
+  categories:
+    bread:
+      bonus_percent: 10
+      duration_seconds: 180
+    vegetable:
+      bonus_percent: 15
+      duration_seconds: 240
+    fish:
+      bonus_percent: 25
+      duration_seconds: 360
+    meat:
+      bonus_percent: 30
+      duration_seconds: 480
+
+  # メッセージ設定（%category%=カテゴリ名, %percent%=上昇割合, %duration%=秒）
+  messages:
+    buff_applied: "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%%% &a（%duration%秒）"
+    buff_replaced: "&aより強い食事効果に切り替わりました：&e%category% +%percent%%%"

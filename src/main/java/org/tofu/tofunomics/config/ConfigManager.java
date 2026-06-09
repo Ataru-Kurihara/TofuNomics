@@ -2961,6 +2961,45 @@ public class ConfigManager {
         return config.getInt("npc_system.food_npc.inventory_system.daily_stock_limit", 64);
     }
     
+    // ===== 食事による職業経験値ブーストバフ（food_buff）=====
+
+    /**
+     * 食事バフ機能が有効かどうか
+     */
+    public boolean isFoodBuffEnabled() {
+        return config.getBoolean("food_buff.enabled", false);
+    }
+
+    /**
+     * 指定カテゴリ（bread/vegetable/fish/meat）の経験値ボーナス割合(%)を取得
+     */
+    public int getFoodBuffBonusPercent(String categoryKey) {
+        return config.getInt("food_buff.categories." + categoryKey + ".bonus_percent", 0);
+    }
+
+    /**
+     * 指定カテゴリ（bread/vegetable/fish/meat）のバフ持続時間(秒)を取得
+     */
+    public int getFoodBuffDurationSeconds(String categoryKey) {
+        return config.getInt("food_buff.categories." + categoryKey + ".duration_seconds", 0);
+    }
+
+    /**
+     * バフ付与時のメッセージテンプレートを取得
+     */
+    public String getFoodBuffAppliedMessage() {
+        return config.getString("food_buff.messages.buff_applied",
+            "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%%% &a（%duration%秒）");
+    }
+
+    /**
+     * より強いバフへ上書きされた時のメッセージテンプレートを取得
+     */
+    public String getFoodBuffReplacedMessage() {
+        return config.getString("food_buff.messages.buff_replaced",
+            "&aより強い食事効果に切り替わりました：&e%category% +%percent%%%");
+    }
+
     /**
      * 食料NPCの設定リストを取得
      */
