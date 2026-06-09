@@ -93,6 +93,9 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.npc.FoodNPCManager foodNPCManager;
     private org.tofu.tofunomics.npc.ProcessingNPCManager processingNPCManager;
     private org.tofu.tofunomics.npc.NPCListener npcListener;
+    // 食事による職業経験値ブーストバフ
+    private org.tofu.tofunomics.food.FoodBuffManager foodBuffManager;
+    private org.tofu.tofunomics.food.FoodConsumeListener foodConsumeListener;
     private org.tofu.tofunomics.npc.gui.BankGUI bankGUI;
     private org.tofu.tofunomics.npc.gui.TradingGUI tradingGUI;
     private org.tofu.tofunomics.npc.gui.TradingModeSelectionGUI tradingModeSelectionGUI = null;
@@ -335,7 +338,12 @@ public final class TofuNomics extends JavaPlugin {
                 jobToolManager,
                 experienceManager
             );
-            
+
+            // 食事による職業経験値ブーストバフの初期化・注入
+            foodBuffManager = new org.tofu.tofunomics.food.FoodBuffManager(configManager);
+            jobExperienceManager.setFoodBuffManager(foodBuffManager);
+            foodConsumeListener = new org.tofu.tofunomics.food.FoodConsumeListener(configManager, foodBuffManager);
+
             // 収入システムは無効化: JobIncomeManagerの初期化はコメントアウト
             /*
             jobIncomeManager = new JobIncomeManager(
@@ -552,6 +560,12 @@ public final class TofuNomics extends JavaPlugin {
                 // getServer().getPluginManager().registerEvents(jobIncomeManager, this);  // 収入システムは無効化
                 getServer().getPluginManager().registerEvents(jobQuestManager, this);
                 getLogger().info("既存の個別イベントリスナーを登録しました");
+            }
+
+            // 食事による職業経験値ブーストバフリスナーの登録
+            if (foodConsumeListener != null) {
+                getServer().getPluginManager().registerEvents(foodConsumeListener, this);
+                getLogger().info("食事バフリスナーを登録しました");
             }
             
             // Phase 4 取引システムイベントリスナーの登録

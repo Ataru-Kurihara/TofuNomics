@@ -43,6 +43,9 @@ public class JobExperienceManager implements Listener {
     // バニラ経験値バーへの即時反映用（setter注入。null許容）
     private org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager;
 
+    // 食事による経験値ブーストバフ用（setter注入。null許容）
+    private org.tofu.tofunomics.food.FoodBuffManager foodBuffManager;
+
     // 経験値テーブル
     private final Map<Material, Double> miningExperience;
     private final Map<Material, Double> loggingExperience;
@@ -80,6 +83,13 @@ public class JobExperienceManager implements Listener {
      */
     public void setScoreboardManager(org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager) {
         this.scoreboardManager = scoreboardManager;
+    }
+
+    /**
+     * 食事による経験値ブーストバフ管理を注入する
+     */
+    public void setFoodBuffManager(org.tofu.tofunomics.food.FoodBuffManager foodBuffManager) {
+        this.foodBuffManager = foodBuffManager;
     }
 
     private void initializeExperienceTables() {
@@ -342,10 +352,14 @@ public class JobExperienceManager implements Listener {
         
         // 設定ファイルの経験値倍率を適用
         Job job = jobDAO.getJobByNameSafe(jobName);
-        double configMultiplier = job != null ? 
+        double configMultiplier = job != null ?
             configManager.getJobExpMultiplier(jobName) : 1.0;
-        
-        return baseExperience * levelPenalty * configMultiplier;
+
+        // 食事バフ倍率を適用（バフ無し・失効時は1.0で従来と同一）
+        double foodBuffMultiplier = (foodBuffManager != null) ?
+            foodBuffManager.getMultiplier(player) : 1.0;
+
+        return baseExperience * levelPenalty * configMultiplier * foodBuffMultiplier;
     }
     
     /**
@@ -364,8 +378,12 @@ public class JobExperienceManager implements Listener {
         if (!jobManager.hasJob(player, jobName)) {
             return false;
         }
-        
-        giveJobExperience(player, jobName, amount);
+
+        // 食事バフ倍率を適用（Mob討伐経験値などの経路でも一貫して反映。バフ無し時は1.0）
+        double foodBuffMultiplier = (foodBuffManager != null) ?
+            foodBuffManager.getMultiplier(player) : 1.0;
+
+        giveJobExperience(player, jobName, amount * foodBuffMultiplier);
         return true;
     }
 }
