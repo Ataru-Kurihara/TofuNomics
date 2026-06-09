@@ -41,6 +41,9 @@ public class HostileMobRemovalManager implements Listener {
     // スキャン間隔（ティック）
     private static final long SCAN_INTERVAL_TICKS = 100L; // 5秒 (100 ticks = 5秒)
 
+    // 保護リージョン境界の外側でMobが死亡した場合もドロップ抑制対象に含めるマージン（ブロック）
+    private static final int REGION_BUFFER_BLOCKS = 3;
+
     // 除去統計
     private long totalRemovedMobs = 0;
 
@@ -182,11 +185,45 @@ public class HostileMobRemovalManager implements Listener {
             return;
         }
 
-        // 自動除去と同じ判定: 保護リージョン内ならドロップ・経験値を抑制
-        if (worldGuardIntegration.isInProtectedRegion(entity.getLocation())) {
+        // 保護リージョン内または境界付近（バッファ内）ならドロップ・経験値を抑制。
+        // Mobはリージョン壁際の数ブロック外で死ぬことがあり、厳密な点判定だけでは
+        // ドロップが漏れるため、周囲をサンプリングして近傍も対象に含める。
+        if (isInOrNearProtectedRegion(entity.getLocation())) {
             event.getDrops().clear();
             event.setDroppedExp(0);
         }
+    }
+
+    /**
+     * 指定位置が保護リージョン内、またはその周囲バッファ内かを判定する。
+     *
+     * Mobがリージョン境界の数ブロック外で死亡してもドロップを抑制するため、
+     * 死亡地点に加えて周囲を水平方向にサンプリングし、リージョン内を含むか調べる。
+     * 軸方向4点＋対角4点をバッファ距離で確認することで、境界に対して垂直・斜めの
+     * いずれの位置で死んでもリージョン内のサンプル点を拾える。遠方の野外ドロップには影響しない。
+     *
+     * @param location 判定する位置
+     * @return リージョン内またはバッファ内ならtrue
+     */
+    private boolean isInOrNearProtectedRegion(org.bukkit.Location location) {
+        // まず死亡地点そのものを判定（多くはここで確定）
+        if (worldGuardIntegration.isInProtectedRegion(location)) {
+            return true;
+        }
+
+        // 周囲をサンプリング（軸方向4点＋対角4点）
+        final int b = REGION_BUFFER_BLOCKS;
+        final int[][] offsets = {
+            {b, 0}, {-b, 0}, {0, b}, {0, -b},
+            {b, b}, {b, -b}, {-b, b}, {-b, -b}
+        };
+        for (int[] off : offsets) {
+            org.bukkit.Location sample = location.clone().add(off[0], 0, off[1]);
+            if (worldGuardIntegration.isInProtectedRegion(sample)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
