@@ -28,6 +28,10 @@ public class FoodConsumeListener implements Listener {
         if (!configManager.isFoodBuffEnabled()) {
             return;
         }
+        // 経済機能が有効なワールド以外ではバフを付与しない
+        if (!configManager.isEconomyEnabledInWorld(event.getPlayer().getWorld().getName())) {
+            return;
+        }
         if (event.getItem() == null) {
             return;
         }
