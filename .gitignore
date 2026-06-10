@@ -3,6 +3,26 @@
 
 # サーバーからダウンロードしたconfig.ymlのバックアップ
 src/main/resources/server_config.yml.backup.*
+src/main/resources/*.backup
+src/main/resources/*.backup.*
+src/main/resources/server_config_lobby.yml*
+
+# Node.js（ローカルツール用、本体はMaven）
+node_modules/
+package.json
+package-lock.json
+.node-version
+
+# Python
+__pycache__/
+
+# Claude Code（ローカル作業用）
+.claude/plans/
+# claude-mem 自動生成コンテキスト（ルートの CLAUDE.md は追跡対象）
+src/**/CLAUDE.md
+
+# 作業ミスで生成されるディレクトリ
+/Desktop/
 
 # Serenaキャッシュ
 .serena/
