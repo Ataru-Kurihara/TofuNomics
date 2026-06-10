@@ -12,7 +12,9 @@ import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.TofuNomics;
 
+import java.sql.SQLException;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 public class JobManager {
@@ -218,13 +220,16 @@ public class JobManager {
      * @return すべての削除に成功した場合true
      */
     public boolean resetAllJobs(Player player) {
-        java.util.UUID uuid = player.getUniqueId();
+        UUID uuid = player.getUniqueId();
         String uuidString = uuid.toString();
         boolean success = true;
 
+        // player_jobsの削除が失敗してもjob_historyの削除は試みる。
+        // 万一player_jobsだけ削除できた場合は履歴が残る不整合が生じうるが、
+        // テスト用途であり、再実行すれば解消できるため許容する。
         try {
             playerJobDAO.deleteAllPlayerJobs(uuid);
-        } catch (java.sql.SQLException e) {
+        } catch (SQLException e) {
             TofuNomics.getInstance().getLogger().warning("職業データの削除に失敗しました: " + uuidString + " - " + e.getMessage());
             success = false;
         }
@@ -237,6 +242,11 @@ public class JobManager {
         // 日次変更制限の記録を削除（本日変更していなければ記録自体が存在せずfalseが返るが、
         // それは正常な状態なので成否判定には含めない）
         jobChangeDAO.deleteJobChange(uuidString);
+
+        if (success) {
+            TofuNomics.getInstance().getLogger().info(
+                "管理者コマンドにより職業データをリセットしました: " + player.getName() + " (" + uuidString + ")");
+        }
 
         return success;
     }
