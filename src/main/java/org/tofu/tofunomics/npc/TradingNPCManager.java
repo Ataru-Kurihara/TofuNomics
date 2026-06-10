@@ -163,12 +163,12 @@ public class TradingNPCManager {
         }
 
         /**
-         * 購入時の職業チェック（全職業許可）
+         * 購入時の職業チェック（売却と同様に職業一致が必須）
          * @param jobType プレイヤーの職業
-         * @return 常にtrue（購入は職業問わず可能）
+         * @return 購入可能な場合true
          */
         public boolean acceptsJobForPurchase(String jobType) {
-            return true; // 購入は全職業許可
+            return acceptsJob(jobType);
         }
 
         /**
