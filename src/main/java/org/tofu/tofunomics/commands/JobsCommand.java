@@ -350,14 +350,17 @@ public class JobsCommand implements CommandExecutor {
         if (args.length < 2) {
             sender.sendMessage(ChatColor.RED + "使用法: /jobs admin <サブコマンド>");
             sender.sendMessage(ChatColor.YELLOW + "  forceleave <player> <jobName> - プレイヤーを強制的に辞職させる");
+            sender.sendMessage(ChatColor.YELLOW + "  reset - 自分の全職業データを完全リセット（テスト用）");
             return true;
         }
-        
+
         String subCommand = args[1].toLowerCase();
-        
+
         switch (subCommand) {
             case "forceleave":
                 return handleJobAdminForceLeave(sender, args);
+            case "reset":
+                return handleJobAdminReset(sender);
             default:
                 sender.sendMessage(ChatColor.RED + "不明なサブコマンド: " + subCommand);
                 return true;
@@ -406,10 +409,31 @@ public class JobsCommand implements CommandExecutor {
                 sender.sendMessage(ChatColor.RED + "職業の強制辞職に失敗しました。");
                 break;
         }
-        
+
         return true;
     }
-    
+
+    /**
+     * 管理者による自分の全職業リセットコマンド（テストプレイ用）。
+     * 実行者自身の player_jobs / job_history / job_changes をすべて削除し初期状態に戻す。
+     */
+    private boolean handleJobAdminReset(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ChatColor.RED + "このコマンドはプレイヤーのみ実行できます。");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        if (jobManager.resetAllJobs(player)) {
+            player.sendMessage(ChatColor.GREEN + "全職業データをリセットしました（レベル・経験値・履歴をすべて初期化）。");
+        } else {
+            player.sendMessage(ChatColor.RED + "職業データのリセットに失敗しました。サーバーログを確認してください。");
+        }
+
+        return true;
+    }
+
     private void sendHelpMessage(Player player) {
         player.sendMessage(ChatColor.GOLD + "=== Jobs コマンドヘルプ ===");
         player.sendMessage(ChatColor.YELLOW + "/jobs list " + ChatColor.WHITE + "- 利用可能な職業一覧を表示");
