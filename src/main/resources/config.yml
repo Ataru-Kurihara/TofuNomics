@@ -1798,6 +1798,10 @@ npc_system:
     raw_copper: 1.5
     quartz: 2
     amethyst_shard: 4
+    # 素手採掘でドロップする石材（序盤の収入源）
+    andesite: 0.3
+    diorite: 0.3
+    granite: 0.3
     # --- woodcutter: 板材・剥いだ原木・苗木・竹 ---
     jungle_planks: 0.12
     acacia_planks: 0.12
