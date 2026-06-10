@@ -2060,14 +2060,6 @@ public class ConfigManager {
     }
 
     /**
-     * 別職業での購入時の価格倍率を取得
-     * @return 価格倍率（デフォルト: 1.5 = 50%増）
-     */
-    public double getCrossJobPurchaseMultiplier() {
-        return config.getDouble("npc_system.trading_npcs.cross_job_purchase_multiplier", 1.5);
-    }
-    
-    /**
      * 取引所の設定一覧を取得
      */
     public List<Map<?, ?>> getTradingPostConfigs() {
