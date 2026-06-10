@@ -208,6 +208,38 @@ public class JobManager {
     public List<PlayerJob> getPlayerJobs(Player player) {
         return playerJobDAO.getPlayerJobsByUUID(player.getUniqueId().toString());
     }
+
+    /**
+     * プレイヤーの全職業データを完全にリセットする（管理者テストプレイ用）。
+     * player_jobs（現在の職業・レベル・経験値）、job_history（過去の最高レベル履歴）、
+     * job_changes（日次変更制限記録）をすべて削除し、初期状態（無職・履歴なし）に戻す。
+     * forceLeaveJob()は履歴を保存し日次制限にも引っかかるため、完全初期化には使用しない。
+     *
+     * @return すべての削除に成功した場合true
+     */
+    public boolean resetAllJobs(Player player) {
+        java.util.UUID uuid = player.getUniqueId();
+        String uuidString = uuid.toString();
+        boolean success = true;
+
+        try {
+            playerJobDAO.deleteAllPlayerJobs(uuid);
+        } catch (java.sql.SQLException e) {
+            TofuNomics.getInstance().getLogger().warning("職業データの削除に失敗しました: " + uuidString + " - " + e.getMessage());
+            success = false;
+        }
+
+        if (!jobHistoryDAO.deleteAllHistoriesByUUID(uuidString)) {
+            TofuNomics.getInstance().getLogger().warning("職業履歴の削除に失敗しました: " + uuidString);
+            success = false;
+        }
+
+        // 日次変更制限の記録を削除（本日変更していなければ記録自体が存在せずfalseが返るが、
+        // それは正常な状態なので成否判定には含めない）
+        jobChangeDAO.deleteJobChange(uuidString);
+
+        return success;
+    }
     
     public PlayerJob getPlayerJob(Player player, String jobName) {
         Job job = jobDAO.getJobByNameSafe(jobName);
