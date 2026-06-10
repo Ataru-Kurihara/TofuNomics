@@ -610,11 +610,13 @@ public class TradingGUI implements Listener {
     
     // カテゴリ判定メソッド群
     private boolean isMiningItem(String materialName) {
-        return materialName.contains("ore") || materialName.contains("ingot") || 
-               materialName.contains("coal") || materialName.contains("diamond") || 
+        return materialName.contains("ore") || materialName.contains("ingot") ||
+               materialName.contains("coal") || materialName.contains("diamond") ||
                materialName.contains("emerald") || materialName.contains("redstone") ||
                materialName.contains("lapis") || materialName.contains("quartz") ||
-               materialName.contains("stone") || materialName.contains("cobblestone");
+               materialName.contains("stone") || materialName.contains("cobblestone") ||
+               materialName.contains("andesite") || materialName.contains("diorite") ||
+               materialName.contains("granite") || materialName.startsWith("raw_");
     }
     
     private boolean isFarmingItem(String materialName) {
