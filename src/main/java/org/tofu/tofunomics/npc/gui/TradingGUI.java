@@ -176,24 +176,13 @@ public class TradingGUI implements Listener {
         try {
             String playerJob = jobManager.getPlayerJob(player.getUniqueId());
 
-            // 職業チェック（購入と売却で異なる制限）
+            // 職業チェック（購入・売却ともに職業一致が必須）
             boolean isMatchingJob = tradingPost.isMatchingJob(playerJob);
 
             if (!isMatchingJob) {
-                // 別職業または無職の場合、売却モードのみ制限
-                if (initialMode == TradingMode.SELL) {
-                    String acceptedJobsStr = String.join("、", tradingPost.getAcceptedJobTypes());
-
-                    player.sendMessage("§c売却はこの取引所の対応職業のみ可能です");
-                    if (playerJob == null) {
-                        player.sendMessage("§e対応職業: §f" + acceptedJobsStr);
-                        player.sendMessage("§7コマンド: §f/jobs join <職業名>");
-                    } else {
-                        player.sendMessage("§eお客様の職業: §f" + playerJob + "§e、対応職業: §f" + acceptedJobsStr);
-                    }
-                    return;
-                }
-                // 購入モードの場合は職業に関係なく続行（割増価格適用）
+                // 別職業または無職の場合、購入・売却ともに制限
+                sendJobMismatchMessage(player, tradingPost, playerJob, initialMode);
+                return;
             }
 
             String title = "§6" + tradingPost.getName() + " - アイテム取引";
@@ -223,7 +212,28 @@ public class TradingGUI implements Listener {
             player.sendMessage("§c管理者にお知らせください。詳細はサーバーログを確認してください。");
         }
     }
-    
+
+    /**
+     * 職業不一致時のエラーメッセージを送信する（購入・売却共通）
+     * @param player プレイヤー
+     * @param tradingPost 取引所
+     * @param playerJob プレイヤーの職業（無職の場合null）
+     * @param mode 操作モード（メッセージの文言切り替えに使用）
+     */
+    private void sendJobMismatchMessage(Player player, TradingNPCManager.TradingPost tradingPost,
+                                        String playerJob, TradingMode mode) {
+        String acceptedJobsStr = String.join("、", tradingPost.getAcceptedJobTypes());
+        String action = (mode == TradingMode.BUY) ? "購入" : "売却";
+
+        player.sendMessage("§c" + action + "はこの取引所の対応職業のみ可能です");
+        if (playerJob == null) {
+            player.sendMessage("§e対応職業: §f" + acceptedJobsStr);
+            player.sendMessage("§7コマンド: §f/jobs join <職業名>");
+        } else {
+            player.sendMessage("§eお客様の職業: §f" + playerJob + "§e、対応職業: §f" + acceptedJobsStr);
+        }
+    }
+
     private void setupTradingGUIItems(Inventory gui, Player player, TradingNPCManager.TradingPost tradingPost, TradingGUISession session) {
         gui.clear();
         
@@ -260,14 +270,8 @@ public class TradingGUI implements Listener {
             
             ItemStack displayItem;
             if (session.getTradingMode() == TradingMode.BUY) {
-                // 購入モード
-                // 別職業の場合は価格を割増
-                double purchasePrice = price;
-                boolean isCrossJob = !tradingPost.isMatchingJob(playerJob);
-                if (isCrossJob) {
-                    purchasePrice *= configManager.getCrossJobPurchaseMultiplier();
-                }
-                displayItem = createPurchaseItem(material, purchasePrice, playerJob, isCrossJob);
+                // 購入モード（対応職業のみ購入可能なため割増は適用しない）
+                displayItem = createPurchaseItem(material, price);
             } else {
                 // 売却モード
                 // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素の価格）
@@ -419,7 +423,7 @@ public class TradingGUI implements Listener {
         return item;
     }
     
-    private ItemStack createPurchaseItem(Material material, double price, String playerJob, boolean isCrossJob) {
+    private ItemStack createPurchaseItem(Material material, double price) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
@@ -428,9 +432,6 @@ public class TradingGUI implements Listener {
 
             List<String> lore = new ArrayList<>();
             lore.add("§f購入価格: §e" + currencyConverter.formatCurrency(price));
-            if (isCrossJob) {
-                lore.add("§e※別職業のため" + String.format("%.1f", configManager.getCrossJobPurchaseMultiplier()) + "倍価格");
-            }
             lore.add("");
             lore.add("§e左クリック: §f1個購入");
             lore.add("§e右クリック: §f16個購入");
@@ -716,6 +717,15 @@ public class TradingGUI implements Listener {
         
         // モード切り替えボタン処理 (スロット0)
         if (slot == 0) {
+            // 別職業・無職は購入・売却ともに不可のため、モード切替自体をブロック
+            String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+            if (!tradingPost.isMatchingJob(playerJob)) {
+                TradingMode targetMode = (session.getTradingMode() == TradingMode.SELL)
+                    ? TradingMode.BUY : TradingMode.SELL;
+                sendJobMismatchMessage(player, tradingPost, playerJob, targetMode);
+                return;
+            }
+
             // モード切り替え
             if (session.getTradingMode() == TradingMode.SELL) {
                 session.setTradingMode(TradingMode.BUY);
@@ -950,21 +960,20 @@ public class TradingGUI implements Listener {
                 return;
         }
 
+        // プレイヤーの職業を取得
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+
+        // 職業一致チェック（購入も売却同様に対応職業のみ可能）
+        if (!tradingPost.acceptsJobForPurchase(playerJob)) {
+            sendJobMismatchMessage(player, tradingPost, playerJob, TradingMode.BUY);
+            return;
+        }
+
         // 購入価格を取得（緊急モードの価格倍率を適用）
         double unitPrice = tradingPost.getEffectivePurchasePrice(material);
         if (unitPrice <= 0) {
             player.sendMessage("§cこのアイテムは購入できません");
             return;
-        }
-
-        // プレイヤーの職業を取得
-        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
-
-        // 別職業の場合は価格を割増
-        boolean isCrossJob = !tradingPost.isMatchingJob(playerJob);
-        if (isCrossJob) {
-            double multiplier = configManager.getCrossJobPurchaseMultiplier();
-            unitPrice *= multiplier;
         }
 
         // 合計金額を計算
@@ -1006,9 +1015,6 @@ public class TradingGUI implements Listener {
         // メッセージ
         String message = "§a" + material.name() + " を " + purchaseAmount + "個購入しました（" +
                           currencyConverter.formatCurrency(totalPrice) + "）";
-        if (isCrossJob) {
-            message += " §e※別職業のため" + String.format("%.1f", configManager.getCrossJobPurchaseMultiplier()) + "倍価格";
-        }
         player.sendMessage(message);
     }
     
