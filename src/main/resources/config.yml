@@ -1799,9 +1799,9 @@ npc_system:
     quartz: 2
     amethyst_shard: 4
     # 素手採掘でドロップする石材（序盤の収入源）
-    andesite: 0.3
-    diorite: 0.3
-    granite: 0.3
+    andesite: 1
+    diorite: 1
+    granite: 1
     # --- woodcutter: 板材・剥いだ原木・苗木・竹 ---
     jungle_planks: 0.12
     acacia_planks: 0.12
@@ -1898,18 +1898,18 @@ npc_system:
     glowstone: 4
     sea_lantern: 6
     # --- architect: 建材 ---
-    stone: 0.3
-    cobblestone: 0.1
+    stone: 1
+    cobblestone: 1
     smooth_stone_slab: 0.5
     chiseled_stone_bricks: 1.2
     cracked_stone_bricks: 0.9
     mossy_stone_bricks: 1.2
-    deepslate: 0.3
-    cobbled_deepslate: 0.2
+    deepslate: 1
+    cobbled_deepslate: 1
     polished_deepslate: 0.5
     deepslate_bricks: 0.8
     deepslate_tiles: 0.8
-    tuff: 0.2
+    tuff: 1
     calcite: 0.5
     dripstone_block: 0.5
     sandstone: 0.5
