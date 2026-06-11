@@ -1,0 +1,76 @@
+package org.tofu.tofunomics.market.gui;
+
+import org.bukkit.inventory.Inventory;
+import org.tofu.tofunomics.models.MarketListing;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * マーケット GUI（一覧・自分の出品）の開いている状態を保持するセッション。
+ *
+ * どの種類の GUI が開いているか、現在ページ、各スロットに対応する出品を保持し、
+ * クリック時にスロットから出品を解決できるようにする。
+ */
+public class MarketGUISession {
+
+    /** GUI の種別 */
+    public enum Type {
+        BROWSE,       // マーケット一覧（全 active）
+        MY_LISTINGS   // 自分の出品管理
+    }
+
+    private final UUID playerId;
+    private final Type type;
+    private final Inventory inventory;
+    private int page;
+
+    // スロット番号 → そのスロットに表示している出品
+    private final Map<Integer, MarketListing> slotListings = new HashMap<>();
+
+    public MarketGUISession(UUID playerId, Type type, Inventory inventory) {
+        this.playerId = playerId;
+        this.type = type;
+        this.inventory = inventory;
+        this.page = 0;
+    }
+
+    public UUID getPlayerId() {
+        return playerId;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public Inventory getInventory() {
+        return inventory;
+    }
+
+    public int getPage() {
+        return page;
+    }
+
+    public void setPage(int page) {
+        this.page = page;
+    }
+
+    /**
+     * 描画時にスロット→出品のマッピングをクリアする
+     */
+    public void clearSlotListings() {
+        slotListings.clear();
+    }
+
+    public void putSlotListing(int slot, MarketListing listing) {
+        slotListings.put(slot, listing);
+    }
+
+    /**
+     * クリックされたスロットに対応する出品を取得する（無ければ null）
+     */
+    public MarketListing getListingAtSlot(int slot) {
+        return slotListings.get(slot);
+    }
+}

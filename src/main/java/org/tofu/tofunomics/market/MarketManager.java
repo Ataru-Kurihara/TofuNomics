@@ -219,6 +219,23 @@ public class MarketManager {
         }
     }
 
+    /**
+     * 期限切れの active 出品を一括で expired 化する（定期タスクから呼ぶ薄いラッパー）。
+     * 共有 Connection への非同期書き込みとの競合を防ぐため {@code synchronized(connection)} で囲む。
+     *
+     * @return 期限切れ化した件数（失敗時は 0）
+     */
+    public int expireListings() {
+        synchronized (connection) {
+            try {
+                return listingDAO.expireActiveListings(System.currentTimeMillis());
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "期限切れ出品の一括処理に失敗しました", e);
+                return 0;
+            }
+        }
+    }
+
     // ========================================================================
     // Bukkit 依存のラッパー（コマンド/GUI から呼ぶ）
     // ========================================================================
