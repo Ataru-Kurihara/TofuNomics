@@ -2047,10 +2047,38 @@ scoreboard:
       - "&e/scoreboard on"
       - "&7で表示できます"
 
+# プレイヤー間マーケット設定
+market:
+  enabled: true
+  fee_rate: 0.05                  # 販売手数料率（出品者受取 = price × (1 - fee_rate)、端数は切り捨て）
+  max_listings_per_player: 10     # 1人あたり同時出品上限
+  listing_duration_days: 7        # 出品の有効日数（0で無期限）
+  min_price: 1                    # 最低出品価格
+  max_price: 1000000              # 最高出品価格
+  allow_self_purchase: false      # 自分の出品を購入可能にするか
+  expire_check_interval: 3600     # 期限切れチェック間隔（秒）
+
 # メッセージ設定
 messages:
   # 共通メッセージ
   prefix: "&6[TofuNomics] &f"
+  # プレイヤー間マーケット
+  market:
+    listed: "&a%item% を &e%price% %currency%&a で出品しました。"
+    purchased: "&a%item% を &e%price% %currency%&a で購入しました。"
+    sold_notify: "&a出品した %item% が売れました！手数料を引いた &e%amount% %currency%&a を受け取りました。"
+    cancelled: "&a出品をキャンセルし、アイテムを回収しました。"
+    reclaimed: "&a期限切れの出品からアイテムを回収しました。"
+    invalid_item: "&c出品するアイテムを手に持ってください。"
+    invalid_price: "&c価格は &e%min%&c 〜 &e%max%&c の整数で指定してください。"
+    currency_not_allowed: "&c通貨アイテムは出品できません。"
+    listing_limit: "&c出品数の上限（%limit%）に達しています。"
+    not_available: "&cこの出品は購入できません。"
+    already_sold: "&cこの出品は既に売り切れました。"
+    insufficient_funds: "&c残高が不足しています。"
+    inventory_full: "&cインベントリに空きがありません。アイテムを整理してください。"
+    not_owner: "&cこれはあなたの出品ではありません。"
+    error: "&c処理中にエラーが発生しました。もう一度お試しください。"
   no_permission: "&c権限がありません。"
   player_not_found: "&cプレイヤーが見つかりません。"
   invalid_amount: "&c無効な金額です。"

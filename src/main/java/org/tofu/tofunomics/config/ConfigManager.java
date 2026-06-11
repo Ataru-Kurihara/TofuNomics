@@ -337,7 +337,48 @@ public class ConfigManager {
     public double getMaxDeposit() {
         return config.getDouble("economy.withdraw_deposit.max_deposit", 10000.0);
     }
-    
+
+    // ========== プレイヤー間マーケット設定 ==========
+
+    public boolean isMarketEnabled() {
+        return config.getBoolean("market.enabled", true);
+    }
+
+    public double getMarketFeeRate() {
+        return config.getDouble("market.fee_rate", 0.05);
+    }
+
+    public int getMarketMaxListingsPerPlayer() {
+        return config.getInt("market.max_listings_per_player", 10);
+    }
+
+    public int getMarketListingDurationDays() {
+        return config.getInt("market.listing_duration_days", 7);
+    }
+
+    public double getMarketMinPrice() {
+        return config.getDouble("market.min_price", 1);
+    }
+
+    public double getMarketMaxPrice() {
+        return config.getDouble("market.max_price", 1000000);
+    }
+
+    public boolean isMarketAllowSelfPurchase() {
+        return config.getBoolean("market.allow_self_purchase", false);
+    }
+
+    public int getMarketExpireCheckInterval() {
+        return config.getInt("market.expire_check_interval", 3600);
+    }
+
+    /**
+     * messages.market 配下のメッセージを取得（プレースホルダ置換対応）
+     */
+    public String getMarketMessage(String key, Object... replacements) {
+        return getMessage("market." + key, replacements);
+    }
+
     // 職業設定
     public int getMaxJobsPerPlayer() {
         return config.getInt("jobs.general.max_jobs_per_player", 1);
