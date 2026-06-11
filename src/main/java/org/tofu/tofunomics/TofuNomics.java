@@ -116,6 +116,14 @@ public final class TofuNomics extends JavaPlugin {
     // ルール確認システム
     private org.tofu.tofunomics.rules.RulesManager rulesManager;
 
+    // プレイヤー間マーケットシステム
+    private org.tofu.tofunomics.dao.MarketListingDAO marketListingDAO;
+    private org.tofu.tofunomics.market.MarketManager marketManager;
+    private org.tofu.tofunomics.market.gui.MarketBrowseGUI marketBrowseGUI;
+    private org.tofu.tofunomics.market.gui.MyListingsGUI myListingsGUI;
+    private org.tofu.tofunomics.market.gui.MarketGUIListener marketGUIListener;
+    private org.tofu.tofunomics.market.MarketExpirationTask marketExpirationTask;
+
     @Override
     public void onEnable() {
         instance = this;
@@ -180,6 +188,9 @@ public final class TofuNomics extends JavaPlugin {
         // 時計アイテムシステムの初期化
         initializeClockItemSystem();
 
+        // プレイヤー間マーケットシステムの初期化
+        initializeMarketSystem();
+
         // イベントリスナーの登録
         registerEventListeners();
         
@@ -236,6 +247,18 @@ public final class TofuNomics extends JavaPlugin {
             clockItemManager.stopActionBarTask();
         }
 
+        // マーケットシステムのクリーンアップ
+        if (marketExpirationTask != null) {
+            try {
+                marketExpirationTask.cancel();
+            } catch (Exception ignored) {
+                // 未スケジュール等は無視
+            }
+        }
+        if (marketGUIListener != null) {
+            marketGUIListener.closeAll();
+        }
+
         // データベース接続を閉じる
         if (databaseManager != null) {
             databaseManager.disconnect();
@@ -279,7 +302,8 @@ public final class TofuNomics extends JavaPlugin {
             playerJobDAO = new PlayerJobDAO(databaseManager.getConnection());
             jobChangeDAO = new JobChangeDAO(databaseManager.getConnection());
             jobHistoryDAO = new JobHistoryDAO(databaseManager.getConnection());
-            
+            marketListingDAO = new org.tofu.tofunomics.dao.MarketListingDAO(databaseManager.getConnection());
+
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
     }
@@ -318,6 +342,44 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("マネージャーを初期化しました");
         } catch (Exception e) {
             getLogger().severe("マネージャー初期化中にエラーが発生しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * プレイヤー間マーケットシステムを初期化する。
+     * Manager・GUI・リスナー生成と、期限切れ定期タスクの起動を行う。
+     */
+    private void initializeMarketSystem() {
+        try {
+            if (databaseManager == null || !databaseManager.isConnected() || marketListingDAO == null) {
+                getLogger().warning("マーケットシステムの初期化をスキップしました（DB未接続）");
+                return;
+            }
+
+            marketManager = new org.tofu.tofunomics.market.MarketManager(
+                databaseManager.getConnection(),
+                playerDAO,
+                marketListingDAO,
+                configManager,
+                getLogger()
+            );
+
+            // リスナーを先に生成し、GUI へ注入してから GUI 参照を逆注入する（循環依存の解決）
+            marketGUIListener = new org.tofu.tofunomics.market.gui.MarketGUIListener(this);
+            marketBrowseGUI = new org.tofu.tofunomics.market.gui.MarketBrowseGUI(
+                this, configManager, marketManager, marketListingDAO, marketGUIListener);
+            myListingsGUI = new org.tofu.tofunomics.market.gui.MyListingsGUI(
+                this, configManager, marketManager, marketListingDAO, marketGUIListener);
+            marketGUIListener.setGUIs(marketBrowseGUI, myListingsGUI);
+
+            // 期限切れ定期タスクの起動（expire_check_interval 秒 × 20 = ticks）
+            long intervalTicks = Math.max(1L, (long) configManager.getMarketExpireCheckInterval() * 20L);
+            marketExpirationTask = new org.tofu.tofunomics.market.MarketExpirationTask(marketManager, getLogger());
+            marketExpirationTask.runTaskTimer(this, intervalTicks, intervalTicks);
+
+            getLogger().info("プレイヤー間マーケットシステムを初期化しました");
+        } catch (Exception e) {
+            getLogger().severe("マーケットシステム初期化中にエラーが発生しました: " + e.getMessage());
         }
     }
 
@@ -627,6 +689,12 @@ public final class TofuNomics extends JavaPlugin {
                 getLogger().info("ルール確認システムリスナーを登録しました");
             }
 
+            // マーケットGUIリスナーの登録
+            if (marketGUIListener != null) {
+                getServer().getPluginManager().registerEvents(marketGUIListener, this);
+                getLogger().info("マーケットGUIリスナーを登録しました");
+            }
+
             getLogger().info("全てのイベントリスナーを登録しました");
         } catch (Exception e) {
             getLogger().severe("イベントリスナー登録中にエラーが発生しました: " + e.getMessage());
@@ -706,10 +774,19 @@ public final class TofuNomics extends JavaPlugin {
             getCommand("rules").setExecutor(rulesCommand);
             
             // 中心都市マップ配布コマンド
-            org.tofu.tofunomics.commands.CityMapCommand cityMapCommand = 
+            org.tofu.tofunomics.commands.CityMapCommand cityMapCommand =
                 new org.tofu.tofunomics.commands.CityMapCommand(configManager);
             getCommand("citymap").setExecutor(cityMapCommand);
-            
+
+            // プレイヤー間マーケットコマンド
+            if (marketManager != null) {
+                org.tofu.tofunomics.commands.MarketCommand marketCommand =
+                    new org.tofu.tofunomics.commands.MarketCommand(
+                        configManager, marketManager, marketListingDAO, marketBrowseGUI, myListingsGUI);
+                getCommand("market").setExecutor(marketCommand);
+                getCommand("market").setTabCompleter(marketCommand);
+            }
+
             getLogger().info("コマンドハンドラーを登録しました");
         } catch (Exception e) {
             getLogger().severe("コマンド登録中にエラーが発生しました: " + e.getMessage());
