@@ -227,6 +227,24 @@ public class DatabaseManager {
             "    offhand_data TEXT," +
             "    last_saved TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
             "    FOREIGN KEY (player_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
+            ");",
+
+            // プレイヤー間マーケット出品テーブル
+            "CREATE TABLE IF NOT EXISTS market_listings (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    seller_uuid TEXT NOT NULL," +
+            "    seller_name TEXT NOT NULL," +
+            "    item_data TEXT NOT NULL," +
+            "    display_name TEXT," +
+            "    material TEXT NOT NULL," +
+            "    amount INTEGER NOT NULL," +
+            "    price REAL NOT NULL," +
+            "    status TEXT NOT NULL DEFAULT 'active'," +
+            "    buyer_uuid TEXT," +
+            "    listed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+            "    expires_at INTEGER," +
+            "    sold_at TIMESTAMP," +
+            "    FOREIGN KEY (seller_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
             ");"
         };
 
@@ -364,6 +382,11 @@ public class DatabaseManager {
             // 期限切れ検索高速化用インデックス（存在しなければ作成）
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_housing_rentals_end_tick ON housing_rentals(end_tick)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_housing_rentals_status_end_tick ON housing_rentals(status, end_tick)");
+
+            // マーケット出品検索高速化用インデックス（存在しなければ作成）
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_market_status ON market_listings(status)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_market_seller ON market_listings(seller_uuid, status)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_market_expires ON market_listings(status, expires_at)");
         } catch (SQLException e) {
             logger.warning("マイグレーション処理に失敗しました: " + e.getMessage());
         }
