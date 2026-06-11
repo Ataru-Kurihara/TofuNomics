@@ -306,7 +306,7 @@ public class MarketManager {
         }
 
         giveItem(buyer, outcome.getItemData());
-        notifySellerSold(outcome);
+        notifySellerSold(outcome, org.tofu.tofunomics.market.gui.MarketGUIUtil.prettifyMaterial(listing.getMaterial()));
         return outcome.getResult();
     }
 
@@ -369,12 +369,16 @@ public class MarketManager {
 
     /**
      * 出品者がオンラインなら売却を通知する。
+     *
+     * @param itemName 売れたアイテムの表示名（%item% 用）
      */
-    private void notifySellerSold(PurchaseOutcome outcome) {
+    private void notifySellerSold(PurchaseOutcome outcome, String itemName) {
         Player seller = Bukkit.getPlayer(outcome.getSellerUuid());
         if (seller != null && seller.isOnline()) {
             seller.sendMessage(configManager.getMarketMessage("sold_notify",
-                    "amount", outcome.getSellerProceeds()));
+                    "item", itemName,
+                    "amount", String.valueOf(outcome.getSellerProceeds()),
+                    "currency", configManager.getCurrencyName()));
         }
     }
 
