@@ -75,8 +75,10 @@ public class MarketManagerTest {
         when(configManager.getMarketListingDurationDays()).thenReturn(7);
         when(configManager.isMarketAllowSelfPurchase()).thenReturn(false);
 
+        // currencyConverter は購入決済コア（executePurchaseTransaction）では未使用のため null。
+        // 現金回収は Bukkit 依存ラッパー（purchaseListing）側で行うため E2E 検証に委ねる。
         manager = new MarketManager(connection, playerDAO, listingDAO, configManager,
-                Logger.getLogger("MarketManagerTest"));
+                null, Logger.getLogger("MarketManagerTest"));
     }
 
     @After
@@ -175,39 +177,14 @@ public class MarketManagerTest {
         UUID buyer = createPlayer(1000);
         int id = createActiveListing(seller, 100);
 
-        PurchaseOutcome outcome = manager.executePurchaseTransaction(buyer, id, true, System.currentTimeMillis());
+        PurchaseOutcome outcome = manager.executePurchaseTransaction(buyer, id, System.currentTimeMillis());
 
         assertTrue("購入成功", outcome.isSuccess());
         assertEquals("出品者受取=floor(100*0.95)=95", 95L, outcome.getSellerProceeds());
-        assertEquals("購入者残高=1000-100", 900.0, bankOf(buyer), DELTA);
+        // 購入者は現金（金塊）で支払うため、決済コアは bank_balance を変更しない
+        assertEquals("購入者の銀行残高は不変", 1000.0, bankOf(buyer), DELTA);
         assertEquals("出品者残高=0+95", 95.0, bankOf(seller), DELTA);
         assertEquals(MarketListing.STATUS_SOLD, listingDAO.getById(id).getStatus());
-    }
-
-    @Test
-    public void testPurchaseInsufficientFunds() throws SQLException {
-        UUID seller = createPlayer(0);
-        UUID buyer = createPlayer(50);
-        int id = createActiveListing(seller, 100);
-
-        PurchaseOutcome outcome = manager.executePurchaseTransaction(buyer, id, true, System.currentTimeMillis());
-
-        assertEquals(MarketResult.INSUFFICIENT_FUNDS, outcome.getResult());
-        assertEquals("残高は変わらない", 50.0, bankOf(buyer), DELTA);
-        assertEquals("出品はactiveのまま", MarketListing.STATUS_ACTIVE, listingDAO.getById(id).getStatus());
-    }
-
-    @Test
-    public void testPurchaseInventoryFull() throws SQLException {
-        UUID seller = createPlayer(0);
-        UUID buyer = createPlayer(1000);
-        int id = createActiveListing(seller, 100);
-
-        PurchaseOutcome outcome = manager.executePurchaseTransaction(buyer, id, false, System.currentTimeMillis());
-
-        assertEquals(MarketResult.INVENTORY_FULL, outcome.getResult());
-        assertEquals("残高は変わらない", 1000.0, bankOf(buyer), DELTA);
-        assertEquals(MarketListing.STATUS_ACTIVE, listingDAO.getById(id).getStatus());
     }
 
     @Test
@@ -215,7 +192,7 @@ public class MarketManagerTest {
         UUID seller = createPlayer(1000);
         int id = createActiveListing(seller, 100);
 
-        PurchaseOutcome outcome = manager.executePurchaseTransaction(seller, id, true, System.currentTimeMillis());
+        PurchaseOutcome outcome = manager.executePurchaseTransaction(seller, id, System.currentTimeMillis());
 
         assertEquals("自己購入は拒否", MarketResult.NOT_AVAILABLE, outcome.getResult());
         assertEquals(MarketListing.STATUS_ACTIVE, listingDAO.getById(id).getStatus());
@@ -227,7 +204,7 @@ public class MarketManagerTest {
         UUID seller = createPlayer(1000);
         int id = createActiveListing(seller, 100);
 
-        PurchaseOutcome outcome = manager.executePurchaseTransaction(seller, id, true, System.currentTimeMillis());
+        PurchaseOutcome outcome = manager.executePurchaseTransaction(seller, id, System.currentTimeMillis());
 
         assertTrue("config許可時は自己購入成功", outcome.isSuccess());
     }
@@ -239,12 +216,13 @@ public class MarketManagerTest {
         UUID buyer2 = createPlayer(1000);
         int id = createActiveListing(seller, 100);
 
-        PurchaseOutcome first = manager.executePurchaseTransaction(buyer1, id, true, System.currentTimeMillis());
-        PurchaseOutcome second = manager.executePurchaseTransaction(buyer2, id, true, System.currentTimeMillis());
+        PurchaseOutcome first = manager.executePurchaseTransaction(buyer1, id, System.currentTimeMillis());
+        PurchaseOutcome second = manager.executePurchaseTransaction(buyer2, id, System.currentTimeMillis());
 
         assertTrue("1人目は成功", first.isSuccess());
         assertEquals("2人目は売り切れ", MarketResult.ALREADY_SOLD, second.getResult());
-        assertEquals("2人目の残高は変わらない", 1000.0, bankOf(buyer2), DELTA);
+        // 出品者への二重入金が無いこと（95のみ）
+        assertEquals("出品者受取は1回分のみ", 95.0, bankOf(seller), DELTA);
     }
 
     // ---- キャンセル・回収 ----

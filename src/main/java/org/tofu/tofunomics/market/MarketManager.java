@@ -8,6 +8,7 @@ import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.MarketListingDAO;
 import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.economy.CurrencyConverter;
 import org.tofu.tofunomics.models.MarketListing;
 
 import java.sql.Connection;
@@ -34,14 +35,16 @@ public class MarketManager {
     private final PlayerDAO playerDAO;
     private final MarketListingDAO listingDAO;
     private final ConfigManager configManager;
+    private final CurrencyConverter currencyConverter;
     private final Logger logger;
 
     public MarketManager(Connection connection, PlayerDAO playerDAO, MarketListingDAO listingDAO,
-                         ConfigManager configManager, Logger logger) {
+                         ConfigManager configManager, CurrencyConverter currencyConverter, Logger logger) {
         this.connection = connection;
         this.playerDAO = playerDAO;
         this.listingDAO = listingDAO;
         this.configManager = configManager;
+        this.currencyConverter = currencyConverter;
         this.logger = logger;
     }
 
@@ -112,12 +115,12 @@ public class MarketManager {
     }
 
     /**
-     * 購入決済コア（Bukkit 非依存）。手動トランザクションで楽観ロック・残高移動・手数料を処理する。
+     * 購入決済コア（Bukkit 非依存）。手動トランザクションで楽観ロック・出品者への入金・手数料を処理する。
      *
-     * @param buyerHasInventorySpace 購入者インベントリに空きがあるか（呼び出し側が判定して渡す）
+     * 購入者の支払い（現金回収）は Bukkit 依存のため呼び出し側（{@link #purchaseListing}）が行う。
+     * 本コアは「楽観ロックで sold 化 → 出品者の bank_balance へ手数料控除後を入金」のみを担当する。
      */
-    public PurchaseOutcome executePurchaseTransaction(UUID buyerUuid, int listingId,
-                                                      boolean buyerHasInventorySpace, long nowMillis) {
+    public PurchaseOutcome executePurchaseTransaction(UUID buyerUuid, int listingId, long nowMillis) {
         synchronized (connection) {
             try {
                 connection.setAutoCommit(false);
@@ -136,29 +139,13 @@ public class MarketManager {
                     return PurchaseOutcome.failure(MarketResult.NOT_AVAILABLE);
                 }
 
-                // 残高チェック
-                org.tofu.tofunomics.models.Player buyer = playerDAO.getPlayer(buyerUuid);
-                if (buyer == null || buyer.getBankBalance() < listing.getPrice()) {
-                    connection.rollback();
-                    return PurchaseOutcome.failure(MarketResult.INSUFFICIENT_FUNDS);
-                }
-
-                // インベントリ空きチェック（満杯なら購入させない＝アイテム喪失防止）
-                if (!buyerHasInventorySpace) {
-                    connection.rollback();
-                    return PurchaseOutcome.failure(MarketResult.INVENTORY_FULL);
-                }
-
                 // 楽観ロック：active の行のみ sold 化。影響行数 1 以外は二重購入として中止
                 if (!listingDAO.markAsSold(listingId, buyerUuid, nowMillis)) {
                     connection.rollback();
                     return PurchaseOutcome.failure(MarketResult.ALREADY_SOLD);
                 }
 
-                // 購入者から代金を引き、出品者へ手数料控除後を入金
-                buyer.removeBankBalance(listing.getPrice());
-                playerDAO.updatePlayer(buyer);
-
+                // 出品者へ手数料控除後を入金（オフライン可・UUID 直指定）
                 long proceeds = calculateSellerProceeds(listing.getPrice());
                 org.tofu.tofunomics.models.Player seller = playerDAO.getOrCreatePlayer(sellerUuid);
                 seller.addBankBalance(proceeds);
@@ -274,21 +261,52 @@ public class MarketManager {
     }
 
     /**
-     * 出品を購入する。決済成功後にアイテムを付与し、出品者がオンラインなら通知する。
+     * 出品を購入する。購入者は手持ちの現金（金塊）で支払い、出品者は bank_balance で受け取る。
+     *
+     * 喪失防止のため、先に現金を回収（チェック＋削除を原子的に実行）してから DB 決済を行い、
+     * 決済が失敗した場合は現金を返金する。付与アイテムは {@link #giveItem} が入りきらない分を
+     * 足元へドロップするため、インベントリ満杯でも喪失しない。
      */
     public MarketResult purchaseListing(Player buyer, int listingId) {
         if (!configManager.isMarketEnabled()) {
             return MarketResult.MARKET_DISABLED;
         }
 
-        boolean hasSpace = buyer.getInventory().firstEmpty() != -1;
-        PurchaseOutcome outcome = executePurchaseTransaction(
-                buyer.getUniqueId(), listingId, hasSpace, System.currentTimeMillis());
-
-        if (outcome.isSuccess()) {
-            giveItem(buyer, outcome.getItemData());
-            notifySellerSold(outcome);
+        // 価格・自己購入の事前確認（現金を回収する前に弾く）
+        MarketListing listing;
+        try {
+            listing = listingDAO.getById(listingId);
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "マーケット出品の取得に失敗しました", e);
+            return MarketResult.ERROR;
         }
+        if (listing == null || !listing.isActive()) {
+            return MarketResult.ALREADY_SOLD;
+        }
+        if (!configManager.isMarketAllowSelfPurchase()
+                && listing.getSellerUuid().equals(buyer.getUniqueId())) {
+            return MarketResult.NOT_AVAILABLE;
+        }
+
+        double price = listing.getPrice();
+
+        // 現金を先に回収（所持チェックと削除を原子的に行う）。不足なら資金不足
+        if (!currencyConverter.payWithCash(buyer, price)) {
+            return MarketResult.INSUFFICIENT_FUNDS;
+        }
+
+        // DB 決済（楽観ロック＋出品者入金）
+        PurchaseOutcome outcome = executePurchaseTransaction(
+                buyer.getUniqueId(), listingId, System.currentTimeMillis());
+
+        if (!outcome.isSuccess()) {
+            // 売却失敗 → 回収した現金を返金（スペースチェックは不要＝直前に同額を取り除いている）
+            currencyConverter.receiveCash(buyer, price, true);
+            return outcome.getResult();
+        }
+
+        giveItem(buyer, outcome.getItemData());
+        notifySellerSold(outcome);
         return outcome.getResult();
     }
 

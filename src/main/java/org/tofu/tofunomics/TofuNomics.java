@@ -361,6 +361,7 @@ public final class TofuNomics extends JavaPlugin {
                 playerDAO,
                 marketListingDAO,
                 configManager,
+                currencyConverter,
                 getLogger()
             );
 
