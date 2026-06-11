@@ -26,6 +26,9 @@ public class MarketGUISession {
     private final Inventory inventory;
     private int page;
 
+    // 現在のカテゴリフィルタ（一覧 GUI でのみ使用）
+    private MarketCategory category = MarketCategory.ALL;
+
     // スロット番号 → そのスロットに表示している出品
     private final Map<Integer, MarketListing> slotListings = new HashMap<>();
 
@@ -54,6 +57,14 @@ public class MarketGUISession {
 
     public void setPage(int page) {
         this.page = page;
+    }
+
+    public MarketCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(MarketCategory category) {
+        this.category = category;
     }
 
     /**

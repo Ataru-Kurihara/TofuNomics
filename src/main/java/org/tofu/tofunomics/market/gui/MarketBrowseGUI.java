@@ -22,14 +22,18 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * マーケット一覧 GUI。出品中（active）の全出品をページングして表示し、
+ * マーケット一覧 GUI。出品中（active）の全出品をカテゴリでフィルタし、ページングして表示する。
  * クリックで購入する。クリックイベントの受信は {@link MarketGUIListener} が担当し、
  * 本クラスは描画とクリック処理ロジックを提供する。
+ *
+ * レイアウト: スロット 0〜7 カテゴリボタン、9〜44 出品（36件/ページ）、45〜53 ナビゲーション。
  */
 public class MarketBrowseGUI {
 
     private static final int INVENTORY_SIZE = 54;
-    private static final int ITEMS_PER_PAGE = 45;   // スロット 0〜44 を出品表示に使う
+    private static final int ITEM_START_SLOT = 9;   // 出品表示の開始スロット（1段目はカテゴリボタン）
+    private static final int ITEM_END_SLOT = 44;    // 出品表示の終端スロット（含む）
+    private static final int ITEMS_PER_PAGE = ITEM_END_SLOT - ITEM_START_SLOT + 1; // 36
     private static final int SLOT_PREV = 48;
     private static final int SLOT_INFO = 49;
     private static final int SLOT_NEXT = 50;
@@ -68,19 +72,28 @@ public class MarketBrowseGUI {
     }
 
     /**
-     * 現在ページの内容を描画する（active 出品をページ分割して表示）。
+     * 現在ページ・カテゴリの内容を描画する。
      */
     public void render(Player player, MarketGUISession session) {
         Inventory gui = session.getInventory();
         gui.clear();
         session.clearSlotListings();
 
-        List<MarketListing> listings;
+        List<MarketListing> all;
         try {
-            listings = listingDAO.getActiveListings();
+            all = listingDAO.getActiveListings();
         } catch (SQLException e) {
             plugin.getLogger().warning("マーケット出品一覧の取得に失敗しました: " + e.getMessage());
-            listings = new ArrayList<>();
+            all = new ArrayList<>();
+        }
+
+        // カテゴリでフィルタ
+        MarketCategory category = session.getCategory();
+        List<MarketListing> listings = new ArrayList<>();
+        for (MarketListing listing : all) {
+            if (category.matches(Material.matchMaterial(listing.getMaterial()))) {
+                listings.add(listing);
+            }
         }
 
         int totalPages = Math.max(1, (int) Math.ceil(listings.size() / (double) ITEMS_PER_PAGE));
@@ -94,7 +107,7 @@ public class MarketBrowseGUI {
         int start = session.getPage() * ITEMS_PER_PAGE;
         int end = Math.min(start + ITEMS_PER_PAGE, listings.size());
 
-        int slot = 0;
+        int slot = ITEM_START_SLOT;
         for (int i = start; i < end; i++) {
             MarketListing listing = listings.get(i);
             gui.setItem(slot, buildDisplayItem(listing));
@@ -102,10 +115,29 @@ public class MarketBrowseGUI {
             slot++;
         }
 
-        setupNavigation(gui, session, listings.size(), totalPages);
+        setupCategoryButtons(gui, category);
+        setupNavigation(gui, session, listings.size(), totalPages, all.size());
     }
 
-    private void setupNavigation(Inventory gui, MarketGUISession session, int totalListings, int totalPages) {
+    /**
+     * カテゴリボタンを上段（スロット 0〜7）に配置する。
+     */
+    private void setupCategoryButtons(Inventory gui, MarketCategory current) {
+        MarketCategory[] categories = MarketCategory.values();
+        for (int i = 0; i < categories.length && i < 9; i++) {
+            MarketCategory category = categories[i];
+            boolean selected = category == current;
+            gui.setItem(i, MarketGUIUtil.createButton(
+                    category.getIcon(),
+                    (selected ? "§a§l▶ " : "§f") + category.getDisplayName(),
+                    Arrays.asList(
+                            selected ? "§a選択中" : "§7クリックで絞り込み"
+                    )));
+        }
+    }
+
+    private void setupNavigation(Inventory gui, MarketGUISession session, int filteredCount,
+                                 int totalPages, int totalActive) {
         if (session.getPage() > 0) {
             gui.setItem(SLOT_PREV, MarketGUIUtil.createButton(Material.ARROW, "§a前のページ",
                     Collections.singletonList("§7ページ " + session.getPage() + " へ")));
@@ -117,7 +149,8 @@ public class MarketBrowseGUI {
 
         gui.setItem(SLOT_INFO, MarketGUIUtil.createButton(Material.BOOK, "§6マーケット情報",
                 Arrays.asList(
-                        "§f出品数: §a" + totalListings + " 件",
+                        "§fカテゴリ: " + session.getCategory().getDisplayName(),
+                        "§f表示中: §a" + filteredCount + " §f/ 全 " + totalActive + " 件",
                         "§fページ: §e" + (session.getPage() + 1) + " / " + totalPages,
                         "§7アイテムをクリックして購入"
                 )));
@@ -128,7 +161,11 @@ public class MarketBrowseGUI {
         if (configManager.isGuiDecorationEnabled()) {
             ItemStack glass = MarketGUIUtil.createButton(
                     Material.GRAY_STAINED_GLASS_PANE, "§r", Collections.emptyList());
-            for (int i = ITEMS_PER_PAGE; i < INVENTORY_SIZE; i++) {
+            // カテゴリボタン段の余り（8）と最下段の空きを装飾で埋める
+            if (gui.getItem(8) == null) {
+                gui.setItem(8, glass);
+            }
+            for (int i = 45; i < INVENTORY_SIZE; i++) {
                 if (gui.getItem(i) == null) {
                     gui.setItem(i, glass);
                 }
@@ -186,6 +223,17 @@ public class MarketBrowseGUI {
         if (slot == SLOT_NEXT) {
             session.setPage(session.getPage() + 1);
             render(player, session);
+            return;
+        }
+
+        // カテゴリボタン（スロット 0〜7）
+        if (slot >= 0 && slot < MarketCategory.values().length && slot <= 8) {
+            MarketCategory selected = MarketCategory.values()[slot];
+            if (selected != session.getCategory()) {
+                session.setCategory(selected);
+                session.setPage(0);
+                render(player, session);
+            }
             return;
         }
 
