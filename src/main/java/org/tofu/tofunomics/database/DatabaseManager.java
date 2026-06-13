@@ -245,6 +245,23 @@ public class DatabaseManager {
             "    expires_at INTEGER," +
             "    sold_at TIMESTAMP," +
             "    FOREIGN KEY (seller_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
+            ");",
+
+            // プレイヤー間マーケット買い注文（募集）テーブル
+            "CREATE TABLE IF NOT EXISTS market_buy_orders (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    requester_uuid TEXT NOT NULL," +
+            "    requester_name TEXT NOT NULL," +
+            "    material TEXT NOT NULL," +
+            "    amount INTEGER NOT NULL," +
+            "    price REAL NOT NULL," +
+            "    status TEXT NOT NULL DEFAULT 'open'," +
+            "    supplier_uuid TEXT," +
+            "    item_data TEXT," +
+            "    listed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+            "    expires_at INTEGER," +
+            "    fulfilled_at TIMESTAMP," +
+            "    FOREIGN KEY (requester_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
             ");"
         };
 
@@ -387,6 +404,11 @@ public class DatabaseManager {
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_market_status ON market_listings(status)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_market_seller ON market_listings(seller_uuid, status)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_market_expires ON market_listings(status, expires_at)");
+
+            // マーケット買い注文（募集）検索高速化用インデックス（存在しなければ作成）
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_buyorder_status ON market_buy_orders(status)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_buyorder_requester ON market_buy_orders(requester_uuid, status)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_buyorder_expires ON market_buy_orders(status, expires_at)");
         } catch (SQLException e) {
             logger.warning("マイグレーション処理に失敗しました: " + e.getMessage());
         }
