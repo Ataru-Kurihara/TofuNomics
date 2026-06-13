@@ -2504,6 +2504,47 @@ public class ConfigManager {
     }
     
     /**
+     * プレイヤー間マーケット（売り・募集）のメッセージの存在を確認し、不足分を自動追加する。
+     *
+     * jar 同梱の config.yml は既存のサーバー config.yml を上書きしないため、新規メッセージキーは
+     * このメソッドで起動時に補完する（既存キーは {@code config.contains} で skip される）。
+     */
+    public void ensureMarketMessagesExist() {
+        try {
+            // 売り（出品・購入）
+            ensureMessagePath("messages.market.listed", "&a%item% を &e%price% %currency%&a で出品しました。");
+            ensureMessagePath("messages.market.purchased", "&a%item% を &e%price% %currency%&a で購入しました。");
+            ensureMessagePath("messages.market.sold_notify", "&a出品した %item% が売れました！手数料を引いた &e%amount% %currency%&a を受け取りました。");
+            ensureMessagePath("messages.market.cancelled", "&a出品をキャンセルし、アイテムを回収しました。");
+            ensureMessagePath("messages.market.reclaimed", "&a期限切れの出品からアイテムを回収しました。");
+            ensureMessagePath("messages.market.invalid_item", "&c出品するアイテムを手に持ってください。");
+            ensureMessagePath("messages.market.invalid_price", "&c価格は &e%min%&c 〜 &e%max%&c の整数で指定してください。");
+            ensureMessagePath("messages.market.currency_not_allowed", "&c通貨アイテムは出品できません。");
+            ensureMessagePath("messages.market.listing_limit", "&c出品数の上限（%limit%）に達しています。");
+            ensureMessagePath("messages.market.not_available", "&cこの出品は購入できません。");
+            ensureMessagePath("messages.market.already_sold", "&cこの出品は既に売り切れました。");
+            ensureMessagePath("messages.market.insufficient_funds", "&c残高が不足しています。");
+            ensureMessagePath("messages.market.inventory_full", "&cインベントリに空きがありません。アイテムを整理してください。");
+            ensureMessagePath("messages.market.not_owner", "&cこれはあなたの出品ではありません。");
+            ensureMessagePath("messages.market.error", "&c処理中にエラーが発生しました。もう一度お試しください。");
+
+            // 募集（買い注文）
+            ensureMessagePath("messages.market.requested", "&a%item% x%amount% の募集を &e%price% %currency%&a で登録しました（前払い）。");
+            ensureMessagePath("messages.market.fulfilled", "&a募集に応じ %item% x%amount% を供給しました。&e%proceeds% %currency%&a を受け取りました。");
+            ensureMessagePath("messages.market.fulfilled_notify", "&aあなたの募集（%item% x%amount%）が成立しました。アイテムは /market myrequests から回収できます。");
+            ensureMessagePath("messages.market.request_cancelled", "&a募集をキャンセルし、前払い分を返金しました。");
+            ensureMessagePath("messages.market.request_reclaimed", "&a成立した募集からアイテムを回収しました。");
+            ensureMessagePath("messages.market.request_expired_refund", "&e募集が期限切れになり、前払い分を返金しました。");
+            ensureMessagePath("messages.market.request_limit", "&c募集数の上限（%limit%）に達しています。");
+            ensureMessagePath("messages.market.no_matching_item", "&c供給するアイテム（%item% x%amount%）を所持していません。");
+            ensureMessagePath("messages.market.request_not_available", "&cこの募集は既に成立済みか、存在しません。");
+            ensureMessagePath("messages.market.request_not_owner", "&cこれはあなたの募集ではありません。");
+        } catch (Exception e) {
+            plugin.getLogger().warning("マーケットメッセージの初期化に失敗しました: " + e.getMessage());
+        }
+    }
+
+    /**
      * NPCメッセージの存在を確認し、不足している場合は自動追加
      */
     public void ensureNPCMessagesExist() {

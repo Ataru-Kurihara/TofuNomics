@@ -528,7 +528,10 @@ public final class TofuNomics extends JavaPlugin {
             
             // クラフト制限設定の自動初期化
             configManager.ensureCraftRestrictionMessagesExist();
-            
+
+            // プレイヤー間マーケット（売り・募集）メッセージの自動初期化
+            configManager.ensureMarketMessagesExist();
+
             // 設定を保存
             saveConfig();
 
