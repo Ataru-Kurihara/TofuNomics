@@ -372,6 +372,10 @@ public class ConfigManager {
         return config.getInt("market.expire_check_interval", 3600);
     }
 
+    public int getMarketMaxBuyOrdersPerPlayer() {
+        return config.getInt("market.max_buy_orders_per_player", 10);
+    }
+
     /**
      * messages.market 配下のメッセージを取得（プレースホルダ置換対応）
      */

@@ -118,6 +118,7 @@ public final class TofuNomics extends JavaPlugin {
 
     // プレイヤー間マーケットシステム
     private org.tofu.tofunomics.dao.MarketListingDAO marketListingDAO;
+    private org.tofu.tofunomics.dao.MarketBuyOrderDAO marketBuyOrderDAO;
     private org.tofu.tofunomics.market.MarketManager marketManager;
     private org.tofu.tofunomics.market.gui.MarketBrowseGUI marketBrowseGUI;
     private org.tofu.tofunomics.market.gui.MyListingsGUI myListingsGUI;
@@ -303,6 +304,7 @@ public final class TofuNomics extends JavaPlugin {
             jobChangeDAO = new JobChangeDAO(databaseManager.getConnection());
             jobHistoryDAO = new JobHistoryDAO(databaseManager.getConnection());
             marketListingDAO = new org.tofu.tofunomics.dao.MarketListingDAO(databaseManager.getConnection());
+            marketBuyOrderDAO = new org.tofu.tofunomics.dao.MarketBuyOrderDAO(databaseManager.getConnection());
 
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
@@ -360,6 +362,7 @@ public final class TofuNomics extends JavaPlugin {
                 databaseManager.getConnection(),
                 playerDAO,
                 marketListingDAO,
+                marketBuyOrderDAO,
                 configManager,
                 currencyConverter,
                 getLogger()

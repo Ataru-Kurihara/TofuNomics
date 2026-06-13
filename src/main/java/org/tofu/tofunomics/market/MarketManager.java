@@ -6,13 +6,16 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.MarketBuyOrderDAO;
 import org.tofu.tofunomics.dao.MarketListingDAO;
 import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.models.MarketBuyOrder;
 import org.tofu.tofunomics.models.MarketListing;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -34,15 +37,18 @@ public class MarketManager {
     private final Connection connection;
     private final PlayerDAO playerDAO;
     private final MarketListingDAO listingDAO;
+    private final MarketBuyOrderDAO buyOrderDAO;
     private final ConfigManager configManager;
     private final CurrencyConverter currencyConverter;
     private final Logger logger;
 
     public MarketManager(Connection connection, PlayerDAO playerDAO, MarketListingDAO listingDAO,
-                         ConfigManager configManager, CurrencyConverter currencyConverter, Logger logger) {
+                         MarketBuyOrderDAO buyOrderDAO, ConfigManager configManager,
+                         CurrencyConverter currencyConverter, Logger logger) {
         this.connection = connection;
         this.playerDAO = playerDAO;
         this.listingDAO = listingDAO;
+        this.buyOrderDAO = buyOrderDAO;
         this.configManager = configManager;
         this.currencyConverter = currencyConverter;
         this.logger = logger;
@@ -224,6 +230,201 @@ public class MarketManager {
     }
 
     // ========================================================================
+    // 買い注文（募集）コアロジック（Bukkit 非依存）
+    // ========================================================================
+
+    /**
+     * 募集の DB 登録コア（Bukkit 非依存）。
+     * バリデーション → 募集上限 → INSERT を行う。前払い現金の回収は呼び出し側（ラッパー）。
+     *
+     * 通貨保存則上、現金回収はこの INSERT より前に行い、INSERT 失敗時は呼び出し側が返金する。
+     */
+    public MarketResult executeCreateBuyOrder(UUID requesterUuid, String requesterName, String material,
+                                              int amount, double price, long nowMillis) {
+        if (!configManager.isMarketEnabled()) {
+            return MarketResult.MARKET_DISABLED;
+        }
+        if (material == null || amount <= 0) {
+            return MarketResult.INVALID_ITEM;
+        }
+        if (!isValidPrice(price)) {
+            return MarketResult.INVALID_PRICE;
+        }
+
+        synchronized (connection) {
+            try {
+                if (buyOrderDAO.countOpenByRequester(requesterUuid) >= configManager.getMarketMaxBuyOrdersPerPlayer()) {
+                    return MarketResult.ORDER_LIMIT;
+                }
+                Long expiresAt = calculateExpiresAtMillis(nowMillis);
+                MarketBuyOrder order = new MarketBuyOrder(
+                        requesterUuid, requesterName, material, amount, price, expiresAt);
+                int id = buyOrderDAO.insertBuyOrder(order);
+                return id > 0 ? MarketResult.REQUESTED : MarketResult.ERROR;
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "買い注文の登録に失敗しました", e);
+                return MarketResult.ERROR;
+            }
+        }
+    }
+
+    /**
+     * 供給決済コア（Bukkit 非依存）。手動トランザクションで楽観ロック・供給者への入金・手数料を処理する。
+     *
+     * 供給者の手持ちからのアイテム除去・シリアライズは呼び出し側（{@link #fulfillBuyOrder}）が行い、
+     * 本コアは「楽観ロックで fulfilled 化（supplier/item_data 設定）→ 供給者の bank_balance へ
+     * 手数料控除後を入金」のみを担当する。差額は再生成しないため自動的に消却される。
+     */
+    public FulfillOutcome executeFulfillTransaction(UUID supplierUuid, int orderId, String itemData, long nowMillis) {
+        synchronized (connection) {
+            try {
+                connection.setAutoCommit(false);
+
+                MarketBuyOrder order = buyOrderDAO.getById(orderId);
+                if (order == null || !order.isOpen()) {
+                    connection.rollback();
+                    return FulfillOutcome.failure(MarketResult.ORDER_NOT_AVAILABLE);
+                }
+
+                // 楽観ロック：open の行のみ fulfilled 化。影響行数 1 以外は二重供給として中止
+                if (!buyOrderDAO.markAsFulfilled(orderId, supplierUuid, itemData, nowMillis)) {
+                    connection.rollback();
+                    return FulfillOutcome.failure(MarketResult.ORDER_NOT_AVAILABLE);
+                }
+
+                // 供給者へ手数料控除後を入金（オフライン可・UUID 直指定）。差額は消却。
+                long proceeds = calculateSellerProceeds(order.getPrice());
+                org.tofu.tofunomics.models.Player supplier = playerDAO.getOrCreatePlayer(supplierUuid);
+                supplier.addBankBalance(proceeds);
+                playerDAO.updatePlayer(supplier);
+
+                connection.commit();
+                return FulfillOutcome.success(order.getRequesterUuid(), proceeds);
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "買い注文の供給決済に失敗しました", e);
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackEx) {
+                    logger.log(Level.SEVERE, "ロールバックに失敗しました", rollbackEx);
+                }
+                return FulfillOutcome.failure(MarketResult.ERROR);
+            } finally {
+                try {
+                    connection.setAutoCommit(true);
+                } catch (SQLException e) {
+                    logger.log(Level.SEVERE, "setAutoCommit(true) に失敗しました", e);
+                }
+            }
+        }
+    }
+
+    /**
+     * 募集キャンセルのステータス遷移コア（Bukkit 非依存）。
+     * 所有権・open 状態を検証し、楽観ロックで status を cancelled に遷移させる。
+     * 前払い分の返金（現金）は呼び出し側（{@link #cancelBuyOrder}）が遷移成功後に行う。
+     */
+    public MarketResult executeCancelBuyOrder(UUID requesterUuid, int orderId) {
+        synchronized (connection) {
+            try {
+                MarketBuyOrder order = buyOrderDAO.getById(orderId);
+                if (order == null) {
+                    return MarketResult.ORDER_NOT_AVAILABLE;
+                }
+                if (!order.getRequesterUuid().equals(requesterUuid)) {
+                    return MarketResult.ORDER_NOT_OWNER;
+                }
+                if (!order.isOpen()) {
+                    return MarketResult.ORDER_NOT_AVAILABLE;
+                }
+                if (!buyOrderDAO.updateStatusConditional(orderId, MarketBuyOrder.STATUS_OPEN, MarketBuyOrder.STATUS_CANCELLED)) {
+                    return MarketResult.ORDER_NOT_AVAILABLE;
+                }
+                return MarketResult.ORDER_CANCELLED;
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "買い注文のキャンセルに失敗しました", e);
+                return MarketResult.ERROR;
+            }
+        }
+    }
+
+    /**
+     * 成立した募集のアイテム回収のステータス遷移コア（Bukkit 非依存）。
+     * 所有権・fulfilled 状態・インベントリ空きを検証し、楽観ロックで status を reclaimed に遷移させる。
+     * アイテム付与は呼び出し側（{@link #reclaimBuyOrder}）が遷移成功後に行う。
+     */
+    public MarketResult executeReclaimBuyOrder(UUID requesterUuid, int orderId, boolean hasInventorySpace) {
+        synchronized (connection) {
+            try {
+                MarketBuyOrder order = buyOrderDAO.getById(orderId);
+                if (order == null) {
+                    return MarketResult.ORDER_NOT_AVAILABLE;
+                }
+                if (!order.getRequesterUuid().equals(requesterUuid)) {
+                    return MarketResult.ORDER_NOT_OWNER;
+                }
+                if (!order.isFulfilled()) {
+                    return MarketResult.ORDER_NOT_AVAILABLE;
+                }
+                if (!hasInventorySpace) {
+                    return MarketResult.INVENTORY_FULL;
+                }
+                if (!buyOrderDAO.updateStatusConditional(orderId, MarketBuyOrder.STATUS_FULFILLED, MarketBuyOrder.STATUS_RECLAIMED)) {
+                    return MarketResult.ORDER_NOT_AVAILABLE;
+                }
+                return MarketResult.ORDER_RECLAIMED;
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "買い注文のアイテム回収に失敗しました", e);
+                return MarketResult.ERROR;
+            }
+        }
+    }
+
+    /**
+     * 期限切れの open 募集を expired 化し、前払い分を募集者の bank へ返金する（定期タスクから呼ぶ）。
+     *
+     * 売りの一括 UPDATE と異なり返金を伴うため、取得 → ループで注文ごとに楽観ロック UPDATE ＋
+     * 返金を行う。全体を 1 トランザクションで囲み、途中失敗時はロールバックして二重返金を防ぐ。
+     *
+     * @return 期限切れ返金した件数（失敗時は 0）
+     */
+    public int expireBuyOrders() {
+        synchronized (connection) {
+            try {
+                connection.setAutoCommit(false);
+                long now = System.currentTimeMillis();
+                List<MarketBuyOrder> expired = buyOrderDAO.getExpiredOpenOrders(now);
+                int count = 0;
+                for (MarketBuyOrder order : expired) {
+                    // 楽観ロック：open 限定 UPDATE。成功した注文のみ返金（二重返金防止）
+                    if (buyOrderDAO.updateStatusConditional(order.getId(),
+                            MarketBuyOrder.STATUS_OPEN, MarketBuyOrder.STATUS_EXPIRED)) {
+                        org.tofu.tofunomics.models.Player requester = playerDAO.getOrCreatePlayer(order.getRequesterUuid());
+                        requester.addBankBalance(order.getPrice());
+                        playerDAO.updatePlayer(requester);
+                        count++;
+                    }
+                }
+                connection.commit();
+                return count;
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "期限切れ買い注文の返金処理に失敗しました", e);
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackEx) {
+                    logger.log(Level.SEVERE, "ロールバックに失敗しました", rollbackEx);
+                }
+                return 0;
+            } finally {
+                try {
+                    connection.setAutoCommit(true);
+                } catch (SQLException e) {
+                    logger.log(Level.SEVERE, "setAutoCommit(true) に失敗しました", e);
+                }
+            }
+        }
+    }
+
+    // ========================================================================
     // Bukkit 依存のラッパー（コマンド/GUI から呼ぶ）
     // ========================================================================
 
@@ -346,6 +547,164 @@ public class MarketManager {
     }
 
     // ========================================================================
+    // 買い注文（募集）Bukkit 依存ラッパー
+    // ========================================================================
+
+    /**
+     * 買い注文（募集）を登録する。前払いの現金（金塊）を先に回収し、DB 登録失敗時は返金する。
+     *
+     * 安全順序：募集上限の事前確認 → 現金回収 → INSERT。INSERT が失敗した場合は現金を返金する。
+     */
+    public MarketResult createBuyOrder(Player requester, Material material, int amount, double price) {
+        if (!configManager.isMarketEnabled()) {
+            return MarketResult.MARKET_DISABLED;
+        }
+        if (material == null || material == Material.AIR || amount <= 0) {
+            return MarketResult.INVALID_ITEM;
+        }
+        if (!isValidPrice(price)) {
+            return MarketResult.INVALID_PRICE;
+        }
+
+        // 現金を回収する前に募集上限を確認する（無駄な回収→返金の往復を避ける）
+        synchronized (connection) {
+            try {
+                if (buyOrderDAO.countOpenByRequester(requester.getUniqueId())
+                        >= configManager.getMarketMaxBuyOrdersPerPlayer()) {
+                    return MarketResult.ORDER_LIMIT;
+                }
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "募集数の確認に失敗しました", e);
+                return MarketResult.ERROR;
+            }
+        }
+
+        // 前払いの現金を先に回収（所持チェックと削除を原子的に行う）。不足なら資金不足
+        if (!currencyConverter.payWithCash(requester, price)) {
+            return MarketResult.INSUFFICIENT_FUNDS;
+        }
+
+        MarketResult result = executeCreateBuyOrder(
+                requester.getUniqueId(), requester.getName(), material.name(), amount,
+                price, System.currentTimeMillis());
+
+        if (result != MarketResult.REQUESTED) {
+            // 登録失敗 → 回収した前払いを返金（スペースチェックは不要＝直前に同額を取り除いている）
+            currencyConverter.receiveCash(requester, price, true);
+        }
+        return result;
+    }
+
+    /**
+     * 募集に供給して成立させる。手持ちから対象 Material を amount 個除去し、
+     * DB 決済（楽観ロック＋供給者入金）を行う。決済失敗時は除去したアイテムを返却する。
+     */
+    public MarketResult fulfillBuyOrder(Player supplier, int orderId) {
+        if (!configManager.isMarketEnabled()) {
+            return MarketResult.MARKET_DISABLED;
+        }
+
+        MarketBuyOrder order;
+        try {
+            order = buyOrderDAO.getById(orderId);
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "買い注文の取得に失敗しました", e);
+            return MarketResult.ERROR;
+        }
+        if (order == null || !order.isOpen()) {
+            return MarketResult.ORDER_NOT_AVAILABLE;
+        }
+        // 自己供給チェック（自分の募集には供給不可）
+        if (!configManager.isMarketAllowSelfPurchase()
+                && order.getRequesterUuid().equals(supplier.getUniqueId())) {
+            return MarketResult.ORDER_NOT_AVAILABLE;
+        }
+
+        Material material = Material.matchMaterial(order.getMaterial());
+        if (material == null) {
+            logger.warning("買い注文の Material 名が不正です: " + order.getMaterial());
+            return MarketResult.ERROR;
+        }
+        int amount = order.getAmount();
+
+        // 手持ちに供給可能な個数があるか
+        if (countMaterial(supplier, material) < amount) {
+            return MarketResult.NO_MATCHING_ITEM;
+        }
+
+        // 手持ちから除去し、供給アイテムをシリアライズ（除去 → serialize → DB の安全順序）
+        removeMaterial(supplier, material, amount);
+        ItemStack supplied = new ItemStack(material, amount);
+        String itemData = MarketItemSerializer.serialize(supplied);
+        if (itemData == null) {
+            // シリアライズ失敗 → 除去したアイテムを返却して中止
+            giveItemStack(supplier, supplied);
+            return MarketResult.ERROR;
+        }
+
+        FulfillOutcome outcome = executeFulfillTransaction(
+                supplier.getUniqueId(), orderId, itemData, System.currentTimeMillis());
+
+        if (!outcome.isSuccess()) {
+            // 決済失敗 → 除去したアイテムを返却
+            giveItem(supplier, itemData);
+            return outcome.getResult();
+        }
+
+        notifyRequesterFulfilled(outcome.getRequesterUuid(),
+                org.tofu.tofunomics.market.gui.MarketGUIUtil.prettifyMaterial(order.getMaterial()), amount);
+        return outcome.getResult();
+    }
+
+    /**
+     * open の募集をキャンセルし、前払い分を現金で返金する。
+     */
+    public MarketResult cancelBuyOrder(Player requester, int orderId) {
+        MarketBuyOrder order;
+        try {
+            order = buyOrderDAO.getById(orderId);
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "買い注文の取得に失敗しました", e);
+            return MarketResult.ERROR;
+        }
+        if (order == null) {
+            return MarketResult.ORDER_NOT_AVAILABLE;
+        }
+
+        MarketResult result = executeCancelBuyOrder(requester.getUniqueId(), orderId);
+
+        if (result == MarketResult.ORDER_CANCELLED) {
+            // 状態遷移成功後に前払いを返金（本人操作＝オンライン前提）
+            currencyConverter.receiveCash(requester, order.getPrice(), true);
+        }
+        return result;
+    }
+
+    /**
+     * fulfilled の募集から供給アイテムを回収する。
+     */
+    public MarketResult reclaimBuyOrder(Player requester, int orderId) {
+        MarketBuyOrder order;
+        try {
+            order = buyOrderDAO.getById(orderId);
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "買い注文の取得に失敗しました", e);
+            return MarketResult.ERROR;
+        }
+        if (order == null) {
+            return MarketResult.ORDER_NOT_AVAILABLE;
+        }
+
+        boolean hasSpace = requester.getInventory().firstEmpty() != -1;
+        MarketResult result = executeReclaimBuyOrder(requester.getUniqueId(), orderId, hasSpace);
+
+        if (result == MarketResult.ORDER_RECLAIMED) {
+            giveItem(requester, order.getItemData());
+        }
+        return result;
+    }
+
+    // ========================================================================
     // ヘルパー
     // ========================================================================
 
@@ -379,6 +738,69 @@ public class MarketManager {
                     "item", itemName,
                     "amount", String.valueOf(outcome.getSellerProceeds()),
                     "currency", configManager.getCurrencyName()));
+        }
+    }
+
+    /**
+     * 単一の ItemStack を付与する。入りきらない分は足元へドロップする（喪失防止）。
+     */
+    private void giveItemStack(Player player, ItemStack item) {
+        Map<Integer, ItemStack> leftover = player.getInventory().addItem(item);
+        if (!leftover.isEmpty()) {
+            Location loc = player.getLocation();
+            for (ItemStack drop : leftover.values()) {
+                player.getWorld().dropItem(loc, drop);
+            }
+        }
+    }
+
+    /**
+     * インベントリ内の指定 Material の合計個数を数える（NBT 無視・Material のみで集計）。
+     */
+    private int countMaterial(Player player, Material material) {
+        int total = 0;
+        for (ItemStack stack : player.getInventory().getContents()) {
+            if (stack != null && stack.getType() == material) {
+                total += stack.getAmount();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * インベントリから指定 Material を合計 amount 個だけ除去する。
+     * 呼び出し前に {@link #countMaterial} で所持数を確認していることを前提とする。
+     */
+    private void removeMaterial(Player player, Material material, int amount) {
+        int remaining = amount;
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length && remaining > 0; i++) {
+            ItemStack stack = contents[i];
+            if (stack == null || stack.getType() != material) {
+                continue;
+            }
+            int take = Math.min(remaining, stack.getAmount());
+            stack.setAmount(stack.getAmount() - take);
+            remaining -= take;
+            if (stack.getAmount() <= 0) {
+                contents[i] = null;
+            }
+        }
+        player.getInventory().setContents(contents);
+    }
+
+    /**
+     * 募集者がオンラインなら供給成立を通知する。
+     *
+     * @param itemName 供給されたアイテムの表示名（%item% 用）
+     * @param amount   供給個数（%amount% 用）
+     */
+    private void notifyRequesterFulfilled(UUID requesterUuid, String itemName, int amount) {
+        Player requester = Bukkit.getPlayer(requesterUuid);
+        if (requester != null && requester.isOnline()) {
+            requester.sendMessage(configManager.getMarketMessage("fulfilled_notify",
+                    "item", itemName,
+                    "amount", String.valueOf(amount)));
         }
     }
 

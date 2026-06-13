@@ -4,8 +4,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.dao.MarketBuyOrderDAO;
 import org.tofu.tofunomics.dao.MarketListingDAO;
 import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.models.MarketBuyOrder;
 import org.tofu.tofunomics.models.MarketListing;
 import org.tofu.tofunomics.models.Player;
 
@@ -32,6 +34,7 @@ public class MarketManagerTest {
     private Connection connection;
     private PlayerDAO playerDAO;
     private MarketListingDAO listingDAO;
+    private MarketBuyOrderDAO buyOrderDAO;
     private ConfigManager configManager;
     private MarketManager manager;
     private final double DELTA = 0.001;
@@ -61,10 +64,24 @@ public class MarketManagerTest {
                     "listed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
                     "expires_at INTEGER," +
                     "sold_at TIMESTAMP);");
+            st.execute("CREATE TABLE IF NOT EXISTS market_buy_orders (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "requester_uuid TEXT NOT NULL," +
+                    "requester_name TEXT NOT NULL," +
+                    "material TEXT NOT NULL," +
+                    "amount INTEGER NOT NULL," +
+                    "price REAL NOT NULL," +
+                    "status TEXT NOT NULL DEFAULT 'open'," +
+                    "supplier_uuid TEXT," +
+                    "item_data TEXT," +
+                    "listed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                    "expires_at INTEGER," +
+                    "fulfilled_at TIMESTAMP);");
         }
 
         playerDAO = new PlayerDAO(connection);
         listingDAO = new MarketListingDAO(connection);
+        buyOrderDAO = new MarketBuyOrderDAO(connection);
 
         configManager = mock(ConfigManager.class);
         when(configManager.isMarketEnabled()).thenReturn(true);
@@ -74,10 +91,11 @@ public class MarketManagerTest {
         when(configManager.getMarketMaxListingsPerPlayer()).thenReturn(10);
         when(configManager.getMarketListingDurationDays()).thenReturn(7);
         when(configManager.isMarketAllowSelfPurchase()).thenReturn(false);
+        when(configManager.getMarketMaxBuyOrdersPerPlayer()).thenReturn(10);
 
-        // currencyConverter は購入決済コア（executePurchaseTransaction）では未使用のため null。
-        // 現金回収は Bukkit 依存ラッパー（purchaseListing）側で行うため E2E 検証に委ねる。
-        manager = new MarketManager(connection, playerDAO, listingDAO, configManager,
+        // currencyConverter は購入/供給の決済コアでは未使用のため null。
+        // 現金回収・返金は Bukkit 依存ラッパー側で行うため E2E 検証に委ねる。
+        manager = new MarketManager(connection, playerDAO, listingDAO, buyOrderDAO, configManager,
                 null, Logger.getLogger("MarketManagerTest"));
     }
 
@@ -282,5 +300,217 @@ public class MarketManagerTest {
         MarketResult result = manager.executeReclaim(seller, id, MarketListing.STATUS_EXPIRED, true);
 
         assertEquals(MarketResult.NOT_AVAILABLE, result);
+    }
+
+    // ====================================================================
+    // 買い注文（募集）コアロジック
+    // ====================================================================
+
+    /**
+     * 募集を 1 件登録して id を返すヘルパー
+     */
+    private int createOpenOrder(UUID requester, String material, int amount, double price) {
+        MarketResult r = manager.executeCreateBuyOrder(
+                requester, "Requester", material, amount, price, System.currentTimeMillis());
+        if (r != MarketResult.REQUESTED) {
+            throw new IllegalStateException("募集登録に失敗: " + r);
+        }
+        try {
+            return buyOrderDAO.getOrdersByRequester(requester).get(0).getId();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // ---- 募集登録 ----
+
+    @Test
+    public void testExecuteCreateBuyOrderSuccess() throws SQLException {
+        UUID requester = createPlayer(0);
+        MarketResult result = manager.executeCreateBuyOrder(
+                requester, "Requester", "DIAMOND", 10, 100, System.currentTimeMillis());
+        assertEquals(MarketResult.REQUESTED, result);
+        assertEquals(1, buyOrderDAO.countOpenByRequester(requester));
+    }
+
+    @Test
+    public void testExecuteCreateBuyOrderInvalidPrice() throws SQLException {
+        UUID requester = createPlayer(0);
+        assertEquals(MarketResult.INVALID_PRICE, manager.executeCreateBuyOrder(
+                requester, "Requester", "DIAMOND", 10, 0, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void testExecuteCreateBuyOrderInvalidAmount() throws SQLException {
+        UUID requester = createPlayer(0);
+        assertEquals(MarketResult.INVALID_ITEM, manager.executeCreateBuyOrder(
+                requester, "Requester", "DIAMOND", 0, 100, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void testExecuteCreateBuyOrderLimit() throws SQLException {
+        UUID requester = createPlayer(0);
+        when(configManager.getMarketMaxBuyOrdersPerPlayer()).thenReturn(2);
+        assertEquals(MarketResult.REQUESTED, createBuyOrderResult(requester, 100));
+        assertEquals(MarketResult.REQUESTED, createBuyOrderResult(requester, 100));
+        assertEquals("上限到達で募集拒否", MarketResult.ORDER_LIMIT, createBuyOrderResult(requester, 100));
+    }
+
+    private MarketResult createBuyOrderResult(UUID requester, double price) {
+        return manager.executeCreateBuyOrder(requester, "Requester", "DIAMOND", 5, price,
+                System.currentTimeMillis());
+    }
+
+    // ---- 供給決済 ----
+
+    @Test
+    public void testFulfillSuccess() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID supplier = createPlayer(0);
+        int id = createOpenOrder(requester, "DIAMOND", 10, 100);
+
+        FulfillOutcome outcome = manager.executeFulfillTransaction(
+                supplier, id, "SUPPLIED_BASE64", System.currentTimeMillis());
+
+        assertTrue("供給成立", outcome.isSuccess());
+        assertEquals("供給者受取=floor(100*0.95)=95", 95L, outcome.getSupplierProceeds());
+        assertEquals("通知先は募集者", requester, outcome.getRequesterUuid());
+        assertEquals("供給者の銀行残高=0+95", 95.0, bankOf(supplier), DELTA);
+        assertEquals("募集者の残高は不変", 0.0, bankOf(requester), DELTA);
+
+        MarketBuyOrder fulfilled = buyOrderDAO.getById(id);
+        assertEquals(MarketBuyOrder.STATUS_FULFILLED, fulfilled.getStatus());
+        assertEquals(supplier, fulfilled.getSupplierUuid());
+        assertEquals("SUPPLIED_BASE64", fulfilled.getItemData());
+    }
+
+    /**
+     * 二重供給防止：同一募集への 2 回目の供給決済は楽観ロックで弾かれる。
+     */
+    @Test
+    public void testFulfillDoubleSupplyRejected() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID supplier1 = createPlayer(0);
+        UUID supplier2 = createPlayer(0);
+        int id = createOpenOrder(requester, "DIAMOND", 10, 100);
+
+        FulfillOutcome first = manager.executeFulfillTransaction(supplier1, id, "ITEM1", System.currentTimeMillis());
+        FulfillOutcome second = manager.executeFulfillTransaction(supplier2, id, "ITEM2", System.currentTimeMillis());
+
+        assertTrue("最初の供給は成功", first.isSuccess());
+        assertEquals("2回目は成立済みで拒否", MarketResult.ORDER_NOT_AVAILABLE, second.getResult());
+        assertEquals("供給者は最初の供給者", supplier1, buyOrderDAO.getById(id).getSupplierUuid());
+        assertEquals("2人目の残高は不変", 0.0, bankOf(supplier2), DELTA);
+    }
+
+    // ---- キャンセル ----
+
+    @Test
+    public void testCancelBuyOrderSuccess() throws SQLException {
+        UUID requester = createPlayer(0);
+        int id = createOpenOrder(requester, "DIAMOND", 10, 100);
+
+        MarketResult result = manager.executeCancelBuyOrder(requester, id);
+
+        assertEquals(MarketResult.ORDER_CANCELLED, result);
+        assertEquals(MarketBuyOrder.STATUS_CANCELLED, buyOrderDAO.getById(id).getStatus());
+    }
+
+    @Test
+    public void testCancelBuyOrderNotOwner() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID other = createPlayer(0);
+        int id = createOpenOrder(requester, "DIAMOND", 10, 100);
+
+        MarketResult result = manager.executeCancelBuyOrder(other, id);
+
+        assertEquals("他人の募集はキャンセル不可", MarketResult.ORDER_NOT_OWNER, result);
+        assertEquals(MarketBuyOrder.STATUS_OPEN, buyOrderDAO.getById(id).getStatus());
+    }
+
+    @Test
+    public void testCancelBuyOrderAlreadyFulfilled() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID supplier = createPlayer(0);
+        int id = createOpenOrder(requester, "DIAMOND", 10, 100);
+        manager.executeFulfillTransaction(supplier, id, "ITEM", System.currentTimeMillis());
+
+        // 成立済み（open でない）はキャンセル不可
+        MarketResult result = manager.executeCancelBuyOrder(requester, id);
+
+        assertEquals(MarketResult.ORDER_NOT_AVAILABLE, result);
+    }
+
+    // ---- 回収 ----
+
+    @Test
+    public void testReclaimBuyOrderSuccess() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID supplier = createPlayer(0);
+        int id = createOpenOrder(requester, "DIAMOND", 10, 100);
+        manager.executeFulfillTransaction(supplier, id, "SUPPLIED", System.currentTimeMillis());
+
+        MarketResult result = manager.executeReclaimBuyOrder(requester, id, true);
+
+        assertEquals(MarketResult.ORDER_RECLAIMED, result);
+        assertEquals(MarketBuyOrder.STATUS_RECLAIMED, buyOrderDAO.getById(id).getStatus());
+    }
+
+    @Test
+    public void testReclaimBuyOrderNotFulfilled() throws SQLException {
+        UUID requester = createPlayer(0);
+        int id = createOpenOrder(requester, "DIAMOND", 10, 100);
+
+        // まだ open（未成立）は回収不可
+        MarketResult result = manager.executeReclaimBuyOrder(requester, id, true);
+
+        assertEquals(MarketResult.ORDER_NOT_AVAILABLE, result);
+    }
+
+    @Test
+    public void testReclaimBuyOrderInventoryFull() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID supplier = createPlayer(0);
+        int id = createOpenOrder(requester, "DIAMOND", 10, 100);
+        manager.executeFulfillTransaction(supplier, id, "SUPPLIED", System.currentTimeMillis());
+
+        // インベントリ空き無し → 回収拒否（status は fulfilled のまま）
+        MarketResult result = manager.executeReclaimBuyOrder(requester, id, false);
+
+        assertEquals(MarketResult.INVENTORY_FULL, result);
+        assertEquals(MarketBuyOrder.STATUS_FULFILLED, buyOrderDAO.getById(id).getStatus());
+    }
+
+    // ---- 期限切れ返金 ----
+
+    @Test
+    public void testExpireBuyOrdersRefundsToBank() throws SQLException {
+        UUID requester = createPlayer(0);
+        // 期限切れにするため listing_duration_days=0（無期限）を避け、過去失効を直接挿入する
+        MarketBuyOrder expiring = new MarketBuyOrder(requester, "Requester", "DIAMOND", 10, 100.0, 1000L);
+        buyOrderDAO.insertBuyOrder(expiring);
+        MarketBuyOrder permanent = new MarketBuyOrder(requester, "Requester", "DIAMOND", 5, 200.0, null);
+        buyOrderDAO.insertBuyOrder(permanent);
+
+        int count = manager.expireBuyOrders();
+
+        assertEquals("期限切れ返金は1件", 1, count);
+        assertEquals("前払い100が bank へ返金される", 100.0, bankOf(requester), DELTA);
+        assertEquals(MarketBuyOrder.STATUS_EXPIRED, buyOrderDAO.getById(expiring.getId()).getStatus());
+        assertEquals("無期限は対象外", MarketBuyOrder.STATUS_OPEN, buyOrderDAO.getById(permanent.getId()).getStatus());
+    }
+
+    @Test
+    public void testExpireBuyOrdersSkipsFulfilled() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID supplier = createPlayer(0);
+        MarketBuyOrder order = new MarketBuyOrder(requester, "Requester", "DIAMOND", 10, 100.0, 1000L);
+        buyOrderDAO.insertBuyOrder(order);
+        manager.executeFulfillTransaction(supplier, order.getId(), "ITEM", System.currentTimeMillis());
+
+        int count = manager.expireBuyOrders();
+
+        assertEquals("成立済みは期限切れ返金の対象外", 0, count);
+        assertEquals("募集者へ二重返金されない", 0.0, bankOf(requester), DELTA);
     }
 }

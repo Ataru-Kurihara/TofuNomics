@@ -8,11 +8,17 @@ package org.tofu.tofunomics.market;
  */
 public enum MarketResult {
 
-    // 成功
+    // 成功（売り）
     LISTED("listed"),
     PURCHASED("purchased"),
     CANCELLED("cancelled"),
     RECLAIMED("reclaimed"),
+
+    // 成功（買い注文＝募集）
+    REQUESTED("requested"),                 // 募集登録（前払い）
+    FULFILLED("fulfilled"),                 // 供給成立
+    ORDER_CANCELLED("request_cancelled"),   // 募集キャンセル＋返金
+    ORDER_RECLAIMED("request_reclaimed"),   // 成立した募集のアイテム回収
 
     // 失敗（出品）
     INVALID_ITEM("invalid_item"),
@@ -26,6 +32,12 @@ public enum MarketResult {
     INSUFFICIENT_FUNDS("insufficient_funds"),
     INVENTORY_FULL("inventory_full"),
     NOT_OWNER("not_owner"),
+
+    // 失敗（買い注文＝募集）
+    NO_MATCHING_ITEM("no_matching_item"),       // 供給アイテム不所持
+    ORDER_NOT_AVAILABLE("request_not_available"),// 募集が成立済み or 存在しない
+    ORDER_NOT_OWNER("request_not_owner"),        // 自分の募集ではない
+    ORDER_LIMIT("request_limit"),                // 募集上限超過
 
     // 失敗（共通）
     MARKET_DISABLED("error"),
@@ -48,6 +60,7 @@ public enum MarketResult {
      * 成功結果かどうか
      */
     public boolean isSuccess() {
-        return this == LISTED || this == PURCHASED || this == CANCELLED || this == RECLAIMED;
+        return this == LISTED || this == PURCHASED || this == CANCELLED || this == RECLAIMED
+                || this == REQUESTED || this == FULFILLED || this == ORDER_CANCELLED || this == ORDER_RECLAIMED;
     }
 }

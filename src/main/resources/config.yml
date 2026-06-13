@@ -2055,8 +2055,10 @@ market:
   listing_duration_days: 7        # 出品の有効日数（0で無期限）
   min_price: 1                    # 最低出品価格
   max_price: 1000000              # 最高出品価格
-  allow_self_purchase: false      # 自分の出品を購入可能にするか
+  allow_self_purchase: false      # 自分の出品を購入可能にするか（買い注文への自己供給可否も兼ねる）
   expire_check_interval: 3600     # 期限切れチェック間隔（秒）
+  max_buy_orders_per_player: 10   # 買い注文（募集）の同時保有上限
+  # fee_rate / listing_duration_days / min_price / max_price は買い注文と共用
 
 # メッセージ設定
 messages:
@@ -2078,6 +2080,17 @@ messages:
     insufficient_funds: "&c残高が不足しています。"
     inventory_full: "&cインベントリに空きがありません。アイテムを整理してください。"
     not_owner: "&cこれはあなたの出品ではありません。"
+    # 募集（買い注文）
+    requested: "&a%item% x%amount% の募集を &e%price% %currency%&a で登録しました（前払い）。"
+    fulfilled: "&a募集に応じ %item% x%amount% を供給しました。&e%proceeds% %currency%&a を受け取りました。"
+    fulfilled_notify: "&aあなたの募集（%item% x%amount%）が成立しました。アイテムは /market myrequests から回収できます。"
+    request_cancelled: "&a募集をキャンセルし、前払い分を返金しました。"
+    request_reclaimed: "&a成立した募集からアイテムを回収しました。"
+    request_expired_refund: "&e募集が期限切れになり、前払い分を返金しました。"
+    request_limit: "&c募集数の上限（%limit%）に達しています。"
+    no_matching_item: "&c供給するアイテム（%item% x%amount%）を所持していません。"
+    request_not_available: "&cこの募集は既に成立済みか、存在しません。"
+    request_not_owner: "&cこれはあなたの募集ではありません。"
     error: "&c処理中にエラーが発生しました。もう一度お試しください。"
   no_permission: "&c権限がありません。"
   player_not_found: "&cプレイヤーが見つかりません。"
