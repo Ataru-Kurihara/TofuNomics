@@ -262,6 +262,26 @@ public class DatabaseManager {
             "    expires_at INTEGER," +
             "    fulfilled_at TIMESTAMP," +
             "    FOREIGN KEY (requester_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
+            ");",
+
+            // プレイヤー間マーケットサービス依頼（修理・エンチャント募集）テーブル
+            "CREATE TABLE IF NOT EXISTS market_service_requests (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    requester_uuid TEXT NOT NULL," +
+            "    requester_name TEXT NOT NULL," +
+            "    service_type TEXT NOT NULL," +
+            "    material TEXT NOT NULL," +
+            "    item_data TEXT NOT NULL," +
+            "    enchant_type TEXT," +
+            "    enchant_level INTEGER," +
+            "    price REAL NOT NULL," +
+            "    status TEXT NOT NULL DEFAULT 'open'," +
+            "    worker_uuid TEXT," +
+            "    result_item_data TEXT," +
+            "    listed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+            "    expires_at INTEGER," +
+            "    fulfilled_at TIMESTAMP," +
+            "    FOREIGN KEY (requester_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
             ");"
         };
 
