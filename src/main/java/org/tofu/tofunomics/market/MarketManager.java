@@ -3,15 +3,18 @@ package org.tofu.tofunomics.market;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.MarketBuyOrderDAO;
 import org.tofu.tofunomics.dao.MarketListingDAO;
+import org.tofu.tofunomics.dao.MarketServiceRequestDAO;
 import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.economy.CurrencyConverter;
 import org.tofu.tofunomics.models.MarketBuyOrder;
 import org.tofu.tofunomics.models.MarketListing;
+import org.tofu.tofunomics.models.MarketServiceRequest;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -38,17 +41,20 @@ public class MarketManager {
     private final PlayerDAO playerDAO;
     private final MarketListingDAO listingDAO;
     private final MarketBuyOrderDAO buyOrderDAO;
+    private final MarketServiceRequestDAO serviceRequestDAO;
     private final ConfigManager configManager;
     private final CurrencyConverter currencyConverter;
     private final Logger logger;
 
     public MarketManager(Connection connection, PlayerDAO playerDAO, MarketListingDAO listingDAO,
-                         MarketBuyOrderDAO buyOrderDAO, ConfigManager configManager,
+                         MarketBuyOrderDAO buyOrderDAO, MarketServiceRequestDAO serviceRequestDAO,
+                         ConfigManager configManager,
                          CurrencyConverter currencyConverter, Logger logger) {
         this.connection = connection;
         this.playerDAO = playerDAO;
         this.listingDAO = listingDAO;
         this.buyOrderDAO = buyOrderDAO;
+        this.serviceRequestDAO = serviceRequestDAO;
         this.configManager = configManager;
         this.currencyConverter = currencyConverter;
         this.logger = logger;
@@ -425,6 +431,196 @@ public class MarketManager {
     }
 
     // ========================================================================
+    // サービス依頼（修理・エンチャント募集）コアロジック（Bukkit 非依存部分）
+    // ========================================================================
+
+    /**
+     * サービス依頼の DB 登録コア。バリデーション → 依頼上限 → INSERT を行う。
+     * アイテムのシリアライズ・手持ち除去・前払い回収は呼び出し側が担当する。
+     */
+    public MarketResult executeCreateServiceRequest(MarketServiceRequest req, long nowMillis) {
+        if (!configManager.isMarketEnabled() || !configManager.isMarketServiceEnabled()) {
+            return MarketResult.MARKET_DISABLED;
+        }
+        if (req == null || req.getItemData() == null) {
+            return MarketResult.INVALID_SERVICE_ITEM;
+        }
+        if (!isValidPrice(req.getPrice())) {
+            return MarketResult.INVALID_PRICE;
+        }
+        synchronized (connection) {
+            try {
+                if (serviceRequestDAO.countOpenByRequester(req.getRequesterUuid())
+                        >= configManager.getMarketServiceMaxRequestsPerPlayer()) {
+                    return MarketResult.SERVICE_LIMIT;
+                }
+                req.setExpiresAt(calculateExpiresAtMillis(nowMillis));
+                int id = serviceRequestDAO.insertServiceRequest(req);
+                return id > 0 ? MarketResult.SERVICE_REQUESTED : MarketResult.ERROR;
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "サービス依頼の登録に失敗しました", e);
+                return MarketResult.ERROR;
+            }
+        }
+    }
+
+    /**
+     * 加工決済コア（Bukkit 非依存）。手動トランザクションで楽観ロック・worker への入金を処理する。
+     * worker のリソース消費・アイテム加工・完成品のシリアライズは呼び出し側が行い、
+     * 本コアは「楽観ロックで fulfilled 化（worker/result_item_data 設定）→ worker へ手数料控除後を入金」のみ担当。
+     */
+    public ServiceFulfillOutcome executeFulfillServiceTransaction(UUID workerUuid, int requestId, String resultItemData, long nowMillis) {
+        synchronized (connection) {
+            try {
+                connection.setAutoCommit(false);
+
+                MarketServiceRequest req = serviceRequestDAO.getById(requestId);
+                if (req == null || !MarketServiceRequest.STATUS_OPEN.equals(req.getStatus())) {
+                    connection.rollback();
+                    return ServiceFulfillOutcome.failure(MarketResult.SERVICE_NOT_AVAILABLE);
+                }
+
+                // 楽観ロック：open の行のみ fulfilled 化。影響行数 1 以外は二重成立として中止
+                if (!serviceRequestDAO.markAsFulfilled(requestId, workerUuid, resultItemData, nowMillis)) {
+                    connection.rollback();
+                    return ServiceFulfillOutcome.failure(MarketResult.SERVICE_NOT_AVAILABLE);
+                }
+
+                long proceeds = calculateSellerProceeds(req.getPrice());
+                org.tofu.tofunomics.models.Player worker = playerDAO.getOrCreatePlayer(workerUuid);
+                worker.addBankBalance(proceeds);
+                playerDAO.updatePlayer(worker);
+
+                connection.commit();
+                return ServiceFulfillOutcome.success(proceeds);
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "サービス依頼の加工決済に失敗しました", e);
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackEx) {
+                    logger.log(Level.SEVERE, "ロールバックに失敗しました", rollbackEx);
+                }
+                return ServiceFulfillOutcome.failure(MarketResult.ERROR);
+            } finally {
+                try {
+                    connection.setAutoCommit(true);
+                } catch (SQLException e) {
+                    logger.log(Level.SEVERE, "setAutoCommit(true) に失敗しました", e);
+                }
+            }
+        }
+    }
+
+    /**
+     * 依頼キャンセルのステータス遷移コア（Bukkit 非依存）。
+     * 所有権・open 状態を検証し、楽観ロックで status を cancelled に遷移させる。
+     * 道具・前払いの返却は呼び出し側が遷移成功後に行う。
+     */
+    public MarketResult executeCancelServiceRequest(UUID requesterUuid, int requestId) {
+        synchronized (connection) {
+            try {
+                MarketServiceRequest req = serviceRequestDAO.getById(requestId);
+                if (req == null) {
+                    return MarketResult.SERVICE_NOT_AVAILABLE;
+                }
+                if (!req.getRequesterUuid().equals(requesterUuid)) {
+                    return MarketResult.SERVICE_NOT_OWNER;
+                }
+                if (!MarketServiceRequest.STATUS_OPEN.equals(req.getStatus())) {
+                    return MarketResult.SERVICE_NOT_AVAILABLE;
+                }
+                if (!serviceRequestDAO.updateStatusConditional(requestId,
+                        MarketServiceRequest.STATUS_OPEN, MarketServiceRequest.STATUS_CANCELLED)) {
+                    return MarketResult.SERVICE_NOT_AVAILABLE;
+                }
+                return MarketResult.SERVICE_CANCELLED;
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "サービス依頼のキャンセルに失敗しました", e);
+                return MarketResult.ERROR;
+            }
+        }
+    }
+
+    /**
+     * 完成品/返却アイテムの回収ステータス遷移コア（Bukkit 非依存）。
+     * fulfilled（完成品）または expired（期限切れの元道具）からの回収を許可し、
+     * 楽観ロックで status を reclaimed に遷移させる。アイテム付与は呼び出し側が遷移成功後に行う。
+     * （cancelled はキャンセル時に道具を即時返却済みのため対象外）
+     */
+    public MarketResult executeReclaimServiceRequest(UUID requesterUuid, int requestId, boolean hasInventorySpace) {
+        synchronized (connection) {
+            try {
+                MarketServiceRequest req = serviceRequestDAO.getById(requestId);
+                if (req == null) {
+                    return MarketResult.SERVICE_NOT_AVAILABLE;
+                }
+                if (!req.getRequesterUuid().equals(requesterUuid)) {
+                    return MarketResult.SERVICE_NOT_OWNER;
+                }
+                String status = req.getStatus();
+                boolean reclaimable = MarketServiceRequest.STATUS_FULFILLED.equals(status)
+                        || MarketServiceRequest.STATUS_EXPIRED.equals(status);
+                if (!reclaimable) {
+                    return MarketResult.SERVICE_NOT_AVAILABLE;
+                }
+                if (!hasInventorySpace) {
+                    return MarketResult.INVENTORY_FULL;
+                }
+                if (!serviceRequestDAO.updateStatusConditional(requestId, status, MarketServiceRequest.STATUS_RECLAIMED)) {
+                    return MarketResult.SERVICE_NOT_AVAILABLE;
+                }
+                return MarketResult.SERVICE_RECLAIMED;
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "サービス依頼のアイテム回収に失敗しました", e);
+                return MarketResult.ERROR;
+            }
+        }
+    }
+
+    /**
+     * 期限切れの open サービス依頼を expired 化し、前払い分を依頼者の bank へ返金する（定期タスクから呼ぶ）。
+     * 預けた道具は expired のまま残し、依頼者が後で /market reclaimservice で回収する。
+     * 全体を 1 トランザクションで囲み、楽観ロック UPDATE 成功時のみ返金して二重返金を防ぐ。
+     *
+     * @return 期限切れ返金した件数（失敗時は 0）
+     */
+    public int expireServiceRequests() {
+        synchronized (connection) {
+            try {
+                connection.setAutoCommit(false);
+                long now = System.currentTimeMillis();
+                List<MarketServiceRequest> expired = serviceRequestDAO.getExpiredOpenRequests(now);
+                int count = 0;
+                for (MarketServiceRequest req : expired) {
+                    if (serviceRequestDAO.updateStatusConditional(req.getId(),
+                            MarketServiceRequest.STATUS_OPEN, MarketServiceRequest.STATUS_EXPIRED)) {
+                        org.tofu.tofunomics.models.Player requester = playerDAO.getOrCreatePlayer(req.getRequesterUuid());
+                        requester.addBankBalance(req.getPrice());
+                        playerDAO.updatePlayer(requester);
+                        count++;
+                    }
+                }
+                connection.commit();
+                return count;
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "期限切れサービス依頼の返金処理に失敗しました", e);
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackEx) {
+                    logger.log(Level.SEVERE, "ロールバックに失敗しました", rollbackEx);
+                }
+                return 0;
+            } finally {
+                try {
+                    connection.setAutoCommit(true);
+                } catch (SQLException e) {
+                    logger.log(Level.SEVERE, "setAutoCommit(true) に失敗しました", e);
+                }
+            }
+        }
+    }
+
+    // ========================================================================
     // Bukkit 依存のラッパー（コマンド/GUI から呼ぶ）
     // ========================================================================
 
@@ -702,6 +898,260 @@ public class MarketManager {
             giveItem(requester, order.getItemData());
         }
         return result;
+    }
+
+    /**
+     * 手持ちの道具を修理依頼として登録する（道具と前払い報酬をエスクロー）。
+     */
+    public MarketResult createRepairRequest(Player requester, double price) {
+        if (!configManager.isMarketEnabled() || !configManager.isMarketServiceEnabled()) {
+            return MarketResult.MARKET_DISABLED;
+        }
+        if (!isValidPrice(price)) {
+            return MarketResult.INVALID_PRICE;
+        }
+        ItemStack item = requester.getInventory().getItemInMainHand();
+        if (item == null || item.getType() == Material.AIR) {
+            return MarketResult.INVALID_SERVICE_ITEM;
+        }
+        if (!ServiceProcessor.isRepairable(item)) {
+            return MarketResult.INVALID_SERVICE_ITEM;
+        }
+        String itemData = MarketItemSerializer.serialize(item);
+        if (itemData == null) {
+            return MarketResult.ERROR;
+        }
+        MarketServiceRequest req = MarketServiceRequest.createRepair(
+                requester.getUniqueId(), requester.getName(), item.getType().name(), itemData, price);
+        return submitServiceRequest(requester, req, price);
+    }
+
+    /**
+     * 手持ちの道具をエンチャント依頼として登録する（道具と前払い報酬をエスクロー）。
+     */
+    public MarketResult createEnchantRequest(Player requester, String enchantKey, int level, double price) {
+        if (!configManager.isMarketEnabled() || !configManager.isMarketServiceEnabled()) {
+            return MarketResult.MARKET_DISABLED;
+        }
+        if (!isValidPrice(price)) {
+            return MarketResult.INVALID_PRICE;
+        }
+        if (level <= 0 || level > configManager.getMarketServiceMaxEnchantLevel()) {
+            return MarketResult.INVALID_ENCHANT;
+        }
+        Enchantment enchantment = ServiceProcessor.resolveEnchantment(enchantKey);
+        if (enchantment == null
+                || !ServiceProcessor.isEnchantAllowed(enchantKey, configManager.getMarketServiceAllowedEnchantments())) {
+            return MarketResult.INVALID_ENCHANT;
+        }
+        ItemStack item = requester.getInventory().getItemInMainHand();
+        if (item == null || item.getType() == Material.AIR) {
+            return MarketResult.INVALID_SERVICE_ITEM;
+        }
+        String itemData = MarketItemSerializer.serialize(item);
+        if (itemData == null) {
+            return MarketResult.ERROR;
+        }
+        // 正規化された minecraft key で保存する
+        String canonicalKey = enchantment.getKey().getKey();
+        MarketServiceRequest req = MarketServiceRequest.createEnchant(
+                requester.getUniqueId(), requester.getName(), item.getType().name(),
+                itemData, canonicalKey, level, price);
+        return submitServiceRequest(requester, req, price);
+    }
+
+    /**
+     * サービス依頼の共通登録処理。依頼上限の事前チェック → 前払い回収 → DB 登録 →
+     * 成功時に手持ちの道具を除去、失敗時に前払いを返金する。
+     */
+    private MarketResult submitServiceRequest(Player requester, MarketServiceRequest req, double price) {
+        synchronized (connection) {
+            try {
+                if (serviceRequestDAO.countOpenByRequester(requester.getUniqueId())
+                        >= configManager.getMarketServiceMaxRequestsPerPlayer()) {
+                    return MarketResult.SERVICE_LIMIT;
+                }
+            } catch (SQLException e) {
+                logger.log(Level.WARNING, "依頼数の確認に失敗しました", e);
+                return MarketResult.ERROR;
+            }
+        }
+
+        if (!currencyConverter.payWithCash(requester, price)) {
+            return MarketResult.INSUFFICIENT_FUNDS;
+        }
+
+        MarketResult result = executeCreateServiceRequest(req, System.currentTimeMillis());
+
+        if (result == MarketResult.SERVICE_REQUESTED) {
+            // DB 登録成功後に手持ちの道具を除去（喪失防止：DB に確実に保存してから除去）
+            requester.getInventory().setItemInMainHand(null);
+        } else {
+            // 登録失敗 → 回収した前払いを返金
+            currencyConverter.receiveCash(requester, price, true);
+        }
+        return result;
+    }
+
+    /**
+     * サービス依頼を引き受けて加工を成立させる（システム自動代行）。
+     * worker が必要リソース（経験値・ラピス）を所持していれば、システムが仮想加工して完成品を保管する。
+     * リソース消費は DB コミット成功後に行う（アイテムは常にシステム保管のため不正取得は不可能）。
+     */
+    public MarketResult fulfillServiceRequest(Player worker, int requestId) {
+        if (!configManager.isMarketEnabled() || !configManager.isMarketServiceEnabled()) {
+            return MarketResult.MARKET_DISABLED;
+        }
+
+        MarketServiceRequest req;
+        try {
+            req = serviceRequestDAO.getById(requestId);
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "サービス依頼の取得に失敗しました", e);
+            return MarketResult.ERROR;
+        }
+        if (req == null || !MarketServiceRequest.STATUS_OPEN.equals(req.getStatus())) {
+            return MarketResult.SERVICE_NOT_AVAILABLE;
+        }
+        // 自己成立チェック（自分の依頼は引き受け不可）
+        if (!configManager.isMarketAllowSelfPurchase()
+                && req.getRequesterUuid().equals(worker.getUniqueId())) {
+            return MarketResult.SERVICE_NOT_AVAILABLE;
+        }
+
+        // 預かりアイテムを復元
+        ItemStack original = MarketItemSerializer.deserialize(req.getItemData());
+        if (original == null) {
+            logger.warning("サービス依頼の item_data デシリアライズに失敗しました（id=" + requestId + "）");
+            return MarketResult.ERROR;
+        }
+
+        // 加工と必要リソースの算出
+        int expCost;
+        int lapisCost = 0;
+        ItemStack processed;
+        if (req.isRepair()) {
+            expCost = configManager.getMarketServiceRepairExpCost();
+            processed = ServiceProcessor.applyRepair(original);
+            if (processed == null) {
+                return MarketResult.INVALID_SERVICE_ITEM;
+            }
+        } else if (req.isEnchant()) {
+            Enchantment enchantment = ServiceProcessor.resolveEnchantment(req.getEnchantType());
+            if (enchantment == null) {
+                return MarketResult.INVALID_ENCHANT;
+            }
+            int level = req.getEnchantLevel() != null ? req.getEnchantLevel() : 1;
+            expCost = configManager.getMarketServiceEnchantExpCostPerLevel() * level;
+            lapisCost = configManager.getMarketServiceEnchantLapisCost();
+            processed = ServiceProcessor.applyEnchant(original, enchantment, level);
+            if (processed == null) {
+                return MarketResult.INVALID_SERVICE_ITEM;
+            }
+        } else {
+            return MarketResult.ERROR;
+        }
+
+        // リソース所持チェック（消費は DB コミット成功後）
+        if (worker.getLevel() < expCost) {
+            return MarketResult.INSUFFICIENT_RESOURCES;
+        }
+        if (lapisCost > 0 && countMaterial(worker, Material.LAPIS_LAZULI) < lapisCost) {
+            return MarketResult.INSUFFICIENT_RESOURCES;
+        }
+
+        String resultData = MarketItemSerializer.serialize(processed);
+        if (resultData == null) {
+            return MarketResult.ERROR;
+        }
+
+        ServiceFulfillOutcome outcome = executeFulfillServiceTransaction(
+                worker.getUniqueId(), requestId, resultData, System.currentTimeMillis());
+
+        if (!outcome.isSuccess()) {
+            return outcome.getResult();
+        }
+
+        // 成立後に worker のリソースを消費する
+        worker.setLevel(Math.max(0, worker.getLevel() - expCost));
+        if (lapisCost > 0) {
+            removeMaterial(worker, Material.LAPIS_LAZULI, lapisCost);
+        }
+
+        notifyRequesterServiceFulfilled(req);
+        return outcome.getResult();
+    }
+
+    /**
+     * open のサービス依頼をキャンセルし、預けた道具と前払い分を即時返却する（依頼者本人＝オンライン前提）。
+     */
+    public MarketResult cancelServiceRequest(Player requester, int requestId) {
+        MarketServiceRequest req;
+        try {
+            req = serviceRequestDAO.getById(requestId);
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "サービス依頼の取得に失敗しました", e);
+            return MarketResult.ERROR;
+        }
+        if (req == null) {
+            return MarketResult.SERVICE_NOT_AVAILABLE;
+        }
+
+        MarketResult result = executeCancelServiceRequest(requester.getUniqueId(), requestId);
+
+        if (result == MarketResult.SERVICE_CANCELLED) {
+            // 状態遷移成功後に道具を返却し、前払いを返金
+            giveItem(requester, req.getItemData());
+            currencyConverter.receiveCash(requester, req.getPrice(), true);
+        }
+        return result;
+    }
+
+    /**
+     * 完成品（fulfilled）または期限切れの元道具（expired）を回収する。
+     */
+    public MarketResult reclaimServiceRequest(Player requester, int requestId) {
+        MarketServiceRequest req;
+        try {
+            req = serviceRequestDAO.getById(requestId);
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "サービス依頼の取得に失敗しました", e);
+            return MarketResult.ERROR;
+        }
+        if (req == null) {
+            return MarketResult.SERVICE_NOT_AVAILABLE;
+        }
+
+        boolean hasSpace = requester.getInventory().firstEmpty() != -1;
+        String statusBefore = req.getStatus();
+        MarketResult result = executeReclaimServiceRequest(requester.getUniqueId(), requestId, hasSpace);
+
+        if (result == MarketResult.SERVICE_RECLAIMED) {
+            // fulfilled → 完成品、expired → 預けた元道具
+            String data = MarketServiceRequest.STATUS_FULFILLED.equals(statusBefore)
+                    ? req.getResultItemData() : req.getItemData();
+            giveItem(requester, data);
+        }
+        return result;
+    }
+
+    /**
+     * 依頼者がオンラインなら加工完了を通知する。
+     */
+    private void notifyRequesterServiceFulfilled(MarketServiceRequest req) {
+        Player requester = Bukkit.getPlayer(req.getRequesterUuid());
+        if (requester != null && requester.isOnline()) {
+            requester.sendMessage(configManager.getMarketMessage("service_fulfilled_notify",
+                    "service", serviceLabel(req),
+                    "item", org.tofu.tofunomics.market.gui.MarketGUIUtil.prettifyMaterial(req.getMaterial())));
+        }
+    }
+
+    /**
+     * サービス種別の表示ラベル（%service% 用）。
+     */
+    private String serviceLabel(MarketServiceRequest req) {
+        return req.isRepair() ? "修理" : "エンチャント";
     }
 
     // ========================================================================

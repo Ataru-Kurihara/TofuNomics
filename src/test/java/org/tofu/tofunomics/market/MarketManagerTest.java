@@ -9,6 +9,7 @@ import org.tofu.tofunomics.dao.MarketListingDAO;
 import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.models.MarketBuyOrder;
 import org.tofu.tofunomics.models.MarketListing;
+import org.tofu.tofunomics.models.MarketServiceRequest;
 import org.tofu.tofunomics.models.Player;
 
 import java.sql.Connection;
@@ -35,6 +36,7 @@ public class MarketManagerTest {
     private PlayerDAO playerDAO;
     private MarketListingDAO listingDAO;
     private MarketBuyOrderDAO buyOrderDAO;
+    private org.tofu.tofunomics.dao.MarketServiceRequestDAO serviceRequestDAO;
     private ConfigManager configManager;
     private MarketManager manager;
     private final double DELTA = 0.001;
@@ -77,11 +79,28 @@ public class MarketManagerTest {
                     "listed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
                     "expires_at INTEGER," +
                     "fulfilled_at TIMESTAMP);");
+            st.execute("CREATE TABLE IF NOT EXISTS market_service_requests (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "requester_uuid TEXT NOT NULL," +
+                    "requester_name TEXT NOT NULL," +
+                    "service_type TEXT NOT NULL," +
+                    "material TEXT NOT NULL," +
+                    "item_data TEXT NOT NULL," +
+                    "enchant_type TEXT," +
+                    "enchant_level INTEGER," +
+                    "price REAL NOT NULL," +
+                    "status TEXT NOT NULL DEFAULT 'open'," +
+                    "worker_uuid TEXT," +
+                    "result_item_data TEXT," +
+                    "listed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                    "expires_at INTEGER," +
+                    "fulfilled_at TIMESTAMP);");
         }
 
         playerDAO = new PlayerDAO(connection);
         listingDAO = new MarketListingDAO(connection);
         buyOrderDAO = new MarketBuyOrderDAO(connection);
+        serviceRequestDAO = new org.tofu.tofunomics.dao.MarketServiceRequestDAO(connection);
 
         configManager = mock(ConfigManager.class);
         when(configManager.isMarketEnabled()).thenReturn(true);
@@ -92,11 +111,13 @@ public class MarketManagerTest {
         when(configManager.getMarketListingDurationDays()).thenReturn(7);
         when(configManager.isMarketAllowSelfPurchase()).thenReturn(false);
         when(configManager.getMarketMaxBuyOrdersPerPlayer()).thenReturn(10);
+        when(configManager.isMarketServiceEnabled()).thenReturn(true);
+        when(configManager.getMarketServiceMaxRequestsPerPlayer()).thenReturn(10);
 
         // currencyConverter は購入/供給の決済コアでは未使用のため null。
         // 現金回収・返金は Bukkit 依存ラッパー側で行うため E2E 検証に委ねる。
-        manager = new MarketManager(connection, playerDAO, listingDAO, buyOrderDAO, configManager,
-                null, Logger.getLogger("MarketManagerTest"));
+        manager = new MarketManager(connection, playerDAO, listingDAO, buyOrderDAO, serviceRequestDAO,
+                configManager, null, Logger.getLogger("MarketManagerTest"));
     }
 
     @After
@@ -512,5 +533,184 @@ public class MarketManagerTest {
 
         assertEquals("成立済みは期限切れ返金の対象外", 0, count);
         assertEquals("募集者へ二重返金されない", 0.0, bankOf(requester), DELTA);
+    }
+
+    // ========================================================================
+    // サービス依頼（修理・エンチャント募集）コアロジック
+    // ========================================================================
+
+    /** open の修理依頼を登録して id を返す（report 用ヘルパー） */
+    private int createOpenServiceRequest(UUID requester, double price) {
+        MarketServiceRequest req = MarketServiceRequest.createRepair(
+                requester, "Requester", "DIAMOND_PICKAXE", "ITEM_DATA", price);
+        MarketResult r = manager.executeCreateServiceRequest(req, System.currentTimeMillis());
+        assertEquals(MarketResult.SERVICE_REQUESTED, r);
+        return req.getId();
+    }
+
+    @Test
+    public void testExecuteCreateServiceRequestSuccess() throws SQLException {
+        UUID requester = createPlayer(0);
+        int id = createOpenServiceRequest(requester, 100);
+
+        MarketServiceRequest fetched = serviceRequestDAO.getById(id);
+        assertNotNull(fetched);
+        assertEquals(MarketServiceRequest.TYPE_REPAIR, fetched.getServiceType());
+        assertEquals(MarketServiceRequest.STATUS_OPEN, fetched.getStatus());
+    }
+
+    @Test
+    public void testExecuteCreateServiceRequestInvalidPrice() throws SQLException {
+        UUID requester = createPlayer(0);
+        MarketServiceRequest req = MarketServiceRequest.createRepair(
+                requester, "Requester", "DIAMOND_PICKAXE", "ITEM_DATA", 0);
+        assertEquals(MarketResult.INVALID_PRICE,
+                manager.executeCreateServiceRequest(req, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void testExecuteCreateServiceRequestLimit() throws SQLException {
+        UUID requester = createPlayer(0);
+        when(configManager.getMarketServiceMaxRequestsPerPlayer()).thenReturn(2);
+        createOpenServiceRequest(requester, 100);
+        createOpenServiceRequest(requester, 100);
+        MarketServiceRequest req = MarketServiceRequest.createRepair(
+                requester, "Requester", "DIAMOND_PICKAXE", "ITEM_DATA", 100);
+        assertEquals("上限到達で依頼拒否", MarketResult.SERVICE_LIMIT,
+                manager.executeCreateServiceRequest(req, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void testFulfillServiceSuccess() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID worker = createPlayer(0);
+        int id = createOpenServiceRequest(requester, 100);
+
+        ServiceFulfillOutcome outcome = manager.executeFulfillServiceTransaction(
+                worker, id, "RESULT_BASE64", System.currentTimeMillis());
+
+        assertTrue("加工成立", outcome.isSuccess());
+        assertEquals("worker受取=floor(100*0.95)=95", 95L, outcome.getWorkerProceeds());
+        assertEquals("workerの銀行残高=95", 95.0, bankOf(worker), DELTA);
+        assertEquals("依頼者の残高は不変", 0.0, bankOf(requester), DELTA);
+
+        MarketServiceRequest fulfilled = serviceRequestDAO.getById(id);
+        assertEquals(MarketServiceRequest.STATUS_FULFILLED, fulfilled.getStatus());
+        assertEquals(worker, fulfilled.getWorkerUuid());
+        assertEquals("RESULT_BASE64", fulfilled.getResultItemData());
+    }
+
+    /** 二重成立防止：同一依頼への2回目の加工決済は楽観ロックで弾かれる */
+    @Test
+    public void testFulfillServiceDoubleRejected() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID worker1 = createPlayer(0);
+        UUID worker2 = createPlayer(0);
+        int id = createOpenServiceRequest(requester, 100);
+
+        ServiceFulfillOutcome first = manager.executeFulfillServiceTransaction(worker1, id, "R1", System.currentTimeMillis());
+        ServiceFulfillOutcome second = manager.executeFulfillServiceTransaction(worker2, id, "R2", System.currentTimeMillis());
+
+        assertTrue("最初の成立は成功", first.isSuccess());
+        assertEquals("2回目は成立済みで拒否", MarketResult.SERVICE_NOT_AVAILABLE, second.getResult());
+        assertEquals("workerは最初の引受人", worker1, serviceRequestDAO.getById(id).getWorkerUuid());
+        assertEquals("2人目の残高は不変", 0.0, bankOf(worker2), DELTA);
+    }
+
+    @Test
+    public void testCancelServiceRequestSuccess() throws SQLException {
+        UUID requester = createPlayer(0);
+        int id = createOpenServiceRequest(requester, 100);
+
+        MarketResult result = manager.executeCancelServiceRequest(requester, id);
+
+        assertEquals(MarketResult.SERVICE_CANCELLED, result);
+        assertEquals(MarketServiceRequest.STATUS_CANCELLED, serviceRequestDAO.getById(id).getStatus());
+    }
+
+    @Test
+    public void testCancelServiceRequestNotOwner() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID other = createPlayer(0);
+        int id = createOpenServiceRequest(requester, 100);
+
+        MarketResult result = manager.executeCancelServiceRequest(other, id);
+
+        assertEquals("他人の依頼はキャンセル不可", MarketResult.SERVICE_NOT_OWNER, result);
+        assertEquals(MarketServiceRequest.STATUS_OPEN, serviceRequestDAO.getById(id).getStatus());
+    }
+
+    @Test
+    public void testReclaimServiceFulfilled() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID worker = createPlayer(0);
+        int id = createOpenServiceRequest(requester, 100);
+        manager.executeFulfillServiceTransaction(worker, id, "RESULT", System.currentTimeMillis());
+
+        MarketResult result = manager.executeReclaimServiceRequest(requester, id, true);
+
+        assertEquals(MarketResult.SERVICE_RECLAIMED, result);
+        assertEquals(MarketServiceRequest.STATUS_RECLAIMED, serviceRequestDAO.getById(id).getStatus());
+    }
+
+    @Test
+    public void testReclaimServiceCancelledNotReclaimable() throws SQLException {
+        UUID requester = createPlayer(0);
+        int id = createOpenServiceRequest(requester, 100);
+        manager.executeCancelServiceRequest(requester, id);
+
+        // cancelled はキャンセル時に道具を即時返却済みのため回収対象外
+        MarketResult result = manager.executeReclaimServiceRequest(requester, id, true);
+
+        assertEquals(MarketResult.SERVICE_NOT_AVAILABLE, result);
+    }
+
+    @Test
+    public void testReclaimServiceInventoryFull() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID worker = createPlayer(0);
+        int id = createOpenServiceRequest(requester, 100);
+        manager.executeFulfillServiceTransaction(worker, id, "RESULT", System.currentTimeMillis());
+
+        MarketResult result = manager.executeReclaimServiceRequest(requester, id, false);
+
+        assertEquals(MarketResult.INVENTORY_FULL, result);
+        assertEquals(MarketServiceRequest.STATUS_FULFILLED, serviceRequestDAO.getById(id).getStatus());
+    }
+
+    @Test
+    public void testExpireServiceRequestsRefundsToBank() throws SQLException {
+        UUID requester = createPlayer(0);
+        MarketServiceRequest expiring = MarketServiceRequest.createRepair(
+                requester, "Requester", "DIAMOND_PICKAXE", "ITEM", 100.0);
+        expiring.setExpiresAt(1000L);
+        serviceRequestDAO.insertServiceRequest(expiring);
+        MarketServiceRequest permanent = MarketServiceRequest.createRepair(
+                requester, "Requester", "DIAMOND_PICKAXE", "ITEM", 200.0);
+        permanent.setExpiresAt(null);
+        serviceRequestDAO.insertServiceRequest(permanent);
+
+        int count = manager.expireServiceRequests();
+
+        assertEquals("期限切れ返金は1件", 1, count);
+        assertEquals("前払い100がbankへ返金される", 100.0, bankOf(requester), DELTA);
+        assertEquals(MarketServiceRequest.STATUS_EXPIRED, serviceRequestDAO.getById(expiring.getId()).getStatus());
+        assertEquals("無期限は対象外", MarketServiceRequest.STATUS_OPEN, serviceRequestDAO.getById(permanent.getId()).getStatus());
+    }
+
+    @Test
+    public void testExpireServiceRequestsSkipsFulfilled() throws SQLException {
+        UUID requester = createPlayer(0);
+        UUID worker = createPlayer(0);
+        MarketServiceRequest req = MarketServiceRequest.createRepair(
+                requester, "Requester", "DIAMOND_PICKAXE", "ITEM", 100.0);
+        req.setExpiresAt(1000L);
+        serviceRequestDAO.insertServiceRequest(req);
+        manager.executeFulfillServiceTransaction(worker, req.getId(), "RESULT", System.currentTimeMillis());
+
+        int count = manager.expireServiceRequests();
+
+        assertEquals("成立済みは期限切れ返金の対象外", 0, count);
+        assertEquals("依頼者へ二重返金されない", 0.0, bankOf(requester), DELTA);
     }
 }

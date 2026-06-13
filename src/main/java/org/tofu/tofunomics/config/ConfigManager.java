@@ -376,6 +376,51 @@ public class ConfigManager {
         return config.getInt("market.max_buy_orders_per_player", 10);
     }
 
+    // サービス依頼（修理・エンチャント募集）設定
+    public boolean isMarketServiceEnabled() {
+        return config.getBoolean("market.service.enabled", true);
+    }
+
+    public int getMarketServiceMaxRequestsPerPlayer() {
+        return config.getInt("market.service.max_requests_per_player", 10);
+    }
+
+    /**
+     * 修理依頼を引き受ける際に worker が消費する経験値レベル数。
+     */
+    public int getMarketServiceRepairExpCost() {
+        return config.getInt("market.service.repair_exp_cost", 5);
+    }
+
+    /**
+     * エンチャント依頼を引き受ける際に worker が消費する、エンチャントレベル1あたりの経験値レベル数。
+     */
+    public int getMarketServiceEnchantExpCostPerLevel() {
+        return config.getInt("market.service.enchant_exp_cost_per_level", 3);
+    }
+
+    /**
+     * エンチャント依頼を引き受ける際に worker が消費するラピスラズリの個数。
+     */
+    public int getMarketServiceEnchantLapisCost() {
+        return config.getInt("market.service.enchant_lapis_cost", 3);
+    }
+
+    /**
+     * エンチャント依頼で指定可能なエンチャントの最大レベル。
+     */
+    public int getMarketServiceMaxEnchantLevel() {
+        return config.getInt("market.service.max_enchant_level", 5);
+    }
+
+    /**
+     * エンチャント依頼で許可するエンチャント（minecraft key の小文字）一覧。
+     * 空リストの場合は全エンチャント許可とみなす。
+     */
+    public java.util.List<String> getMarketServiceAllowedEnchantments() {
+        return config.getStringList("market.service.allowed_enchantments");
+    }
+
     /**
      * messages.market 配下のメッセージを取得（プレースホルダ置換対応）
      */
@@ -2539,6 +2584,20 @@ public class ConfigManager {
             ensureMessagePath("messages.market.no_matching_item", "&c供給するアイテム（%item% x%amount%）を所持していません。");
             ensureMessagePath("messages.market.request_not_available", "&cこの募集は既に成立済みか、存在しません。");
             ensureMessagePath("messages.market.request_not_owner", "&cこれはあなたの募集ではありません。");
+
+            // サービス依頼（修理・エンチャント募集）
+            ensureMessagePath("messages.market.service_requested", "&a%item% の%service%依頼を &e%price% %currency%&a で登録しました（前払い・道具を預けました）。");
+            ensureMessagePath("messages.market.service_fulfilled", "&a%item% の%service%依頼を引き受け、加工しました。&e%proceeds% %currency%&a を受け取りました。");
+            ensureMessagePath("messages.market.service_fulfilled_notify", "&aあなたの%service%依頼（%item%）が完了しました。/market myservices から受け取れます。");
+            ensureMessagePath("messages.market.service_cancelled", "&a依頼をキャンセルし、道具と前払い分を返却しました。");
+            ensureMessagePath("messages.market.service_reclaimed", "&a依頼した道具を受け取りました。");
+            ensureMessagePath("messages.market.service_expired_refund", "&e%service%依頼が期限切れになりました。道具は /market myservices から回収でき、前払い分は返金しました。");
+            ensureMessagePath("messages.market.service_limit", "&c依頼数の上限（%limit%）に達しています。");
+            ensureMessagePath("messages.market.insufficient_resources", "&c引き受けに必要なリソース（経験値・ラピスラズリ等）が不足しています。");
+            ensureMessagePath("messages.market.invalid_enchant", "&c指定したエンチャントが不正、または許可されていません。");
+            ensureMessagePath("messages.market.invalid_service_item", "&cこのアイテムはそのサービスの対象にできません（修理・エンチャント不可）。");
+            ensureMessagePath("messages.market.service_not_available", "&cこの依頼は既に成立済みか、存在しません。");
+            ensureMessagePath("messages.market.service_not_owner", "&cこれはあなたの依頼ではありません。");
         } catch (Exception e) {
             plugin.getLogger().warning("マーケットメッセージの初期化に失敗しました: " + e.getMessage());
         }
