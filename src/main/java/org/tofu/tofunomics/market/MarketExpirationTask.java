@@ -28,6 +28,12 @@ public class MarketExpirationTask extends BukkitRunnable {
             if (expired > 0) {
                 logger.info("マーケット: 期限切れ出品を " + expired + " 件 expired 化しました。");
             }
+
+            // 買い注文（募集）の期限切れ：前払い分を募集者の bank へ返金しつつ expired 化
+            int refunded = marketManager.expireBuyOrders();
+            if (refunded > 0) {
+                logger.info("マーケット: 期限切れ募集を " + refunded + " 件 返金・expired 化しました。");
+            }
         } catch (Exception e) {
             // タスクが例外で停止しないように握りつぶしてログのみ
             logger.warning("マーケット期限切れタスクの実行中にエラーが発生しました: " + e.getMessage());

@@ -30,17 +30,27 @@ public class MarketGUIListener implements Listener {
 
     private MarketBrowseGUI browseGUI;
     private MyListingsGUI myListingsGUI;
+    private BuyOrderBrowseGUI buyOrderBrowseGUI;
+    private MyBuyOrdersGUI myBuyOrdersGUI;
 
     public MarketGUIListener(TofuNomics plugin) {
         this.plugin = plugin;
     }
 
     /**
-     * GUI 参照を注入する（循環依存を避けるためセッターで後から設定）。
+     * 売り GUI 参照を注入する（循環依存を避けるためセッターで後から設定）。
      */
     public void setGUIs(MarketBrowseGUI browseGUI, MyListingsGUI myListingsGUI) {
         this.browseGUI = browseGUI;
         this.myListingsGUI = myListingsGUI;
+    }
+
+    /**
+     * 買い注文（募集）GUI 参照を注入する。
+     */
+    public void setBuyOrderGUIs(BuyOrderBrowseGUI buyOrderBrowseGUI, MyBuyOrdersGUI myBuyOrdersGUI) {
+        this.buyOrderBrowseGUI = buyOrderBrowseGUI;
+        this.myBuyOrdersGUI = myBuyOrdersGUI;
     }
 
     /**
@@ -92,6 +102,16 @@ public class MarketGUIListener implements Listener {
             case MY_LISTINGS:
                 if (myListingsGUI != null) {
                     myListingsGUI.handleClick(player, session, slot, clickType);
+                }
+                break;
+            case BUY_BROWSE:
+                if (buyOrderBrowseGUI != null) {
+                    buyOrderBrowseGUI.handleClick(player, session, slot, clickType);
+                }
+                break;
+            case MY_BUY_ORDERS:
+                if (myBuyOrdersGUI != null) {
+                    myBuyOrdersGUI.handleClick(player, session, slot, clickType);
                 }
                 break;
             default:

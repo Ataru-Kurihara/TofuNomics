@@ -1,6 +1,7 @@
 package org.tofu.tofunomics.market.gui;
 
 import org.bukkit.inventory.Inventory;
+import org.tofu.tofunomics.models.MarketBuyOrder;
 import org.tofu.tofunomics.models.MarketListing;
 
 import java.util.HashMap;
@@ -17,8 +18,10 @@ public class MarketGUISession {
 
     /** GUI の種別 */
     public enum Type {
-        BROWSE,       // マーケット一覧（全 active）
-        MY_LISTINGS   // 自分の出品管理
+        BROWSE,        // マーケット一覧（全 active）
+        MY_LISTINGS,   // 自分の出品管理
+        BUY_BROWSE,    // 募集一覧（全 open）
+        MY_BUY_ORDERS  // 自分の募集管理
     }
 
     private final UUID playerId;
@@ -31,6 +34,9 @@ public class MarketGUISession {
 
     // スロット番号 → そのスロットに表示している出品
     private final Map<Integer, MarketListing> slotListings = new HashMap<>();
+
+    // スロット番号 → そのスロットに表示している募集（買い注文 GUI でのみ使用）
+    private final Map<Integer, MarketBuyOrder> slotBuyOrders = new HashMap<>();
 
     public MarketGUISession(UUID playerId, Type type, Inventory inventory) {
         this.playerId = playerId;
@@ -68,10 +74,11 @@ public class MarketGUISession {
     }
 
     /**
-     * 描画時にスロット→出品のマッピングをクリアする
+     * 描画時にスロット→出品/募集のマッピングをクリアする（売り・買い両方）
      */
     public void clearSlotListings() {
         slotListings.clear();
+        slotBuyOrders.clear();
     }
 
     public void putSlotListing(int slot, MarketListing listing) {
@@ -83,5 +90,16 @@ public class MarketGUISession {
      */
     public MarketListing getListingAtSlot(int slot) {
         return slotListings.get(slot);
+    }
+
+    public void putSlotBuyOrder(int slot, MarketBuyOrder order) {
+        slotBuyOrders.put(slot, order);
+    }
+
+    /**
+     * クリックされたスロットに対応する募集を取得する（無ければ null）
+     */
+    public MarketBuyOrder getBuyOrderAtSlot(int slot) {
+        return slotBuyOrders.get(slot);
     }
 }
