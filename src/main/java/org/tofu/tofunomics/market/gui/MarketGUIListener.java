@@ -32,6 +32,8 @@ public class MarketGUIListener implements Listener {
     private MyListingsGUI myListingsGUI;
     private BuyOrderBrowseGUI buyOrderBrowseGUI;
     private MyBuyOrdersGUI myBuyOrdersGUI;
+    private ServiceBrowseGUI serviceBrowseGUI;
+    private MyServicesGUI myServicesGUI;
 
     public MarketGUIListener(TofuNomics plugin) {
         this.plugin = plugin;
@@ -51,6 +53,14 @@ public class MarketGUIListener implements Listener {
     public void setBuyOrderGUIs(BuyOrderBrowseGUI buyOrderBrowseGUI, MyBuyOrdersGUI myBuyOrdersGUI) {
         this.buyOrderBrowseGUI = buyOrderBrowseGUI;
         this.myBuyOrdersGUI = myBuyOrdersGUI;
+    }
+
+    /**
+     * サービス依頼（修理・エンチャント募集）GUI 参照を注入する。
+     */
+    public void setServiceGUIs(ServiceBrowseGUI serviceBrowseGUI, MyServicesGUI myServicesGUI) {
+        this.serviceBrowseGUI = serviceBrowseGUI;
+        this.myServicesGUI = myServicesGUI;
     }
 
     /**
@@ -112,6 +122,16 @@ public class MarketGUIListener implements Listener {
             case MY_BUY_ORDERS:
                 if (myBuyOrdersGUI != null) {
                     myBuyOrdersGUI.handleClick(player, session, slot, clickType);
+                }
+                break;
+            case SERVICE_BROWSE:
+                if (serviceBrowseGUI != null) {
+                    serviceBrowseGUI.handleClick(player, session, slot, clickType);
+                }
+                break;
+            case MY_SERVICES:
+                if (myServicesGUI != null) {
+                    myServicesGUI.handleClick(player, session, slot, clickType);
                 }
                 break;
             default:

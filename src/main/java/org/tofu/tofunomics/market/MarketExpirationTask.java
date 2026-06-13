@@ -34,6 +34,13 @@ public class MarketExpirationTask extends BukkitRunnable {
             if (refunded > 0) {
                 logger.info("マーケット: 期限切れ募集を " + refunded + " 件 返金・expired 化しました。");
             }
+
+            // サービス依頼（修理・エンチャント募集）の期限切れ：前払い分を依頼者の bank へ返金しつつ expired 化
+            // （預けた道具は expired のまま残し、依頼者が /market reclaimservice で回収する）
+            int serviceRefunded = marketManager.expireServiceRequests();
+            if (serviceRefunded > 0) {
+                logger.info("マーケット: 期限切れサービス依頼を " + serviceRefunded + " 件 返金・expired 化しました。");
+            }
         } catch (Exception e) {
             // タスクが例外で停止しないように握りつぶしてログのみ
             logger.warning("マーケット期限切れタスクの実行中にエラーが発生しました: " + e.getMessage());
