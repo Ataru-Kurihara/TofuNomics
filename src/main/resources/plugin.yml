@@ -89,7 +89,7 @@ commands:
     permission: tofunomics.citymap.use
   market:
     description: プレイヤー間マーケット
-    usage: /market <sell|mylistings|cancel|reclaim|buy|requests|myrequests|cancelrequest|reclaimrequest|reload> [args]
+    usage: /market <sell|mylistings|cancel|reclaim|buy|requests|myrequests|cancelrequest|reclaimrequest|repair|enchant|services|myservices|cancelservice|reclaimservice|reload> [args]
     aliases: [mk]
     permission: tofunomics.market.use
 
@@ -286,6 +286,7 @@ permissions:
       tofunomics.market.use: true
       tofunomics.market.sell: true
       tofunomics.market.buy: true
+      tofunomics.market.service: true
       tofunomics.market.admin: false
     default: op
 
@@ -299,6 +300,10 @@ permissions:
 
   tofunomics.market.buy:
     description: 募集（買い注文）の登録
+    default: true
+
+  tofunomics.market.service:
+    description: 修理・エンチャント募集（サービス依頼）の登録
     default: true
 
   tofunomics.market.admin:

@@ -10,6 +10,7 @@ import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.MarketBuyOrderDAO;
 import org.tofu.tofunomics.dao.MarketListingDAO;
+import org.tofu.tofunomics.dao.MarketServiceRequestDAO;
 import org.tofu.tofunomics.market.MarketManager;
 import org.tofu.tofunomics.market.MarketMessages;
 import org.tofu.tofunomics.market.MarketResult;
@@ -18,8 +19,11 @@ import org.tofu.tofunomics.market.gui.MarketBrowseGUI;
 import org.tofu.tofunomics.market.gui.MarketGUIUtil;
 import org.tofu.tofunomics.market.gui.MyBuyOrdersGUI;
 import org.tofu.tofunomics.market.gui.MyListingsGUI;
+import org.tofu.tofunomics.market.gui.MyServicesGUI;
+import org.tofu.tofunomics.market.gui.ServiceBrowseGUI;
 import org.tofu.tofunomics.models.MarketBuyOrder;
 import org.tofu.tofunomics.models.MarketListing;
+import org.tofu.tofunomics.models.MarketServiceRequest;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -49,29 +53,38 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
     private static final String PERM_USE = "tofunomics.market.use";
     private static final String PERM_SELL = "tofunomics.market.sell";
     private static final String PERM_BUY = "tofunomics.market.buy";
+    private static final String PERM_SERVICE = "tofunomics.market.service";
     private static final String PERM_ADMIN = "tofunomics.market.admin";
 
     private final ConfigManager configManager;
     private final MarketManager marketManager;
     private final MarketListingDAO listingDAO;
     private final MarketBuyOrderDAO buyOrderDAO;
+    private final MarketServiceRequestDAO serviceRequestDAO;
     private final MarketBrowseGUI browseGUI;
     private final MyListingsGUI myListingsGUI;
     private final BuyOrderBrowseGUI buyOrderBrowseGUI;
     private final MyBuyOrdersGUI myBuyOrdersGUI;
+    private final ServiceBrowseGUI serviceBrowseGUI;
+    private final MyServicesGUI myServicesGUI;
 
     public MarketCommand(ConfigManager configManager, MarketManager marketManager,
                          MarketListingDAO listingDAO, MarketBuyOrderDAO buyOrderDAO,
+                         MarketServiceRequestDAO serviceRequestDAO,
                          MarketBrowseGUI browseGUI, MyListingsGUI myListingsGUI,
-                         BuyOrderBrowseGUI buyOrderBrowseGUI, MyBuyOrdersGUI myBuyOrdersGUI) {
+                         BuyOrderBrowseGUI buyOrderBrowseGUI, MyBuyOrdersGUI myBuyOrdersGUI,
+                         ServiceBrowseGUI serviceBrowseGUI, MyServicesGUI myServicesGUI) {
         this.configManager = configManager;
         this.marketManager = marketManager;
         this.listingDAO = listingDAO;
         this.buyOrderDAO = buyOrderDAO;
+        this.serviceRequestDAO = serviceRequestDAO;
         this.browseGUI = browseGUI;
         this.myListingsGUI = myListingsGUI;
         this.buyOrderBrowseGUI = buyOrderBrowseGUI;
         this.myBuyOrdersGUI = myBuyOrdersGUI;
+        this.serviceBrowseGUI = serviceBrowseGUI;
+        this.myServicesGUI = myServicesGUI;
     }
 
     @Override
@@ -110,6 +123,18 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
                 return handleRequestAction(player, args, true);
             case "reclaimrequest":
                 return handleRequestAction(player, args, false);
+            case "repair":
+                return handleRepair(player, args);
+            case "enchant":
+                return handleEnchant(player, args);
+            case "services":
+                return handleServices(player);
+            case "myservices":
+                return handleMyServices(player);
+            case "cancelservice":
+                return handleServiceAction(player, args, true);
+            case "reclaimservice":
+                return handleServiceAction(player, args, false);
             case "reload":
                 return handleReload(player);
             case "help":
@@ -306,6 +331,137 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
                 "limit", String.valueOf(configManager.getMarketMaxBuyOrdersPerPlayer())));
     }
 
+    // ====================================================================
+    // サービス依頼（修理・エンチャント募集）サブコマンド
+    // ====================================================================
+
+    private boolean handleServices(Player player) {
+        if (!player.hasPermission(PERM_USE)) {
+            player.sendMessage(configManager.getMessage("no_permission"));
+            return true;
+        }
+        serviceBrowseGUI.open(player);
+        return true;
+    }
+
+    private boolean handleMyServices(Player player) {
+        if (!player.hasPermission(PERM_USE)) {
+            player.sendMessage(configManager.getMessage("no_permission"));
+            return true;
+        }
+        myServicesGUI.open(player);
+        return true;
+    }
+
+    private boolean handleRepair(Player player, String[] args) {
+        if (!player.hasPermission(PERM_SERVICE)) {
+            player.sendMessage(configManager.getMessage("no_permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            player.sendMessage("§e使い方: §f/market repair <報酬>（修理したい道具を手に持つ）");
+            return true;
+        }
+        double price;
+        try {
+            price = Double.parseDouble(args[1]);
+        } catch (NumberFormatException e) {
+            player.sendMessage("§c報酬は数値で指定してください。");
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        String itemName = (inHand != null && inHand.getType() != Material.AIR)
+                ? MarketGUIUtil.prettifyMaterial(inHand.getType().name()) : "";
+
+        MarketResult result = marketManager.createRepairRequest(player, price);
+        sendServiceMessage(player, result, itemName, "修理", price);
+        return true;
+    }
+
+    private boolean handleEnchant(Player player, String[] args) {
+        if (!player.hasPermission(PERM_SERVICE)) {
+            player.sendMessage(configManager.getMessage("no_permission"));
+            return true;
+        }
+        if (args.length < 4) {
+            player.sendMessage("§e使い方: §f/market enchant <エンチャント> <レベル> <報酬>（道具を手に持つ）");
+            return true;
+        }
+        String enchantKey = args[1];
+        int level;
+        double price;
+        try {
+            level = Integer.parseInt(args[2]);
+            price = Double.parseDouble(args[3]);
+        } catch (NumberFormatException e) {
+            player.sendMessage("§cレベルと報酬は数値で指定してください。");
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        String itemName = (inHand != null && inHand.getType() != Material.AIR)
+                ? MarketGUIUtil.prettifyMaterial(inHand.getType().name()) : "";
+
+        MarketResult result = marketManager.createEnchantRequest(player, enchantKey, level, price);
+        sendServiceMessage(player, result, itemName, "エンチャント", price);
+        return true;
+    }
+
+    private boolean handleServiceAction(Player player, String[] args, boolean cancel) {
+        if (!player.hasPermission(PERM_USE)) {
+            player.sendMessage(configManager.getMessage("no_permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            player.sendMessage("§e使い方: §f/market " + (cancel ? "cancelservice" : "reclaimservice") + " <ID>");
+            return true;
+        }
+        int requestId;
+        try {
+            requestId = Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            player.sendMessage("§cIDは数値で指定してください。");
+            return true;
+        }
+
+        // メッセージ用に依頼情報を先に取得（無くても続行）
+        String item = "";
+        String service = "";
+        double price = 0;
+        try {
+            MarketServiceRequest req = serviceRequestDAO.getById(requestId);
+            if (req != null) {
+                item = MarketGUIUtil.prettifyMaterial(req.getMaterial());
+                service = req.isRepair() ? "修理" : "エンチャント";
+                price = req.getPrice();
+            }
+        } catch (SQLException ignored) {
+            // 取得失敗時はプレースホルダ空のまま続行
+        }
+
+        MarketResult result = cancel
+                ? marketManager.cancelServiceRequest(player, requestId)
+                : marketManager.reclaimServiceRequest(player, requestId);
+        sendServiceMessage(player, result, item, service, price);
+        return true;
+    }
+
+    /**
+     * サービス依頼系の結果メッセージを、関連プレースホルダを埋めて送信する。
+     */
+    private void sendServiceMessage(Player player, MarketResult result, String item, String service, double price) {
+        player.sendMessage(configManager.getMarketMessage(result.getMessageKey(),
+                "item", item != null ? item : "",
+                "service", service != null ? service : "",
+                "price", MarketGUIUtil.formatPrice(price),
+                "proceeds", String.valueOf(marketManager.calculateSellerProceeds(price)),
+                "currency", configManager.getCurrencyName(),
+                "min", String.valueOf((long) configManager.getMarketMinPrice()),
+                "max", String.valueOf((long) configManager.getMarketMaxPrice()),
+                "limit", String.valueOf(configManager.getMarketServiceMaxRequestsPerPlayer())));
+    }
+
     private boolean handleReload(Player player) {
         if (!player.hasPermission(PERM_ADMIN)) {
             player.sendMessage(configManager.getMessage("no_permission"));
@@ -330,6 +486,13 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§e/market myrequests §7- 自分の募集を管理");
         player.sendMessage("§e/market cancelrequest <ID> §7- 募集をキャンセルして返金");
         player.sendMessage("§e/market reclaimrequest <ID> §7- 成立した募集のアイテムを回収");
+        player.sendMessage("§b▼ 修理・エンチャント募集");
+        player.sendMessage("§e/market repair <報酬> §7- 手持ちの道具の修理を依頼（前払い）");
+        player.sendMessage("§e/market enchant <エンチャント> <レベル> <報酬> §7- エンチャントを依頼（前払い）");
+        player.sendMessage("§e/market services §7- 依頼一覧を開く（引き受け）");
+        player.sendMessage("§e/market myservices §7- 自分の依頼を管理");
+        player.sendMessage("§e/market cancelservice <ID> §7- 依頼をキャンセルして道具と報酬を返却");
+        player.sendMessage("§e/market reclaimservice <ID> §7- 完成品/期限切れの道具を回収");
         if (player.hasPermission(PERM_ADMIN)) {
             player.sendMessage("§e/market reload §7- 設定を再読み込み（管理者）");
         }
@@ -342,7 +505,8 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             List<String> subs = new ArrayList<>(Arrays.asList(
                     "sell", "mylistings", "cancel", "reclaim",
-                    "buy", "requests", "myrequests", "cancelrequest", "reclaimrequest", "help"));
+                    "buy", "requests", "myrequests", "cancelrequest", "reclaimrequest",
+                    "repair", "enchant", "services", "myservices", "cancelservice", "reclaimservice", "help"));
             if (sender.hasPermission(PERM_ADMIN)) {
                 subs.add("reload");
             }
@@ -362,16 +526,58 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
                 completions.addAll(suggestListingIds(player, sub.equals("cancel")));
             } else if (sub.equals("cancelrequest") || sub.equals("reclaimrequest")) {
                 completions.addAll(suggestBuyOrderIds(player, sub.equals("cancelrequest")));
+            } else if (sub.equals("cancelservice") || sub.equals("reclaimservice")) {
+                completions.addAll(suggestServiceRequestIds(player, sub.equals("cancelservice")));
             } else if (sub.equals("buy")) {
                 // 第2引数（material）は手持ちアイテムの Material 名を候補として提示
                 ItemStack inHand = player.getInventory().getItemInMainHand();
                 if (inHand != null && inHand.getType() != Material.AIR) {
                     completions.add(inHand.getType().name());
                 }
+            } else if (sub.equals("enchant")) {
+                // 第2引数（エンチャント）は許可エンチャント一覧を候補として提示
+                String prefix = args[1].toLowerCase();
+                for (String ench : configManager.getMarketServiceAllowedEnchantments()) {
+                    if (ench != null && ench.toLowerCase().startsWith(prefix)) {
+                        completions.add(ench.toLowerCase());
+                    }
+                }
+            }
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("enchant")) {
+            // 第3引数（レベル）の候補
+            int max = configManager.getMarketServiceMaxEnchantLevel();
+            for (int i = 1; i <= max; i++) {
+                completions.add(String.valueOf(i));
             }
         }
 
         return completions;
+    }
+
+    /**
+     * 自分のサービス依頼のうち、操作可能な status の ID を補完候補として返す。
+     *
+     * @param openOnly true なら open（cancelservice 用）、false なら fulfilled/expired（reclaimservice 用）
+     */
+    private List<String> suggestServiceRequestIds(Player player, boolean openOnly) {
+        List<String> ids = new ArrayList<>();
+        try {
+            for (MarketServiceRequest req : serviceRequestDAO.getByRequester(player.getUniqueId())) {
+                String status = req.getStatus();
+                boolean match = openOnly
+                        ? MarketServiceRequest.STATUS_OPEN.equals(status)
+                        : (MarketServiceRequest.STATUS_FULFILLED.equals(status)
+                            || MarketServiceRequest.STATUS_EXPIRED.equals(status));
+                if (match) {
+                    ids.add(String.valueOf(req.getId()));
+                }
+            }
+        } catch (SQLException ignored) {
+            // 補完失敗時は候補なしで返す
+        }
+        return ids;
     }
 
     /**
