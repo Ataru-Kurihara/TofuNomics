@@ -2637,9 +2637,10 @@ leveling:
   # 経験値計算設定
   experience:
     # 必要経験値計算式: base_multiplier * ((level - 1) ^ exponent)
-    base_multiplier: 100
-    # リリース前バランス調整: 旧2.2(ハードコード) → 1.9 に緩和しLv100到達を現実的に
-    exponent: 1.9
+    # バランス調整(案1): 100→80。全体の必要経験値を約20%緩和しレベルを上げやすく
+    base_multiplier: 80
+    # バランス調整(案1): 1.9→1.7。高レベルの必要経験値の急騰を緩和
+    exponent: 1.7
 
     # 高レベル時の経験値獲得ペナルティ（実効 = max(minimum, 1.0 - level * factor)）
     # リリース前バランス調整: factor 0.01→0.005, minimum 0.1→0.4 に緩和
