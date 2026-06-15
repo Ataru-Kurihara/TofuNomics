@@ -9,6 +9,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.inventory.SmithItemEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -104,6 +105,7 @@ public class JobExperienceManager implements Listener {
         miningExperience.put(Material.NETHER_QUARTZ_ORE, 6.0);
         miningExperience.put(Material.COPPER_ORE, 5.0);  // 1.17追加。鉄鉱石相当
         miningExperience.put(Material.ANCIENT_DEBRIS, 50.0);
+        miningExperience.put(Material.NETHER_GOLD_ORE, 6.0);  // 1.16追加。金鉱石相当
         // STONE: 自然生成のみ経験値獲得（プレイヤー設置はUnifiedEventHandlerで除外）
         miningExperience.put(Material.STONE, 5.0);  // 0.5 → 5.0（メッセージ表示のため）
         // COBBLESTONE: 経験値なし（設置→採掘での無限経験値防止）
@@ -130,6 +132,10 @@ public class JobExperienceManager implements Listener {
         farmingExperience.put(Material.SUGAR_CANE, 1.0);
         farmingExperience.put(Material.COCOA_BEANS, 2.5);
         farmingExperience.put(Material.NETHER_WART, 3.0);
+        farmingExperience.put(Material.BAMBOO, 0.5);
+        farmingExperience.put(Material.CACTUS, 1.0);
+        farmingExperience.put(Material.BROWN_MUSHROOM, 1.5);
+        farmingExperience.put(Material.RED_MUSHROOM, 1.5);
         
         // 釣り経験値テーブル
         fishingExperience.put(PlayerFishEvent.State.CAUGHT_FISH, 5.0);
@@ -137,19 +143,84 @@ public class JobExperienceManager implements Listener {
         fishingExperience.put(PlayerFishEvent.State.IN_GROUND, 1.0);
         
         // 製作経験値テーブル（鍛冶屋）
+        // インゴット精錬
         craftingExperience.put(Material.IRON_INGOT, 3.0);
         craftingExperience.put(Material.GOLD_INGOT, 5.0);
-        craftingExperience.put(Material.IRON_SWORD, 8.0);
-        craftingExperience.put(Material.IRON_PICKAXE, 10.0);
-        craftingExperience.put(Material.IRON_AXE, 10.0);
-        craftingExperience.put(Material.IRON_SHOVEL, 6.0);
-        craftingExperience.put(Material.DIAMOND_SWORD, 20.0);
-        craftingExperience.put(Material.DIAMOND_PICKAXE, 25.0);
-        craftingExperience.put(Material.DIAMOND_AXE, 25.0);
         craftingExperience.put(Material.NETHERITE_INGOT, 50.0);
+        craftingExperience.put(Material.NETHERITE_SCRAP, 15.0);
+        // 剣
+        craftingExperience.put(Material.WOODEN_SWORD, 2.0);
+        craftingExperience.put(Material.STONE_SWORD, 3.0);
+        craftingExperience.put(Material.IRON_SWORD, 8.0);
+        craftingExperience.put(Material.GOLDEN_SWORD, 8.0);
+        craftingExperience.put(Material.DIAMOND_SWORD, 20.0);
+        craftingExperience.put(Material.NETHERITE_SWORD, 60.0);
+        // ツルハシ
+        craftingExperience.put(Material.WOODEN_PICKAXE, 2.0);
+        craftingExperience.put(Material.STONE_PICKAXE, 3.0);
+        craftingExperience.put(Material.IRON_PICKAXE, 10.0);
+        craftingExperience.put(Material.GOLDEN_PICKAXE, 10.0);
+        craftingExperience.put(Material.DIAMOND_PICKAXE, 25.0);
+        craftingExperience.put(Material.NETHERITE_PICKAXE, 70.0);
+        // 斧
+        craftingExperience.put(Material.WOODEN_AXE, 2.0);
+        craftingExperience.put(Material.STONE_AXE, 3.0);
+        craftingExperience.put(Material.IRON_AXE, 10.0);
+        craftingExperience.put(Material.GOLDEN_AXE, 10.0);
+        craftingExperience.put(Material.DIAMOND_AXE, 25.0);
+        craftingExperience.put(Material.NETHERITE_AXE, 70.0);
+        // シャベル
+        craftingExperience.put(Material.WOODEN_SHOVEL, 1.5);
+        craftingExperience.put(Material.STONE_SHOVEL, 2.0);
+        craftingExperience.put(Material.IRON_SHOVEL, 6.0);
+        craftingExperience.put(Material.GOLDEN_SHOVEL, 6.0);
+        craftingExperience.put(Material.DIAMOND_SHOVEL, 15.0);
+        craftingExperience.put(Material.NETHERITE_SHOVEL, 45.0);
+        // クワ
+        craftingExperience.put(Material.WOODEN_HOE, 1.5);
+        craftingExperience.put(Material.STONE_HOE, 2.0);
+        craftingExperience.put(Material.IRON_HOE, 6.0);
+        craftingExperience.put(Material.GOLDEN_HOE, 6.0);
+        craftingExperience.put(Material.DIAMOND_HOE, 15.0);
+        craftingExperience.put(Material.NETHERITE_HOE, 45.0);
+        // ヘルメット
+        craftingExperience.put(Material.LEATHER_HELMET, 2.0);
+        craftingExperience.put(Material.CHAINMAIL_HELMET, 12.0);
+        craftingExperience.put(Material.IRON_HELMET, 9.0);
+        craftingExperience.put(Material.GOLDEN_HELMET, 9.0);
+        craftingExperience.put(Material.DIAMOND_HELMET, 22.0);
+        craftingExperience.put(Material.NETHERITE_HELMET, 65.0);
+        // チェストプレート
+        craftingExperience.put(Material.LEATHER_CHESTPLATE, 3.0);
+        craftingExperience.put(Material.CHAINMAIL_CHESTPLATE, 18.0);
+        craftingExperience.put(Material.IRON_CHESTPLATE, 14.0);
+        craftingExperience.put(Material.GOLDEN_CHESTPLATE, 14.0);
+        craftingExperience.put(Material.DIAMOND_CHESTPLATE, 35.0);
+        craftingExperience.put(Material.NETHERITE_CHESTPLATE, 100.0);
+        // レギンス
+        craftingExperience.put(Material.LEATHER_LEGGINGS, 2.5);
+        craftingExperience.put(Material.CHAINMAIL_LEGGINGS, 16.0);
+        craftingExperience.put(Material.IRON_LEGGINGS, 12.0);
+        craftingExperience.put(Material.GOLDEN_LEGGINGS, 12.0);
+        craftingExperience.put(Material.DIAMOND_LEGGINGS, 30.0);
+        craftingExperience.put(Material.NETHERITE_LEGGINGS, 85.0);
+        // ブーツ
+        craftingExperience.put(Material.LEATHER_BOOTS, 2.0);
+        craftingExperience.put(Material.CHAINMAIL_BOOTS, 12.0);
+        craftingExperience.put(Material.IRON_BOOTS, 9.0);
+        craftingExperience.put(Material.GOLDEN_BOOTS, 9.0);
+        craftingExperience.put(Material.DIAMOND_BOOTS, 22.0);
+        craftingExperience.put(Material.NETHERITE_BOOTS, 65.0);
+        // その他装備
+        craftingExperience.put(Material.SHIELD, 10.0);
+        craftingExperience.put(Material.BOW, 8.0);
+        craftingExperience.put(Material.CROSSBOW, 10.0);
+        craftingExperience.put(Material.SHEARS, 5.0);
+        craftingExperience.put(Material.FLINT_AND_STEEL, 4.0);
+        craftingExperience.put(Material.FISHING_ROD, 6.0);
         
         // 醸造経験値テーブル
-        brewingExperience.put(Material.POTION, 5.0);
+        brewingExperience.put(Material.POTION, 8.0);
         brewingExperience.put(Material.SPLASH_POTION, 8.0);
         brewingExperience.put(Material.LINGERING_POTION, 12.0);
         
@@ -161,13 +232,41 @@ public class JobExperienceManager implements Listener {
         enchantingExperience.put(5, 50.0);
         
         // 建築経験値テーブル
-        buildingExperience.put(Material.STONE, 0.2);
-        buildingExperience.put(Material.COBBLESTONE, 0.1);
-        buildingExperience.put(Material.STONE_BRICKS, 0.5);
-        buildingExperience.put(Material.QUARTZ_BLOCK, 1.0);
+        // 石材・加工系（建築の主役）
+        buildingExperience.put(Material.STONE, 0.5);
+        buildingExperience.put(Material.SMOOTH_STONE, 1.0);
+        buildingExperience.put(Material.STONE_BRICKS, 1.0);
+        buildingExperience.put(Material.CHISELED_STONE_BRICKS, 1.5);
+        buildingExperience.put(Material.QUARTZ_BLOCK, 1.5);
+        buildingExperience.put(Material.QUARTZ_PILLAR, 1.5);
+        buildingExperience.put(Material.CHISELED_QUARTZ_BLOCK, 2.0);
         buildingExperience.put(Material.PRISMARINE, 1.5);
+        buildingExperience.put(Material.PRISMARINE_BRICKS, 2.0);
+        buildingExperience.put(Material.DARK_PRISMARINE, 2.0);
         buildingExperience.put(Material.PURPUR_BLOCK, 2.0);
+        buildingExperience.put(Material.PURPUR_PILLAR, 2.0);
         buildingExperience.put(Material.END_STONE_BRICKS, 2.5);
+        // レンガ・テラコッタ系
+        buildingExperience.put(Material.BRICKS, 1.5);
+        buildingExperience.put(Material.TERRACOTTA, 1.0);
+        buildingExperience.put(Material.WHITE_TERRACOTTA, 1.2);
+        buildingExperience.put(Material.NETHER_BRICKS, 1.5);
+        buildingExperience.put(Material.RED_NETHER_BRICKS, 2.0);
+        // 銅系
+        buildingExperience.put(Material.COPPER_BLOCK, 1.5);
+        // 木材・装飾系
+        buildingExperience.put(Material.OAK_PLANKS, 0.5);
+        buildingExperience.put(Material.SPRUCE_PLANKS, 0.5);
+        buildingExperience.put(Material.BIRCH_PLANKS, 0.5);
+        buildingExperience.put(Material.BOOKSHELF, 2.0);
+        // ガラス系
+        buildingExperience.put(Material.GLASS, 0.8);
+        buildingExperience.put(Material.WHITE_STAINED_GLASS, 1.0);
+        // 高級建材
+        buildingExperience.put(Material.SEA_LANTERN, 3.0);
+        buildingExperience.put(Material.GLOWSTONE, 2.5);
+        // 安価ブロック（設置→破壊ループ濫用防止のため低値据え置き）
+        buildingExperience.put(Material.COBBLESTONE, 0.1);
     }
     
     @EventHandler
@@ -226,6 +325,22 @@ public class JobExperienceManager implements Listener {
         }
     }
     
+    @EventHandler
+    public void onSmithItem(SmithItemEvent event) {
+        // 鍛冶テーブルでの製作（ネザライト装備のアップグレード等）に対応
+        if (!(event.getWhoClicked() instanceof Player)) return;
+
+        Player player = (Player) event.getWhoClicked();
+        if (event.getCurrentItem() == null) return;
+        Material smithedItem = event.getCurrentItem().getType();
+
+        if (jobManager.hasJob(player, "blacksmith") && craftingExperience.containsKey(smithedItem)) {
+            double baseExp = craftingExperience.get(smithedItem);
+            double multipliedExp = applyJobMultiplier(player, "blacksmith", baseExp);
+            giveJobExperience(player, "blacksmith", multipliedExp);
+        }
+    }
+
     @EventHandler
     public void onBrew(BrewEvent event) {
         // 醸造台の使用者を特定する必要がある（近くのプレイヤーをチェック）
