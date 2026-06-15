@@ -70,6 +70,47 @@ public class ServiceProcessor {
     }
 
     /**
+     * アイテムの現在の損耗値（damage）を返す。Damageable でなければ 0。
+     */
+    public static int getDamage(ItemStack item) {
+        if (item == null) {
+            return 0;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta instanceof Damageable) {
+            return ((Damageable) meta).getDamage();
+        }
+        return 0;
+    }
+
+    /**
+     * 損耗率（damage / maxDurability）に比例した修理経験値コストを計算する（Bukkit 非依存・単体テスト可能）。
+     *
+     * baseCost を「完全損耗（100%）時の最大コスト」とし、損耗が小さいほど安くなる。
+     * 結果は [minCost, baseCost] にクランプする。
+     *
+     * @param damage        現在の損耗値
+     * @param maxDurability アイテムの最大耐久
+     * @param baseCost      完全損耗時のコスト（config の repair_exp_cost）
+     * @param minCost       最低コスト
+     */
+    public static int scaledRepairExpCost(int damage, int maxDurability, int baseCost, int minCost) {
+        if (maxDurability <= 0) {
+            return minCost;
+        }
+        int clampedDamage = Math.max(0, Math.min(damage, maxDurability));
+        double fraction = (double) clampedDamage / (double) maxDurability;
+        int cost = (int) Math.ceil(baseCost * fraction);
+        if (cost < minCost) {
+            cost = minCost;
+        }
+        if (cost > baseCost) {
+            cost = baseCost;
+        }
+        return cost;
+    }
+
+    /**
      * 修理対象にできるアイテムか（耐久度を持つ＝Damageable かつ最大耐久 > 0）。
      */
     public static boolean isRepairable(ItemStack item) {

@@ -2073,7 +2073,9 @@ market:
   service:
     enabled: true
     max_requests_per_player: 10       # 1人あたり同時依頼上限
-    repair_exp_cost: 5                # 修理引受で worker が消費する経験値レベル
+    repair_exp_cost: 5                # 修理引受で worker が消費する経験値レベル（損耗スケール時は完全損耗時の最大値）
+    repair_exp_scale_by_damage: true  # 損耗率(damage/最大耐久)に比例して経験値コストを変動させる
+    repair_exp_min_cost: 1            # 損耗スケール時の最低消費経験値レベル
     enchant_exp_cost_per_level: 3     # エンチャント引受で消費する経験値レベル（×エンチャントレベル）
     enchant_lapis_cost: 3             # エンチャント引受で消費するラピスラズリ個数
     max_enchant_level: 5              # エンチャント依頼で指定可能な最大レベル

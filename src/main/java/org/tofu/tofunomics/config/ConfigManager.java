@@ -386,10 +386,25 @@ public class ConfigManager {
     }
 
     /**
-     * 修理依頼を引き受ける際に worker が消費する経験値レベル数。
+     * 修理依頼を引き受ける際に worker が消費する経験値レベル数（損耗スケール時は完全損耗時の最大値）。
      */
     public int getMarketServiceRepairExpCost() {
         return config.getInt("market.service.repair_exp_cost", 5);
+    }
+
+    /**
+     * 修理経験値コストを損耗率（damage/最大耐久）に比例させるか。
+     * false の場合は repair_exp_cost を一律消費する。
+     */
+    public boolean isMarketServiceRepairExpScaleByDamage() {
+        return config.getBoolean("market.service.repair_exp_scale_by_damage", true);
+    }
+
+    /**
+     * 損耗スケール時の最低消費経験値レベル。
+     */
+    public int getMarketServiceRepairExpMinCost() {
+        return config.getInt("market.service.repair_exp_min_cost", 1);
     }
 
     /**

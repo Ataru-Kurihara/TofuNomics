@@ -82,6 +82,22 @@ public class MarketManager {
     }
 
     /**
+     * 修理引受時に worker が消費する経験値レベルを計算する。
+     * 損耗スケールが有効なら、預けられた道具の損耗率に比例した値（[min, base]）を返す。
+     * GUI 表示と実際の消費の両方で本メソッドを用いる。
+     */
+    public int getRepairExpCost(ItemStack original) {
+        int base = configManager.getMarketServiceRepairExpCost();
+        if (original == null || !configManager.isMarketServiceRepairExpScaleByDamage()) {
+            return base;
+        }
+        int minCost = configManager.getMarketServiceRepairExpMinCost();
+        int damage = ServiceProcessor.getDamage(original);
+        int maxDurability = original.getType().getMaxDurability();
+        return ServiceProcessor.scaledRepairExpCost(damage, maxDurability, base, minCost);
+    }
+
+    /**
      * 失効時刻（epoch millis）を計算する。listing_duration_days が 0 以下なら無期限（null）。
      */
     private Long calculateExpiresAtMillis(long nowMillis) {
@@ -1031,7 +1047,7 @@ public class MarketManager {
         int lapisCost = 0;
         ItemStack processed;
         if (req.isRepair()) {
-            expCost = configManager.getMarketServiceRepairExpCost();
+            expCost = getRepairExpCost(original);
             processed = ServiceProcessor.applyRepair(original);
             if (processed == null) {
                 return MarketResult.INVALID_SERVICE_ITEM;

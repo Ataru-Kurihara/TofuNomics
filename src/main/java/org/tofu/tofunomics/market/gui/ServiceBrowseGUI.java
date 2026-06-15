@@ -196,7 +196,7 @@ public class ServiceBrowseGUI {
             lore.add("§7依頼者: §f" + req.getRequesterName());
             if (req.isRepair()) {
                 lore.add("§7内容: §b修理（耐久全回復）");
-                lore.add("§7必要: §f経験値 " + configManager.getMarketServiceRepairExpCost() + " レベル");
+                lore.add("§7必要: §f経験値 " + marketManager.getRepairExpCost(item) + " レベル §7(損耗に応じて変動)");
             } else {
                 int level = req.getEnchantLevel() != null ? req.getEnchantLevel() : 1;
                 lore.add("§7内容: §dエンチャント §f" + prettifyEnchant(req.getEnchantType()) + " " + level);
