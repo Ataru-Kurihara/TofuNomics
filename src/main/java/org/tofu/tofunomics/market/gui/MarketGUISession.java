@@ -19,6 +19,7 @@ public class MarketGUISession {
 
     /** GUI の種別 */
     public enum Type {
+        HUB,            // マーケットハブ（全操作の入口メニュー）
         BROWSE,         // マーケット一覧（全 active）
         MY_LISTINGS,    // 自分の出品管理
         BUY_BROWSE,     // 募集一覧（全 open）

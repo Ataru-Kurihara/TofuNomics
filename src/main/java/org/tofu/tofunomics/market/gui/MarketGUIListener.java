@@ -28,6 +28,7 @@ public class MarketGUIListener implements Listener {
     private final TofuNomics plugin;
     private final Map<UUID, MarketGUISession> sessions = new ConcurrentHashMap<>();
 
+    private MarketHubGUI hubGUI;
     private MarketBrowseGUI browseGUI;
     private MyListingsGUI myListingsGUI;
     private BuyOrderBrowseGUI buyOrderBrowseGUI;
@@ -38,6 +39,13 @@ public class MarketGUIListener implements Listener {
 
     public MarketGUIListener(TofuNomics plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * ハブ GUI 参照を注入する（循環依存を避けるためセッターで後から設定）。
+     */
+    public void setHubGUI(MarketHubGUI hubGUI) {
+        this.hubGUI = hubGUI;
     }
 
     /**
@@ -112,6 +120,11 @@ public class MarketGUIListener implements Listener {
     private void dispatchClick(Player player, MarketGUISession session, int slot,
                                org.bukkit.event.inventory.ClickType clickType) {
         switch (session.getType()) {
+            case HUB:
+                if (hubGUI != null) {
+                    hubGUI.handleClick(player, session, slot, clickType);
+                }
+                break;
             case BROWSE:
                 if (browseGUI != null) {
                     browseGUI.handleClick(player, session, slot, clickType);

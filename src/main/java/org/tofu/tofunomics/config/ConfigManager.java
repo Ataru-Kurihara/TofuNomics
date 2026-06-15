@@ -2660,6 +2660,11 @@ public class ConfigManager {
             ensureMessagePath("messages.market.invalid_service_item", "&cこのアイテムはそのサービスの対象にできません（修理・エンチャント不可）。");
             ensureMessagePath("messages.market.service_not_available", "&cこの依頼は既に成立済みか、存在しません。");
             ensureMessagePath("messages.market.service_not_owner", "&cこれはあなたの依頼ではありません。");
+
+            // GUI チャット入力プロンプト
+            ensureMessagePath("messages.market.input_timeout", "&c入力がタイムアウトしました。最初からやり直してください。");
+            ensureMessagePath("messages.market.input_cancelled", "&7入力を中止しました。");
+            ensureMessagePath("messages.market.input_invalid_number", "&c数値で入力してください。");
         } catch (Exception e) {
             plugin.getLogger().warning("マーケットメッセージの初期化に失敗しました: " + e.getMessage());
         }

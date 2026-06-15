@@ -15,8 +15,8 @@ import org.tofu.tofunomics.market.MarketManager;
 import org.tofu.tofunomics.market.MarketMessages;
 import org.tofu.tofunomics.market.MarketResult;
 import org.tofu.tofunomics.market.gui.BuyOrderBrowseGUI;
-import org.tofu.tofunomics.market.gui.MarketBrowseGUI;
 import org.tofu.tofunomics.market.gui.MarketGUIUtil;
+import org.tofu.tofunomics.market.gui.MarketHubGUI;
 import org.tofu.tofunomics.market.gui.MyBuyOrdersGUI;
 import org.tofu.tofunomics.market.gui.MyListingsGUI;
 import org.tofu.tofunomics.market.gui.MyServicesGUI;
@@ -61,7 +61,7 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
     private final MarketListingDAO listingDAO;
     private final MarketBuyOrderDAO buyOrderDAO;
     private final MarketServiceRequestDAO serviceRequestDAO;
-    private final MarketBrowseGUI browseGUI;
+    private final MarketHubGUI hubGUI;
     private final MyListingsGUI myListingsGUI;
     private final BuyOrderBrowseGUI buyOrderBrowseGUI;
     private final MyBuyOrdersGUI myBuyOrdersGUI;
@@ -71,7 +71,8 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
     public MarketCommand(ConfigManager configManager, MarketManager marketManager,
                          MarketListingDAO listingDAO, MarketBuyOrderDAO buyOrderDAO,
                          MarketServiceRequestDAO serviceRequestDAO,
-                         MarketBrowseGUI browseGUI, MyListingsGUI myListingsGUI,
+                         MarketHubGUI hubGUI,
+                         MyListingsGUI myListingsGUI,
                          BuyOrderBrowseGUI buyOrderBrowseGUI, MyBuyOrdersGUI myBuyOrdersGUI,
                          ServiceBrowseGUI serviceBrowseGUI, MyServicesGUI myServicesGUI) {
         this.configManager = configManager;
@@ -79,7 +80,7 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
         this.listingDAO = listingDAO;
         this.buyOrderDAO = buyOrderDAO;
         this.serviceRequestDAO = serviceRequestDAO;
-        this.browseGUI = browseGUI;
+        this.hubGUI = hubGUI;
         this.myListingsGUI = myListingsGUI;
         this.buyOrderBrowseGUI = buyOrderBrowseGUI;
         this.myBuyOrdersGUI = myBuyOrdersGUI;
@@ -100,7 +101,7 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
         Player player = (Player) sender;
 
         if (args.length == 0) {
-            return handleBrowse(player);
+            return handleHub(player);
         }
 
         switch (args[0].toLowerCase()) {
@@ -146,12 +147,12 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private boolean handleBrowse(Player player) {
+    private boolean handleHub(Player player) {
         if (!player.hasPermission(PERM_USE)) {
             player.sendMessage(configManager.getMessage("no_permission"));
             return true;
         }
-        browseGUI.open(player);
+        hubGUI.open(player);
         return true;
     }
 
@@ -474,8 +475,8 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
 
     private void sendUsage(Player player) {
         player.sendMessage("§6=== マーケットコマンド ===");
+        player.sendMessage("§e/market §7- マーケットGUIを開く（推奨・全操作の入口）");
         player.sendMessage("§b▼ 売り");
-        player.sendMessage("§e/market §7- 出品一覧を開く");
         player.sendMessage("§e/market sell <価格> §7- 手持ちアイテムを出品");
         player.sendMessage("§e/market mylistings §7- 自分の出品を管理");
         player.sendMessage("§e/market cancel <ID> §7- 出品をキャンセルして回収");
