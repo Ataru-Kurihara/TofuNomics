@@ -258,12 +258,15 @@ public class ServiceBrowseGUI {
         }
 
         // 鍛冶屋・エンチャンターかつ金床所持を確認してから作業GUIを開く
+        // 不適合時はGUIを閉じてからメッセージを送る（インベントリを開いたままだとチャットが見えないため）
         ServiceEligibility.Result eligibility = ServiceEligibility.evaluate(player, jobManager, configManager);
         if (eligibility == ServiceEligibility.Result.WRONG_JOB) {
+            player.closeInventory();
             player.sendMessage(configManager.getMarketMessage("service_requires_job"));
             return;
         }
         if (eligibility == ServiceEligibility.Result.NO_ANVIL) {
+            player.closeInventory();
             player.sendMessage(configManager.getMarketMessage("service_requires_anvil"));
             return;
         }
