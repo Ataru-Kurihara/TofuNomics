@@ -1617,9 +1617,35 @@ public class ConfigManager {
 
     /**
      * 職業レベルをバニラ経験値バーに反映するかどうか
+     *
+     * @deprecated 職業レベル表示は JobLevelBossBarManager（BossBar）へ移設済み。
+     *             XP バーはバニラ経験値に解放したため、この設定はもう参照されない。
+     *             代わりに {@link #isJobBossBarEnabled()} を使用する。
      */
+    @Deprecated
     public boolean isVanillaExpBarEnabled() {
         return (Boolean) getCachedValue("scoreboard.vanilla_exp_bar", true);
+    }
+
+    /**
+     * 職業レベルを BossBar で表示するかどうか
+     */
+    public boolean isJobBossBarEnabled() {
+        return (Boolean) getCachedValue("scoreboard.job_bossbar.enabled", true);
+    }
+
+    /**
+     * 職業レベル BossBar の色（BarColor 名。例: GREEN, BLUE, YELLOW）
+     */
+    public String getJobBossBarColor() {
+        return (String) getCachedValue("scoreboard.job_bossbar.color", "GREEN");
+    }
+
+    /**
+     * 職業レベル BossBar のタイトル書式（%job% / %level% / %percent% を置換）
+     */
+    public String getJobBossBarTitleFormat() {
+        return (String) getCachedValue("scoreboard.job_bossbar.title_format", "&e%job% &fLv.%level% &7(%percent%%)");
     }
 
     /**

@@ -1994,10 +1994,19 @@ scoreboard:
   # 更新間隔（秒）
   update_interval: 1
 
-  # 職業レベルをバニラ経験値バー（画面下のレベル数字・緑バー）に反映する
-  # true: 現在の職業のレベルと次レベルまでの進捗をバニラ経験値バーに表示
-  # 対象ワールド外や職業なしの場合はバーを0にリセットする
+  # 【非推奨】職業レベルをバニラ経験値バーに反映する旧設定。
+  # 職業レベル表示は job_bossbar（BossBar）へ移設したため、この設定はもう参照されない。
+  # XPバーはバニラ経験値に解放されている。
   vanilla_exp_bar: true
+
+  # 職業レベルをBossBar（画面上部のバー）で表示する
+  # XPバーを職業レベルに使わずバニラ経験値に解放するため、職業レベルはここで表示する
+  job_bossbar:
+    enabled: true
+    # バーの色（GREEN / BLUE / RED / YELLOW / PURPLE / PINK / WHITE）
+    color: "GREEN"
+    # タイトル書式（%job%=職業名, %level%=レベル, %percent%=次レベルまでの進捗% または MAX）
+    title_format: "&e%job% &fLv.%level% &7(%percent%%)"
 
   # スコアボード表示対象ワールド
   enabled_worlds:

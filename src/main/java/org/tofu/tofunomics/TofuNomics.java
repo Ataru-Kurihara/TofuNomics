@@ -85,6 +85,8 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager;
     // 取引営業時間BossBarシステム
     private org.tofu.tofunomics.scoreboard.BossBarManager bossBarManager;
+    // 職業レベルBossBarシステム
+    private org.tofu.tofunomics.scoreboard.JobLevelBossBarManager jobLevelBossBarManager;
 
     // NPCシステム（新機能）
     private org.tofu.tofunomics.npc.NPCManager npcManager;
@@ -232,6 +234,11 @@ public final class TofuNomics extends JavaPlugin {
         // BossBarシステムのクリーンアップ
         if (bossBarManager != null) {
             bossBarManager.shutdown();
+        }
+
+        // 職業レベルBossBarシステムのクリーンアップ
+        if (jobLevelBossBarManager != null) {
+            jobLevelBossBarManager.shutdown();
         }
 
         // NPCシステムのクリーンアップ
@@ -625,9 +632,14 @@ public final class TofuNomics extends JavaPlugin {
             
             getLogger().info("スコアボードシステムを初期化しました");
 
-            // 職業レベルのバニラ経験値バー反映を即時化するため、JobExperienceManagerに注入
+            // 職業レベルBossBarシステムの初期化（XPバーを使わず職業レベルをBossBar表示）
+            jobLevelBossBarManager = new org.tofu.tofunomics.scoreboard.JobLevelBossBarManager(
+                this, configManager, jobManager);
+            getLogger().info("職業レベルBossBarシステムを初期化しました");
+
+            // 職業レベルBossBarの即時反映のため、JobExperienceManagerに注入
             if (jobExperienceManager != null) {
-                jobExperienceManager.setScoreboardManager(scoreboardManager);
+                jobExperienceManager.setJobLevelBossBarManager(jobLevelBossBarManager);
             }
 
             // 取引営業時間BossBarシステムの初期化
@@ -686,6 +698,12 @@ public final class TofuNomics extends JavaPlugin {
             if (bossBarManager != null) {
                 getServer().getPluginManager().registerEvents(bossBarManager, this);
                 getLogger().info("BossBarシステムリスナーを登録しました");
+            }
+
+            // 職業レベルBossBarマネージャーリスナーの登録
+            if (jobLevelBossBarManager != null) {
+                getServer().getPluginManager().registerEvents(jobLevelBossBarManager, this);
+                getLogger().info("職業レベルBossBarシステムリスナーを登録しました");
             }
             
             // NPCシステムリスナーの登録
