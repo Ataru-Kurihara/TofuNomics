@@ -1,11 +1,7 @@
-{
-  "hooks": {
-    "verify": {
-      "allowedCommands": [
-        "mvn clean verify",
-        "mvn test",
-        "mvn package"
+  {
+    "permissions": {
+      "allow": [
+        "Bash(ssh lobby:*)"
       ]
     }
   }
-}

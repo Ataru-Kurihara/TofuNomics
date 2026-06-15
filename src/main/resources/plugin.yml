@@ -87,6 +87,11 @@ commands:
     description: 中心都市の案内地図を入手する
     usage: /citymap
     permission: tofunomics.citymap.use
+  market:
+    description: プレイヤー間マーケット
+    usage: /market <sell|mylistings|cancel|reclaim|buy|requests|myrequests|cancelrequest|reclaimrequest|repair|enchant|services|myservices|cancelservice|reclaimservice|reload> [args]
+    aliases: [mk]
+    permission: tofunomics.market.use
 
 permissions:
   tofunomics.*:
@@ -100,6 +105,7 @@ permissions:
       tofunomics.jobs.*: true
       tofunomics.trade.*: true
       tofunomics.scoreboard.*: true
+      tofunomics.market.*: true
       tofunomics.admin: false
     default: op
   
@@ -272,4 +278,34 @@ permissions:
   
   tofunomics.rules.reset:
     description: ルール同意状態をリセット（テスト用）
+    default: op
+
+  tofunomics.market.*:
+    description: プレイヤー間マーケット関連権限（全て）
+    children:
+      tofunomics.market.use: true
+      tofunomics.market.sell: true
+      tofunomics.market.buy: true
+      tofunomics.market.service: true
+      tofunomics.market.admin: false
+    default: op
+
+  tofunomics.market.use:
+    description: マーケットの閲覧・購入・自分の出品/募集管理
+    default: true
+
+  tofunomics.market.sell:
+    description: マーケットへの出品
+    default: true
+
+  tofunomics.market.buy:
+    description: 募集（買い注文）の登録
+    default: true
+
+  tofunomics.market.service:
+    description: 修理・エンチャント募集（サービス依頼）の登録
+    default: true
+
+  tofunomics.market.admin:
+    description: マーケットの管理操作（設定再読み込み等）
     default: op

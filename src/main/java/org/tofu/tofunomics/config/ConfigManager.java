@@ -337,7 +337,131 @@ public class ConfigManager {
     public double getMaxDeposit() {
         return config.getDouble("economy.withdraw_deposit.max_deposit", 10000.0);
     }
-    
+
+    // ========== プレイヤー間マーケット設定 ==========
+
+    public boolean isMarketEnabled() {
+        return config.getBoolean("market.enabled", true);
+    }
+
+    public double getMarketFeeRate() {
+        return config.getDouble("market.fee_rate", 0.05);
+    }
+
+    public int getMarketMaxListingsPerPlayer() {
+        return config.getInt("market.max_listings_per_player", 10);
+    }
+
+    public int getMarketListingDurationDays() {
+        return config.getInt("market.listing_duration_days", 7);
+    }
+
+    public double getMarketMinPrice() {
+        return config.getDouble("market.min_price", 1);
+    }
+
+    public double getMarketMaxPrice() {
+        return config.getDouble("market.max_price", 1000000);
+    }
+
+    public boolean isMarketAllowSelfPurchase() {
+        return config.getBoolean("market.allow_self_purchase", false);
+    }
+
+    public int getMarketExpireCheckInterval() {
+        return config.getInt("market.expire_check_interval", 3600);
+    }
+
+    public int getMarketMaxBuyOrdersPerPlayer() {
+        return config.getInt("market.max_buy_orders_per_player", 10);
+    }
+
+    // サービス依頼（修理・エンチャント募集）設定
+    public boolean isMarketServiceEnabled() {
+        return config.getBoolean("market.service.enabled", true);
+    }
+
+    public int getMarketServiceMaxRequestsPerPlayer() {
+        return config.getInt("market.service.max_requests_per_player", 10);
+    }
+
+    /**
+     * 修理依頼を引き受ける際に worker が消費する経験値レベル数（損耗スケール時は完全損耗時の最大値）。
+     */
+    public int getMarketServiceRepairExpCost() {
+        return config.getInt("market.service.repair_exp_cost", 5);
+    }
+
+    /**
+     * 修理経験値コストを損耗率（damage/最大耐久）に比例させるか。
+     * false の場合は repair_exp_cost を一律消費する。
+     */
+    public boolean isMarketServiceRepairExpScaleByDamage() {
+        return config.getBoolean("market.service.repair_exp_scale_by_damage", true);
+    }
+
+    /**
+     * 損耗スケール時の最低消費経験値レベル。
+     */
+    public int getMarketServiceRepairExpMinCost() {
+        return config.getInt("market.service.repair_exp_min_cost", 1);
+    }
+
+    /**
+     * エンチャント依頼を引き受ける際に worker が消費する、エンチャントレベル1あたりの経験値レベル数。
+     */
+    public int getMarketServiceEnchantExpCostPerLevel() {
+        return config.getInt("market.service.enchant_exp_cost_per_level", 3);
+    }
+
+    /**
+     * エンチャント依頼を引き受ける際に worker が消費するラピスラズリの個数。
+     */
+    public int getMarketServiceEnchantLapisCost() {
+        return config.getInt("market.service.enchant_lapis_cost", 3);
+    }
+
+    /**
+     * エンチャント依頼で指定可能なエンチャントの最大レベル。
+     */
+    public int getMarketServiceMaxEnchantLevel() {
+        return config.getInt("market.service.max_enchant_level", 5);
+    }
+
+    /**
+     * エンチャント依頼で許可するエンチャント（minecraft key の小文字）一覧。
+     * 空リストの場合は全エンチャント許可とみなす。
+     */
+    public java.util.List<String> getMarketServiceAllowedEnchantments() {
+        return config.getStringList("market.service.allowed_enchantments");
+    }
+
+    /**
+     * サービス依頼（修理・エンチャント）を引き受けられる職業（job name）一覧。
+     * 空リストの場合は職業制限なし。金床を使えるのは鍛冶屋・エンチャンターのため既定はこの2職。
+     */
+    public java.util.List<String> getMarketServiceRequiredJobs() {
+        java.util.List<String> jobs = config.getStringList("market.service.required_jobs");
+        if (jobs == null || jobs.isEmpty()) {
+            return java.util.Arrays.asList("blacksmith", "enchanter");
+        }
+        return jobs;
+    }
+
+    /**
+     * サービス依頼の引き受けに金床の所持を必須とするか。
+     */
+    public boolean isMarketServiceRequireAnvil() {
+        return config.getBoolean("market.service.require_anvil", true);
+    }
+
+    /**
+     * messages.market 配下のメッセージを取得（プレースホルダ置換対応）
+     */
+    public String getMarketMessage(String key, Object... replacements) {
+        return getMessage("market." + key, replacements);
+    }
+
     // 職業設定
     public int getMaxJobsPerPlayer() {
         return config.getInt("jobs.general.max_jobs_per_player", 1);
@@ -1527,9 +1651,35 @@ public class ConfigManager {
 
     /**
      * 職業レベルをバニラ経験値バーに反映するかどうか
+     *
+     * @deprecated 職業レベル表示は JobLevelBossBarManager（BossBar）へ移設済み。
+     *             XP バーはバニラ経験値に解放したため、この設定はもう参照されない。
+     *             代わりに {@link #isJobBossBarEnabled()} を使用する。
      */
+    @Deprecated
     public boolean isVanillaExpBarEnabled() {
         return (Boolean) getCachedValue("scoreboard.vanilla_exp_bar", true);
+    }
+
+    /**
+     * 職業レベルを BossBar で表示するかどうか
+     */
+    public boolean isJobBossBarEnabled() {
+        return (Boolean) getCachedValue("scoreboard.job_bossbar.enabled", true);
+    }
+
+    /**
+     * 職業レベル BossBar の色（BarColor 名。例: GREEN, BLUE, YELLOW）
+     */
+    public String getJobBossBarColor() {
+        return (String) getCachedValue("scoreboard.job_bossbar.color", "GREEN");
+    }
+
+    /**
+     * 職業レベル BossBar のタイトル書式（%job% / %level% / %percent% を置換）
+     */
+    public String getJobBossBarTitleFormat() {
+        return (String) getCachedValue("scoreboard.job_bossbar.title_format", "&e%job% &fLv.%level% &7(%percent%%)");
     }
 
     /**
@@ -2458,6 +2608,63 @@ public class ConfigManager {
         }
     }
     
+    /**
+     * プレイヤー間マーケット（売り・募集）のメッセージの存在を確認し、不足分を自動追加する。
+     *
+     * jar 同梱の config.yml は既存のサーバー config.yml を上書きしないため、新規メッセージキーは
+     * このメソッドで起動時に補完する（既存キーは {@code config.contains} で skip される）。
+     */
+    public void ensureMarketMessagesExist() {
+        try {
+            // 売り（出品・購入）
+            ensureMessagePath("messages.market.listed", "&a%item% を &e%price% %currency%&a で出品しました。");
+            ensureMessagePath("messages.market.purchased", "&a%item% を &e%price% %currency%&a で購入しました。");
+            ensureMessagePath("messages.market.sold_notify", "&a出品した %item% が売れました！手数料を引いた &e%amount% %currency%&a を受け取りました。");
+            ensureMessagePath("messages.market.cancelled", "&a出品をキャンセルし、アイテムを回収しました。");
+            ensureMessagePath("messages.market.reclaimed", "&a期限切れの出品からアイテムを回収しました。");
+            ensureMessagePath("messages.market.invalid_item", "&c出品するアイテムを手に持ってください。");
+            ensureMessagePath("messages.market.invalid_price", "&c価格は &e%min%&c 〜 &e%max%&c の整数で指定してください。");
+            ensureMessagePath("messages.market.currency_not_allowed", "&c通貨アイテムは出品できません。");
+            ensureMessagePath("messages.market.listing_limit", "&c出品数の上限（%limit%）に達しています。");
+            ensureMessagePath("messages.market.not_available", "&cこの出品は購入できません。");
+            ensureMessagePath("messages.market.already_sold", "&cこの出品は既に売り切れました。");
+            ensureMessagePath("messages.market.insufficient_funds", "&c残高が不足しています。");
+            ensureMessagePath("messages.market.inventory_full", "&cインベントリに空きがありません。アイテムを整理してください。");
+            ensureMessagePath("messages.market.not_owner", "&cこれはあなたの出品ではありません。");
+            ensureMessagePath("messages.market.error", "&c処理中にエラーが発生しました。もう一度お試しください。");
+
+            // 募集（買い注文）
+            ensureMessagePath("messages.market.requested", "&a%item% x%amount% の募集を &e%price% %currency%&a で登録しました（前払い）。");
+            ensureMessagePath("messages.market.fulfilled", "&a募集に応じ %item% x%amount% を供給しました。&e%proceeds% %currency%&a を受け取りました。");
+            ensureMessagePath("messages.market.fulfilled_notify", "&aあなたの募集（%item% x%amount%）が成立しました。アイテムは /market myrequests から回収できます。");
+            ensureMessagePath("messages.market.request_cancelled", "&a募集をキャンセルし、前払い分を返金しました。");
+            ensureMessagePath("messages.market.request_reclaimed", "&a成立した募集からアイテムを回収しました。");
+            ensureMessagePath("messages.market.request_expired_refund", "&e募集が期限切れになり、前払い分を返金しました。");
+            ensureMessagePath("messages.market.request_limit", "&c募集数の上限（%limit%）に達しています。");
+            ensureMessagePath("messages.market.no_matching_item", "&c供給するアイテム（%item% x%amount%）を所持していません。");
+            ensureMessagePath("messages.market.request_not_available", "&cこの募集は既に成立済みか、存在しません。");
+            ensureMessagePath("messages.market.request_not_owner", "&cこれはあなたの募集ではありません。");
+
+            // サービス依頼（修理・エンチャント募集）
+            ensureMessagePath("messages.market.service_requested", "&a%item% の%service%依頼を &e%price% %currency%&a で登録しました（前払い・道具を預けました）。");
+            ensureMessagePath("messages.market.service_fulfilled", "&a%item% の%service%依頼を引き受け、加工しました。&e%proceeds% %currency%&a を受け取りました。");
+            ensureMessagePath("messages.market.service_fulfilled_notify", "&aあなたの%service%依頼（%item%）が完了しました。/market myservices から受け取れます。");
+            ensureMessagePath("messages.market.service_cancelled", "&a依頼をキャンセルし、道具と前払い分を返却しました。");
+            ensureMessagePath("messages.market.service_reclaimed", "&a依頼した道具を受け取りました。");
+            ensureMessagePath("messages.market.service_expired_refund", "&e%service%依頼が期限切れになりました。道具は /market myservices から回収でき、前払い分は返金しました。");
+            ensureMessagePath("messages.market.service_limit", "&c依頼数の上限（%limit%）に達しています。");
+            ensureMessagePath("messages.market.insufficient_resources", "&c引き受けに必要なリソース（経験値・ラピスラズリ等）が不足しています。");
+            ensureMessagePath("messages.market.service_requires_job", "&cこの依頼は鍛冶屋またはエンチャンターのみ引き受けられます。");
+            ensureMessagePath("messages.market.service_requires_anvil", "&c引き受けるには金床を所持している必要があります。");
+            ensureMessagePath("messages.market.invalid_enchant", "&c指定したエンチャントが不正、または許可されていません。");
+            ensureMessagePath("messages.market.invalid_service_item", "&cこのアイテムはそのサービスの対象にできません（修理・エンチャント不可）。");
+            ensureMessagePath("messages.market.service_not_available", "&cこの依頼は既に成立済みか、存在しません。");
+            ensureMessagePath("messages.market.service_not_owner", "&cこれはあなたの依頼ではありません。");
+        } catch (Exception e) {
+            plugin.getLogger().warning("マーケットメッセージの初期化に失敗しました: " + e.getMessage());
+        }
+    }
+
     /**
      * NPCメッセージの存在を確認し、不足している場合は自動追加
      */

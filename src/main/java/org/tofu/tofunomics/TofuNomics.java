@@ -85,6 +85,8 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager;
     // 取引営業時間BossBarシステム
     private org.tofu.tofunomics.scoreboard.BossBarManager bossBarManager;
+    // 職業レベルBossBarシステム
+    private org.tofu.tofunomics.scoreboard.JobLevelBossBarManager jobLevelBossBarManager;
 
     // NPCシステム（新機能）
     private org.tofu.tofunomics.npc.NPCManager npcManager;
@@ -115,6 +117,21 @@ public final class TofuNomics extends JavaPlugin {
     
     // ルール確認システム
     private org.tofu.tofunomics.rules.RulesManager rulesManager;
+
+    // プレイヤー間マーケットシステム
+    private org.tofu.tofunomics.dao.MarketListingDAO marketListingDAO;
+    private org.tofu.tofunomics.dao.MarketBuyOrderDAO marketBuyOrderDAO;
+    private org.tofu.tofunomics.dao.MarketServiceRequestDAO marketServiceRequestDAO;
+    private org.tofu.tofunomics.market.MarketManager marketManager;
+    private org.tofu.tofunomics.market.gui.MarketBrowseGUI marketBrowseGUI;
+    private org.tofu.tofunomics.market.gui.MyListingsGUI myListingsGUI;
+    private org.tofu.tofunomics.market.gui.BuyOrderBrowseGUI buyOrderBrowseGUI;
+    private org.tofu.tofunomics.market.gui.MyBuyOrdersGUI myBuyOrdersGUI;
+    private org.tofu.tofunomics.market.gui.ServiceBrowseGUI serviceBrowseGUI;
+    private org.tofu.tofunomics.market.gui.MyServicesGUI myServicesGUI;
+    private org.tofu.tofunomics.market.gui.RepairWorkGUI repairWorkGUI;
+    private org.tofu.tofunomics.market.gui.MarketGUIListener marketGUIListener;
+    private org.tofu.tofunomics.market.MarketExpirationTask marketExpirationTask;
 
     @Override
     public void onEnable() {
@@ -180,6 +197,9 @@ public final class TofuNomics extends JavaPlugin {
         // 時計アイテムシステムの初期化
         initializeClockItemSystem();
 
+        // プレイヤー間マーケットシステムの初期化
+        initializeMarketSystem();
+
         // イベントリスナーの登録
         registerEventListeners();
         
@@ -217,6 +237,11 @@ public final class TofuNomics extends JavaPlugin {
             bossBarManager.shutdown();
         }
 
+        // 職業レベルBossBarシステムのクリーンアップ
+        if (jobLevelBossBarManager != null) {
+            jobLevelBossBarManager.shutdown();
+        }
+
         // NPCシステムのクリーンアップ
         cleanupNPCSystem();
 
@@ -234,6 +259,18 @@ public final class TofuNomics extends JavaPlugin {
         // 時計アイテムシステムのクリーンアップ
         if (clockItemManager != null) {
             clockItemManager.stopActionBarTask();
+        }
+
+        // マーケットシステムのクリーンアップ
+        if (marketExpirationTask != null) {
+            try {
+                marketExpirationTask.cancel();
+            } catch (Exception ignored) {
+                // 未スケジュール等は無視
+            }
+        }
+        if (marketGUIListener != null) {
+            marketGUIListener.closeAll();
         }
 
         // データベース接続を閉じる
@@ -279,7 +316,10 @@ public final class TofuNomics extends JavaPlugin {
             playerJobDAO = new PlayerJobDAO(databaseManager.getConnection());
             jobChangeDAO = new JobChangeDAO(databaseManager.getConnection());
             jobHistoryDAO = new JobHistoryDAO(databaseManager.getConnection());
-            
+            marketListingDAO = new org.tofu.tofunomics.dao.MarketListingDAO(databaseManager.getConnection());
+            marketBuyOrderDAO = new org.tofu.tofunomics.dao.MarketBuyOrderDAO(databaseManager.getConnection());
+            marketServiceRequestDAO = new org.tofu.tofunomics.dao.MarketServiceRequestDAO(databaseManager.getConnection());
+
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
     }
@@ -318,6 +358,65 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().info("マネージャーを初期化しました");
         } catch (Exception e) {
             getLogger().severe("マネージャー初期化中にエラーが発生しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * プレイヤー間マーケットシステムを初期化する。
+     * Manager・GUI・リスナー生成と、期限切れ定期タスクの起動を行う。
+     */
+    private void initializeMarketSystem() {
+        try {
+            if (databaseManager == null || !databaseManager.isConnected() || marketListingDAO == null) {
+                getLogger().warning("マーケットシステムの初期化をスキップしました（DB未接続）");
+                return;
+            }
+
+            marketManager = new org.tofu.tofunomics.market.MarketManager(
+                databaseManager.getConnection(),
+                playerDAO,
+                marketListingDAO,
+                marketBuyOrderDAO,
+                marketServiceRequestDAO,
+                configManager,
+                currencyConverter,
+                getLogger()
+            );
+
+            // リスナーを先に生成し、GUI へ注入してから GUI 参照を逆注入する（循環依存の解決）
+            marketGUIListener = new org.tofu.tofunomics.market.gui.MarketGUIListener(this);
+            marketBrowseGUI = new org.tofu.tofunomics.market.gui.MarketBrowseGUI(
+                this, configManager, marketManager, marketListingDAO, marketGUIListener);
+            myListingsGUI = new org.tofu.tofunomics.market.gui.MyListingsGUI(
+                this, configManager, marketManager, marketListingDAO, marketGUIListener);
+            marketGUIListener.setGUIs(marketBrowseGUI, myListingsGUI);
+
+            // 買い注文（募集）GUI を生成して注入
+            buyOrderBrowseGUI = new org.tofu.tofunomics.market.gui.BuyOrderBrowseGUI(
+                this, configManager, marketManager, marketBuyOrderDAO, marketGUIListener);
+            myBuyOrdersGUI = new org.tofu.tofunomics.market.gui.MyBuyOrdersGUI(
+                this, configManager, marketManager, marketBuyOrderDAO, marketGUIListener);
+            marketGUIListener.setBuyOrderGUIs(buyOrderBrowseGUI, myBuyOrdersGUI);
+
+            // サービス依頼（修理・エンチャント募集）GUI を生成して注入
+            // 作業GUI（金床風の確認画面）を先に生成し、一覧GUIへ渡す
+            repairWorkGUI = new org.tofu.tofunomics.market.gui.RepairWorkGUI(
+                this, configManager, marketManager, marketServiceRequestDAO, jobManager, marketGUIListener);
+            marketGUIListener.setRepairWorkGUI(repairWorkGUI);
+            serviceBrowseGUI = new org.tofu.tofunomics.market.gui.ServiceBrowseGUI(
+                this, configManager, marketManager, marketServiceRequestDAO, jobManager, marketGUIListener, repairWorkGUI);
+            myServicesGUI = new org.tofu.tofunomics.market.gui.MyServicesGUI(
+                this, configManager, marketManager, marketServiceRequestDAO, marketGUIListener);
+            marketGUIListener.setServiceGUIs(serviceBrowseGUI, myServicesGUI);
+
+            // 期限切れ定期タスクの起動（expire_check_interval 秒 × 20 = ticks）
+            long intervalTicks = Math.max(1L, (long) configManager.getMarketExpireCheckInterval() * 20L);
+            marketExpirationTask = new org.tofu.tofunomics.market.MarketExpirationTask(marketManager, getLogger());
+            marketExpirationTask.runTaskTimer(this, intervalTicks, intervalTicks);
+
+            getLogger().info("プレイヤー間マーケットシステムを初期化しました");
+        } catch (Exception e) {
+            getLogger().severe("マーケットシステム初期化中にエラーが発生しました: " + e.getMessage());
         }
     }
 
@@ -453,7 +552,10 @@ public final class TofuNomics extends JavaPlugin {
             
             // クラフト制限設定の自動初期化
             configManager.ensureCraftRestrictionMessagesExist();
-            
+
+            // プレイヤー間マーケット（売り・募集）メッセージの自動初期化
+            configManager.ensureMarketMessagesExist();
+
             // 設定を保存
             saveConfig();
 
@@ -535,9 +637,14 @@ public final class TofuNomics extends JavaPlugin {
             
             getLogger().info("スコアボードシステムを初期化しました");
 
-            // 職業レベルのバニラ経験値バー反映を即時化するため、JobExperienceManagerに注入
+            // 職業レベルBossBarシステムの初期化（XPバーを使わず職業レベルをBossBar表示）
+            jobLevelBossBarManager = new org.tofu.tofunomics.scoreboard.JobLevelBossBarManager(
+                this, configManager, jobManager);
+            getLogger().info("職業レベルBossBarシステムを初期化しました");
+
+            // 職業レベルBossBarの即時反映のため、JobExperienceManagerに注入
             if (jobExperienceManager != null) {
-                jobExperienceManager.setScoreboardManager(scoreboardManager);
+                jobExperienceManager.setJobLevelBossBarManager(jobLevelBossBarManager);
             }
 
             // 取引営業時間BossBarシステムの初期化
@@ -597,6 +704,12 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(bossBarManager, this);
                 getLogger().info("BossBarシステムリスナーを登録しました");
             }
+
+            // 職業レベルBossBarマネージャーリスナーの登録
+            if (jobLevelBossBarManager != null) {
+                getServer().getPluginManager().registerEvents(jobLevelBossBarManager, this);
+                getLogger().info("職業レベルBossBarシステムリスナーを登録しました");
+            }
             
             // NPCシステムリスナーの登録
             registerNPCEventListeners();
@@ -625,6 +738,12 @@ public final class TofuNomics extends JavaPlugin {
                 // ルールGUIのクリック・クローズイベントを登録（同意ボタン等を機能させる）
                 getServer().getPluginManager().registerEvents(rulesManager.getRulesGUI(), this);
                 getLogger().info("ルール確認システムリスナーを登録しました");
+            }
+
+            // マーケットGUIリスナーの登録
+            if (marketGUIListener != null) {
+                getServer().getPluginManager().registerEvents(marketGUIListener, this);
+                getLogger().info("マーケットGUIリスナーを登録しました");
             }
 
             getLogger().info("全てのイベントリスナーを登録しました");
@@ -706,10 +825,22 @@ public final class TofuNomics extends JavaPlugin {
             getCommand("rules").setExecutor(rulesCommand);
             
             // 中心都市マップ配布コマンド
-            org.tofu.tofunomics.commands.CityMapCommand cityMapCommand = 
+            org.tofu.tofunomics.commands.CityMapCommand cityMapCommand =
                 new org.tofu.tofunomics.commands.CityMapCommand(configManager);
             getCommand("citymap").setExecutor(cityMapCommand);
-            
+
+            // プレイヤー間マーケットコマンド
+            if (marketManager != null) {
+                org.tofu.tofunomics.commands.MarketCommand marketCommand =
+                    new org.tofu.tofunomics.commands.MarketCommand(
+                        configManager, marketManager, marketListingDAO, marketBuyOrderDAO,
+                        marketServiceRequestDAO,
+                        marketBrowseGUI, myListingsGUI, buyOrderBrowseGUI, myBuyOrdersGUI,
+                        serviceBrowseGUI, myServicesGUI);
+                getCommand("market").setExecutor(marketCommand);
+                getCommand("market").setTabCompleter(marketCommand);
+            }
+
             getLogger().info("コマンドハンドラーを登録しました");
         } catch (Exception e) {
             getLogger().severe("コマンド登録中にエラーが発生しました: " + e.getMessage());

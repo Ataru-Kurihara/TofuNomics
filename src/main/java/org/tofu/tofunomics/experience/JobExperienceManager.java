@@ -40,8 +40,8 @@ public class JobExperienceManager implements Listener {
     private final ExperienceManager experienceManager;
     private final NotificationManager notificationManager = new NotificationManager();
 
-    // バニラ経験値バーへの即時反映用（setter注入。null許容）
-    private org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager;
+    // 職業レベルBossBarへの即時反映用（setter注入。null許容）
+    private org.tofu.tofunomics.scoreboard.JobLevelBossBarManager jobLevelBossBarManager;
 
     // 食事による経験値ブーストバフ用（setter注入。null許容）
     private org.tofu.tofunomics.food.FoodBuffManager foodBuffManager;
@@ -79,10 +79,10 @@ public class JobExperienceManager implements Listener {
     }
 
     /**
-     * バニラ経験値バー反映用のScoreboardManagerを注入する
+     * 職業レベルBossBar即時反映用のJobLevelBossBarManagerを注入する
      */
-    public void setScoreboardManager(org.tofu.tofunomics.scoreboard.ScoreboardManager scoreboardManager) {
-        this.scoreboardManager = scoreboardManager;
+    public void setJobLevelBossBarManager(org.tofu.tofunomics.scoreboard.JobLevelBossBarManager jobLevelBossBarManager) {
+        this.jobLevelBossBarManager = jobLevelBossBarManager;
     }
 
     /**
@@ -283,9 +283,9 @@ public class JobExperienceManager implements Listener {
         // データベース更新
         playerJobDAO.updatePlayerJobData(playerJob);
 
-        // バニラ経験値バーへ即時反映（経験値獲得・レベルアップを即座に表示）
-        if (scoreboardManager != null) {
-            scoreboardManager.updateExperienceBar(player);
+        // 職業レベルBossBarへ即時反映（経験値獲得・レベルアップを即座に表示）
+        if (jobLevelBossBarManager != null) {
+            jobLevelBossBarManager.refresh(player);
         }
 
         // 経験値獲得メッセージ（5経験値以上の場合のみ表示）

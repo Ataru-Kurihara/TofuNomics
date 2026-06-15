@@ -326,60 +326,8 @@ public class ScoreboardManager implements Listener {
         }
     }
     
-    /**
-     * 職業レベルをプレイヤーのバニラ経験値バーに反映する
-     * - 対象ワールド外、または職業なしの場合はバーを0にリセット（職業レベルの残留防止）
-     * - 職業ありの場合はレベル数字＝職業レベル、バー進捗＝次レベルまでの達成率
-     */
-    public void updateExperienceBar(Player player) {
-        if (!configManager.isVanillaExpBarEnabled()) {
-            return;
-        }
-
-        try {
-            // 対象ワールド外では職業レベルを表示しない
-            if (!isScoreboardEnabledInCurrentWorld(player)) {
-                resetExperienceBar(player);
-                return;
-            }
-
-            PlayerJob currentJob = jobManager.getCurrentJob(player.getUniqueId());
-            if (currentJob == null) {
-                resetExperienceBar(player);
-                return;
-            }
-
-            // 進捗率（0.0〜1.0）を計算
-            double currentExp = currentJob.getExperience();
-            double prevLevelExp = PlayerJob.calculateExperienceRequired(currentJob.getLevel());
-            double requiredExp = PlayerJob.calculateExperienceRequired(currentJob.getLevel() + 1);
-
-            float progress;
-            if (currentJob.getLevel() >= configManager.getMaxJobLevel() || requiredExp <= prevLevelExp) {
-                // 最大レベル到達時はバーを満タンにする
-                progress = 1.0f;
-            } else {
-                progress = (float) ((currentExp - prevLevelExp) / (requiredExp - prevLevelExp));
-            }
-
-            // バニラ仕様の範囲（0.0〜1.0）に収める。1.0は次レベル扱いになるため僅かに下げる
-            progress = Math.max(0.0f, Math.min(0.9999f, progress));
-
-            player.setLevel(currentJob.getLevel());
-            player.setExp(progress);
-        } catch (Exception e) {
-            plugin.getLogger().warning("Failed to update experience bar for player "
-                    + player.getName() + ": " + e.getMessage());
-        }
-    }
-
-    /**
-     * バニラ経験値バーを0にリセットする
-     */
-    private void resetExperienceBar(Player player) {
-        player.setLevel(0);
-        player.setExp(0.0f);
-    }
+    // 職業レベルの表示は JobLevelBossBarManager（BossBar）へ移設した。
+    // XP バー（setLevel/setExp）には一切触れないことで、バニラ経験値を本来通り利用可能にしている。
 
     /**
      * 時間をフォーマット（分 -> 時間:分）
@@ -411,8 +359,6 @@ public class ScoreboardManager implements Listener {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    // バニラ経験値バーはスコアボード表示のON/OFFと無関係に常時更新する
-                    updateExperienceBar(player);
                     if (isScoreboardEnabled(player)) {
                         updatePlayerScoreboard(player);
                     }
@@ -438,9 +384,6 @@ public class ScoreboardManager implements Listener {
     public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
 
-        // ワールド移動時に経験値バーを即時反映/リセットする
-        updateExperienceBar(player);
-
         if (isScoreboardEnabledInCurrentWorld(player)) {
             // 対象ワールドに入った場合、スコアボードが有効なら表示する
             if (configManager.isScoreboardDefaultEnabled() || scoreboardEnabled.getOrDefault(player.getUniqueId(), false)) {
@@ -459,10 +402,6 @@ public class ScoreboardManager implements Listener {
      */
     public void onPlayerQuit(Player player) {
         scoreboardEnabled.remove(player.getUniqueId());
-        // 退出時にバニラ経験値バーを0に戻して残留を防ぐ
-        if (configManager.isVanillaExpBarEnabled()) {
-            resetExperienceBar(player);
-        }
     }
     
     /**
@@ -487,10 +426,6 @@ public class ScoreboardManager implements Listener {
         // 全プレイヤーのスコアボードをデフォルトに戻す
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
-            // バニラ経験値バーも0に戻す（職業レベルの残留防止）
-            if (configManager.isVanillaExpBarEnabled()) {
-                resetExperienceBar(player);
-            }
         }
         
         scoreboardEnabled.clear();
