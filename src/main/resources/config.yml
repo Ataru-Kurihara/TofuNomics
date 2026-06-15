@@ -2069,6 +2069,22 @@ market:
   max_buy_orders_per_player: 10   # 買い注文（募集）の同時保有上限
   # fee_rate / listing_duration_days / min_price / max_price は買い注文と共用
 
+  # 修理・エンチャント募集（サービス委託）設定
+  service:
+    enabled: true
+    max_requests_per_player: 10       # 1人あたり同時依頼上限
+    repair_exp_cost: 5                # 修理引受で worker が消費する経験値レベル
+    enchant_exp_cost_per_level: 3     # エンチャント引受で消費する経験値レベル（×エンチャントレベル）
+    enchant_lapis_cost: 3             # エンチャント引受で消費するラピスラズリ個数
+    max_enchant_level: 5              # エンチャント依頼で指定可能な最大レベル
+    # 引き受けに必要な職業（金床を使えるのは鍛冶屋・エンチャンター）。空で職業制限なし
+    required_jobs:
+      - "blacksmith"
+      - "enchanter"
+    require_anvil: true               # 引き受けに金床（所持）を必須とするか
+    # エンチャント依頼で許可するエンチャント（minecraft key 小文字）。空で全許可
+    allowed_enchantments: []
+
 # メッセージ設定
 messages:
   # 共通メッセージ

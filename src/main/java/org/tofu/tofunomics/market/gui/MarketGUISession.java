@@ -24,7 +24,8 @@ public class MarketGUISession {
         BUY_BROWSE,     // 募集一覧（全 open）
         MY_BUY_ORDERS,  // 自分の募集管理
         SERVICE_BROWSE, // サービス依頼一覧（全 open）
-        MY_SERVICES     // 自分のサービス依頼管理
+        MY_SERVICES,    // 自分のサービス依頼管理
+        SERVICE_WORK    // 修理・エンチャント作業GUI（金床風・確認）
     }
 
     private final UUID playerId;
@@ -43,6 +44,9 @@ public class MarketGUISession {
 
     // スロット番号 → そのスロットに表示しているサービス依頼（サービス GUI でのみ使用）
     private final Map<Integer, MarketServiceRequest> slotServiceRequests = new HashMap<>();
+
+    // 作業GUI(SERVICE_WORK)で対象としているサービス依頼ID（-1=未設定）
+    private int workingRequestId = -1;
 
     public MarketGUISession(UUID playerId, Type type, Inventory inventory) {
         this.playerId = playerId;
@@ -119,5 +123,13 @@ public class MarketGUISession {
      */
     public MarketServiceRequest getServiceRequestAtSlot(int slot) {
         return slotServiceRequests.get(slot);
+    }
+
+    public int getWorkingRequestId() {
+        return workingRequestId;
+    }
+
+    public void setWorkingRequestId(int workingRequestId) {
+        this.workingRequestId = workingRequestId;
     }
 }

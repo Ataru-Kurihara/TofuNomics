@@ -47,6 +47,8 @@ public enum MarketResult {
 
     // 失敗（サービス依頼＝修理・エンチャント募集）
     INSUFFICIENT_RESOURCES("insufficient_resources"), // worker のリソース不足（経験値・ラピス等）
+    SERVICE_REQUIRES_JOB("service_requires_job"),     // 引受に必要な職業（鍛冶屋・エンチャンター）でない
+    SERVICE_REQUIRES_ANVIL("service_requires_anvil"), // 金床を所持していない
     INVALID_ENCHANT("invalid_enchant"),               // 不正・許可外のエンチャント指定
     INVALID_SERVICE_ITEM("invalid_service_item"),     // 対象アイテムが修理/エンチャント不可
     SERVICE_NOT_AVAILABLE("service_not_available"),   // 依頼が成立済み or 存在しない

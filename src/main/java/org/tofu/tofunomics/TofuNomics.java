@@ -129,6 +129,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.market.gui.MyBuyOrdersGUI myBuyOrdersGUI;
     private org.tofu.tofunomics.market.gui.ServiceBrowseGUI serviceBrowseGUI;
     private org.tofu.tofunomics.market.gui.MyServicesGUI myServicesGUI;
+    private org.tofu.tofunomics.market.gui.RepairWorkGUI repairWorkGUI;
     private org.tofu.tofunomics.market.gui.MarketGUIListener marketGUIListener;
     private org.tofu.tofunomics.market.MarketExpirationTask marketExpirationTask;
 
@@ -398,8 +399,12 @@ public final class TofuNomics extends JavaPlugin {
             marketGUIListener.setBuyOrderGUIs(buyOrderBrowseGUI, myBuyOrdersGUI);
 
             // サービス依頼（修理・エンチャント募集）GUI を生成して注入
+            // 作業GUI（金床風の確認画面）を先に生成し、一覧GUIへ渡す
+            repairWorkGUI = new org.tofu.tofunomics.market.gui.RepairWorkGUI(
+                this, configManager, marketManager, marketServiceRequestDAO, jobManager, marketGUIListener);
+            marketGUIListener.setRepairWorkGUI(repairWorkGUI);
             serviceBrowseGUI = new org.tofu.tofunomics.market.gui.ServiceBrowseGUI(
-                this, configManager, marketManager, marketServiceRequestDAO, marketGUIListener);
+                this, configManager, marketManager, marketServiceRequestDAO, jobManager, marketGUIListener, repairWorkGUI);
             myServicesGUI = new org.tofu.tofunomics.market.gui.MyServicesGUI(
                 this, configManager, marketManager, marketServiceRequestDAO, marketGUIListener);
             marketGUIListener.setServiceGUIs(serviceBrowseGUI, myServicesGUI);

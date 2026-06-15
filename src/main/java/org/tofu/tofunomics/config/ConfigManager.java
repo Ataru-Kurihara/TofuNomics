@@ -422,6 +422,25 @@ public class ConfigManager {
     }
 
     /**
+     * サービス依頼（修理・エンチャント）を引き受けられる職業（job name）一覧。
+     * 空リストの場合は職業制限なし。金床を使えるのは鍛冶屋・エンチャンターのため既定はこの2職。
+     */
+    public java.util.List<String> getMarketServiceRequiredJobs() {
+        java.util.List<String> jobs = config.getStringList("market.service.required_jobs");
+        if (jobs == null || jobs.isEmpty()) {
+            return java.util.Arrays.asList("blacksmith", "enchanter");
+        }
+        return jobs;
+    }
+
+    /**
+     * サービス依頼の引き受けに金床の所持を必須とするか。
+     */
+    public boolean isMarketServiceRequireAnvil() {
+        return config.getBoolean("market.service.require_anvil", true);
+    }
+
+    /**
      * messages.market 配下のメッセージを取得（プレースホルダ置換対応）
      */
     public String getMarketMessage(String key, Object... replacements) {
@@ -2620,6 +2639,8 @@ public class ConfigManager {
             ensureMessagePath("messages.market.service_expired_refund", "&e%service%依頼が期限切れになりました。道具は /market myservices から回収でき、前払い分は返金しました。");
             ensureMessagePath("messages.market.service_limit", "&c依頼数の上限（%limit%）に達しています。");
             ensureMessagePath("messages.market.insufficient_resources", "&c引き受けに必要なリソース（経験値・ラピスラズリ等）が不足しています。");
+            ensureMessagePath("messages.market.service_requires_job", "&cこの依頼は鍛冶屋またはエンチャンターのみ引き受けられます。");
+            ensureMessagePath("messages.market.service_requires_anvil", "&c引き受けるには金床を所持している必要があります。");
             ensureMessagePath("messages.market.invalid_enchant", "&c指定したエンチャントが不正、または許可されていません。");
             ensureMessagePath("messages.market.invalid_service_item", "&cこのアイテムはそのサービスの対象にできません（修理・エンチャント不可）。");
             ensureMessagePath("messages.market.service_not_available", "&cこの依頼は既に成立済みか、存在しません。");

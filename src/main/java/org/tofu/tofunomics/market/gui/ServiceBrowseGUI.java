@@ -10,9 +10,10 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.MarketServiceRequestDAO;
+import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.market.MarketItemSerializer;
 import org.tofu.tofunomics.market.MarketManager;
-import org.tofu.tofunomics.market.MarketResult;
+import org.tofu.tofunomics.market.ServiceEligibility;
 import org.tofu.tofunomics.models.MarketServiceRequest;
 
 import java.sql.SQLException;
@@ -44,15 +45,20 @@ public class ServiceBrowseGUI {
     private final ConfigManager configManager;
     private final MarketManager marketManager;
     private final MarketServiceRequestDAO serviceRequestDAO;
+    private final JobManager jobManager;
     private final MarketGUIListener listener;
+    private final RepairWorkGUI repairWorkGUI;
 
     public ServiceBrowseGUI(TofuNomics plugin, ConfigManager configManager, MarketManager marketManager,
-                            MarketServiceRequestDAO serviceRequestDAO, MarketGUIListener listener) {
+                            MarketServiceRequestDAO serviceRequestDAO, JobManager jobManager,
+                            MarketGUIListener listener, RepairWorkGUI repairWorkGUI) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.marketManager = marketManager;
         this.serviceRequestDAO = serviceRequestDAO;
+        this.jobManager = jobManager;
         this.listener = listener;
+        this.repairWorkGUI = repairWorkGUI;
     }
 
     /**
@@ -251,19 +257,18 @@ public class ServiceBrowseGUI {
             return;
         }
 
-        MarketResult result = marketManager.fulfillServiceRequest(player, req.getId());
-        sendResultMessage(player, result, req);
+        // 鍛冶屋・エンチャンターかつ金床所持を確認してから作業GUIを開く
+        ServiceEligibility.Result eligibility = ServiceEligibility.evaluate(player, jobManager, configManager);
+        if (eligibility == ServiceEligibility.Result.WRONG_JOB) {
+            player.sendMessage(configManager.getMarketMessage("service_requires_job"));
+            return;
+        }
+        if (eligibility == ServiceEligibility.Result.NO_ANVIL) {
+            player.sendMessage(configManager.getMarketMessage("service_requires_anvil"));
+            return;
+        }
 
-        // 依頼が成立して一覧から消えるため再描画
-        render(player, session);
-    }
-
-    private void sendResultMessage(Player player, MarketResult result, MarketServiceRequest req) {
-        player.sendMessage(configManager.getMarketMessage(result.getMessageKey(),
-                "item", MarketGUIUtil.prettifyMaterial(req.getMaterial()),
-                "service", req.isRepair() ? "修理" : "エンチャント",
-                "price", MarketGUIUtil.formatPrice(req.getPrice()),
-                "proceeds", String.valueOf(marketManager.calculateSellerProceeds(req.getPrice())),
-                "currency", configManager.getCurrencyName()));
+        // 作業GUI（金床風の確認画面）を開く。実際の加工は確認ボタンで実行（アイテムはシステム保持のまま）
+        repairWorkGUI.open(player, req);
     }
 }
