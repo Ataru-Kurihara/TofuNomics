@@ -8,6 +8,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.gui.ChatInputManager;
 import org.tofu.tofunomics.market.MarketManager;
 import org.tofu.tofunomics.market.MarketMessages;
 import org.tofu.tofunomics.market.MarketResult;

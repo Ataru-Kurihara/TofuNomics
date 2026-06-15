@@ -57,6 +57,8 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.housing.HousingRentalManager housingRentalManager;
     private org.tofu.tofunomics.housing.SelectionManager selectionManager;
     private org.tofu.tofunomics.housing.HousingListener housingListener;
+    private org.tofu.tofunomics.housing.gui.HousingHubGUI housingHubGUI;
+    private org.tofu.tofunomics.housing.gui.HousingGUIListener housingGUIListener;
     private org.tofu.tofunomics.integration.WorldGuardIntegration worldGuardIntegration;
     private org.tofu.tofunomics.protection.HostileMobRemovalManager hostileMobRemovalManager; // 敵対的モブ自動除去マネージャー
 
@@ -132,7 +134,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.market.gui.RepairWorkGUI repairWorkGUI;
     private org.tofu.tofunomics.market.gui.MarketGUIListener marketGUIListener;
     private org.tofu.tofunomics.market.gui.MarketHubGUI marketHubGUI;
-    private org.tofu.tofunomics.market.gui.ChatInputManager chatInputManager;
+    private org.tofu.tofunomics.gui.ChatInputManager chatInputManager;
     private org.tofu.tofunomics.market.MarketExpirationTask marketExpirationTask;
 
     @Override
@@ -201,6 +203,9 @@ public final class TofuNomics extends JavaPlugin {
 
         // プレイヤー間マーケットシステムの初期化
         initializeMarketSystem();
+
+        // 住居賃貸GUIの初期化（housingRentalManager と chatInputManager の生成後）
+        initializeHousingGUI();
 
         // イベントリスナーの登録
         registerEventListeners();
@@ -273,6 +278,9 @@ public final class TofuNomics extends JavaPlugin {
         }
         if (marketGUIListener != null) {
             marketGUIListener.closeAll();
+        }
+        if (housingGUIListener != null) {
+            housingGUIListener.closeAll();
         }
 
         // データベース接続を閉じる
@@ -412,7 +420,7 @@ public final class TofuNomics extends JavaPlugin {
             marketGUIListener.setServiceGUIs(serviceBrowseGUI, myServicesGUI);
 
             // チャット入力基盤を生成・登録し、全操作の入口となるハブGUIを生成して配線する
-            chatInputManager = new org.tofu.tofunomics.market.gui.ChatInputManager(this, configManager);
+            chatInputManager = new org.tofu.tofunomics.gui.ChatInputManager(this, configManager);
             getServer().getPluginManager().registerEvents(chatInputManager, this);
             marketHubGUI = new org.tofu.tofunomics.market.gui.MarketHubGUI(
                 this, configManager, marketManager, chatInputManager, marketGUIListener);
@@ -794,13 +802,14 @@ public final class TofuNomics extends JavaPlugin {
             
             // 住居賃貸系コマンド
             if (housingRentalManager != null && testModeManager != null) {
-                org.tofu.tofunomics.commands.HousingCommand housingCommand = 
+                org.tofu.tofunomics.commands.HousingCommand housingCommand =
                     new org.tofu.tofunomics.commands.HousingCommand(
                         this,
                         housingRentalManager,
                         selectionManager,
                         testModeManager,
-                        configManager
+                        configManager,
+                        housingHubGUI
                     );
                 getCommand("housing").setExecutor(housingCommand);
                 getCommand("housing").setTabCompleter(housingCommand);
@@ -1291,7 +1300,45 @@ public final class TofuNomics extends JavaPlugin {
             getLogger().severe("住居賃貸システムの初期化中にエラーが発生しました: " + e.getMessage());
         }
     }
-    
+
+    /**
+     * 住居賃貸の統合GUI（ハブ・物件一覧・詳細・自分の契約・管理）を生成・配線する。
+     * housingRentalManager と chatInputManager の生成後に呼ぶこと。
+     */
+    private void initializeHousingGUI() {
+        try {
+            if (housingRentalManager == null || chatInputManager == null) {
+                getLogger().warning("住居賃貸GUIの初期化をスキップしました（依存が未準備）");
+                return;
+            }
+            housingGUIListener = new org.tofu.tofunomics.housing.gui.HousingGUIListener(this);
+            org.tofu.tofunomics.housing.gui.HousingHubGUI hub =
+                new org.tofu.tofunomics.housing.gui.HousingHubGUI(this, configManager, housingGUIListener);
+            org.tofu.tofunomics.housing.gui.HousingBrowseGUI browse =
+                new org.tofu.tofunomics.housing.gui.HousingBrowseGUI(this, configManager, housingRentalManager, housingGUIListener);
+            org.tofu.tofunomics.housing.gui.HousingDetailGUI detail =
+                new org.tofu.tofunomics.housing.gui.HousingDetailGUI(this, configManager, housingRentalManager, chatInputManager, housingGUIListener);
+            org.tofu.tofunomics.housing.gui.MyRentalsGUI myRentals =
+                new org.tofu.tofunomics.housing.gui.MyRentalsGUI(this, configManager, housingRentalManager, housingGUIListener);
+            org.tofu.tofunomics.housing.gui.RentalManageGUI manage =
+                new org.tofu.tofunomics.housing.gui.RentalManageGUI(this, configManager, housingRentalManager, chatInputManager, housingGUIListener);
+
+            // 相互参照を注入（循環依存の解決）
+            hub.setGUIs(browse, myRentals);
+            browse.setGUIs(hub, detail);
+            detail.setGUIs(hub, browse);
+            myRentals.setGUIs(hub, manage);
+            manage.setGUIs(hub, myRentals);
+            housingGUIListener.setGUIs(hub, browse, detail, myRentals, manage);
+
+            getServer().getPluginManager().registerEvents(housingGUIListener, this);
+            housingHubGUI = hub;
+            getLogger().info("住居賃貸GUIを初期化しました");
+        } catch (Exception e) {
+            getLogger().severe("住居賃貸GUI初期化中にエラーが発生しました: " + e.getMessage());
+        }
+    }
+
     private void cleanupHousingSystem() {
         if (selectionManager != null) {
             selectionManager.clearAllSelections();

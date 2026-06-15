@@ -1,4 +1,4 @@
-package org.tofu.tofunomics.market.gui;
+package org.tofu.tofunomics.gui;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -22,6 +22,8 @@ import java.util.function.Consumer;
  * GUI を閉じてプレイヤーにチャット入力を促し、次のチャットメッセージをコールバックで受け取る。
  * 「cancel」入力・タイムアウト・ログアウトで保留中のプロンプトは破棄される。
  * 複数値の入力は {@code onInput} 内で次の {@link #prompt} を呼ぶことでステップ式にチェーンできる。
+ *
+ * market / housing など複数機能の GUI から共有する（インスタンスは1つでよい）。
  *
  * 注意: {@link AsyncPlayerChatEvent} は非同期スレッドで発火するため、
  * コールバックは必ず {@link org.bukkit.scheduler.BukkitScheduler#runTask} でメインスレッドへ同期してから実行する。

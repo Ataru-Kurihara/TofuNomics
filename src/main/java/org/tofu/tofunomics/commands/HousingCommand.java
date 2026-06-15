@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.housing.HousingRentalManager;
 import org.tofu.tofunomics.housing.SelectionManager;
+import org.tofu.tofunomics.housing.gui.HousingHubGUI;
 import org.tofu.tofunomics.models.HousingProperty;
 import org.tofu.tofunomics.models.HousingRental;
 import org.tofu.tofunomics.testing.TestModeManager;
@@ -25,19 +26,26 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
     private final SelectionManager selectionManager;
     private final TestModeManager testModeManager;
     private final org.tofu.tofunomics.config.ConfigManager configManager;
+    private final HousingHubGUI housingHubGUI;
 
-    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager, org.tofu.tofunomics.config.ConfigManager configManager) {
+    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager, org.tofu.tofunomics.config.ConfigManager configManager, HousingHubGUI housingHubGUI) {
         this.plugin = plugin;
         this.rentalManager = rentalManager;
         this.selectionManager = selectionManager;
         this.testModeManager = testModeManager;
         this.configManager = configManager;
+        this.housingHubGUI = housingHubGUI;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            sendUsage(sender);
+            // 無引数はGUIハブを開く（全操作の入口）。GUI未初期化時やコンソールは従来の使用法表示。
+            if (sender instanceof Player && housingHubGUI != null) {
+                housingHubGUI.open((Player) sender);
+            } else {
+                sendUsage(sender);
+            }
             return true;
         }
 
