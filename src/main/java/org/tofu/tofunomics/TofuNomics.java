@@ -131,6 +131,8 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.market.gui.MyServicesGUI myServicesGUI;
     private org.tofu.tofunomics.market.gui.RepairWorkGUI repairWorkGUI;
     private org.tofu.tofunomics.market.gui.MarketGUIListener marketGUIListener;
+    private org.tofu.tofunomics.market.gui.MarketHubGUI marketHubGUI;
+    private org.tofu.tofunomics.market.gui.ChatInputManager chatInputManager;
     private org.tofu.tofunomics.market.MarketExpirationTask marketExpirationTask;
 
     @Override
@@ -408,6 +410,15 @@ public final class TofuNomics extends JavaPlugin {
             myServicesGUI = new org.tofu.tofunomics.market.gui.MyServicesGUI(
                 this, configManager, marketManager, marketServiceRequestDAO, marketGUIListener);
             marketGUIListener.setServiceGUIs(serviceBrowseGUI, myServicesGUI);
+
+            // チャット入力基盤を生成・登録し、全操作の入口となるハブGUIを生成して配線する
+            chatInputManager = new org.tofu.tofunomics.market.gui.ChatInputManager(this, configManager);
+            getServer().getPluginManager().registerEvents(chatInputManager, this);
+            marketHubGUI = new org.tofu.tofunomics.market.gui.MarketHubGUI(
+                this, configManager, marketManager, chatInputManager, marketGUIListener);
+            marketHubGUI.setGUIs(marketBrowseGUI, myListingsGUI, buyOrderBrowseGUI,
+                myBuyOrdersGUI, serviceBrowseGUI, myServicesGUI);
+            marketGUIListener.setHubGUI(marketHubGUI);
 
             // 期限切れ定期タスクの起動（expire_check_interval 秒 × 20 = ticks）
             long intervalTicks = Math.max(1L, (long) configManager.getMarketExpireCheckInterval() * 20L);
@@ -835,7 +846,7 @@ public final class TofuNomics extends JavaPlugin {
                     new org.tofu.tofunomics.commands.MarketCommand(
                         configManager, marketManager, marketListingDAO, marketBuyOrderDAO,
                         marketServiceRequestDAO,
-                        marketBrowseGUI, myListingsGUI, buyOrderBrowseGUI, myBuyOrdersGUI,
+                        marketHubGUI, myListingsGUI, buyOrderBrowseGUI, myBuyOrdersGUI,
                         serviceBrowseGUI, myServicesGUI);
                 getCommand("market").setExecutor(marketCommand);
                 getCommand("market").setTabCompleter(marketCommand);
