@@ -30,6 +30,8 @@ public class TradingGUI implements Listener {
         LOGGING("§2木材", Material.OAK_LOG),
         FISHING("§9海産物", Material.COD),
         CRAFTING("§6製作品", Material.CRAFTING_TABLE),
+        BUILDING("§e建材", Material.BRICKS),
+        FOOD("§c食料", Material.COOKED_BEEF),
         MATERIALS("§5素材", Material.BLAZE_POWDER);
         
         private final String displayName;
@@ -237,7 +239,7 @@ public class TradingGUI implements Listener {
     private void setupTradingGUIItems(Inventory gui, Player player, TradingNPCManager.TradingPost tradingPost, TradingGUISession session) {
         gui.clear();
         
-        // スロット0: モード切り替えボタン
+        // スロット46: モード切り替えボタン
         setupModeButton(gui, session.getTradingMode(), !tradingPost.getPurchasePrices().isEmpty());
         
         String playerJob = jobManager.getPlayerJob(player.getUniqueId());
@@ -313,7 +315,7 @@ public class TradingGUI implements Listener {
                 "§7アイテムをクリックして売却"
             )
         );
-        gui.setItem(4, infoItem);
+        gui.setItem(47, infoItem);
         
         // ページング
         if (session.getCurrentPage() > 0) {
@@ -511,14 +513,14 @@ public class TradingGUI implements Listener {
                 )
             );
         }
-        gui.setItem(0, modeButton);
+        gui.setItem(46, modeButton);
     }
     
     /**
      * カテゴリボタンを設定
      */
     private void setupCategoryButtons(Inventory gui, ItemCategory currentCategory) {
-        int slot = 2; // スロット0がモード切り替えボタンのため2から開始
+        int slot = 0; // 上段(スロット0-8)をカテゴリボタン専用に使用
         for (ItemCategory category : ItemCategory.values()) {
             boolean isSelected = category == currentCategory;
             ItemStack categoryButton = createGUIItem(
@@ -552,24 +554,8 @@ public class TradingGUI implements Listener {
         if (category == ItemCategory.ALL) {
             return true;
         }
-        
-        String materialName = material.toString().toLowerCase();
-        switch (category) {
-            case MINING:
-                return isMiningItem(materialName);
-            case FARMING:
-                return isFarmingItem(materialName);
-            case LOGGING:
-                return isLoggingItem(materialName);
-            case FISHING:
-                return isFishingItem(materialName);
-            case CRAFTING:
-                return isCraftingItem(materialName);
-            case MATERIALS:
-                return isMaterialItem(materialName);
-            default:
-                return true;
-        }
+        // 各アイテムはちょうど1つのカテゴリに分類される（重複・無分類なし）
+        return classifyCategory(material) == category;
     }
     
     /**
@@ -609,49 +595,86 @@ public class TradingGUI implements Listener {
             || currencyConverter.getItemManager().isValidCurrencyGoldIngot(item);
     }
     
-    // カテゴリ判定メソッド群
-    private boolean isMiningItem(String materialName) {
-        return materialName.contains("ore") || materialName.contains("ingot") ||
-               materialName.contains("coal") || materialName.contains("diamond") ||
-               materialName.contains("emerald") || materialName.contains("redstone") ||
-               materialName.contains("lapis") || materialName.contains("quartz") ||
-               materialName.contains("stone") || materialName.contains("cobblestone") ||
-               materialName.contains("andesite") || materialName.contains("diorite") ||
-               materialName.contains("granite") || materialName.startsWith("raw_");
+    /**
+     * アイテムをちょうど1つのカテゴリに分類する。
+     * 上から順に最初に一致したカテゴリを返すため、重複表示・無分類が発生しない。
+     * どれにも当てはまらないアイテムは最終的に MATERIALS（素材/その他）へ集約される。
+     */
+    private ItemCategory classifyCategory(Material material) {
+        String n = material.toString().toLowerCase();
+
+        // 1) 製作品（道具・武器・防具）… 鉱物より先に判定し diamond_sword 等の重複を防ぐ
+        if (containsAny(n, "sword", "pickaxe", "_axe", "shovel", "_hoe", "helmet",
+                "chestplate", "leggings", "boots", "bow", "crossbow", "shield",
+                "shears", "fishing_rod", "flint_and_steel", "elytra")) {
+            return ItemCategory.CRAFTING;
+        }
+
+        // 2) 海産物（本物の魚介のみ。prismarine 建材や fishing_rod は除外済み）
+        if (containsAny(n, "cod", "salmon", "tropical_fish", "pufferfish", "kelp",
+                "seagrass", "nautilus", "heart_of_the_sea", "sea_pickle")) {
+            return ItemCategory.FISHING;
+        }
+
+        // 3) 鉱物（原石・インゴット・宝石・ストレージブロック）… 建材より先に判定し
+        //    deepslate_*_ore 等の鉱石が建材に吸われるのを防ぐ
+        if (containsAny(n, "ore", "ingot", "coal", "diamond", "emerald", "redstone",
+                "lapis", "amethyst_shard", "netherite_scrap", "ancient_debris")
+                || n.startsWith("raw_")
+                || containsAny(n, "iron_block", "gold_block", "diamond_block",
+                    "emerald_block", "coal_block", "redstone_block", "netherite_block")) {
+            return ItemCategory.MINING;
+        }
+
+        // 4) 建材（石材・レンガ・ガラス・コンクリ・羊毛・銅/水晶ブロック等）
+        //    ※ "stone" を素朴に部分一致させると redstone/glowstone を巻き込むため
+        //      ブロック名は具体トークン＋単体 "stone" の完全一致で判定する
+        if (containsAny(n, "brick", "deepslate", "concrete", "terracotta", "_wool",
+                "glass", "prismarine", "quartz", "sandstone", "blackstone", "purpur",
+                "sea_lantern", "copper_block", "cut_copper", "oxidized_copper", "calcite",
+                "tuff", "dripstone", "amethyst_block", "obsidian", "cobblestone",
+                "end_stone", "cobbled", "smooth_", "polished", "chiseled", "sponge",
+                "anvil", "bookshelf", "brewing_stand", "enchanting_table", "hay_block",
+                "nether_wart_block")
+                || n.equals("stone")) {
+            return ItemCategory.BUILDING;
+        }
+
+        // 5) 木材
+        if (containsAny(n, "_log", "planks", "_stem", "_wood", "stick", "bamboo",
+                "_sapling", "propagule")) {
+            return ItemCategory.LOGGING;
+        }
+
+        // 6) 農作物・植物（作物・花・きのこ・葉）
+        if (containsAny(n, "wheat", "potato", "carrot", "beetroot", "pumpkin", "melon",
+                "apple", "bread", "sugar", "cocoa", "nether_wart", "glow_berries",
+                "lily_pad", "poppy", "dandelion", "allium", "orchid", "cornflower",
+                "sunflower", "rose", "tulip", "lilac", "peony", "mushroom")) {
+            return ItemCategory.FARMING;
+        }
+
+        // 7) 食料・モブドロップ（肉類・モブ素材）
+        if (containsAny(n, "beef", "chicken", "porkchop", "mutton", "rabbit", "leather",
+                "feather", "bone", "egg", "milk", "honey", "slime", "ink_sac", "turtle",
+                "string", "rotten_flesh", "gunpowder", "spider_eye", "blaze_rod",
+                "ender_pearl", "phantom_membrane", "ghast_tear", "scute", "shulker_shell",
+                "dragon_breath")) {
+            return ItemCategory.FOOD;
+        }
+
+        // 8) 素材・その他（粉・塵・醸造・雑貨）= フォールバック
+        return ItemCategory.MATERIALS;
     }
-    
-    private boolean isFarmingItem(String materialName) {
-        return materialName.contains("wheat") || materialName.contains("potato") ||
-               materialName.contains("carrot") || materialName.contains("beetroot") ||
-               materialName.contains("pumpkin") || materialName.contains("melon") ||
-               materialName.contains("apple") || materialName.contains("bread") ||
-               materialName.contains("sugar") || materialName.contains("cocoa");
-    }
-    
-    private boolean isLoggingItem(String materialName) {
-        return materialName.contains("log") || materialName.contains("wood") ||
-               materialName.contains("plank") || materialName.contains("stick") ||
-               materialName.contains("bark") || materialName.contains("stem");
-    }
-    
-    private boolean isFishingItem(String materialName) {
-        return materialName.contains("cod") || materialName.contains("salmon") ||
-               materialName.contains("fish") || materialName.contains("kelp") ||
-               materialName.contains("seagrass") || materialName.contains("prismarine");
-    }
-    
-    private boolean isCraftingItem(String materialName) {
-        return materialName.contains("sword") || materialName.contains("pickaxe") ||
-               materialName.contains("axe") || materialName.contains("shovel") ||
-               materialName.contains("hoe") || materialName.contains("helmet") ||
-               materialName.contains("chestplate") || materialName.contains("leggings") ||
-               materialName.contains("boots");
-    }
-    
-    private boolean isMaterialItem(String materialName) {
-        return materialName.contains("powder") || materialName.contains("dust") ||
-               materialName.contains("tear") || materialName.contains("eye") ||
-               materialName.contains("membrane") || materialName.contains("cream");
+
+    /** いずれかの部分文字列を含むか判定するヘルパー */
+    private boolean containsAny(String name, String... keywords) {
+        for (String keyword : keywords) {
+            if (name.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
     
     private void fillEmptySlots(Inventory gui) {
@@ -715,8 +738,8 @@ public class TradingGUI implements Listener {
             return;
         }
         
-        // モード切り替えボタン処理 (スロット0)
-        if (slot == 0) {
+        // モード切り替えボタン処理 (スロット46)
+        if (slot == 46) {
             // 別職業・無職は購入・売却ともに不可のため、モード切替自体をブロック
             String playerJob = jobManager.getPlayerJob(player.getUniqueId());
             if (!tradingPost.isMatchingJob(playerJob)) {
@@ -737,10 +760,10 @@ public class TradingGUI implements Listener {
             return;
         }
         
-        // カテゴリボタン処理 (スロット2-8)
-        if (slot >= 2 && slot <= 8) {
+        // カテゴリボタン処理 (スロット0-8)
+        if (slot >= 0 && slot <= 8) {
             ItemCategory[] categories = ItemCategory.values();
-            int categoryIndex = slot - 2;
+            int categoryIndex = slot;
             if (categoryIndex < categories.length) {
                 session.setCurrentCategory(categories[categoryIndex]);
                 session.setCurrentPage(0); // カテゴリ変更時はページをリセット
