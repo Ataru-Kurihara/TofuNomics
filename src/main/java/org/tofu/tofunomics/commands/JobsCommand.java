@@ -8,19 +8,23 @@ import org.bukkit.entity.Player;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.jobs.ExperienceManager;
+import org.tofu.tofunomics.jobs.gui.JobsHubGUI;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.models.Job;
 
 public class JobsCommand implements CommandExecutor {
-    
+
     private final ConfigManager configManager;
     private final JobManager jobManager;
     private final ExperienceManager experienceManager;
-    
-    public JobsCommand(ConfigManager configManager, JobManager jobManager, ExperienceManager experienceManager) {
+    private final JobsHubGUI jobsHubGUI;
+
+    public JobsCommand(ConfigManager configManager, JobManager jobManager,
+                       ExperienceManager experienceManager, JobsHubGUI jobsHubGUI) {
         this.configManager = configManager;
         this.jobManager = jobManager;
         this.experienceManager = experienceManager;
+        this.jobsHubGUI = jobsHubGUI;
     }
 
     @Override
@@ -33,13 +37,21 @@ public class JobsCommand implements CommandExecutor {
         Player player = (Player) sender;
         
         if (args.length == 0) {
-            sendHelpMessage(player);
+            // 引数なしは GUI を開く。GUI 初期化失敗時は従来のヘルプにフォールバック。
+            if (jobsHubGUI != null) {
+                jobsHubGUI.open(player);
+            } else {
+                sendHelpMessage(player);
+            }
             return true;
         }
-        
+
         String subCommand = args[0].toLowerCase();
-        
+
         switch (subCommand) {
+            case "help":
+                sendHelpMessage(player);
+                return true;
             case "list":
                 return handleJobsList(player);
             case "join":
