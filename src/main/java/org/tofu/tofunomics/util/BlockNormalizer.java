@@ -3,7 +3,9 @@ package org.tofu.tofunomics.util;
 import org.bukkit.Material;
 
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * ブロックの職業判定用正規化ユーティリティ
@@ -43,6 +45,9 @@ public final class BlockNormalizer {
     /** 各色違いMaterial → 代表Material のルックアップ表（起動時に1回構築） */
     private static final Map<Material, Material> COLOR_VARIANT_MAP = buildColorVariantMap();
 
+    /** 色違いファミリーの代表Material集合（カタログ表示で「色不問」案内を出す判定に使用） */
+    private static final Set<Material> COLOR_VARIANT_BASES = EnumSet.copyOf(COLOR_VARIANT_MAP.values());
+
     private static Map<Material, Material> buildColorVariantMap() {
         Map<Material, Material> map = new EnumMap<>(Material.class);
         for (String[] family : COLOR_FAMILIES) {
@@ -78,6 +83,17 @@ public final class BlockNormalizer {
             return null;
         }
         return COLOR_VARIANT_MAP.getOrDefault(material, material);
+    }
+
+    /**
+     * 指定Materialが色違いファミリーの代表色（正規化先）かどうかを返す。
+     * カタログ表示で「色違いも同価格で売却可」と案内すべき品目の判定に使う。
+     *
+     * @param material 判定対象
+     * @return 代表色であれば true
+     */
+    public static boolean isColorVariantBase(Material material) {
+        return material != null && COLOR_VARIANT_BASES.contains(material);
     }
 
     /**

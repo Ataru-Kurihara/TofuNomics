@@ -4,7 +4,9 @@ import org.bukkit.Material;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * BlockNormalizer の正規化ロジックのテスト
@@ -84,5 +86,22 @@ public class BlockNormalizerTest {
     @Test
     public void 色正規化でnullはnullを返す() {
         assertNull(BlockNormalizer.normalizeColorVariant(null));
+    }
+
+    @Test
+    public void 代表色は色違いベースと判定される() {
+        assertTrue(BlockNormalizer.isColorVariantBase(Material.WHITE_WOOL));
+        assertTrue(BlockNormalizer.isColorVariantBase(Material.WHITE_CONCRETE));
+        assertTrue(BlockNormalizer.isColorVariantBase(Material.TERRACOTTA));
+        assertTrue(BlockNormalizer.isColorVariantBase(Material.WHITE_STAINED_GLASS_PANE));
+    }
+
+    @Test
+    public void 代表色以外は色違いベースではない() {
+        // 非代表色（赤羊毛）や色と無関係なブロックは false
+        assertFalse(BlockNormalizer.isColorVariantBase(Material.RED_WOOL));
+        assertFalse(BlockNormalizer.isColorVariantBase(Material.STONE));
+        assertFalse(BlockNormalizer.isColorVariantBase(Material.DIAMOND));
+        assertFalse(BlockNormalizer.isColorVariantBase(null));
     }
 }

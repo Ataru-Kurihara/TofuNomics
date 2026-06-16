@@ -379,10 +379,17 @@ public class TradingGUI implements Listener {
         ItemMeta meta = item.getItemMeta();
         
         if (meta != null) {
-            meta.setDisplayName("§f" + getDisplayName(material));
-            
+            // 色違いブロックの代表色は「色不問」であることを名称・説明で明示する
+            boolean isColorBase = org.tofu.tofunomics.util.BlockNormalizer.isColorVariantBase(material);
+            meta.setDisplayName("§f" + getDisplayName(material) + (isColorBase ? " §7(色不問)" : ""));
+
             List<String> lore = new ArrayList<>();
-            
+
+            if (isColorBase) {
+                lore.add("§b※ 色違い(全16色)も同価格で売却できます");
+                lore.add("");
+            }
+
             // 原木の場合は10個分の価格を表示
             int displayMultiplier = isLogItem(material) ? 10 : 1;
             String unitSuffix = displayMultiplier > 1 ? " (" + displayMultiplier + "個)" : "";
@@ -462,11 +469,22 @@ public class TradingGUI implements Listener {
     private int countPlayerItems(Player player, Material material) {
         int count = 0;
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getType() == material) {
+            if (item != null && matchesSellable(item.getType(), material)) {
                 count += item.getAmount();
             }
         }
         return count;
+    }
+
+    /**
+     * インベントリ内アイテムが、カタログ上の品目として売却対象に一致するか判定する。
+     * 色違い代表色の品目に対しては、全16色の同ファミリーブロックを一致扱いにする。
+     */
+    private boolean matchesSellable(Material inInventory, Material catalogMaterial) {
+        if (inInventory == catalogMaterial) {
+            return true;
+        }
+        return org.tofu.tofunomics.util.BlockNormalizer.normalizeColorVariant(inInventory) == catalogMaterial;
     }
     
     private ItemStack createGUIItem(Material material, String name, List<String> lore) {
@@ -851,7 +869,7 @@ public class TradingGUI implements Listener {
         int remaining = sellAmount;
         
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getType() == material && !isCurrencyItem(item) && remaining > 0) {
+            if (item != null && matchesSellable(item.getType(), material) && !isCurrencyItem(item) && remaining > 0) {
                 int available = item.getAmount();
                 int takeAmount = Math.min(available, remaining);
                 
