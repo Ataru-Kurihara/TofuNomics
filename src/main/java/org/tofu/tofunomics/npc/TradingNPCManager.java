@@ -181,7 +181,9 @@ public class TradingNPCManager {
         }
         
         public double getItemPrice(Material material) {
-            return itemPrices.getOrDefault(material, 0.0);
+            // 色違いブロックは色を問わず代表色の価格に統一して売却可能にする
+            Material lookup = org.tofu.tofunomics.util.BlockNormalizer.normalizeColorVariant(material);
+            return itemPrices.getOrDefault(lookup, 0.0);
         }
         
         public double getPurchasePrice(Material material) {

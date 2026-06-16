@@ -630,7 +630,7 @@ public class TradingGUI implements Listener {
         //    ※ "stone" を素朴に部分一致させると redstone/glowstone を巻き込むため
         //      ブロック名は具体トークン＋単体 "stone" の完全一致で判定する
         if (containsAny(n, "brick", "deepslate", "concrete", "terracotta", "_wool",
-                "glass", "prismarine", "quartz", "sandstone", "blackstone", "purpur",
+                "carpet", "glass", "prismarine", "quartz", "sandstone", "blackstone", "purpur",
                 "sea_lantern", "copper_block", "cut_copper", "oxidized_copper", "calcite",
                 "tuff", "dripstone", "amethyst_block", "obsidian", "cobblestone",
                 "end_stone", "cobbled", "smooth_", "polished", "chiseled", "sponge",

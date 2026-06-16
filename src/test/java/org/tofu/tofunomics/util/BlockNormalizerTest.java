@@ -45,4 +45,44 @@ public class BlockNormalizerTest {
     public void nullはnullを返す() {
         assertNull(BlockNormalizer.normalizeForJob(null));
     }
+
+    // --- 色違いブロックの統一正規化（取引価格用）---
+
+    @Test
+    public void 羊毛は色を問わず白羊毛へ正規化される() {
+        assertEquals(Material.WHITE_WOOL, BlockNormalizer.normalizeColorVariant(Material.WHITE_WOOL));
+        assertEquals(Material.WHITE_WOOL, BlockNormalizer.normalizeColorVariant(Material.RED_WOOL));
+        assertEquals(Material.WHITE_WOOL, BlockNormalizer.normalizeColorVariant(Material.BLACK_WOOL));
+        assertEquals(Material.WHITE_WOOL, BlockNormalizer.normalizeColorVariant(Material.LIGHT_GRAY_WOOL));
+    }
+
+    @Test
+    public void 各色違いファミリーが代表色へ正規化される() {
+        assertEquals(Material.WHITE_CARPET, BlockNormalizer.normalizeColorVariant(Material.BLUE_CARPET));
+        assertEquals(Material.WHITE_CONCRETE, BlockNormalizer.normalizeColorVariant(Material.LIGHT_GRAY_CONCRETE));
+        assertEquals(Material.WHITE_CONCRETE_POWDER, BlockNormalizer.normalizeColorVariant(Material.GREEN_CONCRETE_POWDER));
+        assertEquals(Material.WHITE_GLAZED_TERRACOTTA, BlockNormalizer.normalizeColorVariant(Material.PINK_GLAZED_TERRACOTTA));
+        assertEquals(Material.WHITE_STAINED_GLASS, BlockNormalizer.normalizeColorVariant(Material.CYAN_STAINED_GLASS));
+        assertEquals(Material.WHITE_STAINED_GLASS_PANE, BlockNormalizer.normalizeColorVariant(Material.RED_STAINED_GLASS_PANE));
+    }
+
+    @Test
+    public void 色付きテラコッタは無着色テラコッタへ正規化される() {
+        assertEquals(Material.TERRACOTTA, BlockNormalizer.normalizeColorVariant(Material.RED_TERRACOTTA));
+        assertEquals(Material.TERRACOTTA, BlockNormalizer.normalizeColorVariant(Material.WHITE_TERRACOTTA));
+        // 無着色テラコッタはそのまま
+        assertEquals(Material.TERRACOTTA, BlockNormalizer.normalizeColorVariant(Material.TERRACOTTA));
+    }
+
+    @Test
+    public void 色違いでないブロックはそのまま返る() {
+        assertEquals(Material.STONE, BlockNormalizer.normalizeColorVariant(Material.STONE));
+        assertEquals(Material.DIAMOND, BlockNormalizer.normalizeColorVariant(Material.DIAMOND));
+        assertEquals(Material.OAK_LOG, BlockNormalizer.normalizeColorVariant(Material.OAK_LOG));
+    }
+
+    @Test
+    public void 色正規化でnullはnullを返す() {
+        assertNull(BlockNormalizer.normalizeColorVariant(null));
+    }
 }

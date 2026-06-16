@@ -1928,8 +1928,8 @@ npc_system:
     gilded_blackstone: 6
     glass: 0.3
     glass_pane: 0.2
-    terracotta: 0.5
-    white_concrete: 0.6
+    terracotta: 1
+    white_concrete: 1
     quartz_pillar: 3
     quartz_bricks: 3
     copper_block: 18
@@ -1939,10 +1939,13 @@ npc_system:
     anvil: 30
     brewing_stand: 8
     enchanting_table: 20
-    white_wool: 1.5
-    black_wool: 2
-    red_wool: 2
-    light_gray_concrete: 0.6
+    # 色違いブロックは色を問わず代表色(白系)の価格で統一売却（BlockNormalizerで正規化）
+    white_wool: 2
+    white_carpet: 1
+    white_concrete_powder: 1
+    white_glazed_terracotta: 2
+    white_stained_glass: 1
+    white_stained_glass_pane: 1
     potion: 10
     splash_potion: 12
     lingering_potion: 15
