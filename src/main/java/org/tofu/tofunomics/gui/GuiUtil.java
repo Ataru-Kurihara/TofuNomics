@@ -1,6 +1,7 @@
 package org.tofu.tofunomics.gui;
 
 import org.bukkit.Material;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -25,6 +26,12 @@ public final class GuiUtil {
         if (meta != null) {
             meta.setDisplayName(name);
             meta.setLore(lore);
+            // 道具・ブロックアイテムをアイコンに使った際、バニラの属性/耐久/エンチャント情報が
+            // lore に混入して見た目が崩れるのを防ぐ。
+            meta.addItemFlags(
+                    ItemFlag.HIDE_ATTRIBUTES,
+                    ItemFlag.HIDE_ENCHANTS,
+                    ItemFlag.HIDE_UNBREAKABLE);
             item.setItemMeta(meta);
         }
         return item;

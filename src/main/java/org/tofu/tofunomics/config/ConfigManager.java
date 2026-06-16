@@ -595,8 +595,25 @@ public class ConfigManager {
     public double getJobBaseSellBonus(String jobName) {
         return config.getDouble("jobs.job_settings." + jobName + ".base_sell_bonus", 0.05);
     }
-    
-    
+
+    // 職業ガイドブック設定
+    public boolean isJobGuideBookEnabled(String jobName) {
+        return config.getBoolean("jobs.job_settings." + jobName + ".guide_book.enabled", false);
+    }
+
+    public String getJobGuideBookTitle(String jobName) {
+        return config.getString("jobs.job_settings." + jobName + ".guide_book.title", jobName + "ガイドブック");
+    }
+
+    public String getJobGuideBookAuthor(String jobName) {
+        return config.getString("jobs.job_settings." + jobName + ".guide_book.author", "TofuNomics");
+    }
+
+    public java.util.List<String> getJobGuideBookPages(String jobName) {
+        return config.getStringList("jobs.job_settings." + jobName + ".guide_book.pages");
+    }
+
+
     // 土地保護設定
     public boolean isWorldGuardIntegration() {
         return config.getBoolean("land_protection.worldguard_integration", true);

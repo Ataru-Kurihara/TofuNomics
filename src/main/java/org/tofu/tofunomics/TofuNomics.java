@@ -135,6 +135,11 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.market.gui.MarketGUIListener marketGUIListener;
     private org.tofu.tofunomics.market.gui.MarketHubGUI marketHubGUI;
     private org.tofu.tofunomics.gui.ChatInputManager chatInputManager;
+    private org.tofu.tofunomics.jobs.gui.JobsGUIListener jobsGUIListener;
+    private org.tofu.tofunomics.jobs.gui.JobsHubGUI jobsHubGUI;
+    private org.tofu.tofunomics.jobs.gui.JobDetailGUI jobDetailGUI;
+    private org.tofu.tofunomics.jobs.gui.JobStatsGUI jobStatsGUI;
+    private org.tofu.tofunomics.jobs.gui.JobConfirmGUI jobConfirmGUI;
     private org.tofu.tofunomics.market.MarketExpirationTask marketExpirationTask;
 
     @Override
@@ -278,6 +283,9 @@ public final class TofuNomics extends JavaPlugin {
         }
         if (marketGUIListener != null) {
             marketGUIListener.closeAll();
+        }
+        if (jobsGUIListener != null) {
+            jobsGUIListener.closeAll();
         }
         if (housingGUIListener != null) {
             housingGUIListener.closeAll();
@@ -427,6 +435,23 @@ public final class TofuNomics extends JavaPlugin {
             marketHubGUI.setGUIs(marketBrowseGUI, myListingsGUI, buyOrderBrowseGUI,
                 myBuyOrdersGUI, serviceBrowseGUI, myServicesGUI);
             marketGUIListener.setHubGUI(marketHubGUI);
+
+            // 職業GUI（ハブ・詳細・ステータス・確認）を配線する（Market と同型）
+            jobsGUIListener = new org.tofu.tofunomics.jobs.gui.JobsGUIListener(this);
+            jobDetailGUI = new org.tofu.tofunomics.jobs.gui.JobDetailGUI(
+                this, configManager, jobManager, jobsGUIListener);
+            jobStatsGUI = new org.tofu.tofunomics.jobs.gui.JobStatsGUI(
+                this, configManager, jobManager, jobsGUIListener);
+            jobConfirmGUI = new org.tofu.tofunomics.jobs.gui.JobConfirmGUI(
+                this, configManager, jobManager, jobsGUIListener);
+            jobsHubGUI = new org.tofu.tofunomics.jobs.gui.JobsHubGUI(
+                this, configManager, jobManager, jobsGUIListener);
+            jobsHubGUI.setGUIs(jobDetailGUI, jobStatsGUI);
+            jobDetailGUI.setGUIs(jobsHubGUI, jobConfirmGUI);
+            jobStatsGUI.setGUIs(jobsHubGUI);
+            jobConfirmGUI.setGUIs(jobsHubGUI, jobDetailGUI);
+            jobsGUIListener.setGUIs(jobsHubGUI, jobDetailGUI, jobStatsGUI, jobConfirmGUI);
+            getLogger().info("職業GUIシステムを初期化しました");
 
             // 期限切れ定期タスクの起動（expire_check_interval 秒 × 20 = ticks）
             long intervalTicks = Math.max(1L, (long) configManager.getMarketExpireCheckInterval() * 20L);
@@ -765,6 +790,12 @@ public final class TofuNomics extends JavaPlugin {
                 getLogger().info("マーケットGUIリスナーを登録しました");
             }
 
+            // 職業GUIリスナーの登録
+            if (jobsGUIListener != null) {
+                getServer().getPluginManager().registerEvents(jobsGUIListener, this);
+                getLogger().info("職業GUIリスナーを登録しました");
+            }
+
             getLogger().info("全てのイベントリスナーを登録しました");
         } catch (Exception e) {
             getLogger().severe("イベントリスナー登録中にエラーが発生しました: " + e.getMessage());
@@ -782,7 +813,7 @@ public final class TofuNomics extends JavaPlugin {
             getCommand("eco").setExecutor(new EcoCommand(configManager, currencyConverter, playerDAO));
             
             // 職業系コマンド
-            getCommand("jobs").setExecutor(new JobsCommand(configManager, jobManager, experienceManager));
+            getCommand("jobs").setExecutor(new JobsCommand(configManager, jobManager, experienceManager, jobsHubGUI));
             getCommand("jobstats").setExecutor(new JobStatsCommand(jobStatsManager));
             getCommand("quest").setExecutor(new JobQuestCommand(configManager, jobQuestManager));
             
