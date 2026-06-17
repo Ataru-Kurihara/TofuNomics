@@ -11,6 +11,7 @@ import org.tofu.tofunomics.npc.NPCManager;
 import org.tofu.tofunomics.npc.TradingNPCManager;
 import org.tofu.tofunomics.npc.FoodNPCManager;
 import org.tofu.tofunomics.npc.ProcessingNPCManager;
+import org.tofu.tofunomics.npc.QuestNPCManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,13 +26,21 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
     private final FoodNPCManager foodNPCManager;
 
     public TofuNomicsCommand(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
-                        BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager, FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager) {
+                        BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager, FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager,
+                        QuestNPCManager questNPCManager) {
     this.plugin = plugin;
     this.configManager = configManager;
     this.tradingNPCManager = tradingNPCManager;
     this.foodNPCManager = foodNPCManager;
-    this.npcCommand = new NPCCommand(plugin, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager, processingNPCManager);
+    this.npcCommand = new NPCCommand(plugin, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager, processingNPCManager, questNPCManager);
 }
+
+    /**
+     * NPC管理コマンドの実体を取得（/npc コマンドへの直接登録用）
+     */
+    public NPCCommand getNpcCommand() {
+        return npcCommand;
+    }
     
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {

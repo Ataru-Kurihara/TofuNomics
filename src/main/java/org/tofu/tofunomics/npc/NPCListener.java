@@ -29,13 +29,15 @@ public class NPCListener implements Listener {
     private final TradingNPCManager tradingNPCManager;
     private final FoodNPCManager foodNPCManager;
     private final ProcessingNPCManager processingNPCManager;
+    private final QuestNPCManager questNPCManager;
     
     // プレイヤーの取引状態を管理
     private final Map<UUID, TradingSession> activeTradingSessions = new ConcurrentHashMap<>();
     
     public NPCListener(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
-                     BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager, 
-                     FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager) {
+                     BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager,
+                     FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager,
+                     QuestNPCManager questNPCManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.npcManager = npcManager;
@@ -43,6 +45,7 @@ public class NPCListener implements Listener {
         this.tradingNPCManager = tradingNPCManager;
         this.foodNPCManager = foodNPCManager;
         this.processingNPCManager = processingNPCManager;
+        this.questNPCManager = questNPCManager;
     }
     
     private static class TradingSession {
@@ -116,6 +119,10 @@ public class NPCListener implements Listener {
                     handleProcessingNPCInteraction(player, npcId);
                     break;
 
+                case "quest":
+                    handleQuestNPCInteraction(player, npcId);
+                    break;
+
                 default:
                     plugin.getLogger().warning("不明なNPCタイプ: " + npcData.getNpcType());
                     player.sendMessage(configManager.getMessage("npc.unknown_type"));
@@ -165,6 +172,35 @@ public class NPCListener implements Listener {
         }
     }
     
+    /**
+     * クエスト受注NPC相互作用の処理
+     */
+    private void handleQuestNPCInteraction(Player player, UUID npcId) {
+        // クールダウンチェック
+        if (hasRecentInteraction(player.getUniqueId(), "quest")) {
+            player.sendMessage("§c少し待ってからもう一度お試しください。");
+            return;
+        }
+
+        try {
+            if (questNPCManager != null) {
+                boolean handled = questNPCManager.handleQuestNPCInteraction(player, npcId);
+                if (handled) {
+                    activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "quest"));
+                } else {
+                    plugin.getLogger().warning("クエスト受注NPC相互作用の処理に失敗: " + npcId);
+                    player.sendMessage("§cクエスト受注NPCとの処理中にエラーが発生しました。");
+                }
+            } else {
+                plugin.getLogger().severe("QuestNPCManagerが初期化されていません");
+                player.sendMessage("§cクエスト受注NPCシステムが利用できません。管理者にお知らせください。");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("クエスト受注NPC相互作用処理中に例外が発生しました: " + e.getMessage());
+            player.sendMessage("§c処理中にエラーが発生しました。管理者にお知らせください。");
+        }
+    }
+
     /**
      * 加工NPC相互作用の処理
      */

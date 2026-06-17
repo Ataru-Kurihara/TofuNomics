@@ -282,6 +282,18 @@ public class DatabaseManager {
             "    expires_at INTEGER," +
             "    fulfilled_at TIMESTAMP," +
             "    FOREIGN KEY (requester_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
+            ");",
+
+            // クエスト受注NPC用 受注状態テーブル（進捗は納品時にインベントリ実数で判定するため保持しない）
+            "CREATE TABLE IF NOT EXISTS quest_progress (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    player_uuid TEXT NOT NULL," +
+            "    quest_id TEXT NOT NULL," +
+            "    status TEXT NOT NULL DEFAULT 'accepted'," +
+            "    accepted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+            "    completed_at TIMESTAMP," +
+            "    UNIQUE(player_uuid, quest_id)," +
+            "    FOREIGN KEY (player_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
             ");"
         };
 
@@ -429,6 +441,9 @@ public class DatabaseManager {
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_buyorder_status ON market_buy_orders(status)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_buyorder_requester ON market_buy_orders(requester_uuid, status)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_buyorder_expires ON market_buy_orders(status, expires_at)");
+
+            // クエスト受注状態検索高速化用インデックス（存在しなければ作成）
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_quest_player ON quest_progress(player_uuid, status)");
         } catch (SQLException e) {
             logger.warning("マイグレーション処理に失敗しました: " + e.getMessage());
         }

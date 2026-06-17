@@ -96,6 +96,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.npc.TradingNPCManager tradingNPCManager;
     private org.tofu.tofunomics.npc.FoodNPCManager foodNPCManager;
     private org.tofu.tofunomics.npc.ProcessingNPCManager processingNPCManager;
+    private org.tofu.tofunomics.npc.QuestNPCManager questNPCManager;
     private org.tofu.tofunomics.npc.NPCListener npcListener;
     // 食事による職業経験値ブーストバフ
     private org.tofu.tofunomics.food.FoodBuffManager foodBuffManager;
@@ -105,6 +106,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.npc.gui.TradingModeSelectionGUI tradingModeSelectionGUI = null;
     private org.tofu.tofunomics.npc.gui.FoodGUI foodGUI;
     private org.tofu.tofunomics.npc.gui.ProcessingGUI processingGUI;
+    private org.tofu.tofunomics.npc.gui.QuestGUI questGUI;
     private org.tofu.tofunomics.npc.gui.QuantitySelectorGUI quantitySelectorGUI;
 
     // エリアシステム
@@ -124,6 +126,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.dao.MarketListingDAO marketListingDAO;
     private org.tofu.tofunomics.dao.MarketBuyOrderDAO marketBuyOrderDAO;
     private org.tofu.tofunomics.dao.MarketServiceRequestDAO marketServiceRequestDAO;
+    private org.tofu.tofunomics.dao.QuestProgressDAO questProgressDAO;
     private org.tofu.tofunomics.market.MarketManager marketManager;
     private org.tofu.tofunomics.market.gui.MarketBrowseGUI marketBrowseGUI;
     private org.tofu.tofunomics.market.gui.MyListingsGUI myListingsGUI;
@@ -337,6 +340,7 @@ public final class TofuNomics extends JavaPlugin {
             marketListingDAO = new org.tofu.tofunomics.dao.MarketListingDAO(databaseManager.getConnection());
             marketBuyOrderDAO = new org.tofu.tofunomics.dao.MarketBuyOrderDAO(databaseManager.getConnection());
             marketServiceRequestDAO = new org.tofu.tofunomics.dao.MarketServiceRequestDAO(databaseManager.getConnection());
+            questProgressDAO = new org.tofu.tofunomics.dao.QuestProgressDAO(databaseManager.getConnection());
 
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
@@ -865,9 +869,15 @@ public final class TofuNomics extends JavaPlugin {
             // メインコマンド（NPC管理機能含む）
             if (npcManager != null) {
                 org.tofu.tofunomics.commands.TofuNomicsCommand mainCommand = 
-                    new org.tofu.tofunomics.commands.TofuNomicsCommand(this, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager, processingNPCManager);
+                    new org.tofu.tofunomics.commands.TofuNomicsCommand(this, configManager, npcManager, bankNPCManager, tradingNPCManager, foodNPCManager, processingNPCManager, questNPCManager);
                 getCommand("tofunomics").setExecutor(mainCommand);
                 getCommand("tofunomics").setTabCompleter(mainCommand);
+
+                // /npc コマンド（plugin.ymlで宣言済み）にもNPC管理機能を直接登録
+                if (getCommand("npc") != null) {
+                    getCommand("npc").setExecutor(mainCommand.getNpcCommand());
+                    getCommand("npc").setTabCompleter(mainCommand.getNpcCommand());
+                }
             }
             
             // ルール確認コマンド（外部サイトURL表示方式）
@@ -1013,6 +1023,15 @@ public final class TofuNomics extends JavaPlugin {
                 jobManager
             );
 
+            // クエストNPCマネージャーの初期化
+            questNPCManager = new org.tofu.tofunomics.npc.QuestNPCManager(
+                this,
+                configManager,
+                npcManager,
+                currencyConverter,
+                questProgressDAO
+            );
+
             // NPCリスナーの初期化
             npcListener = new org.tofu.tofunomics.npc.NPCListener(
                 this,
@@ -1021,7 +1040,8 @@ public final class TofuNomics extends JavaPlugin {
                 bankNPCManager,
                 tradingNPCManager,
                 foodNPCManager,
-                processingNPCManager
+                processingNPCManager,
+                questNPCManager
             );
 
             // TradingGUIの初期化
@@ -1087,6 +1107,18 @@ public final class TofuNomics extends JavaPlugin {
                 processingGUI = null;
             }
 
+            // QuestGUIの初期化
+            try {
+                questGUI = new org.tofu.tofunomics.npc.gui.QuestGUI(
+                    this,
+                    configManager,
+                    questNPCManager
+                );
+            } catch (Exception e) {
+                getLogger().severe("QuestGUIの初期化中にエラーが発生しました: " + e.getMessage());
+                questGUI = null;
+            }
+
             // 既存のシステムNPCを削除（重複防止）
             npcManager.removeExistingSystemNPCs();
 
@@ -1097,6 +1129,7 @@ public final class TofuNomics extends JavaPlugin {
                 tradingNPCManager.initializeTradingNPCs();
                 foodNPCManager.initializeFoodNPCs();
                 processingNPCManager.initializeProcessingNPCs();
+                questNPCManager.initializeQuestNPCs();
 
                 getLogger().info("NPCの生成が完了しました");
             }, 40L);  // 40 ticks = 2秒待機
@@ -1130,7 +1163,11 @@ public final class TofuNomics extends JavaPlugin {
             if (processingGUI != null) {
                 processingGUI.closeAllGUIs();
             }
-            
+
+            if (questGUI != null) {
+                questGUI.closeAllGUIs();
+            }
+
             if (quantitySelectorGUI != null) {
                 quantitySelectorGUI.closeAllGUIs();
             }
@@ -1176,7 +1213,12 @@ public final class TofuNomics extends JavaPlugin {
             getServer().getPluginManager().registerEvents(processingGUI, this);
             getLogger().info("加工GUIリスナーを登録しました");
         }
-        
+
+        if (questGUI != null) {
+            getServer().getPluginManager().registerEvents(questGUI, this);
+            getLogger().info("クエストGUIリスナーを登録しました");
+        }
+
         if (quantitySelectorGUI != null) {
             getServer().getPluginManager().registerEvents(quantitySelectorGUI, this);
             getLogger().info("数量選択GUIリスナーを登録しました");
@@ -1203,6 +1245,10 @@ public final class TofuNomics extends JavaPlugin {
     public org.tofu.tofunomics.npc.ProcessingNPCManager getProcessingNPCManager() {
         return processingNPCManager;
     }
+
+    public org.tofu.tofunomics.npc.QuestNPCManager getQuestNPCManager() {
+        return questNPCManager;
+    }
     
     public org.tofu.tofunomics.npc.gui.BankGUI getBankGUI() {
         return bankGUI;
@@ -1225,6 +1271,10 @@ public final class TofuNomics extends JavaPlugin {
     
     public org.tofu.tofunomics.npc.gui.ProcessingGUI getProcessingGUI() {
         return processingGUI;
+    }
+
+    public org.tofu.tofunomics.npc.gui.QuestGUI getQuestGUI() {
+        return questGUI;
     }
     
     // Phase 6 クラフト制限システムGetter
