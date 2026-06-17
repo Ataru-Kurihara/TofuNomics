@@ -65,6 +65,11 @@ commands:
     usage: /housing <list|info|rent|myrentals|extend|cancel|admin> [args]
     aliases: [house]
     permission: tofunomics.housing.use
+  farmplot:
+    description: 農家畑区画管理システム
+    usage: /farmplot <pos1|pos2|create|delete|list|info|assign|release> [args]
+    aliases: [plot, fp]
+    permission: tofunomics.farmplot.admin
   testmode:
     description: テストモード（権限なしユーザーの挙動をテスト）
     usage: /testmode <on|off|status>
@@ -250,7 +255,11 @@ permissions:
   tofunomics.housing.admin:
     description: 住居物件管理権限
     default: op
-  
+
+  tofunomics.farmplot.admin:
+    description: 農家畑区画管理コマンド使用権限
+    default: op
+
   tofunomics.testmode:
     description: テストモード切り替え権限
     default: op

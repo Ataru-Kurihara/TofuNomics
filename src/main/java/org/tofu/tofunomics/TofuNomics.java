@@ -127,6 +127,8 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.dao.MarketBuyOrderDAO marketBuyOrderDAO;
     private org.tofu.tofunomics.dao.MarketServiceRequestDAO marketServiceRequestDAO;
     private org.tofu.tofunomics.dao.QuestProgressDAO questProgressDAO;
+    private org.tofu.tofunomics.dao.FarmPlotDAO farmPlotDAO;
+    private org.tofu.tofunomics.farming.FarmPlotManager farmPlotManager;
     private org.tofu.tofunomics.market.MarketManager marketManager;
     private org.tofu.tofunomics.market.gui.MarketBrowseGUI marketBrowseGUI;
     private org.tofu.tofunomics.market.gui.MyListingsGUI myListingsGUI;
@@ -341,6 +343,7 @@ public final class TofuNomics extends JavaPlugin {
             marketBuyOrderDAO = new org.tofu.tofunomics.dao.MarketBuyOrderDAO(databaseManager.getConnection());
             marketServiceRequestDAO = new org.tofu.tofunomics.dao.MarketServiceRequestDAO(databaseManager.getConnection());
             questProgressDAO = new org.tofu.tofunomics.dao.QuestProgressDAO(databaseManager.getConnection());
+            farmPlotDAO = new org.tofu.tofunomics.dao.FarmPlotDAO(databaseManager.getConnection());
 
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
@@ -520,7 +523,14 @@ public final class TofuNomics extends JavaPlugin {
                 configManager,
                 jobManager
             );
-            
+
+            // FarmPlotManagerの初期化（WorldGuard連携は使用時に遅延取得）
+            farmPlotManager = new org.tofu.tofunomics.farming.FarmPlotManager(
+                this,
+                configManager,
+                farmPlotDAO
+            );
+
             getLogger().info("Phase 3 職業特化機能を初期化しました");
         } catch (Exception e) {
             getLogger().severe("Phase 3 マネージャー初期化中にエラーが発生しました: " + e.getMessage());
@@ -818,6 +828,14 @@ public final class TofuNomics extends JavaPlugin {
             
             // 職業系コマンド
             getCommand("jobs").setExecutor(new JobsCommand(configManager, jobManager, experienceManager, jobsHubGUI));
+
+            // 畑区画コマンド
+            if (farmPlotManager != null && getCommand("farmplot") != null) {
+                org.tofu.tofunomics.commands.FarmPlotCommand farmPlotCommand =
+                    new org.tofu.tofunomics.commands.FarmPlotCommand(this, farmPlotManager);
+                getCommand("farmplot").setExecutor(farmPlotCommand);
+                getCommand("farmplot").setTabCompleter(farmPlotCommand);
+            }
             getCommand("jobstats").setExecutor(new JobStatsCommand(jobStatsManager));
             getCommand("quest").setExecutor(new JobQuestCommand(configManager, jobQuestManager));
             
@@ -959,6 +977,10 @@ public final class TofuNomics extends JavaPlugin {
     
     public ExperienceManager getExperienceManager() {
         return experienceManager;
+    }
+
+    public org.tofu.tofunomics.farming.FarmPlotManager getFarmPlotManager() {
+        return farmPlotManager;
     }
     
     public org.tofu.tofunomics.scoreboard.ScoreboardManager getScoreboardManager() {

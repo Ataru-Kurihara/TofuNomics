@@ -294,6 +294,23 @@ public class DatabaseManager {
             "    completed_at TIMESTAMP," +
             "    UNIQUE(player_uuid, quest_id)," +
             "    FOREIGN KEY (player_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
+            ");",
+
+            // 農家畑区画テーブル（owner_uuid が NULL の区画は空き）
+            "CREATE TABLE IF NOT EXISTS farm_plots (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    plot_name TEXT NOT NULL UNIQUE," +
+            "    world_name TEXT NOT NULL," +
+            "    x1 INTEGER NOT NULL," +
+            "    y1 INTEGER NOT NULL," +
+            "    z1 INTEGER NOT NULL," +
+            "    x2 INTEGER NOT NULL," +
+            "    y2 INTEGER NOT NULL," +
+            "    z2 INTEGER NOT NULL," +
+            "    worldguard_region_id TEXT," +
+            "    owner_uuid TEXT," +
+            "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
             ");"
         };
 
