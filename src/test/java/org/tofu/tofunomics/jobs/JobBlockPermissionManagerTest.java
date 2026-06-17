@@ -92,6 +92,21 @@ public class JobBlockPermissionManagerTest {
     }
 
     @Test
+    public void testSeedItemMapping() {
+        // 種アイテムが対応する作物ブロックへ正しくマッピングされる
+        assertEquals(Material.WHEAT, permissionManager.getCropBlockForSeed(Material.WHEAT_SEEDS));
+        assertEquals(Material.CARROTS, permissionManager.getCropBlockForSeed(Material.CARROT));
+        assertEquals(Material.POTATOES, permissionManager.getCropBlockForSeed(Material.POTATO));
+        assertEquals(Material.BEETROOTS, permissionManager.getCropBlockForSeed(Material.BEETROOT_SEEDS));
+        assertEquals(Material.PUMPKIN_STEM, permissionManager.getCropBlockForSeed(Material.PUMPKIN_SEEDS));
+        assertEquals(Material.MELON_STEM, permissionManager.getCropBlockForSeed(Material.MELON_SEEDS));
+        assertEquals(Material.NETHER_WART, permissionManager.getCropBlockForSeed(Material.NETHER_WART));
+        // 種アイテムでないものはnull
+        assertNull(permissionManager.getCropBlockForSeed(Material.STONE));
+        assertNull(permissionManager.getCropBlockForSeed(Material.DIAMOND));
+    }
+
+    @Test
     public void testPlantingDeniedMessage() {
         // 拒否メッセージに必要職業名とブロック名が含まれる
         String message = permissionManager.getPlantingDeniedMessage(player, Material.WHEAT);
