@@ -121,8 +121,46 @@ public class JobManager {
         if (!playerJobDAO.insertPlayerJob(playerJob)) {
             return JobJoinResult.DATABASE_ERROR;
         }
-        
+
+        // 農家就職時に畑区画を自動割り当て
+        onFarmerJobJoined(player, jobName);
+
         return JobJoinResult.SUCCESS;
+    }
+
+    /**
+     * 農家就職時に畑区画を自動割り当てする（farmer以外は何もしない）。
+     * FarmPlotManagerは遅延取得し、未初期化でも安全に無視する。
+     */
+    private void onFarmerJobJoined(Player player, String jobName) {
+        if (!"farmer".equalsIgnoreCase(jobName)) {
+            return;
+        }
+        try {
+            org.tofu.tofunomics.farming.FarmPlotManager fpm = TofuNomics.getInstance().getFarmPlotManager();
+            if (fpm != null) {
+                fpm.assignPlot(player);
+            }
+        } catch (Exception e) {
+            TofuNomics.getInstance().getLogger().warning("農家区画の自動割り当てに失敗しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 農家離職/転職時に畑区画を解放する（farmer以外は何もしない）。
+     */
+    private void onFarmerJobLeft(java.util.UUID playerUuid, String jobName) {
+        if (!"farmer".equalsIgnoreCase(jobName)) {
+            return;
+        }
+        try {
+            org.tofu.tofunomics.farming.FarmPlotManager fpm = TofuNomics.getInstance().getFarmPlotManager();
+            if (fpm != null) {
+                fpm.releasePlot(playerUuid);
+            }
+        } catch (Exception e) {
+            TofuNomics.getInstance().getLogger().warning("農家区画の解放に失敗しました: " + e.getMessage());
+        }
     }
     
     public enum JobLeaveResult {
@@ -165,15 +203,18 @@ public class JobManager {
         if (!playerJobDAO.deletePlayerJob(uuid, job.getId())) {
             return JobLeaveResult.DATABASE_ERROR;
         }
-        
+
         if (configManager.isDailyJobChangeLimitEnabled()) {
             jobChangeDAO.recordJobChangeToday(uuid);
         }
-        
+
+        // 農家離職時に畑区画を解放
+        onFarmerJobLeft(player.getUniqueId(), jobName);
+
         return JobLeaveResult.SUCCESS;
     }
 
-    
+
     /**
      * 管理者による強制辞職（レベル制限を無視）
      * @param player プレイヤー
@@ -209,11 +250,14 @@ public class JobManager {
         if (!playerJobDAO.deletePlayerJob(uuid, job.getId())) {
             return JobLeaveResult.DATABASE_ERROR;
         }
-        
+
         if (configManager.isDailyJobChangeLimitEnabled()) {
             jobChangeDAO.recordJobChangeToday(uuid);
         }
-        
+
+        // 農家強制離職時に畑区画を解放
+        onFarmerJobLeft(player.getUniqueId(), jobName);
+
         return JobLeaveResult.SUCCESS;
     }
     
