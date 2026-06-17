@@ -81,9 +81,15 @@ public class JobDetailGUI {
         double incomeMultiplier = configManager.getJobIncomeMultiplier(jobName);
         double expMultiplier = configManager.getJobExpMultiplier(jobName);
         boolean employed = jobManager.hasJob(player, jobName);
+        boolean advanced = configManager.isAdvancedJob(jobName);
+        // 上級職業が未解禁か（未就職かつLv50到達経験なし）
+        boolean advancedLocked = advanced && !employed && !jobManager.hasReachedLevel50(player);
 
         // 詳細アイコン
         List<String> infoLore = new ArrayList<>();
+        if (advanced) {
+            infoLore.add("§6§l【上級職業】");
+        }
         if (description != null && !description.isEmpty()) {
             infoLore.add("§7" + description);
         }
@@ -120,6 +126,12 @@ public class JobDetailGUI {
                                 "§7仕事内容・稼ぎ方・経験値の上げ方を確認できます",
                                 "§eクリックで入手")));
             }
+        } else if (advancedLocked) {
+            gui.setItem(SLOT_JOIN, GuiUtil.createButton(Material.BARRIER, "§c§l未解禁",
+                    java.util.Arrays.asList(
+                            "§7この職業は上級職業です",
+                            "§7いずれかの職業でレベル50に到達すると",
+                            "§7就職できるようになります")));
         } else {
             gui.setItem(SLOT_JOIN, GuiUtil.createButton(Material.LIME_DYE, "§a§l就職する",
                     java.util.Arrays.asList(
@@ -154,6 +166,12 @@ public class JobDetailGUI {
             case SLOT_JOIN:
                 // 未就職時のみ就職ボタンを表示しているが、状態をここでも再確認する
                 if (jobName != null && confirmGUI != null && !jobManager.hasJob(player, jobName)) {
+                    // 上級職業の未解禁時は確認画面を開かない（joinJob 側でも弾かれるが二重ガード）
+                    if (configManager.isAdvancedJob(jobName) && !jobManager.hasReachedLevel50(player)) {
+                        player.sendMessage(ChatColor.RED + "「" + jobManager.getJobDisplayName(jobName)
+                                + "」は上級職業です。いずれかの職業でレベル50に到達すると就職できます。");
+                        break;
+                    }
                     confirmGUI.open(player, jobName, JobsGUISession.Type.CONFIRM_JOIN);
                 }
                 break;

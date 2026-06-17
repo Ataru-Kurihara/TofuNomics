@@ -42,7 +42,30 @@ public class JobManager {
         JOB_NOT_FOUND,
         LEVEL_TOO_LOW,
         MAX_JOBS_REACHED,
+        ADVANCED_JOB_LOCKED,
         DATABASE_ERROR
+    }
+
+    /**
+     * プレイヤーがいずれかの職業でレベル50に到達した経験があるかどうかを判定する。
+     * 現在の職業または過去の職業履歴のいずれかでレベル50到達があれば true。
+     * 転職条件・上級職業の解禁条件の判定に共通利用する。
+     */
+    private boolean hasReachedLevel50(String uuid, List<PlayerJob> currentJobs) {
+        for (PlayerJob existingJob : currentJobs) {
+            if (existingJob.getLevel() >= 50) {
+                return true;
+            }
+        }
+        return jobHistoryDAO.hasReachedLevel50(uuid);
+    }
+
+    /**
+     * プレイヤーがいずれかの職業でレベル50に到達した経験があるかどうかを判定する（GUI 用公開版）。
+     */
+    public boolean hasReachedLevel50(Player player) {
+        String uuid = player.getUniqueId().toString();
+        return hasReachedLevel50(uuid, playerJobDAO.getPlayerJobsByUUID(uuid));
     }
     
     public JobJoinResult joinJob(Player player, String jobName) {
@@ -55,32 +78,19 @@ public class JobManager {
         
         List<PlayerJob> currentJobs = playerJobDAO.getPlayerJobsByUUID(uuid);
         int maxJobs = configManager.getMaxJobsPerPlayer();
-        
-        // レベル50チェック（転職時のみ）
-        // 現在職業を持っている場合のみチェック
-        if (!currentJobs.isEmpty()) {
-            boolean hasLevel50Job = false;
-            
-            // 現在の職業でレベル50以上があるかチェック
-            for (PlayerJob existingJob : currentJobs) {
-                if (existingJob.getLevel() >= 50) {
-                    hasLevel50Job = true;
-                    break;
-                }
-            }
-            
-            // レベル50以上の職業がない場合、過去の履歴もチェック
-            if (!hasLevel50Job) {
-                hasLevel50Job = jobHistoryDAO.hasReachedLevel50(uuid);
-            }
-            
-            // レベル50以上の記録がない場合はエラー
-            if (!hasLevel50Job) {
-                return JobJoinResult.LEVEL_TOO_LOW;
-            }
+        boolean reachedLevel50 = hasReachedLevel50(uuid, currentJobs);
+
+        // 上級職業は初回就職では選べず、いずれかの職業でレベル50到達後に解禁される
+        if (configManager.isAdvancedJob(jobName) && !reachedLevel50) {
+            return JobJoinResult.ADVANCED_JOB_LOCKED;
         }
-        // 現在職業がない場合（初回就職・再就職）は制限なし
-        
+
+        // レベル50チェック（転職時のみ）
+        // 現在職業を持っている場合のみチェック。初回就職・再就職（現在職業なし）は制限なし
+        if (!currentJobs.isEmpty() && !reachedLevel50) {
+            return JobJoinResult.LEVEL_TOO_LOW;
+        }
+
         if (currentJobs.size() >= maxJobs) {
             return JobJoinResult.MAX_JOBS_REACHED;
         }

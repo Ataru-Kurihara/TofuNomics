@@ -102,6 +102,11 @@ jobs:
     keep_level_on_change: true
     # 職業変更のクールダウン時間（秒）。0で制限なし、86400で1日1回
     job_change_cooldown: 0
+    # 上級職業: 初回就職では選べず、いずれかの職業でレベル50に到達した後に解禁される
+    advanced_jobs:
+      - "alchemist"
+      - "enchanter"
+      - "architect"
 
   
   # 職業ブロック制限システム設定

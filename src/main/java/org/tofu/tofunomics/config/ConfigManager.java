@@ -474,6 +474,26 @@ public class ConfigManager {
     public int getJobChangeCooldown() {
         return config.getInt("jobs.general.job_change_cooldown", 86400);
     }
+
+    /**
+     * 上級職業の一覧を取得する。
+     * 上級職業は初回就職では選べず、いずれかの職業でレベル50に到達した後に解禁される。
+     * 設定キーが未追加のサーバーでも機能するようデフォルト値を返す。
+     */
+    public List<String> getAdvancedJobs() {
+        List<String> list = config.getStringList("jobs.general.advanced_jobs");
+        if (list == null || list.isEmpty()) {
+            return Arrays.asList("alchemist", "enchanter", "architect");
+        }
+        return list;
+    }
+
+    /**
+     * 指定した職業が上級職業かどうかを判定する。
+     */
+    public boolean isAdvancedJob(String jobName) {
+        return jobName != null && getAdvancedJobs().contains(jobName.toLowerCase());
+    }
     
     // ========== 職業ブロック制限システム設定 ==========
     

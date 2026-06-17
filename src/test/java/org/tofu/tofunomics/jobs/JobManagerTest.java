@@ -169,6 +169,66 @@ public class JobManagerTest {
     }
 
     @Test
+    public void testJoinAdvancedJobLockedOnFirstEmployment() {
+        // 上級職業を初回就職しようとするとロックされる
+        String jobName = "architect";
+        Job job = new Job(jobName, "建築家", 100, 15.0);
+        job.setId(8);
+
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
+        when(configManager.getMaxJobsPerPlayer()).thenReturn(1);
+        when(configManager.isAdvancedJob(jobName)).thenReturn(true);
+        when(playerJobDAO.getPlayerJobsByUUID(playerUuidString)).thenReturn(new ArrayList<>());
+        when(jobHistoryDAO.hasReachedLevel50(playerUuidString)).thenReturn(false);
+
+        JobJoinResult result = jobManager.joinJob(player, jobName);
+
+        assertEquals("初回就職で上級職業はロックされるべき", JobJoinResult.ADVANCED_JOB_LOCKED, result);
+        verify(playerJobDAO, never()).insertPlayerJob(any(PlayerJob.class));
+    }
+
+    @Test
+    public void testJoinAdvancedJobSuccessWithLevel50History() {
+        // Lv50到達履歴があれば上級職業に就職できる
+        String jobName = "architect";
+        Job job = new Job(jobName, "建築家", 100, 15.0);
+        job.setId(8);
+
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
+        when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(false);
+        when(configManager.getMaxJobsPerPlayer()).thenReturn(1);
+        when(configManager.isAdvancedJob(jobName)).thenReturn(true);
+        when(playerJobDAO.getPlayerJobsByUUID(playerUuidString)).thenReturn(new ArrayList<>());
+        when(jobHistoryDAO.hasReachedLevel50(playerUuidString)).thenReturn(true);
+        when(playerJobDAO.insertPlayerJob(any(PlayerJob.class))).thenReturn(true);
+
+        JobJoinResult result = jobManager.joinJob(player, jobName);
+
+        assertEquals("Lv50到達履歴ありで上級職業に就職できるべき", JobJoinResult.SUCCESS, result);
+        verify(playerJobDAO).insertPlayerJob(any(PlayerJob.class));
+    }
+
+    @Test
+    public void testJoinNonAdvancedJobOnFirstEmployment() {
+        // 通常職業は初回就職できる（既存挙動が壊れていないことの確認）
+        String jobName = "miner";
+        Job job = new Job(jobName, "鉱夫", 100, 15.0);
+        job.setId(1);
+
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
+        when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(false);
+        when(configManager.getMaxJobsPerPlayer()).thenReturn(1);
+        when(configManager.isAdvancedJob(jobName)).thenReturn(false);
+        when(playerJobDAO.getPlayerJobsByUUID(playerUuidString)).thenReturn(new ArrayList<>());
+        when(playerJobDAO.insertPlayerJob(any(PlayerJob.class))).thenReturn(true);
+
+        JobJoinResult result = jobManager.joinJob(player, jobName);
+
+        assertEquals("通常職業は初回就職できるべき", JobJoinResult.SUCCESS, result);
+        verify(playerJobDAO).insertPlayerJob(any(PlayerJob.class));
+    }
+
+    @Test
     public void testJoinJobDatabaseError() {
         String jobName = "farmer";
         Job job = new Job(jobName, "農家", 100, 15.0);
