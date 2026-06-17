@@ -110,8 +110,14 @@ public class JobsHubGUI {
         int maxLevel = configManager.getJobMaxLevel(jobName);
         double incomeMultiplier = configManager.getJobIncomeMultiplier(jobName);
         boolean employed = jobManager.hasJob(player, jobName);
+        boolean advanced = configManager.isAdvancedJob(jobName);
+        // 上級職業が未解禁か（未就職かつLv50到達経験なし）
+        boolean advancedLocked = advanced && !employed && !jobManager.hasReachedLevel50(player);
 
         List<String> lore = new ArrayList<>();
+        if (advanced) {
+            lore.add("§6§l【上級職業】");
+        }
         if (description != null && !description.isEmpty()) {
             lore.add("§7" + description);
         }
@@ -123,13 +129,17 @@ public class JobsHubGUI {
             int currentLevel = playerJob != null ? playerJob.getLevel() : 0;
             lore.add("§a現在就職中 Lv." + currentLevel);
             lore.add("§eクリックで詳細・辞職");
+        } else if (advancedLocked) {
+            lore.add("§c§l未解禁");
+            lore.add("§7いずれかの職業でLv50に到達すると就職できます");
         } else {
             lore.add("§eクリックで詳細・就職");
             lore.add("§7※転職にはレベル50が必要です");
         }
 
-        String name = (employed ? "§a§l" : "§f§l") + displayName + " §7(" + jobName + ")";
-        return GuiUtil.createButton(JobsGUIIconMapper.getIcon(jobName), name, lore);
+        Material icon = advancedLocked ? Material.BARRIER : JobsGUIIconMapper.getIcon(jobName);
+        String name = (employed ? "§a§l" : (advancedLocked ? "§c§l" : "§f§l")) + displayName + " §7(" + jobName + ")";
+        return GuiUtil.createButton(icon, name, lore);
     }
 
     /**

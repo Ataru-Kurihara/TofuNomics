@@ -182,7 +182,12 @@ public class JobsCommand implements CommandExecutor {
                 int maxJobs = configManager.getMaxJobsPerPlayer();
                 player.sendMessage(ChatColor.RED + "同時に就ける職業数の上限(" + maxJobs + ")に達しています。");
                 break;
-                
+
+            case ADVANCED_JOB_LOCKED:
+                player.sendMessage(ChatColor.RED + "「" + jobManager.getJobDisplayName(jobName)
+                    + "」は上級職業です。いずれかの職業でレベル50に到達すると就職できます。");
+                break;
+
             case DATABASE_ERROR:
                 player.sendMessage(ChatColor.RED + "データベースエラーが発生しました。しばらくしてから再度お試しください。");
                 break;
