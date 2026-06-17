@@ -1587,6 +1587,74 @@ npc_system:
       fee_charged: "§e加工料金: %fee%"
       outside_hours: "§c申し訳ありませんが、営業時間外です。"
 
+  # クエスト受注NPCの設定
+  quest_npc:
+    # クエストNPCシステムの有効化
+    enabled: true
+
+    # 同時に受注できるクエストの最大数
+    max_concurrent_quests: 5
+
+    # クエスト定義（敵モブのドロップを集めて納品 → 金塊報酬）
+    # ここに追記するだけでクエストを増やせる（コード変更不要）
+    # target_material は Bukkit の Material 名（大文字）で指定する
+    quests:
+      rotten_flesh_1:
+        display_name: "&2腐肉の処理"
+        description: "ゾンビの腐肉を集めて納品しよう"
+        target_material: "ROTTEN_FLESH"
+        required_amount: 32
+        reward_nuggets: 40
+      bone_1:
+        display_name: "&fスケルトン討伐"
+        description: "スケルトンの骨を集めて納品しよう"
+        target_material: "BONE"
+        required_amount: 32
+        reward_nuggets: 48
+      string_1:
+        display_name: "&7クモの巣払い"
+        description: "クモの糸を集めて納品しよう"
+        target_material: "STRING"
+        required_amount: 32
+        reward_nuggets: 44
+      gunpowder_1:
+        display_name: "&8クリーパー掃討"
+        description: "クリーパーの火薬を集めて納品しよう"
+        target_material: "GUNPOWDER"
+        required_amount: 16
+        reward_nuggets: 64
+      spider_eye_1:
+        display_name: "&cクモの目集め"
+        description: "クモの目を集めて納品しよう"
+        target_material: "SPIDER_EYE"
+        required_amount: 16
+        reward_nuggets: 56
+      ender_pearl_1:
+        display_name: "&5エンダーマン討伐"
+        description: "エンダーパールを集めて納品しよう"
+        target_material: "ENDER_PEARL"
+        required_amount: 8
+        reward_nuggets: 120
+
+    # クエストNPCの配置（サーバー上で /npc spawn quest により追加される）
+    locations: []
+    # 設定例:
+    # - world: "tofunomics"
+    #   x: -150
+    #   y: 70
+    #   z: -150
+    #   id: "quest_001"
+    #   name: "§6クエスト受付"
+    #   yaw: 0.0
+    #   pitch: 0.0
+
+    # メッセージ設定
+    messages:
+      greeting: "&6「冒険者よ、討伐の依頼を受けてくれるか？」"
+      quest_accepted: "&aクエストを受注しました: %quest%"
+      quest_completed: "&a納品完了！『%quest%』の報酬として金塊 %reward% 個を受け取りました。"
+      not_enough_items: "&c納品アイテムが不足しています。（%held% / %required%）"
+
   # 取引所の設定
   trading_posts: []
   # 取引所の設定例（職業別NPC）:

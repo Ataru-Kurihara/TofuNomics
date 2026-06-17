@@ -14,6 +14,7 @@ import org.tofu.tofunomics.npc.NPCManager;
 import org.tofu.tofunomics.npc.TradingNPCManager;
 import org.tofu.tofunomics.npc.FoodNPCManager;
 import org.tofu.tofunomics.npc.ProcessingNPCManager;
+import org.tofu.tofunomics.npc.QuestNPCManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,7 +31,8 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
     private final TradingNPCManager tradingNPCManager;
     private final FoodNPCManager foodNPCManager;
     private final ProcessingNPCManager processingNPCManager;
-    
+    private final QuestNPCManager questNPCManager;
+
     private static final String[] VALID_JOBS = {
         "miner", "woodcutter", "farmer", "fisherman",
         "blacksmith", "alchemist", "enchanter", "architect"
@@ -38,7 +40,8 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
     
     public NPCCommand(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
                     BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager,
-                    FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager) {
+                    FoodNPCManager foodNPCManager, ProcessingNPCManager processingNPCManager,
+                    QuestNPCManager questNPCManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.npcManager = npcManager;
@@ -46,6 +49,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         this.tradingNPCManager = tradingNPCManager;
         this.foodNPCManager = foodNPCManager;
         this.processingNPCManager = processingNPCManager;
+        this.questNPCManager = questNPCManager;
     }
     
     @Override
@@ -126,9 +130,11 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                 return handleSpawnFoodMerchant(player, args, spawnLocation);
             case "processing":
                 return handleSpawnProcessing(player, args, spawnLocation);
+            case "quest":
+                return handleSpawnQuest(player, args, spawnLocation);
             default:
                 sender.sendMessage("§c無効なNPCタイプです: " + npcType);
-                sender.sendMessage("§7有効なタイプ: trader, banker, food_merchant, processing");
+                sender.sendMessage("§7有効なタイプ: trader, banker, food_merchant, processing, quest");
                 return true;
         }
     }
@@ -410,7 +416,62 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             return true;
         }
     }
-    
+
+    private boolean handleSpawnQuest(Player player, String[] args, Location spawnLocation) {
+        String npcName = args.length > 2 ?
+            String.join(" ", Arrays.copyOfRange(args, 2, args.length)) :
+            "&6クエスト受付";
+        // プレイヤーは§を入力できないため、&カラーコードを§に変換する
+        npcName = org.bukkit.ChatColor.translateAlternateColorCodes('&', npcName);
+
+        try {
+            // クエスト受注NPCを生成
+            Villager questNPC = npcManager.createNPC(spawnLocation, "quest", npcName);
+
+            if (questNPC != null) {
+                // クエスト受注NPCデータをconfig.ymlに自動追加
+                try {
+                    configManager.addQuestNPC(npcName, spawnLocation);
+
+                    // QuestNPCManagerに即座に反映（reloadを使わず直接登録）
+                    if (questNPCManager != null) {
+                        String stationId = "quest_station_" + System.currentTimeMillis();
+                        questNPCManager.registerQuestNPC(
+                            questNPC.getUniqueId(),
+                            stationId,
+                            npcName,
+                            spawnLocation
+                        );
+                        plugin.getLogger().info("クエスト受注NPCをQuestNPCManagerに即座に登録: " + npcName);
+                    }
+
+                    player.sendMessage("§aクエスト受注NPCを生成し、データを追加しました！");
+                    player.sendMessage("§7名前: " + npcName);
+                    player.sendMessage("§7場所: " + formatLocation(spawnLocation));
+                    player.sendMessage("§7UUID: " + questNPC.getUniqueId());
+                    player.sendMessage("§eクエスト受注NPCデータがconfig.ymlに自動追加されました。");
+                    player.sendMessage("§e§l右クリックでクエストメニューを開く");
+                } catch (Exception configError) {
+                    plugin.getLogger().severe("クエスト受注NPCデータの追加に失敗しました: " + configError.getMessage());
+                    player.sendMessage("§aクエスト受注NPCを生成しました！");
+                    player.sendMessage("§cクエスト受注NPCデータの自動追加に失敗しました。手動でconfig.ymlを編集してください。");
+                    player.sendMessage("§7名前: " + npcName);
+                    player.sendMessage("§7場所: " + formatLocation(spawnLocation));
+                    player.sendMessage("§7UUID: " + questNPC.getUniqueId());
+                }
+
+                return true;
+            } else {
+                player.sendMessage("§cクエスト受注NPCの生成に失敗しました");
+                return true;
+            }
+        } catch (Exception e) {
+            player.sendMessage("§cクエスト受注NPC生成中にエラーが発生しました: " + e.getMessage());
+            plugin.getLogger().severe("クエスト受注NPC生成エラー: " + e.getMessage());
+            return true;
+        }
+    }
+
     /**
      * NPC削除コマンド
      */
@@ -629,6 +690,13 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                 processingNPCManager.reloadProcessingStations();
                 reloadedCount++;
                 sender.sendMessage("§a加工NPCデータをリロードしました");
+            }
+
+            // クエストNPCデータをリロード
+            if (questNPCManager != null) {
+                questNPCManager.reloadQuestData();
+                reloadedCount++;
+                sender.sendMessage("§aクエストNPCデータをリロードしました");
             }
             
             plugin.getLogger().info("NPCデータをリロードしました (" + reloadedCount + "種類)");
@@ -1132,6 +1200,8 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§f/npc spawn banker [NPC名] §7- 銀行NPCをスポーン");
         sender.sendMessage("§f/npc spawn food_merchant [NPC名] [タイプ] §7- 食料NPCをスポーン");
         sender.sendMessage("§7食料NPCタイプ: general_store, bakery, butcher, fishmonger, greengrocer, specialty");
+        sender.sendMessage("§f/npc spawn processing [NPC名] §7- 木材加工NPCをスポーン");
+        sender.sendMessage("§f/npc spawn quest [NPC名] §7- クエスト受注NPCをスポーン");
         sender.sendMessage("§f/npc remove <NPC名> §7- NPCを削除");
         sender.sendMessage("§f/npc delete <NPC指定> §7- NPC完全削除（復元不可・簡単指定対応）");
         sender.sendMessage("§f/npc status <NPC名> §7- NPC状況診断（削除フラグ・重複チェック）");
@@ -1183,7 +1253,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "spawn":
-                    String[] npcTypes = {"trader", "banker", "food_merchant", "processing"};
+                    String[] npcTypes = {"trader", "banker", "food_merchant", "processing", "quest"};
                     for (String npcType : npcTypes) {
                         if (npcType.startsWith(args[1].toLowerCase())) {
                             completions.add(npcType);

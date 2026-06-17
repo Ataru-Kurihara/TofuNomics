@@ -4174,6 +4174,149 @@ public class ConfigManager {
         }
     }
     
+    // ===== クエスト受注NPC =====
+
+    /**
+     * クエストNPCシステムの有効化状態
+     */
+    public boolean isQuestNPCEnabled() {
+        return config.getBoolean("npc_system.quest_npc.enabled", true);
+    }
+
+    /**
+     * 同時に受注できるクエストの最大数（デフォルト5）
+     */
+    public int getMaxConcurrentQuests() {
+        return config.getInt("npc_system.quest_npc.max_concurrent_quests", 5);
+    }
+
+    /**
+     * クエストNPCの配置リストを取得
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<?, ?>> getQuestNPCConfigs() {
+        return (List<Map<?, ?>>) config.getList("npc_system.quest_npc.locations", new ArrayList<>());
+    }
+
+    /**
+     * クエスト定義リストを取得（npc_system.quest_npc.quests を読み込む）
+     * 無効なMaterial名のエントリはスキップする。
+     */
+    public List<org.tofu.tofunomics.quests.QuestDefinition> getQuestDefinitions() {
+        List<org.tofu.tofunomics.quests.QuestDefinition> definitions = new ArrayList<>();
+        ConfigurationSection section = config.getConfigurationSection("npc_system.quest_npc.quests");
+        if (section == null) {
+            return definitions;
+        }
+
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection q = section.getConfigurationSection(key);
+            if (q == null) {
+                continue;
+            }
+
+            String displayName = org.bukkit.ChatColor.translateAlternateColorCodes('&', q.getString("display_name", key));
+            String description = org.bukkit.ChatColor.translateAlternateColorCodes('&', q.getString("description", ""));
+            String materialName = q.getString("target_material", "");
+            int requiredAmount = q.getInt("required_amount", 1);
+            int rewardNuggets = q.getInt("reward_nuggets", 1);
+
+            org.bukkit.Material material;
+            try {
+                material = org.bukkit.Material.valueOf(materialName.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().warning("クエスト定義の無効なMaterial名をスキップしました: " + materialName + " (quest: " + key + ")");
+                continue;
+            }
+
+            definitions.add(new org.tofu.tofunomics.quests.QuestDefinition(
+                key, displayName, description, material, requiredAmount, rewardNuggets));
+        }
+
+        return definitions;
+    }
+
+    /**
+     * クエストNPCメッセージを取得（フォールバック付き）
+     */
+    public String getQuestNPCMessage(String messageKey) {
+        String message = config.getString("npc_system.quest_npc.messages." + messageKey, null);
+
+        if (message == null) {
+            switch (messageKey) {
+                case "greeting":
+                    return "§6「冒険者よ、討伐の依頼を受けてくれるか？」";
+                case "quest_accepted":
+                    return "§aクエストを受注しました: %quest%";
+                case "quest_completed":
+                    return "§a納品完了！『%quest%』の報酬として金塊 %reward% 個を受け取りました。";
+                case "not_enough_items":
+                    return "§c納品アイテムが不足しています。（%held% / %required%）";
+                default:
+                    return "§7メッセージが見つかりません: " + messageKey;
+            }
+        }
+
+        return org.bukkit.ChatColor.translateAlternateColorCodes('&', message);
+    }
+
+    /**
+     * クエストNPCをconfig.ymlに追加
+     */
+    public void addQuestNPC(String npcName, org.bukkit.Location location) {
+        try {
+            java.util.List<java.util.Map<String, Object>> questNPCs = new java.util.ArrayList<>();
+            java.util.List<java.util.Map<?, ?>> existingNPCs = config.getMapList("npc_system.quest_npc.locations");
+
+            java.util.Map<String, Object> newNPC = new java.util.HashMap<>();
+            newNPC.put("world", location.getWorld().getName());
+            newNPC.put("x", location.getBlockX());
+            newNPC.put("y", location.getBlockY());
+            newNPC.put("z", location.getBlockZ());
+            newNPC.put("id", "quest_" + System.currentTimeMillis());
+            newNPC.put("name", npcName);
+            newNPC.put("yaw", location.getYaw());
+            newNPC.put("pitch", location.getPitch());
+
+            int newX = location.getBlockX();
+            int newY = location.getBlockY();
+            int newZ = location.getBlockZ();
+            String newWorld = location.getWorld().getName();
+            boolean alreadyAdded = false;
+
+            for (java.util.Map<?, ?> npc : existingNPCs) {
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> existingNPC = (java.util.Map<String, Object>) npc;
+
+                if (newWorld.equals(existingNPC.get("world")) &&
+                    newX == ((Number) existingNPC.get("x")).intValue() &&
+                    newY == ((Number) existingNPC.get("y")).intValue() &&
+                    newZ == ((Number) existingNPC.get("z")).intValue()) {
+                    if (!alreadyAdded) {
+                        questNPCs.add(newNPC);
+                        alreadyAdded = true;
+                        plugin.getLogger().info("同じ座標のクエストNPCを更新しました: " + npcName);
+                    }
+                } else {
+                    questNPCs.add(existingNPC);
+                }
+            }
+
+            if (!alreadyAdded) {
+                questNPCs.add(newNPC);
+            }
+
+            config.set("npc_system.quest_npc.locations", questNPCs);
+            plugin.saveConfig();
+
+            plugin.getLogger().info("クエストNPC「" + npcName + "」をconfig.ymlに追加しました");
+            plugin.getLogger().info("  座標: " + newWorld + " (" + newX + ", " + newY + ", " + newZ + ")");
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("クエストNPCデータの追加に失敗しました: " + e.getMessage());
+        }
+    }
+
     /**
      * 加工NPCデータを完全削除（物理削除・復元不可）
      */
