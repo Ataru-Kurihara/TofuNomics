@@ -72,6 +72,11 @@ public class JobCraftPermissionManager {
             Material.COBBLESTONE_STAIRS, Material.STONE_SLAB, Material.STONE_BRICK_SLAB,
             Material.COBBLESTONE_SLAB, Material.STONE_BRICK_WALL, Material.COBBLESTONE_WALL,
             Material.STONE_BRICK_WALL,
+            // 照明
+            Material.LANTERN,
+            // 鉱石の収納ブロック
+            Material.IRON_BLOCK, Material.GOLD_BLOCK, Material.DIAMOND_BLOCK, Material.COAL_BLOCK,
+            Material.REDSTONE_BLOCK, Material.LAPIS_BLOCK, Material.EMERALD_BLOCK,
             // 作業台
             Material.CRAFTING_TABLE
         ));
@@ -88,9 +93,11 @@ public class JobCraftPermissionManager {
             Material.SUSPICIOUS_STEW, Material.HONEY_BOTTLE,
             // 農業のタネ類（バニラレシピでクラフト可能）
             Material.MELON_SEEDS, Material.PUMPKIN_SEEDS,
+            // 農業の生産・畜産関連
+            Material.BONE_MEAL, Material.HAY_BLOCK, Material.SUGAR, Material.LEAD,
             // 農業関連設備
             Material.COMPOSTER, Material.FLOWER_POT, Material.CAULDRON,
-            Material.BARREL, Material.SMOKER,
+            Material.SMOKER,
             // 作業台
             Material.CRAFTING_TABLE
         ));
@@ -115,7 +122,19 @@ public class JobCraftPermissionManager {
             Material.OAK_DOOR, Material.SPRUCE_DOOR, Material.BIRCH_DOOR, Material.JUNGLE_DOOR,
             Material.ACACIA_DOOR, Material.DARK_OAK_DOOR, Material.CRIMSON_DOOR, Material.WARPED_DOOR,
             Material.CHEST, Material.TRAPPED_CHEST, Material.CRAFTING_TABLE, Material.CARTOGRAPHY_TABLE,
-            Material.FLETCHING_TABLE, Material.LOOM, Material.LECTERN
+            Material.FLETCHING_TABLE, Material.LOOM, Material.LECTERN, Material.BARREL,
+            // 看板類
+            Material.OAK_SIGN, Material.SPRUCE_SIGN, Material.BIRCH_SIGN, Material.JUNGLE_SIGN,
+            Material.ACACIA_SIGN, Material.DARK_OAK_SIGN, Material.CRIMSON_SIGN, Material.WARPED_SIGN,
+            Material.OAK_HANGING_SIGN, Material.SPRUCE_HANGING_SIGN, Material.BIRCH_HANGING_SIGN, Material.JUNGLE_HANGING_SIGN,
+            Material.ACACIA_HANGING_SIGN, Material.DARK_OAK_HANGING_SIGN, Material.CRIMSON_HANGING_SIGN, Material.WARPED_HANGING_SIGN,
+            // 開閉・装置系（落とし戸・ボタン・感圧板）
+            Material.OAK_TRAPDOOR, Material.SPRUCE_TRAPDOOR, Material.BIRCH_TRAPDOOR, Material.JUNGLE_TRAPDOOR,
+            Material.ACACIA_TRAPDOOR, Material.DARK_OAK_TRAPDOOR, Material.CRIMSON_TRAPDOOR, Material.WARPED_TRAPDOOR,
+            Material.OAK_BUTTON, Material.SPRUCE_BUTTON, Material.BIRCH_BUTTON, Material.JUNGLE_BUTTON,
+            Material.ACACIA_BUTTON, Material.DARK_OAK_BUTTON, Material.CRIMSON_BUTTON, Material.WARPED_BUTTON,
+            Material.OAK_PRESSURE_PLATE, Material.SPRUCE_PRESSURE_PLATE, Material.BIRCH_PRESSURE_PLATE, Material.JUNGLE_PRESSURE_PLATE,
+            Material.ACACIA_PRESSURE_PLATE, Material.DARK_OAK_PRESSURE_PLATE, Material.CRIMSON_PRESSURE_PLATE, Material.WARPED_PRESSURE_PLATE
         ));
         jobCraftableItems.put("woodcutter", woodcutterItems);
         
@@ -126,6 +145,11 @@ public class JobCraftPermissionManager {
             // 船類
             Material.OAK_BOAT, Material.SPRUCE_BOAT, Material.BIRCH_BOAT, Material.JUNGLE_BOAT,
             Material.ACACIA_BOAT, Material.DARK_OAK_BOAT,
+            Material.CHERRY_BOAT, Material.MANGROVE_BOAT, Material.BAMBOO_RAFT,
+            // チェスト付きの船
+            Material.OAK_CHEST_BOAT, Material.SPRUCE_CHEST_BOAT, Material.BIRCH_CHEST_BOAT, Material.JUNGLE_CHEST_BOAT,
+            Material.ACACIA_CHEST_BOAT, Material.DARK_OAK_CHEST_BOAT, Material.CHERRY_CHEST_BOAT,
+            Material.MANGROVE_CHEST_BOAT, Material.BAMBOO_CHEST_RAFT,
             // 作業台
             Material.CRAFTING_TABLE
         ));
@@ -138,6 +162,8 @@ public class JobCraftPermissionManager {
             // ポーション関連（基本的なもの）
             Material.GLASS_BOTTLE, Material.FERMENTED_SPIDER_EYE, Material.GLISTERING_MELON_SLICE,
             Material.GOLDEN_CARROT, Material.MAGMA_CREAM, Material.BLAZE_POWDER,
+            // ポーション効果増幅用
+            Material.GLOWSTONE,
             // 作業台
             Material.CRAFTING_TABLE
         ));
@@ -146,9 +172,9 @@ public class JobCraftPermissionManager {
         // エンチャンター (enchanter) - エンチャント関連
         Set<Material> enchanterItems = new HashSet<>(Arrays.asList(
             // エンチャント関連
-            Material.ENCHANTING_TABLE, Material.BOOKSHELF, Material.BOOK,
+            Material.ENCHANTING_TABLE, Material.BOOKSHELF, Material.CHISELED_BOOKSHELF, Material.BOOK,
             Material.WRITABLE_BOOK, Material.WRITTEN_BOOK, Material.PAPER,
-            Material.ITEM_FRAME, Material.ITEM_FRAME,
+            Material.ITEM_FRAME, Material.GLOW_ITEM_FRAME,
             // 作業台
             Material.CRAFTING_TABLE
         ));
