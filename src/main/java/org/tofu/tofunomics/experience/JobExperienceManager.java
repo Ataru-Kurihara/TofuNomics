@@ -1,6 +1,9 @@
 package org.tofu.tofunomics.experience;
 
 import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.data.Ageable;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -24,15 +27,27 @@ import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.tools.JobToolManager;
 import org.tofu.tofunomics.util.NotificationManager;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 職業別経験値獲得システム
  */
 public class JobExperienceManager implements Listener {
-    
+
+    // 収穫経験値の付与に「完全成長」を必要とする作物（成長段階を持つ作物）
+    private static final Set<Material> MATURITY_REQUIRED_CROPS = EnumSet.of(
+        Material.WHEAT,
+        Material.CARROTS,
+        Material.POTATOES,
+        Material.BEETROOTS,
+        Material.NETHER_WART,
+        Material.COCOA
+    );
+
     private final ConfigManager configManager;
     private final PlayerJobDAO playerJobDAO;
     private final JobDAO jobDAO;
@@ -122,15 +137,15 @@ public class JobExperienceManager implements Listener {
         loggingExperience.put(Material.MANGROVE_LOG, 3.0);  // 1.19追加。jungle/acacia相当
         loggingExperience.put(Material.CHERRY_LOG, 3.0);    // 1.20追加。jungle/acacia相当
         
-        // 農業経験値テーブル
+        // 農業経験値テーブル（キーは破壊されるブロックのMaterial）
         farmingExperience.put(Material.WHEAT, 1.5);
-        farmingExperience.put(Material.POTATO, 1.2);
-        farmingExperience.put(Material.CARROT, 1.2);
-        farmingExperience.put(Material.BEETROOT, 2.0);
+        farmingExperience.put(Material.POTATOES, 1.2);
+        farmingExperience.put(Material.CARROTS, 1.2);
+        farmingExperience.put(Material.BEETROOTS, 2.0);
         farmingExperience.put(Material.PUMPKIN, 3.0);
         farmingExperience.put(Material.MELON, 2.5);
         farmingExperience.put(Material.SUGAR_CANE, 1.0);
-        farmingExperience.put(Material.COCOA_BEANS, 2.5);
+        farmingExperience.put(Material.COCOA, 2.5);
         farmingExperience.put(Material.NETHER_WART, 3.0);
         farmingExperience.put(Material.BAMBOO, 0.5);
         farmingExperience.put(Material.CACTUS, 1.0);
@@ -289,12 +304,34 @@ public class JobExperienceManager implements Listener {
             giveJobExperience(player, "woodcutter", multipliedExp);
         }
         
-        // 農家の収穫経験値
-        if (jobManager.hasJob(player, "farmer") && farmingExperience.containsKey(blockType)) {
+        // 農家の収穫経験値（完全に成長した作物のみ付与）
+        if (jobManager.hasJob(player, "farmer") && farmingExperience.containsKey(blockType)
+                && isCropFullyGrown(event.getBlock())) {
             double baseExp = farmingExperience.get(blockType);
             double multipliedExp = applyJobMultiplier(player, "farmer", baseExp);
             giveJobExperience(player, "farmer", multipliedExp);
         }
+    }
+
+    /**
+     * 作物が「完全に成長した状態」かを判定する。
+     * 成長段階を持つ作物（小麦・ニンジン・ジャガイモ・ビートルート・ネザーウォート・ココア）は
+     * 最大成熟度に達している場合のみtrue。
+     * 成熟概念のない作物（カボチャ・スイカ・サトウキビ・サボテン・竹・キノコ）は常にtrue。
+     *
+     * @param block 破壊された作物ブロック
+     * @return 収穫経験値の付与対象ならtrue
+     */
+    static boolean isCropFullyGrown(Block block) {
+        if (block == null || !MATURITY_REQUIRED_CROPS.contains(block.getType())) {
+            return true;
+        }
+        BlockData data = block.getBlockData();
+        if (data instanceof Ageable) {
+            Ageable ageable = (Ageable) data;
+            return ageable.getAge() >= ageable.getMaximumAge();
+        }
+        return true;
     }
     
     @EventHandler
