@@ -310,6 +310,25 @@ public class QuestNPCManager {
     }
 
     /**
+     * 同時受注できるクエストの最大数（受注枠の上限）
+     */
+    public int getMaxConcurrentQuests() {
+        return maxConcurrentQuests;
+    }
+
+    /**
+     * 指定プレイヤーが現在受注中のクエスト数（使用中の受注枠）
+     */
+    public int getAcceptedCount(Player player) {
+        try {
+            return questProgressDAO.countAcceptedByPlayer(player.getUniqueId());
+        } catch (SQLException e) {
+            plugin.getLogger().warning("受注中クエスト数の取得に失敗しました: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * 指定プレイヤーが指定クエストを受注中かどうか
      */
     public boolean isQuestAccepted(Player player, String questId) {

@@ -86,11 +86,18 @@ public class QuestGUI implements Listener {
         gui.clear();
         session.getSlotToQuestId().clear();
 
+        // 受注枠（同時受注上限）の使用状況
+        int maxQuests = questNPCManager.getMaxConcurrentQuests();
+        int acceptedCount = questNPCManager.getAcceptedCount(player);
+        int remaining = Math.max(0, maxQuests - acceptedCount);
+
         // ヘッダー
         gui.setItem(4, createGUIItem(Material.WRITABLE_BOOK, "§6討伐クエスト",
             Arrays.asList(
                 "§7敵モブのドロップを集めて納品しよう",
-                "§7クリックで受注 / 受注中はクリックで納品"
+                "§7クリックで受注 / 受注中はクリックで納品",
+                "",
+                "§f受注枠: §e" + acceptedCount + " / " + maxQuests + " §7（残り " + remaining + "）"
             )));
 
         Collection<QuestDefinition> quests = questNPCManager.getAllQuestDefinitions();
@@ -105,7 +112,7 @@ public class QuestGUI implements Listener {
             boolean accepted = questNPCManager.isQuestAccepted(player, def.getQuestId());
             int held = questNPCManager.getHeldAmount(player, def.getTargetMaterial());
 
-            gui.setItem(slot, createQuestItem(def, accepted, held));
+            gui.setItem(slot, createQuestItem(def, accepted, held, acceptedCount, maxQuests));
             session.getSlotToQuestId().put(slot, def.getQuestId());
             slotIndex++;
         }
@@ -128,7 +135,7 @@ public class QuestGUI implements Listener {
     /**
      * 1クエスト分の表示アイテムを生成
      */
-    private ItemStack createQuestItem(QuestDefinition def, boolean accepted, int held) {
+    private ItemStack createQuestItem(QuestDefinition def, boolean accepted, int held, int acceptedCount, int maxQuests) {
         List<String> lore = new ArrayList<>();
         lore.add("§7" + def.getDescription());
         lore.add("");
@@ -136,6 +143,7 @@ public class QuestGUI implements Listener {
         lore.add("§f必要数: §e" + def.getRequiredAmount() + " 個");
         lore.add("§f報酬: §6" + def.getRewardNuggets() + " 金塊");
         lore.add("§f所持数: " + (held >= def.getRequiredAmount() ? "§a" : "§c") + held + " / " + def.getRequiredAmount());
+        lore.add("§f受注枠: §e" + acceptedCount + " / " + maxQuests);
         lore.add("");
         if (accepted) {
             if (held >= def.getRequiredAmount()) {
@@ -143,6 +151,8 @@ public class QuestGUI implements Listener {
             } else {
                 lore.add("§e▶ 受注中 - アイテムを集めよう");
             }
+        } else if (acceptedCount >= maxQuests) {
+            lore.add("§c✖ 受注枠が上限です（他のクエストを納品/整理してください）");
         } else {
             lore.add("§b▶ クリックで受注");
         }
