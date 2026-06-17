@@ -83,6 +83,8 @@ public class JobCraftPermissionManager {
             Material.BREAD, Material.CAKE, Material.COOKIE, Material.PUMPKIN_PIE,
             Material.MUSHROOM_STEW, Material.RABBIT_STEW, Material.BEETROOT_SOUP,
             Material.SUSPICIOUS_STEW, Material.HONEY_BOTTLE,
+            // 農業のタネ類（バニラレシピでクラフト可能）
+            Material.MELON_SEEDS, Material.PUMPKIN_SEEDS,
             // 農業関連設備
             Material.COMPOSTER, Material.FLOWER_POT, Material.CAULDRON,
             Material.BARREL, Material.SMOKER,
