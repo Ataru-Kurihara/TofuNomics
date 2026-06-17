@@ -10,6 +10,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -19,6 +20,9 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.PlayerDAO;
@@ -194,6 +198,41 @@ public class UnifiedEventHandler implements Listener {
         eventCache.markAsProcessed(player, "block_place");
     }
     
+    /**
+     * 種アイテムによる植え付け制限（農家以外の種まきを拒否）
+     * 畑・ソウルサンドへの種まきは BlockPlaceEvent を発火しないため、
+     * PlayerInteractEvent（右クリック）で捕捉する。
+     * ブロックアイテム（サトウキビ・サボテン・竹・ココア等）は onBlockPlace 側で処理する。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerInteractPlanting(PlayerInteractEvent event) {
+        // 右クリック（ブロックに対して）のみ対象
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        // 両手分の二重発火を防ぐためメインハンドのみ処理
+        if (event.getHand() != EquipmentSlot.HAND) return;
+
+        ItemStack item = event.getItem();
+        if (item == null) return;
+
+        // 手に持っているアイテムが種アイテムかチェック
+        Material cropBlock = blockPermissionManager.getCropBlockForSeed(item.getType());
+        if (cropBlock == null) return;
+
+        // クリックしたブロックが植え付け可能な面かチェック（食用作物の誤キャンセル防止）
+        if (event.getClickedBlock() == null) return;
+        Material clicked = event.getClickedBlock().getType();
+        boolean validSurface = (cropBlock == Material.NETHER_WART)
+            ? (clicked == Material.SOUL_SAND)
+            : (clicked == Material.FARMLAND);
+        if (!validSurface) return;
+
+        Player player = event.getPlayer();
+        if (!blockPermissionManager.canPlayerPlantBlock(player, cropBlock)) {
+            event.setCancelled(true);
+            player.sendMessage(blockPermissionManager.getPlantingDeniedMessage(player, cropBlock));
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockGrow(BlockGrowEvent event) {
         if (!shouldProcessEvent(event)) return;

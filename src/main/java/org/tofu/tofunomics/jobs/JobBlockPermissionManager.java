@@ -25,16 +25,23 @@ public class JobBlockPermissionManager {
     // 職業専用 植え付けブロック（種まきで設置されるブロック）
     private final Map<String, Set<Material>> jobPlantingBlocks;
 
+    // 種アイテム → 種まきで設置される作物ブロックの対応
+    // （種アイテムの右クリック植え付けは BlockPlaceEvent を発火しないため、
+    //   PlayerInteractEvent で捕捉する際に使用する）
+    private final Map<Material, Material> seedItemToCropBlock;
+
     public JobBlockPermissionManager(ConfigManager configManager, JobManager jobManager) {
         this.configManager = configManager;
         this.jobManager = jobManager;
         this.basicBlocks = new HashSet<>();
         this.jobRestrictedBlocks = new HashMap<>();
         this.jobPlantingBlocks = new HashMap<>();
+        this.seedItemToCropBlock = new HashMap<>();
 
         initializeBasicBlocks();
         initializeJobRestrictedBlocks();
         initializeJobPlantingBlocks();
+        initializeSeedItemMapping();
     }
     
     /**
@@ -152,6 +159,33 @@ public class JobBlockPermissionManager {
             Material.BAMBOO_SAPLING
         ));
         jobPlantingBlocks.put("farmer", farmerPlantingBlocks);
+    }
+
+    /**
+     * 種アイテム → 設置される作物ブロックの対応を初期化
+     * 畑（FARMLAND）・ソウルサンド上に種をまくと BlockPlaceEvent が発火しないため、
+     * PlayerInteractEvent でこのマップを使って植え付けを判定する。
+     * 注意: サトウキビ・サボテン・竹・ココアはブロックアイテムとして
+     *       BlockPlaceEvent が発火するため、ここには含めない。
+     */
+    private void initializeSeedItemMapping() {
+        seedItemToCropBlock.put(Material.WHEAT_SEEDS, Material.WHEAT);
+        seedItemToCropBlock.put(Material.BEETROOT_SEEDS, Material.BEETROOTS);
+        seedItemToCropBlock.put(Material.CARROT, Material.CARROTS);
+        seedItemToCropBlock.put(Material.POTATO, Material.POTATOES);
+        seedItemToCropBlock.put(Material.PUMPKIN_SEEDS, Material.PUMPKIN_STEM);
+        seedItemToCropBlock.put(Material.MELON_SEEDS, Material.MELON_STEM);
+        seedItemToCropBlock.put(Material.NETHER_WART, Material.NETHER_WART);
+    }
+
+    /**
+     * 種アイテムから、植え付けで設置される作物ブロックを取得
+     *
+     * @param seedItem 手に持っている種アイテム
+     * @return 設置される作物ブロック。種アイテムでない場合はnull
+     */
+    public Material getCropBlockForSeed(Material seedItem) {
+        return seedItemToCropBlock.get(seedItem);
     }
 
     /**
