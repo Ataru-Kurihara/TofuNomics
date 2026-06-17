@@ -43,9 +43,11 @@ public class JobCraftPermissionManager {
             Material.DIAMOND_HELMET, Material.DIAMOND_CHESTPLATE, Material.DIAMOND_LEGGINGS, Material.DIAMOND_BOOTS,
             Material.NETHERITE_HELMET, Material.NETHERITE_CHESTPLATE, Material.NETHERITE_LEGGINGS, Material.NETHERITE_BOOTS,
             // 武器類
-            Material.STONE_SWORD, Material.IRON_SWORD, Material.GOLDEN_SWORD, 
+            Material.STONE_SWORD, Material.IRON_SWORD, Material.GOLDEN_SWORD,
             Material.DIAMOND_SWORD, Material.NETHERITE_SWORD,
             Material.BOW, Material.CROSSBOW, Material.TRIDENT,
+            // 防御・鉄製基本道具
+            Material.SHIELD, Material.SHEARS, Material.FLINT_AND_STEEL, Material.ARROW,
             // 設備類
             Material.FURNACE, Material.BLAST_FURNACE, Material.ANVIL, Material.CHIPPED_ANVIL, Material.DAMAGED_ANVIL,
             Material.GRINDSTONE, Material.SMITHING_TABLE,
@@ -57,8 +59,11 @@ public class JobCraftPermissionManager {
         // 鉱夫 (miner) - つるはし、石関連
         Set<Material> minerItems = new HashSet<>(Arrays.asList(
             // つるはし類
-            Material.WOODEN_PICKAXE, Material.STONE_PICKAXE, Material.IRON_PICKAXE, 
+            Material.WOODEN_PICKAXE, Material.STONE_PICKAXE, Material.IRON_PICKAXE,
             Material.GOLDEN_PICKAXE, Material.DIAMOND_PICKAXE, Material.NETHERITE_PICKAXE,
+            // シャベル類（採掘・整地用）
+            Material.WOODEN_SHOVEL, Material.STONE_SHOVEL, Material.IRON_SHOVEL,
+            Material.GOLDEN_SHOVEL, Material.DIAMOND_SHOVEL, Material.NETHERITE_SHOVEL,
             // 石関連
             Material.STONE, Material.SMOOTH_STONE, Material.STONE_BRICKS, Material.MOSSY_STONE_BRICKS,
             Material.CRACKED_STONE_BRICKS, Material.CHISELED_STONE_BRICKS, Material.POLISHED_GRANITE,
@@ -75,10 +80,8 @@ public class JobCraftPermissionManager {
         // 農家 (farmer) - くわ、食料関連
         Set<Material> farmerItems = new HashSet<>(Arrays.asList(
             // くわ類
-            Material.WOODEN_HOE, Material.STONE_HOE, Material.IRON_HOE, 
+            Material.WOODEN_HOE, Material.STONE_HOE, Material.IRON_HOE,
             Material.GOLDEN_HOE, Material.DIAMOND_HOE, Material.NETHERITE_HOE,
-            // シャベル類（農家専用）
-            Material.WOODEN_SHOVEL,
             // 食料関連
             Material.BREAD, Material.CAKE, Material.COOKIE, Material.PUMPKIN_PIE,
             Material.MUSHROOM_STEW, Material.RABBIT_STEW, Material.BEETROOT_SOUP,
