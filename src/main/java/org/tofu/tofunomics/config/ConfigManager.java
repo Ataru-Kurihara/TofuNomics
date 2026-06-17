@@ -503,7 +503,14 @@ public class ConfigManager {
     public boolean isJobBlockRestrictionEnabled() {
         return (Boolean) getCachedValue("jobs.block_restrictions.enabled", true);
     }
-    
+
+    /**
+     * 職業別 植え付け（種まき）制限システムが有効かどうか
+     */
+    public boolean isJobPlantingRestrictionEnabled() {
+        return (Boolean) getCachedValue("jobs.block_restrictions.planting_restrictions.enabled", true);
+    }
+
     /**
      * 基本ブロック（全職業で採掘可能）のリストを取得
      */
