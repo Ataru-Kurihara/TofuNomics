@@ -240,6 +240,25 @@ jobs:
         - "CAMPFIRE"
         - "SOUL_CAMPFIRE"
 
+    # 植え付け（種まき）制限（農家のみ作物を植え付け可能）
+    # 注意: 装飾用フルブロック（PUMPKIN/MELON/HAY_BLOCK等）は制限対象外（誰でも設置可）
+    planting_restrictions:
+      # 植え付け制限システムの有効化
+      enabled: true
+      # 農家専用の植え付けブロック（参考。実際の判定はJava側の定義に準拠）
+      farmer:
+        - "WHEAT"
+        - "CARROTS"
+        - "POTATOES"
+        - "BEETROOTS"
+        - "NETHER_WART"
+        - "COCOA"
+        - "PUMPKIN_STEM"
+        - "MELON_STEM"
+        - "SUGAR_CANE"
+        - "CACTUS"
+        - "BAMBOO"
+
   # 各職業の設定
   job_settings:
     miner:

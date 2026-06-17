@@ -165,7 +165,14 @@ public class UnifiedEventHandler implements Listener {
             player.sendMessage(ChatColor.RED + "鉱石ブロックは設置できません。");
             return;
         }
-        
+
+        // 職業別 植え付け制限チェック（農家以外の作物植え付けを拒否）
+        if (!blockPermissionManager.canPlayerPlantBlock(player, blockType)) {
+            event.setCancelled(true);
+            player.sendMessage(blockPermissionManager.getPlantingDeniedMessage(player, blockType));
+            return;
+        }
+
         if (!shouldProcessEvent(event)) return;
         
         // プレイヤーが設置したブロックを記録（メモリ内追跡）

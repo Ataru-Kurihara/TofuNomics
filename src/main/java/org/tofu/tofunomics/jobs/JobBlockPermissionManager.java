@@ -21,15 +21,20 @@ public class JobBlockPermissionManager {
     
     // 職業専用ブロック
     private final Map<String, Set<Material>> jobRestrictedBlocks;
-    
+
+    // 職業専用 植え付けブロック（種まきで設置されるブロック）
+    private final Map<String, Set<Material>> jobPlantingBlocks;
+
     public JobBlockPermissionManager(ConfigManager configManager, JobManager jobManager) {
         this.configManager = configManager;
         this.jobManager = jobManager;
         this.basicBlocks = new HashSet<>();
         this.jobRestrictedBlocks = new HashMap<>();
-        
+        this.jobPlantingBlocks = new HashMap<>();
+
         initializeBasicBlocks();
         initializeJobRestrictedBlocks();
+        initializeJobPlantingBlocks();
     }
     
     /**
@@ -121,7 +126,34 @@ public class JobBlockPermissionManager {
         jobRestrictedBlocks.put("enchanter", new HashSet<>());
         jobRestrictedBlocks.put("architect", new HashSet<>());
     }
-    
+
+    /**
+     * 職業別 植え付け制限ブロックを初期化
+     * 種まき時に設置されるブロック（成長ブロック・苗）を対象とする。
+     * 注意: 装飾用フルブロック（PUMPKIN/MELON/HAY_BLOCK等）は含めない（誰でも設置可）
+     */
+    private void initializeJobPlantingBlocks() {
+        // 農家専用の植え付けブロック
+        Set<Material> farmerPlantingBlocks = new HashSet<>(Arrays.asList(
+            // 種まきで設置される作物ブロック
+            Material.WHEAT,
+            Material.CARROTS,
+            Material.POTATOES,
+            Material.BEETROOTS,
+            Material.NETHER_WART,
+            Material.COCOA,
+            // カボチャ・スイカの種は苗（STEM）として設置される
+            Material.PUMPKIN_STEM,
+            Material.MELON_STEM,
+            // その他の作物
+            Material.SUGAR_CANE,
+            Material.CACTUS,
+            Material.BAMBOO,
+            Material.BAMBOO_SAPLING
+        ));
+        jobPlantingBlocks.put("farmer", farmerPlantingBlocks);
+    }
+
     /**
      * プレイヤーが指定ブロックを採掘する権限があるかチェック
      * 
@@ -190,7 +222,68 @@ public class JobBlockPermissionManager {
         String jobDisplayName = jobManager.getJobDisplayName(requiredJob);
         return "§c" + blockType.name() + " を採掘するには " + jobDisplayName + " の職業が必要です。";
     }
-    
+
+    /**
+     * プレイヤーが指定ブロックを植え付け（設置）する権限があるかチェック
+     *
+     * @param player プレイヤー
+     * @param blockType 設置されるブロックタイプ
+     * @return 植え付け可能な場合true
+     */
+    public boolean canPlayerPlantBlock(Player player, Material blockType) {
+        // 植え付け制限システムが無効の場合は常に許可
+        if (!configManager.isJobPlantingRestrictionEnabled()) {
+            return true;
+        }
+
+        // 管理者権限を持つ場合は常に許可
+        if (player.hasPermission("tofunomics.admin.place")) {
+            return true;
+        }
+
+        // 植え付け制限対象かチェック
+        String requiredJob = getRequiredJobForPlanting(blockType);
+        if (requiredJob == null) {
+            // 制限されていないブロックは誰でも植え付け可能
+            return true;
+        }
+
+        // プレイヤーが必要な職業を持っているかチェック
+        return jobManager.hasJob(player, requiredJob);
+    }
+
+    /**
+     * ブロック植え付けに必要な職業を取得
+     *
+     * @param blockType ブロックタイプ
+     * @return 必要な職業名、制限がない場合はnull
+     */
+    private String getRequiredJobForPlanting(Material blockType) {
+        for (Map.Entry<String, Set<Material>> entry : jobPlantingBlocks.entrySet()) {
+            if (entry.getValue().contains(blockType)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 職業制限によって植え付けが拒否された場合のメッセージを取得
+     *
+     * @param player プレイヤー
+     * @param blockType ブロックタイプ
+     * @return 表示メッセージ
+     */
+    public String getPlantingDeniedMessage(Player player, Material blockType) {
+        String requiredJob = getRequiredJobForPlanting(blockType);
+        if (requiredJob == null) {
+            return "§cこのブロックは植えられません。";
+        }
+
+        String jobDisplayName = jobManager.getJobDisplayName(requiredJob);
+        return "§c" + blockType.name() + " を植えるには " + jobDisplayName + " の職業が必要です。";
+    }
+
     /**
      * 基本ブロックセットを取得
      */
