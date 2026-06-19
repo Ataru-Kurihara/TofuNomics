@@ -1,5 +1,6 @@
 package org.tofu.tofunomics.experience;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * 職業別経験値獲得システム
@@ -74,8 +76,24 @@ public class JobExperienceManager implements Listener {
     private final Map<Material, Double> brewingExperience;
     private final Map<Integer, Double> enchantingExperience;
     private final Map<Material, Double> buildingExperience;
-    
-    public JobExperienceManager(ConfigManager configManager, PlayerJobDAO playerJobDAO, 
+
+    // マーケット売り出品成約時に付与する職業経験値テーブル（出品される実アイテムに対応）
+    private final Map<Material, MarketSellEntry> marketSellExperience;
+
+    /**
+     * マーケット出品アイテムに対応する職業と基準経験値の組
+     */
+    static final class MarketSellEntry {
+        final String jobName;
+        final double baseExp;
+
+        MarketSellEntry(String jobName, double baseExp) {
+            this.jobName = jobName;
+            this.baseExp = baseExp;
+        }
+    }
+
+    public JobExperienceManager(ConfigManager configManager, PlayerJobDAO playerJobDAO,
                                JobDAO jobDAO, JobManager jobManager, JobToolManager jobToolManager,
                                ExperienceManager experienceManager) {
         this.configManager = configManager;
@@ -93,8 +111,10 @@ public class JobExperienceManager implements Listener {
         this.brewingExperience = new HashMap<>();
         this.enchantingExperience = new HashMap<>();
         this.buildingExperience = new HashMap<>();
-        
+        this.marketSellExperience = new HashMap<>();
+
         initializeExperienceTables();
+        initializeMarketSellExperience();
     }
 
     /**
@@ -293,7 +313,133 @@ public class JobExperienceManager implements Listener {
         // 安価ブロック（設置→破壊ループ濫用防止のため低値据え置き）
         buildingExperience.put(Material.COBBLESTONE, 0.1);
     }
-    
+
+    /**
+     * マーケット売り出品成約時の職業経験値テーブルを初期化する。
+     * キーは「実際に出品されるアイテム」のMaterial。採取テーブルがブロックベースなのに対し、
+     * こちらは加工品（RAW_IRON, IRON_INGOT等）も含めて職業へ対応付ける。
+     */
+    private void initializeMarketSellExperience() {
+        // 鉱夫（miner）— 採掘で得られる素材
+        marketSellExperience.put(Material.COAL, new MarketSellEntry("miner", 2.0));
+        marketSellExperience.put(Material.RAW_IRON, new MarketSellEntry("miner", 5.0));
+        marketSellExperience.put(Material.RAW_GOLD, new MarketSellEntry("miner", 8.0));
+        marketSellExperience.put(Material.RAW_COPPER, new MarketSellEntry("miner", 5.0));
+        marketSellExperience.put(Material.DIAMOND, new MarketSellEntry("miner", 25.0));
+        marketSellExperience.put(Material.EMERALD, new MarketSellEntry("miner", 20.0));
+        marketSellExperience.put(Material.LAPIS_LAZULI, new MarketSellEntry("miner", 4.0));
+        marketSellExperience.put(Material.REDSTONE, new MarketSellEntry("miner", 3.0));
+        marketSellExperience.put(Material.QUARTZ, new MarketSellEntry("miner", 6.0));
+        marketSellExperience.put(Material.ANCIENT_DEBRIS, new MarketSellEntry("miner", 50.0));
+
+        // 木こり（woodcutter）— 各種原木
+        marketSellExperience.put(Material.OAK_LOG, new MarketSellEntry("woodcutter", 2.0));
+        marketSellExperience.put(Material.BIRCH_LOG, new MarketSellEntry("woodcutter", 2.0));
+        marketSellExperience.put(Material.SPRUCE_LOG, new MarketSellEntry("woodcutter", 2.0));
+        marketSellExperience.put(Material.JUNGLE_LOG, new MarketSellEntry("woodcutter", 3.0));
+        marketSellExperience.put(Material.ACACIA_LOG, new MarketSellEntry("woodcutter", 3.0));
+        marketSellExperience.put(Material.DARK_OAK_LOG, new MarketSellEntry("woodcutter", 3.0));
+        marketSellExperience.put(Material.MANGROVE_LOG, new MarketSellEntry("woodcutter", 3.0));
+        marketSellExperience.put(Material.CHERRY_LOG, new MarketSellEntry("woodcutter", 3.0));
+        marketSellExperience.put(Material.WARPED_STEM, new MarketSellEntry("woodcutter", 4.0));
+        marketSellExperience.put(Material.CRIMSON_STEM, new MarketSellEntry("woodcutter", 4.0));
+
+        // 農家（farmer）— 収穫物
+        marketSellExperience.put(Material.WHEAT, new MarketSellEntry("farmer", 1.5));
+        marketSellExperience.put(Material.POTATO, new MarketSellEntry("farmer", 1.2));
+        marketSellExperience.put(Material.CARROT, new MarketSellEntry("farmer", 1.2));
+        marketSellExperience.put(Material.BEETROOT, new MarketSellEntry("farmer", 2.0));
+        marketSellExperience.put(Material.PUMPKIN, new MarketSellEntry("farmer", 3.0));
+        marketSellExperience.put(Material.MELON_SLICE, new MarketSellEntry("farmer", 2.5));
+        marketSellExperience.put(Material.SUGAR_CANE, new MarketSellEntry("farmer", 1.0));
+        marketSellExperience.put(Material.COCOA_BEANS, new MarketSellEntry("farmer", 2.5));
+        marketSellExperience.put(Material.NETHER_WART, new MarketSellEntry("farmer", 3.0));
+
+        // 鍛冶屋（blacksmith）— 精錬・製作品
+        marketSellExperience.put(Material.IRON_INGOT, new MarketSellEntry("blacksmith", 3.0));
+        marketSellExperience.put(Material.GOLD_INGOT, new MarketSellEntry("blacksmith", 5.0));
+        marketSellExperience.put(Material.COPPER_INGOT, new MarketSellEntry("blacksmith", 3.0));
+        marketSellExperience.put(Material.NETHERITE_INGOT, new MarketSellEntry("blacksmith", 50.0));
+        marketSellExperience.put(Material.IRON_SWORD, new MarketSellEntry("blacksmith", 8.0));
+        marketSellExperience.put(Material.DIAMOND_SWORD, new MarketSellEntry("blacksmith", 20.0));
+        marketSellExperience.put(Material.NETHERITE_SWORD, new MarketSellEntry("blacksmith", 60.0));
+        marketSellExperience.put(Material.IRON_PICKAXE, new MarketSellEntry("blacksmith", 10.0));
+        marketSellExperience.put(Material.DIAMOND_PICKAXE, new MarketSellEntry("blacksmith", 25.0));
+        marketSellExperience.put(Material.NETHERITE_PICKAXE, new MarketSellEntry("blacksmith", 70.0));
+        marketSellExperience.put(Material.IRON_CHESTPLATE, new MarketSellEntry("blacksmith", 14.0));
+        marketSellExperience.put(Material.DIAMOND_CHESTPLATE, new MarketSellEntry("blacksmith", 35.0));
+        marketSellExperience.put(Material.NETHERITE_CHESTPLATE, new MarketSellEntry("blacksmith", 100.0));
+    }
+
+    /**
+     * マーケットの売り出品が成約した時、出品者へ職業経験値を付与する。
+     * 出品されたアイテムが対応職業のマッピングに無い場合は何もしない。
+     * 出品者がオンラインなら通常の経験値付与経路（レベルアップ演出・報酬込み）に委譲し、
+     * オフラインなら経験値をDBへ直接加算する（レベルアップ演出・報酬は次回オンライン時に繰り越し）。
+     *
+     * @param sellerUuid 出品者UUID
+     * @param material   成約したアイテムのMaterial
+     * @param amount     成約した個数
+     */
+    public void giveMarketSellExperience(UUID sellerUuid, Material material, int amount) {
+        if (sellerUuid == null || material == null || amount <= 0) {
+            return;
+        }
+        MarketSellEntry entry = marketSellExperience.get(material);
+        if (entry == null) {
+            return;
+        }
+        double exp = calculateMarketSellExp(entry.baseExp, amount);
+        if (exp <= 0) {
+            return;
+        }
+
+        Player onlineSeller = Bukkit.getPlayer(sellerUuid);
+        if (onlineSeller != null && onlineSeller.isOnline()) {
+            // オンライン時は通常経路に委譲（就業判定・レベルアップ・BossBar・報酬が連動）
+            if (jobManager.hasJob(onlineSeller, entry.jobName)) {
+                giveJobExperience(onlineSeller, entry.jobName, exp);
+            }
+            return;
+        }
+
+        // オフライン時はDBへ直接加算（就業中＝該当PlayerJobが存在する場合のみ）
+        try {
+            Job job = jobDAO.getJobByNameSafe(entry.jobName);
+            if (job == null) {
+                return;
+            }
+            PlayerJob playerJob = playerJobDAO.getPlayerJob(sellerUuid, job.getId());
+            if (playerJob == null) {
+                // 未就業のため付与しない
+                return;
+            }
+            playerJobDAO.addExperience(sellerUuid, job.getId(), exp);
+        } catch (Exception e) {
+            // 経験値付与の失敗は取引結果に影響させない
+        }
+    }
+
+    /**
+     * マーケット売り出品成約時の付与経験値を算出する（基準値 × 数量 × config係数）。
+     * テスト容易化のため副作用を持たない純粋計算として切り出す。
+     */
+    double calculateMarketSellExp(double baseExp, int amount) {
+        if (baseExp <= 0 || amount <= 0) {
+            return 0.0;
+        }
+        return baseExp * amount * configManager.getMarketSellExpMultiplier();
+    }
+
+    /**
+     * 指定Materialがマーケット売り出品経験値の対象なら対応職業名を返す（無ければnull）。
+     * テスト・参照用。
+     */
+    String getMarketSellJobName(Material material) {
+        MarketSellEntry entry = (material == null) ? null : marketSellExperience.get(material);
+        return entry == null ? null : entry.jobName;
+    }
+
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();

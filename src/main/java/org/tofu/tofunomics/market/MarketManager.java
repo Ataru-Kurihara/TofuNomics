@@ -46,6 +46,9 @@ public class MarketManager {
     private final CurrencyConverter currencyConverter;
     private final Logger logger;
 
+    // 売り出品成約時の職業経験値付与用（setter注入。null許容＝未注入時は付与をスキップ）
+    private org.tofu.tofunomics.experience.JobExperienceManager jobExperienceManager;
+
     public MarketManager(Connection connection, PlayerDAO playerDAO, MarketListingDAO listingDAO,
                          MarketBuyOrderDAO buyOrderDAO, MarketServiceRequestDAO serviceRequestDAO,
                          ConfigManager configManager,
@@ -58,6 +61,13 @@ public class MarketManager {
         this.configManager = configManager;
         this.currencyConverter = currencyConverter;
         this.logger = logger;
+    }
+
+    /**
+     * 売り出品成約時の職業経験値付与用 JobExperienceManager を注入する（null許容）。
+     */
+    public void setJobExperienceManager(org.tofu.tofunomics.experience.JobExperienceManager jobExperienceManager) {
+        this.jobExperienceManager = jobExperienceManager;
     }
 
     // ========================================================================
@@ -720,7 +730,35 @@ public class MarketManager {
 
         giveItem(buyer, outcome.getItemData());
         notifySellerSold(outcome, org.tofu.tofunomics.market.gui.MarketGUIUtil.prettifyMaterial(listing.getMaterial()));
+
+        // 売り出品成約時の職業経験値付与（決済確定後。失敗しても取引結果には影響させない）
+        grantSellExperience(buyer, listing);
+
         return outcome.getResult();
+    }
+
+    /**
+     * 売り出品の成約に対し、出品者が対応職業に就いていれば職業経験値を付与する。
+     * 自己購入（自分の出品を自分で買う）では付与しない（経験値ファーミング防止）。
+     */
+    private void grantSellExperience(Player buyer, MarketListing listing) {
+        try {
+            if (jobExperienceManager == null || !configManager.isMarketSellExpEnabled()) {
+                return;
+            }
+            // 自己購入時は付与しない
+            if (listing.getSellerUuid().equals(buyer.getUniqueId())) {
+                return;
+            }
+            Material material = Material.matchMaterial(listing.getMaterial());
+            if (material == null) {
+                return;
+            }
+            jobExperienceManager.giveMarketSellExperience(
+                    listing.getSellerUuid(), material, listing.getAmount());
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "売り出品成約時の職業経験値付与に失敗しました", e);
+        }
     }
 
     /**

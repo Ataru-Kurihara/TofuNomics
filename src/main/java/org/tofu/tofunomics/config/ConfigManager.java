@@ -376,6 +376,16 @@ public class ConfigManager {
         return config.getInt("market.max_buy_orders_per_player", 10);
     }
 
+    // 売り出品成約時の職業経験値付与
+    public boolean isMarketSellExpEnabled() {
+        return config.getBoolean("market.sell_exp.enabled", true);
+    }
+
+    // 直接採取より控えめにするための経験値係数
+    public double getMarketSellExpMultiplier() {
+        return config.getDouble("market.sell_exp.multiplier", 0.3);
+    }
+
     // サービス依頼（修理・エンチャント募集）設定
     public boolean isMarketServiceEnabled() {
         return config.getBoolean("market.service.enabled", true);
