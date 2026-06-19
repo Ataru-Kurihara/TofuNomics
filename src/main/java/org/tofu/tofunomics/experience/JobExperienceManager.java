@@ -354,6 +354,20 @@ public class JobExperienceManager implements Listener {
         marketSellExperience.put(Material.SUGAR_CANE, new MarketSellEntry("farmer", 1.0));
         marketSellExperience.put(Material.COCOA_BEANS, new MarketSellEntry("farmer", 2.5));
         marketSellExperience.put(Material.NETHER_WART, new MarketSellEntry("farmer", 3.0));
+        // 農産加工品（パン類）— 農家
+        marketSellExperience.put(Material.BREAD, new MarketSellEntry("farmer", 4.0));
+        marketSellExperience.put(Material.BAKED_POTATO, new MarketSellEntry("farmer", 1.5));
+        marketSellExperience.put(Material.COOKIE, new MarketSellEntry("farmer", 0.8));
+        marketSellExperience.put(Material.PUMPKIN_PIE, new MarketSellEntry("farmer", 4.0));
+        marketSellExperience.put(Material.CAKE, new MarketSellEntry("farmer", 8.0));
+        marketSellExperience.put(Material.HAY_BLOCK, new MarketSellEntry("farmer", 12.0));
+        marketSellExperience.put(Material.SUGAR, new MarketSellEntry("farmer", 0.5));
+        // 収穫素材の補完 — 農家
+        marketSellExperience.put(Material.MELON, new MarketSellEntry("farmer", 2.5));
+        marketSellExperience.put(Material.SWEET_BERRIES, new MarketSellEntry("farmer", 1.0));
+        marketSellExperience.put(Material.GLOW_BERRIES, new MarketSellEntry("farmer", 1.0));
+        marketSellExperience.put(Material.RED_MUSHROOM, new MarketSellEntry("farmer", 1.5));
+        marketSellExperience.put(Material.BROWN_MUSHROOM, new MarketSellEntry("farmer", 1.5));
 
         // 鍛冶屋（blacksmith）— 精錬・製作品
         marketSellExperience.put(Material.IRON_INGOT, new MarketSellEntry("blacksmith", 3.0));

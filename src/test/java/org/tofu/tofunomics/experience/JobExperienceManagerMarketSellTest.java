@@ -58,6 +58,12 @@ public class JobExperienceManagerMarketSellTest {
         // 農家の収穫物
         assertEquals("farmer", manager.getMarketSellJobName(Material.WHEAT));
         assertEquals("farmer", manager.getMarketSellJobName(Material.CARROT));
+        // 農産加工品も農家対象
+        assertEquals("farmer", manager.getMarketSellJobName(Material.BREAD));
+        assertEquals("farmer", manager.getMarketSellJobName(Material.BAKED_POTATO));
+        assertEquals("farmer", manager.getMarketSellJobName(Material.CAKE));
+        assertEquals("farmer", manager.getMarketSellJobName(Material.HAY_BLOCK));
+        assertEquals("farmer", manager.getMarketSellJobName(Material.PUMPKIN_PIE));
         // 鍛冶屋の製作品
         assertEquals("blacksmith", manager.getMarketSellJobName(Material.IRON_INGOT));
         assertEquals("blacksmith", manager.getMarketSellJobName(Material.DIAMOND_PICKAXE));
