@@ -408,6 +408,9 @@ public final class TofuNomics extends JavaPlugin {
                 getLogger()
             );
 
+            // 売り出品成約時の職業経験値付与を有効化（jobExperienceManager は Phase3 で生成済み）
+            marketManager.setJobExperienceManager(jobExperienceManager);
+
             // リスナーを先に生成し、GUI へ注入してから GUI 参照を逆注入する（循環依存の解決）
             marketGUIListener = new org.tofu.tofunomics.market.gui.MarketGUIListener(this);
             marketBrowseGUI = new org.tofu.tofunomics.market.gui.MarketBrowseGUI(
