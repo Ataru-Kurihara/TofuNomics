@@ -62,6 +62,9 @@ public class JobExperienceManager implements Listener {
     // 食事による経験値ブーストバフ用（setter注入。null許容）
     private org.tofu.tofunomics.food.FoodBuffManager foodBuffManager;
 
+    // レベルアップ時のお金報酬用（setter注入。null許容）
+    private org.tofu.tofunomics.rewards.JobLevelRewardManager jobLevelRewardManager;
+
     // 経験値テーブル
     private final Map<Material, Double> miningExperience;
     private final Map<Material, Double> loggingExperience;
@@ -106,6 +109,13 @@ public class JobExperienceManager implements Listener {
      */
     public void setFoodBuffManager(org.tofu.tofunomics.food.FoodBuffManager foodBuffManager) {
         this.foodBuffManager = foodBuffManager;
+    }
+
+    /**
+     * レベルアップ時のお金報酬管理を注入する
+     */
+    public void setJobLevelRewardManager(org.tofu.tofunomics.rewards.JobLevelRewardManager jobLevelRewardManager) {
+        this.jobLevelRewardManager = jobLevelRewardManager;
     }
 
     private void initializeExperienceTables() {
@@ -473,8 +483,11 @@ public class JobExperienceManager implements Listener {
                 notificationManager.playCelebrationEffect(player);
             }
 
-            // 新しいツールの付与チェック
-            jobToolManager.checkAndGiveNewTools(player, jobName, newLevel);
+            // レベルアップ報酬（お金）の付与。5レベルおき（Lv5,10,…）に付与される。
+            // while文で1レベルずつ処理されるため、複数レベル同時アップ時も各レベルで判定される。
+            if (jobLevelRewardManager != null) {
+                jobLevelRewardManager.giveJobLevelReward(player, jobName, newLevel);
+            }
 
             // 職業レベル最大値チェック
             Job job = jobDAO.getJobByNameSafe(jobName);
