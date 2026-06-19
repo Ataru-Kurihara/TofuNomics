@@ -903,7 +903,30 @@ public class MarketManager {
 
         notifyRequesterFulfilled(outcome.getRequesterUuid(),
                 org.tofu.tofunomics.market.gui.MarketGUIUtil.prettifyMaterial(order.getMaterial()), amount);
+
+        // 買取募集への供給成立時の職業経験値付与（決済確定後。失敗しても取引結果には影響させない）
+        grantSupplyExperience(supplier, order, material, amount);
+
         return outcome.getResult();
+    }
+
+    /**
+     * 買取募集への供給成立に対し、供給者が対応職業に就いていれば職業経験値を付与する。
+     * 自己供給（自分の募集に自分で供給）では付与しない（経験値ファーミング防止）。
+     */
+    private void grantSupplyExperience(Player supplier, MarketBuyOrder order, Material material, int amount) {
+        try {
+            if (jobExperienceManager == null || !configManager.isMarketSellExpEnabled()) {
+                return;
+            }
+            // 自己供給時は付与しない
+            if (order.getRequesterUuid().equals(supplier.getUniqueId())) {
+                return;
+            }
+            jobExperienceManager.giveMarketSellExperience(supplier.getUniqueId(), material, amount);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "買取供給成立時の職業経験値付与に失敗しました", e);
+        }
     }
 
     /**

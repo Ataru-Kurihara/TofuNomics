@@ -376,7 +376,7 @@ public class ConfigManager {
         return config.getInt("market.max_buy_orders_per_player", 10);
     }
 
-    // 売り出品成約時の職業経験値付与
+    // 取引成立時の職業経験値付与（売り出品の購入／買取募集への供給の両方）
     public boolean isMarketSellExpEnabled() {
         return config.getBoolean("market.sell_exp.enabled", true);
     }
