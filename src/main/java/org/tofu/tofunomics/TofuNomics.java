@@ -59,6 +59,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.housing.HousingListener housingListener;
     private org.tofu.tofunomics.housing.gui.HousingHubGUI housingHubGUI;
     private org.tofu.tofunomics.housing.gui.HousingAdminRegisterGUI housingAdminRegisterGUI;
+    private org.tofu.tofunomics.housing.gui.HousingAdminListGUI housingAdminListGUI;
     private org.tofu.tofunomics.housing.gui.HousingGUIListener housingGUIListener;
     private org.tofu.tofunomics.integration.WorldGuardIntegration worldGuardIntegration;
     private org.tofu.tofunomics.protection.HostileMobRemovalManager hostileMobRemovalManager; // 敵対的モブ自動除去マネージャー
@@ -870,7 +871,8 @@ public final class TofuNomics extends JavaPlugin {
                         testModeManager,
                         configManager,
                         housingHubGUI,
-                        housingAdminRegisterGUI
+                        housingAdminRegisterGUI,
+                        housingAdminListGUI
                     );
                 getCommand("housing").setExecutor(housingCommand);
                 getCommand("housing").setTabCompleter(housingCommand);
@@ -1435,6 +1437,10 @@ public final class TofuNomics extends JavaPlugin {
                 new org.tofu.tofunomics.housing.gui.RentalManageGUI(this, configManager, housingRentalManager, chatInputManager, housingGUIListener);
             org.tofu.tofunomics.housing.gui.HousingAdminRegisterGUI adminRegister =
                 new org.tofu.tofunomics.housing.gui.HousingAdminRegisterGUI(this, configManager, housingRentalManager, selectionManager, chatInputManager, housingGUIListener);
+            org.tofu.tofunomics.housing.gui.HousingAdminListGUI adminList =
+                new org.tofu.tofunomics.housing.gui.HousingAdminListGUI(this, configManager, housingRentalManager, housingGUIListener);
+            org.tofu.tofunomics.housing.gui.HousingAdminEditGUI adminEdit =
+                new org.tofu.tofunomics.housing.gui.HousingAdminEditGUI(this, configManager, housingRentalManager, chatInputManager, housingGUIListener);
 
             // 相互参照を注入（循環依存の解決）
             hub.setGUIs(browse, myRentals);
@@ -1442,11 +1448,14 @@ public final class TofuNomics extends JavaPlugin {
             detail.setGUIs(hub, browse);
             myRentals.setGUIs(hub, manage);
             manage.setGUIs(hub, myRentals);
-            housingGUIListener.setGUIs(hub, browse, detail, myRentals, manage, adminRegister);
+            adminList.setGUIs(adminEdit);
+            adminEdit.setGUIs(adminList);
+            housingGUIListener.setGUIs(hub, browse, detail, myRentals, manage, adminRegister, adminList, adminEdit);
 
             getServer().getPluginManager().registerEvents(housingGUIListener, this);
             housingHubGUI = hub;
             housingAdminRegisterGUI = adminRegister;
+            housingAdminListGUI = adminList;
             getLogger().info("住居賃貸GUIを初期化しました");
         } catch (Exception e) {
             getLogger().severe("住居賃貸GUI初期化中にエラーが発生しました: " + e.getMessage());

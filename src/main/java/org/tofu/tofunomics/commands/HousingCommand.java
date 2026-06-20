@@ -10,6 +10,7 @@ import org.tofu.tofunomics.housing.HousingRentalManager;
 import org.tofu.tofunomics.housing.SelectionManager;
 import org.tofu.tofunomics.housing.gui.HousingHubGUI;
 import org.tofu.tofunomics.housing.gui.HousingAdminRegisterGUI;
+import org.tofu.tofunomics.housing.gui.HousingAdminListGUI;
 import org.tofu.tofunomics.models.HousingProperty;
 import org.tofu.tofunomics.models.HousingRental;
 import org.tofu.tofunomics.testing.TestModeManager;
@@ -29,8 +30,9 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
     private final org.tofu.tofunomics.config.ConfigManager configManager;
     private final HousingHubGUI housingHubGUI;
     private final HousingAdminRegisterGUI housingAdminRegisterGUI;
+    private final HousingAdminListGUI housingAdminListGUI;
 
-    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager, org.tofu.tofunomics.config.ConfigManager configManager, HousingHubGUI housingHubGUI, HousingAdminRegisterGUI housingAdminRegisterGUI) {
+    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager, org.tofu.tofunomics.config.ConfigManager configManager, HousingHubGUI housingHubGUI, HousingAdminRegisterGUI housingAdminRegisterGUI, HousingAdminListGUI housingAdminListGUI) {
         this.plugin = plugin;
         this.rentalManager = rentalManager;
         this.selectionManager = selectionManager;
@@ -38,6 +40,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         this.configManager = configManager;
         this.housingHubGUI = housingHubGUI;
         this.housingAdminRegisterGUI = housingAdminRegisterGUI;
+        this.housingAdminListGUI = housingAdminListGUI;
     }
 
     @Override
@@ -338,6 +341,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             case "registergui":
             case "gui":
                 return handleAdminRegisterGui(sender);
+            case "manage":
+                return handleAdminManage(sender);
             case "checkregion":
                 return handleAdminCheckRegion(sender, args);
             case "list":
@@ -573,6 +578,26 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         }
 
         housingAdminRegisterGUI.open(player);
+        return true;
+    }
+
+    /**
+     * 管理者: 物件管理GUIを開く（一覧→編集）
+     */
+    private boolean handleAdminManage(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        if (housingAdminListGUI == null) {
+            player.sendMessage("§c物件管理GUIが利用できません");
+            return true;
+        }
+
+        housingAdminListGUI.open(player);
         return true;
     }
 
@@ -967,6 +992,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/housing admin register <名前> <日額> [--wg <領域名>] §7- 物件登録");
         sender.sendMessage("§e/housing admin quickregister [--name <名>] [--rent <日額>] §7- クイック登録(連番自動命名)");
         sender.sendMessage("§e/housing admin gui §7- 物件登録GUIを開く");
+        sender.sendMessage("§e/housing admin manage §7- 物件管理GUI(一覧→編集)を開く");
         sender.sendMessage("§e/housing admin checkregion [領域名] §7- WGリージョンの確認");
         sender.sendMessage("§e/housing admin list §7- 全物件一覧");
         sender.sendMessage("§e/housing admin setrent <ID> <日額> §7- 賃料変更");
@@ -994,7 +1020,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                 completions.add("admin");
             }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
-            completions.addAll(Arrays.asList("wand", "register", "quickregister", "gui", "checkregion", "list", "setrent", "remove"));
+            completions.addAll(Arrays.asList("wand", "register", "quickregister", "gui", "manage", "checkregion", "list", "setrent", "remove"));
         }
 
         return completions;

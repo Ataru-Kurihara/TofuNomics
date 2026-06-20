@@ -34,6 +34,8 @@ public class HousingGUIListener implements Listener {
     private MyRentalsGUI myRentalsGUI;
     private RentalManageGUI manageGUI;
     private HousingAdminRegisterGUI adminRegisterGUI;
+    private HousingAdminListGUI adminListGUI;
+    private HousingAdminEditGUI adminEditGUI;
 
     public HousingGUIListener(TofuNomics plugin) {
         this.plugin = plugin;
@@ -44,13 +46,16 @@ public class HousingGUIListener implements Listener {
      */
     public void setGUIs(HousingHubGUI hubGUI, HousingBrowseGUI browseGUI, HousingDetailGUI detailGUI,
                         MyRentalsGUI myRentalsGUI, RentalManageGUI manageGUI,
-                        HousingAdminRegisterGUI adminRegisterGUI) {
+                        HousingAdminRegisterGUI adminRegisterGUI,
+                        HousingAdminListGUI adminListGUI, HousingAdminEditGUI adminEditGUI) {
         this.hubGUI = hubGUI;
         this.browseGUI = browseGUI;
         this.detailGUI = detailGUI;
         this.myRentalsGUI = myRentalsGUI;
         this.manageGUI = manageGUI;
         this.adminRegisterGUI = adminRegisterGUI;
+        this.adminListGUI = adminListGUI;
+        this.adminEditGUI = adminEditGUI;
     }
 
     /**
@@ -111,6 +116,13 @@ public class HousingGUIListener implements Listener {
                 break;
             case ADMIN_REGISTER:
                 if (adminRegisterGUI != null) adminRegisterGUI.handleClick(player, session, slot, clickType);
+                break;
+            case ADMIN_LIST:
+                if (adminListGUI != null) adminListGUI.handleClick(player, session, slot, clickType);
+                break;
+            case ADMIN_EDIT:
+            case ADMIN_EDIT_DELETE_CONFIRM:
+                if (adminEditGUI != null) adminEditGUI.handleClick(player, session, slot, clickType);
                 break;
             default:
                 break;
