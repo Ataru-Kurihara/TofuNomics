@@ -9,6 +9,8 @@ import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.housing.HousingRentalManager;
 import org.tofu.tofunomics.housing.SelectionManager;
 import org.tofu.tofunomics.housing.gui.HousingHubGUI;
+import org.tofu.tofunomics.housing.gui.HousingAdminRegisterGUI;
+import org.tofu.tofunomics.housing.gui.HousingAdminListGUI;
 import org.tofu.tofunomics.models.HousingProperty;
 import org.tofu.tofunomics.models.HousingRental;
 import org.tofu.tofunomics.testing.TestModeManager;
@@ -27,14 +29,18 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
     private final TestModeManager testModeManager;
     private final org.tofu.tofunomics.config.ConfigManager configManager;
     private final HousingHubGUI housingHubGUI;
+    private final HousingAdminRegisterGUI housingAdminRegisterGUI;
+    private final HousingAdminListGUI housingAdminListGUI;
 
-    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager, org.tofu.tofunomics.config.ConfigManager configManager, HousingHubGUI housingHubGUI) {
+    public HousingCommand(TofuNomics plugin, HousingRentalManager rentalManager, SelectionManager selectionManager, TestModeManager testModeManager, org.tofu.tofunomics.config.ConfigManager configManager, HousingHubGUI housingHubGUI, HousingAdminRegisterGUI housingAdminRegisterGUI, HousingAdminListGUI housingAdminListGUI) {
         this.plugin = plugin;
         this.rentalManager = rentalManager;
         this.selectionManager = selectionManager;
         this.testModeManager = testModeManager;
         this.configManager = configManager;
         this.housingHubGUI = housingHubGUI;
+        this.housingAdminRegisterGUI = housingAdminRegisterGUI;
+        this.housingAdminListGUI = housingAdminListGUI;
     }
 
     @Override
@@ -327,6 +333,18 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         switch (adminSubCommand) {
             case "register":
                 return handleAdminRegister(sender, args);
+            case "wand":
+                return handleAdminWand(sender);
+            case "quickregister":
+            case "qr":
+                return handleAdminQuickRegister(sender, args);
+            case "registergui":
+            case "gui":
+                return handleAdminRegisterGui(sender);
+            case "manage":
+                return handleAdminManage(sender);
+            case "checkregion":
+                return handleAdminCheckRegion(sender, args);
             case "list":
                 return handleAdminList(sender);
             case "setrent":
@@ -428,6 +446,212 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
 
         } catch (NumberFormatException e) {
             player.sendMessage("§c賃料は数値で指定してください");
+        }
+
+        return true;
+    }
+
+    /**
+     * 管理者: 範囲選択ツール（木の斧）を配布する
+     */
+    private boolean handleAdminWand(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        org.bukkit.Material tool = selectionManager.getSelectionTool();
+        org.bukkit.inventory.ItemStack wand = new org.bukkit.inventory.ItemStack(tool);
+        org.bukkit.inventory.meta.ItemMeta meta = wand.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName("§b§l賃貸選択ツール");
+            meta.setLore(Arrays.asList(
+                "§7左クリック: 第1座標を設定",
+                "§7右クリック: 第2座標を設定",
+                "§72点選択後 §f/housing admin qr §7または §f/housing admin gui"
+            ));
+            wand.setItemMeta(meta);
+        }
+
+        // インベントリに追加し、入りきらない分は足元にドロップ
+        java.util.Map<Integer, org.bukkit.inventory.ItemStack> leftover =
+            player.getInventory().addItem(wand);
+        if (!leftover.isEmpty()) {
+            for (org.bukkit.inventory.ItemStack item : leftover.values()) {
+                player.getWorld().dropItemNaturally(player.getLocation(), item);
+            }
+            player.sendMessage("§e範囲選択ツールを足元にドロップしました（インベントリが満杯）");
+        } else {
+            player.sendMessage("§a範囲選択ツール（"
+                + org.tofu.tofunomics.gui.GuiUtil.prettifyMaterial(tool.name()) + "）を配布しました");
+        }
+        player.sendMessage("§7左クリックで1点目、右クリックで2点目を選択してください");
+
+        return true;
+    }
+
+    /**
+     * 管理者: 物件のクイック登録（連番自動命名）
+     * 範囲選択さえ済んでいれば、物件名・家賃は省略可能。WG領域も自動作成する。
+     * 使用法: /housing admin quickregister [--name <名>] [--rent <日額>]
+     */
+    private boolean handleAdminQuickRegister(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        if (!selectionManager.hasCompleteSelection(player)) {
+            player.sendMessage("§c範囲選択が完了していません");
+            player.sendMessage("§7木の斧で2点を選択してから実行してください");
+            return true;
+        }
+
+        // オプション解析（--name / --rent）
+        String propertyName = null;
+        Double dailyRent = null;
+        try {
+            for (int i = 1; i < args.length - 1; i++) {
+                if (args[i].equalsIgnoreCase("--name")) {
+                    propertyName = args[i + 1];
+                } else if (args[i].equalsIgnoreCase("--rent")) {
+                    dailyRent = Double.parseDouble(args[i + 1]);
+                }
+            }
+        } catch (NumberFormatException e) {
+            player.sendMessage("§c賃料は数値で指定してください");
+            return true;
+        }
+
+        // 省略時はデフォルト値
+        if (propertyName == null) {
+            propertyName = rentalManager.generateNextPropertyName();
+        }
+        if (dailyRent == null) {
+            dailyRent = configManager.getHousingDefaultDailyRent();
+        }
+
+        org.bukkit.Location pos1 = selectionManager.getFirstPosition(player.getUniqueId());
+        org.bukkit.Location pos2 = selectionManager.getSecondPosition(player.getUniqueId());
+
+        boolean createWg = configManager.isHousingAutoCreateWgRegion();
+
+        HousingRentalManager.RentalResult result = rentalManager.registerPropertyFromSelection(
+            propertyName, player.getWorld(), pos1, pos2, dailyRent, createWg
+        );
+
+        if (result.isSuccess()) {
+            player.sendMessage("§a物件 '" + propertyName + "' を登録しました（日額: " + dailyRent + "）");
+            player.sendMessage("§7" + result.getMessage());
+            selectionManager.clearSelection(player);
+        } else {
+            player.sendMessage("§c" + result.getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * 管理者: 物件登録GUIを開く
+     */
+    private boolean handleAdminRegisterGui(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        if (housingAdminRegisterGUI == null) {
+            player.sendMessage("§c登録GUIが利用できません");
+            return true;
+        }
+
+        if (!selectionManager.hasCompleteSelection(player)) {
+            player.sendMessage("§c範囲選択が完了していません");
+            player.sendMessage("§7木の斧で2点を選択してから実行してください");
+            return true;
+        }
+
+        housingAdminRegisterGUI.open(player);
+        return true;
+    }
+
+    /**
+     * 管理者: 物件管理GUIを開く（一覧→編集）
+     */
+    private boolean handleAdminManage(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        if (housingAdminListGUI == null) {
+            player.sendMessage("§c物件管理GUIが利用できません");
+            return true;
+        }
+
+        housingAdminListGUI.open(player);
+        return true;
+    }
+
+    /**
+     * 管理者: WorldGuardリージョンの確認
+     * 引数あり: 指定リージョン名が存在するか確認
+     * 引数なし: 選択範囲に重なる既存リージョン名を列挙
+     */
+    private boolean handleAdminCheckRegion(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        org.tofu.tofunomics.integration.WorldGuardIntegration wgIntegration =
+            plugin.getWorldGuardIntegration();
+
+        if (wgIntegration == null || !wgIntegration.isEnabled()) {
+            player.sendMessage("§cWorldGuard統合が無効です");
+            return true;
+        }
+
+        // 引数ありなら名前指定の存在確認
+        if (args.length >= 2) {
+            String regionName = args[1];
+            boolean exists = wgIntegration.hasRegion(regionName, player.getWorld());
+            if (exists) {
+                player.sendMessage("§aリージョン '" + regionName + "' は存在します");
+            } else {
+                player.sendMessage("§eリージョン '" + regionName + "' は存在しません");
+            }
+            return true;
+        }
+
+        // 引数なしなら選択範囲に重なるリージョンを列挙
+        if (!selectionManager.hasCompleteSelection(player)) {
+            player.sendMessage("§c範囲選択が完了していません");
+            player.sendMessage("§7木の斧で2点を選択するか、/housing admin checkregion <領域名> で名前指定してください");
+            return true;
+        }
+
+        org.bukkit.Location pos1 = selectionManager.getFirstPosition(player.getUniqueId());
+        org.bukkit.Location pos2 = selectionManager.getSecondPosition(player.getUniqueId());
+        List<String> overlapping = wgIntegration.getOverlappingRegionNames(player.getWorld(), pos1, pos2);
+
+        if (overlapping.isEmpty()) {
+            player.sendMessage("§a選択範囲に重なる既存リージョンはありません");
+        } else {
+            player.sendMessage("§e選択範囲に重なる既存リージョン (" + overlapping.size() + "件):");
+            for (String name : overlapping) {
+                player.sendMessage("§7- §f" + name);
+            }
         }
 
         return true;
@@ -764,7 +988,12 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
      */
     private void sendAdminUsage(CommandSender sender) {
         sender.sendMessage("§6===== 住居管理コマンド =====");
+        sender.sendMessage("§e/housing admin wand §7- 範囲選択ツール(木の斧)を配布");
         sender.sendMessage("§e/housing admin register <名前> <日額> [--wg <領域名>] §7- 物件登録");
+        sender.sendMessage("§e/housing admin quickregister [--name <名>] [--rent <日額>] §7- クイック登録(連番自動命名)");
+        sender.sendMessage("§e/housing admin gui §7- 物件登録GUIを開く");
+        sender.sendMessage("§e/housing admin manage §7- 物件管理GUI(一覧→編集)を開く");
+        sender.sendMessage("§e/housing admin checkregion [領域名] §7- WGリージョンの確認");
         sender.sendMessage("§e/housing admin list §7- 全物件一覧");
         sender.sendMessage("§e/housing admin setrent <ID> <日額> §7- 賃料変更");
         sender.sendMessage("§e/housing admin remove <ID> §7- 物件削除");
@@ -791,7 +1020,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                 completions.add("admin");
             }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
-            completions.addAll(Arrays.asList("register", "list", "setrent", "remove"));
+            completions.addAll(Arrays.asList("wand", "register", "quickregister", "gui", "manage", "checkregion", "list", "setrent", "remove"));
         }
 
         return completions;

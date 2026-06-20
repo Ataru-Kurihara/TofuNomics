@@ -378,8 +378,52 @@ public class WorldGuardIntegration {
     }
 
     /**
+     * 選択範囲(pos1〜pos2)に重なる既存リージョンのID一覧を取得
+     * 一時的なCuboid領域を作り、それに適用されるリージョンを列挙する（リージョンは登録しない）
+     *
+     * @param world ワールド
+     * @param pos1 第1座標
+     * @param pos2 第2座標
+     * @return 重なる既存リージョンIDのリスト（重なりがなければ空リスト）
+     */
+    public java.util.List<String> getOverlappingRegionNames(World world, Location pos1, Location pos2) {
+        java.util.List<String> result = new java.util.ArrayList<>();
+        if (!enabled) {
+            return result;
+        }
+
+        try {
+            RegionManager regionManager = regionContainer.get(BukkitAdapter.adapt(world));
+            if (regionManager == null) {
+                return result;
+            }
+
+            BlockVector3 min = BlockVector3.at(
+                Math.min(pos1.getBlockX(), pos2.getBlockX()),
+                Math.min(pos1.getBlockY(), pos2.getBlockY()),
+                Math.min(pos1.getBlockZ(), pos2.getBlockZ())
+            );
+            BlockVector3 max = BlockVector3.at(
+                Math.max(pos1.getBlockX(), pos2.getBlockX()),
+                Math.max(pos1.getBlockY(), pos2.getBlockY()),
+                Math.max(pos1.getBlockZ(), pos2.getBlockZ())
+            );
+
+            // 一時的な領域を作って重なりを判定（登録はしない）
+            ProtectedCuboidRegion tempRegion = new ProtectedCuboidRegion("__tofunomics_temp__", min, max);
+            for (ProtectedRegion region : regionManager.getApplicableRegions(tempRegion)) {
+                result.add(region.getId());
+            }
+        } catch (Exception e) {
+            logger.warning("重なるリージョンの取得に失敗しました: " + e.getMessage());
+        }
+
+        return result;
+    }
+
+    /**
      * 子リージョンに親リージョンを設定
-     * 
+     *
      * @param childRegionId 子リージョンID
      * @param parentRegionId 親リージョンID
      * @param world ワールド
@@ -441,8 +485,40 @@ public class WorldGuardIntegration {
 
 
     /**
+     * リージョンの親リージョンIDを取得する。
+     *
+     * @param regionId 対象リージョンID
+     * @param world ワールド
+     * @return 親リージョンID。親が未設定／リージョンが存在しない／WG無効の場合は null
+     */
+    public String getParentRegionName(String regionId, World world) {
+        if (!enabled) {
+            return null;
+        }
+
+        try {
+            RegionManager regionManager = regionContainer.get(BukkitAdapter.adapt(world));
+            if (regionManager == null) {
+                return null;
+            }
+
+            ProtectedRegion region = regionManager.getRegion(regionId);
+            if (region == null) {
+                return null;
+            }
+
+            ProtectedRegion parent = region.getParent();
+            return parent != null ? parent.getId() : null;
+
+        } catch (Exception e) {
+            logger.warning("親リージョンの取得に失敗しました: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * リージョンにフラグを設定
-     * 
+     *
      * @param regionId リージョンID
      * @param world ワールド
      * @param flagName フラグ名（"build", "use", "pvp"など）

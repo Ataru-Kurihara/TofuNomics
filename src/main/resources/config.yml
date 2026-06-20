@@ -3142,9 +3142,15 @@ housing_rental:
   
   # プレイヤーあたりの最大賃貸契約数
   max_rentals_per_player: 3
-  
+
   # 範囲選択ツール（WorldEditライク）
   selection_tool: WOODEN_AXE
+
+  # 物件一括登録の効率化設定（quickregister / 登録GUIで使用）
+  default_daily_rent: 100        # 家賃省略時の既定日額（整数推奨: 通貨は金塊）
+  auto_create_wg_region: true    # 登録時にWorldGuard領域も自動作成するか
+  auto_naming:
+    prefix: "house-"             # 連番自動命名の接頭辞（例: house-1, house-2）
   
   # 賃貸期間設定
   rental_periods:

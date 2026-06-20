@@ -4542,6 +4542,27 @@ public class ConfigManager {
     }
     
     /**
+     * 物件一括登録: 家賃省略時の既定日額を取得
+     */
+    public double getHousingDefaultDailyRent() {
+        return config.getDouble("housing_rental.default_daily_rent", 100);
+    }
+
+    /**
+     * 物件一括登録: 登録時にWorldGuard領域も自動作成するか
+     */
+    public boolean isHousingAutoCreateWgRegion() {
+        return config.getBoolean("housing_rental.auto_create_wg_region", true);
+    }
+
+    /**
+     * 物件一括登録: 連番自動命名の接頭辞を取得
+     */
+    public String getHousingAutoNamingPrefix() {
+        return config.getString("housing_rental.auto_naming.prefix", "house-");
+    }
+
+    /**
      * デフォルトの親リージョン名を取得（city_protection.region_nameが優先）
      */
     public String getDefaultParentRegion() {

@@ -78,6 +78,71 @@ public class HousingRentalManager {
     }
 
     /**
+     * 連番自動命名で次の物件名を生成する。
+     * config の接頭辞 + 最小の未使用番号（1始まり）を返す。
+     * 既存の物件名とWorldGuardリージョン名の両方で衝突を回避する
+     * （リージョン名が重複するとWG領域作成が失敗するため）。
+     *
+     * @return 衝突しない新しい物件名（例: house-1）
+     */
+    public String generateNextPropertyName() {
+        String prefix = configManager.getHousingAutoNamingPrefix();
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (HousingProperty property : getAllProperties()) {
+            if (property.getPropertyName() != null) {
+                used.add(property.getPropertyName());
+            }
+            if (property.getWorldguardRegionId() != null) {
+                used.add(property.getWorldguardRegionId());
+            }
+        }
+
+        int n = 1;
+        while (used.contains(prefix + n)) {
+            n++;
+        }
+        return prefix + n;
+    }
+
+    /**
+     * 選択範囲から物件を登録する（quickregister / 登録GUI共通の中核処理）。
+     * createWg が true の場合、物件名と同名のWorldGuard領域を自動作成し、親リージョン継承・フラグ設定も行う。
+     *
+     * @param propertyName 物件名
+     * @param world ワールド
+     * @param pos1 第1座標
+     * @param pos2 第2座標
+     * @param dailyRent 日額賃料
+     * @param createWg WorldGuard領域も自動作成するか
+     * @return 登録結果
+     */
+    public RentalResult registerPropertyFromSelection(String propertyName, World world,
+                                                      Location pos1, Location pos2,
+                                                      double dailyRent, boolean createWg) {
+        HousingProperty property = new HousingProperty(
+            propertyName,
+            world.getName(),
+            pos1.getBlockX(), pos1.getBlockY(), pos1.getBlockZ(),
+            pos2.getBlockX(), pos2.getBlockY(), pos2.getBlockZ(),
+            null,
+            dailyRent
+        );
+
+        // WorldGuard領域を物件名と同じIDで自動作成
+        if (createWg && worldGuardIntegration != null && worldGuardIntegration.isEnabled()) {
+            boolean regionCreated = createWorldGuardRegion(propertyName, world, pos1, pos2);
+            if (regionCreated) {
+                property.setWorldguardRegionId(propertyName);
+            } else {
+                // 領域作成に失敗しても座標範囲で登録は続行する（既存registerと同方針）
+                logger.warning("WorldGuard領域 '" + propertyName + "' の作成に失敗したため座標範囲のみで登録します");
+            }
+        }
+
+        return registerProperty(property);
+    }
+
+    /**
      * WorldGuard領域を作成
      * config.ymlで親リージョンが設定されている場合、自動的に子リージョンとして設定
      */
@@ -631,6 +696,129 @@ public class HousingRentalManager {
             logger.severe("賃料変更に失敗しました: " + e.getMessage());
             return new RentalResult(false, "データベースエラーが発生しました");
         }
+    }
+
+    /**
+     * 物件からWorldGuard領域の紐付けを解除する（運営用）。
+     *
+     * @param propertyId 物件ID
+     * @param alsoDeleteRegion true の場合、実際のWorldGuard領域も削除する
+     * @return 処理結果
+     */
+    public RentalResult unlinkWorldGuardRegion(int propertyId, boolean alsoDeleteRegion) {
+        try {
+            HousingProperty property = propertyDAO.getProperty(propertyId);
+            if (property == null) {
+                return new RentalResult(false, "物件が見つかりません");
+            }
+            if (!property.hasWorldGuardRegion()) {
+                return new RentalResult(false, "この物件にはWG領域が設定されていません");
+            }
+            if (!property.hasCoordinates()) {
+                return new RentalResult(false, "座標範囲がないためWG領域を解除できません（位置特定不可になります）");
+            }
+
+            String regionId = property.getWorldguardRegionId();
+
+            // 実領域も削除する場合
+            if (alsoDeleteRegion && worldGuardIntegration != null && worldGuardIntegration.isEnabled()) {
+                World world = Bukkit.getWorld(property.getWorldName());
+                if (world != null) {
+                    boolean removed = worldGuardIntegration.removeRegion(regionId, world);
+                    if (!removed) {
+                        logger.warning("WG領域 " + regionId + " の削除に失敗しました（紐付けは解除します）");
+                    }
+                }
+            }
+
+            // 物件側の紐付けを解除
+            property.setWorldguardRegionId(null);
+            propertyDAO.updateProperty(property);
+
+            logger.info("物件 " + propertyId + " のWG領域紐付けを解除しました (領域削除: " + alsoDeleteRegion + ")");
+            return new RentalResult(true, alsoDeleteRegion
+                ? "WG領域 '" + regionId + "' を削除し、紐付けを解除しました"
+                : "WG領域 '" + regionId + "' の紐付けを解除しました（領域は残存）");
+        } catch (SQLException e) {
+            logger.severe("WG領域の紐付け解除に失敗しました: " + e.getMessage());
+            return new RentalResult(false, "データベースエラーが発生しました");
+        }
+    }
+
+    /**
+     * 物件のWorldGuard領域IDを別の既存リージョンに再紐付けする（運営用）。
+     *
+     * @param propertyId 物件ID
+     * @param newRegionId 新しいWGリージョンID（実在する必要がある）
+     * @return 処理結果
+     */
+    public RentalResult relinkWorldGuardRegion(int propertyId, String newRegionId) {
+        try {
+            HousingProperty property = propertyDAO.getProperty(propertyId);
+            if (property == null) {
+                return new RentalResult(false, "物件が見つかりません");
+            }
+            if (worldGuardIntegration == null || !worldGuardIntegration.isEnabled()) {
+                return new RentalResult(false, "WorldGuard統合が無効です");
+            }
+
+            World world = Bukkit.getWorld(property.getWorldName());
+            if (world == null) {
+                return new RentalResult(false, "ワールド '" + property.getWorldName() + "' が見つかりません");
+            }
+
+            // 指定リージョンの存在チェック
+            if (!worldGuardIntegration.hasRegion(newRegionId, world)) {
+                return new RentalResult(false, "リージョン '" + newRegionId + "' が存在しません");
+            }
+
+            property.setWorldguardRegionId(newRegionId);
+            propertyDAO.updateProperty(property);
+
+            logger.info("物件 " + propertyId + " のWG領域を " + newRegionId + " に再紐付けしました");
+            return new RentalResult(true, "WG領域を '" + newRegionId + "' に再紐付けしました");
+        } catch (SQLException e) {
+            logger.severe("WG領域の再紐付けに失敗しました: " + e.getMessage());
+            return new RentalResult(false, "データベースエラーが発生しました");
+        }
+    }
+
+    /**
+     * 物件のWorldGuard領域に親リージョンを設定する（運営用）。
+     *
+     * @param propertyId 物件ID
+     * @param parentRegionId 親リージョンID
+     * @return 処理結果
+     */
+    public RentalResult setPropertyParentRegion(int propertyId, String parentRegionId) {
+        HousingProperty property = propertyDAO != null ? getProperty(propertyId) : null;
+        if (property == null) {
+            return new RentalResult(false, "物件が見つかりません");
+        }
+        if (!property.hasWorldGuardRegion()) {
+            return new RentalResult(false, "この物件にはWG領域が設定されていません");
+        }
+        if (worldGuardIntegration == null || !worldGuardIntegration.isEnabled()) {
+            return new RentalResult(false, "WorldGuard統合が無効です");
+        }
+
+        World world = Bukkit.getWorld(property.getWorldName());
+        if (world == null) {
+            return new RentalResult(false, "ワールド '" + property.getWorldName() + "' が見つかりません");
+        }
+
+        if (!worldGuardIntegration.hasRegion(parentRegionId, world)) {
+            return new RentalResult(false, "親リージョン '" + parentRegionId + "' が存在しません");
+        }
+
+        boolean ok = worldGuardIntegration.setParentRegion(
+            property.getWorldguardRegionId(), parentRegionId, world);
+        if (ok) {
+            logger.info("物件 " + propertyId + " のWG領域 " + property.getWorldguardRegionId()
+                + " を親リージョン " + parentRegionId + " の子に設定しました");
+            return new RentalResult(true, "親リージョンを '" + parentRegionId + "' に設定しました");
+        }
+        return new RentalResult(false, "親リージョンの設定に失敗しました（循環参照や保存失敗の可能性）");
     }
 
     /**
