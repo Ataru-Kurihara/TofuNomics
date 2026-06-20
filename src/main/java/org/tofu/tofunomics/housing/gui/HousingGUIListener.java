@@ -33,6 +33,7 @@ public class HousingGUIListener implements Listener {
     private HousingDetailGUI detailGUI;
     private MyRentalsGUI myRentalsGUI;
     private RentalManageGUI manageGUI;
+    private HousingAdminRegisterGUI adminRegisterGUI;
 
     public HousingGUIListener(TofuNomics plugin) {
         this.plugin = plugin;
@@ -42,12 +43,14 @@ public class HousingGUIListener implements Listener {
      * GUI 参照を注入する（循環依存を避けるためセッターで後から設定）。
      */
     public void setGUIs(HousingHubGUI hubGUI, HousingBrowseGUI browseGUI, HousingDetailGUI detailGUI,
-                        MyRentalsGUI myRentalsGUI, RentalManageGUI manageGUI) {
+                        MyRentalsGUI myRentalsGUI, RentalManageGUI manageGUI,
+                        HousingAdminRegisterGUI adminRegisterGUI) {
         this.hubGUI = hubGUI;
         this.browseGUI = browseGUI;
         this.detailGUI = detailGUI;
         this.myRentalsGUI = myRentalsGUI;
         this.manageGUI = manageGUI;
+        this.adminRegisterGUI = adminRegisterGUI;
     }
 
     /**
@@ -105,6 +108,9 @@ public class HousingGUIListener implements Listener {
             case MANAGE:
             case CANCEL_CONFIRM:
                 if (manageGUI != null) manageGUI.handleClick(player, session, slot, clickType);
+                break;
+            case ADMIN_REGISTER:
+                if (adminRegisterGUI != null) adminRegisterGUI.handleClick(player, session, slot, clickType);
                 break;
             default:
                 break;

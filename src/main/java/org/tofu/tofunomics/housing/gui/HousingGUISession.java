@@ -23,7 +23,8 @@ public class HousingGUISession {
         DETAIL,         // 物件詳細（借りる）
         MY_RENTALS,     // 自分の契約一覧
         MANAGE,         // 契約管理（延長・解約）
-        CANCEL_CONFIRM  // 解約の確認
+        CANCEL_CONFIRM, // 解約の確認
+        ADMIN_REGISTER  // 管理者: 物件登録
     }
 
     private final UUID playerId;

@@ -78,6 +78,71 @@ public class HousingRentalManager {
     }
 
     /**
+     * 連番自動命名で次の物件名を生成する。
+     * config の接頭辞 + 最小の未使用番号（1始まり）を返す。
+     * 既存の物件名とWorldGuardリージョン名の両方で衝突を回避する
+     * （リージョン名が重複するとWG領域作成が失敗するため）。
+     *
+     * @return 衝突しない新しい物件名（例: house-1）
+     */
+    public String generateNextPropertyName() {
+        String prefix = configManager.getHousingAutoNamingPrefix();
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (HousingProperty property : getAllProperties()) {
+            if (property.getPropertyName() != null) {
+                used.add(property.getPropertyName());
+            }
+            if (property.getWorldguardRegionId() != null) {
+                used.add(property.getWorldguardRegionId());
+            }
+        }
+
+        int n = 1;
+        while (used.contains(prefix + n)) {
+            n++;
+        }
+        return prefix + n;
+    }
+
+    /**
+     * 選択範囲から物件を登録する（quickregister / 登録GUI共通の中核処理）。
+     * createWg が true の場合、物件名と同名のWorldGuard領域を自動作成し、親リージョン継承・フラグ設定も行う。
+     *
+     * @param propertyName 物件名
+     * @param world ワールド
+     * @param pos1 第1座標
+     * @param pos2 第2座標
+     * @param dailyRent 日額賃料
+     * @param createWg WorldGuard領域も自動作成するか
+     * @return 登録結果
+     */
+    public RentalResult registerPropertyFromSelection(String propertyName, World world,
+                                                      Location pos1, Location pos2,
+                                                      double dailyRent, boolean createWg) {
+        HousingProperty property = new HousingProperty(
+            propertyName,
+            world.getName(),
+            pos1.getBlockX(), pos1.getBlockY(), pos1.getBlockZ(),
+            pos2.getBlockX(), pos2.getBlockY(), pos2.getBlockZ(),
+            null,
+            dailyRent
+        );
+
+        // WorldGuard領域を物件名と同じIDで自動作成
+        if (createWg && worldGuardIntegration != null && worldGuardIntegration.isEnabled()) {
+            boolean regionCreated = createWorldGuardRegion(propertyName, world, pos1, pos2);
+            if (regionCreated) {
+                property.setWorldguardRegionId(propertyName);
+            } else {
+                // 領域作成に失敗しても座標範囲で登録は続行する（既存registerと同方針）
+                logger.warning("WorldGuard領域 '" + propertyName + "' の作成に失敗したため座標範囲のみで登録します");
+            }
+        }
+
+        return registerProperty(property);
+    }
+
+    /**
      * WorldGuard領域を作成
      * config.ymlで親リージョンが設定されている場合、自動的に子リージョンとして設定
      */
