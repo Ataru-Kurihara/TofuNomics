@@ -152,6 +152,16 @@ public class HousingAdminEditGUI {
         List<String> lore = new ArrayList<>();
         if (property.hasWorldGuardRegion()) {
             lore.add("§7WG領域ID: §f" + property.getWorldguardRegionId());
+
+            // 親リージョンの設定状況を表示
+            org.tofu.tofunomics.integration.WorldGuardIntegration wg = plugin.getWorldGuardIntegration();
+            if (wg != null && wg.isEnabled()) {
+                org.bukkit.World world = Bukkit.getWorld(property.getWorldName());
+                if (world != null) {
+                    String parent = wg.getParentRegionName(property.getWorldguardRegionId(), world);
+                    lore.add("§7親リージョン: " + (parent != null ? "§f" + parent : "§8未設定"));
+                }
+            }
         } else {
             lore.add("§7WG領域: §8未設定");
         }

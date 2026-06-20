@@ -485,8 +485,40 @@ public class WorldGuardIntegration {
 
 
     /**
+     * リージョンの親リージョンIDを取得する。
+     *
+     * @param regionId 対象リージョンID
+     * @param world ワールド
+     * @return 親リージョンID。親が未設定／リージョンが存在しない／WG無効の場合は null
+     */
+    public String getParentRegionName(String regionId, World world) {
+        if (!enabled) {
+            return null;
+        }
+
+        try {
+            RegionManager regionManager = regionContainer.get(BukkitAdapter.adapt(world));
+            if (regionManager == null) {
+                return null;
+            }
+
+            ProtectedRegion region = regionManager.getRegion(regionId);
+            if (region == null) {
+                return null;
+            }
+
+            ProtectedRegion parent = region.getParent();
+            return parent != null ? parent.getId() : null;
+
+        } catch (Exception e) {
+            logger.warning("親リージョンの取得に失敗しました: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * リージョンにフラグを設定
-     * 
+     *
      * @param regionId リージョンID
      * @param world ワールド
      * @param flagName フラグ名（"build", "use", "pvp"など）
