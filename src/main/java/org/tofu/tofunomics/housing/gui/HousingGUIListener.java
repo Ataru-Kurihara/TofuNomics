@@ -122,6 +122,7 @@ public class HousingGUIListener implements Listener {
                 break;
             case ADMIN_EDIT:
             case ADMIN_EDIT_DELETE_CONFIRM:
+            case ADMIN_EDIT_WG:
                 if (adminEditGUI != null) adminEditGUI.handleClick(player, session, slot, clickType);
                 break;
             default:

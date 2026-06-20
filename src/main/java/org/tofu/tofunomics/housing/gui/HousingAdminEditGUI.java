@@ -129,8 +129,10 @@ public class HousingAdminEditGUI {
                         ? Collections.singletonList("§7物件の位置へ移動します")
                         : Collections.singletonList("§8座標情報がないため移動できません")));
 
-        gui.setItem(SLOT_WG, GuiUtil.createButton(Material.SPYGLASS, "§b§lWorldGuard情報",
-                buildWgInfoLore(property)));
+        List<String> wgLore = new ArrayList<>(buildWgInfoLore(property));
+        wgLore.add("");
+        wgLore.add("§eクリックでWG情報を編集");
+        gui.setItem(SLOT_WG, GuiUtil.createButton(Material.SPYGLASS, "§b§lWorldGuard情報", wgLore));
 
         gui.setItem(SLOT_DELETE, GuiUtil.createButton(Material.RED_CONCRETE, "§c§l物件を削除",
                 Arrays.asList(
@@ -205,6 +207,10 @@ public class HousingAdminEditGUI {
             handleConfirmClick(player, session, slot);
             return;
         }
+        if (session.getType() == HousingGUISession.Type.ADMIN_EDIT_WG) {
+            handleWgEditClick(player, session, slot);
+            return;
+        }
 
         switch (slot) {
             case SLOT_RENT:
@@ -231,7 +237,7 @@ public class HousingAdminEditGUI {
                 backToList(player);
                 break;
             case SLOT_WG:
-                // 情報表示のみ（クリック操作なし）
+                openWgEdit(player, session.getSelectedPropertyId());
                 break;
             case SLOT_CLOSE:
                 editing.remove(player.getUniqueId());
@@ -240,6 +246,161 @@ public class HousingAdminEditGUI {
             default:
                 break;
         }
+    }
+
+    // ===== WG情報編集サブ画面 =====
+
+    private static final int SLOT_WG_RELINK = 10;
+    private static final int SLOT_WG_PARENT = 12;
+    private static final int SLOT_WG_UNLINK = 14;
+    private static final int SLOT_WG_UNLINK_DELETE = 16;
+
+    private void openWgEdit(Player player, int propertyId) {
+        HousingProperty property = rentalManager.getProperty(propertyId);
+        if (property == null) {
+            player.sendMessage("§c物件が見つかりません");
+            backToList(player);
+            return;
+        }
+        try {
+            Inventory gui = Bukkit.createInventory(null, SIZE, "§6WG情報編集 - " + property.getPropertyName());
+            HousingGUISession session = new HousingGUISession(
+                    player.getUniqueId(), HousingGUISession.Type.ADMIN_EDIT_WG, gui);
+            session.setSelectedPropertyId(propertyId);
+
+            gui.setItem(SLOT_INFO, GuiUtil.createButton(Material.SPYGLASS, "§f§lWorldGuard情報",
+                    buildWgInfoLore(property)));
+
+            gui.setItem(SLOT_WG_RELINK, GuiUtil.createButton(Material.NAME_TAG, "§e§lリージョンID変更・再紐付け",
+                    Arrays.asList(
+                            "§7既存の別WGリージョンに紐付け直します",
+                            "§7クリックでリージョンIDをチャット入力"
+                    )));
+
+            gui.setItem(SLOT_WG_PARENT, GuiUtil.createButton(Material.CHEST, "§e§l親リージョン設定",
+                    Arrays.asList(
+                            property.hasWorldGuardRegion() ? "§7この物件のWG領域を子に設定します" : "§8WG領域未設定のため使用不可",
+                            "§7クリックで親リージョンIDをチャット入力"
+                    )));
+
+            gui.setItem(SLOT_WG_UNLINK, GuiUtil.createButton(Material.SHEARS, "§6§l紐付け解除のみ",
+                    Arrays.asList(
+                            property.hasWorldGuardRegion() ? "§7物件からWG領域IDを外します" : "§8WG領域未設定のため使用不可",
+                            "§7WG領域自体は残します"
+                    )));
+
+            gui.setItem(SLOT_WG_UNLINK_DELETE, GuiUtil.createButton(Material.RED_CONCRETE, "§c§l紐付け解除＋領域削除",
+                    Arrays.asList(
+                            property.hasWorldGuardRegion() ? "§7WG領域を削除し紐付けも外します" : "§8WG領域未設定のため使用不可",
+                            "§cこの操作は元に戻せません"
+                    )));
+
+            gui.setItem(SLOT_BACK, GuiUtil.createButton(Material.BARRIER, "§e戻る",
+                    Collections.singletonList("§7物件編集へ戻ります")));
+            gui.setItem(SLOT_CLOSE, GuiUtil.createButton(Material.BARRIER, "§c閉じる",
+                    Collections.singletonList("§7GUIを閉じます")));
+
+            decorate(gui);
+
+            listener.registerSession(player.getUniqueId(), session);
+            player.openInventory(gui);
+        } catch (Exception e) {
+            plugin.getLogger().severe("WG情報編集GUIの表示に失敗しました: " + e.getMessage());
+            player.sendMessage("§c処理中にエラーが発生しました。");
+        }
+    }
+
+    private void handleWgEditClick(Player player, HousingGUISession session, int slot) {
+        int propertyId = session.getSelectedPropertyId();
+        HousingProperty property = rentalManager.getProperty(propertyId);
+        if (property == null) {
+            player.sendMessage("§c物件が見つかりません");
+            backToList(player);
+            return;
+        }
+
+        switch (slot) {
+            case SLOT_WG_RELINK:
+                startRelinkInput(player, propertyId);
+                break;
+            case SLOT_WG_PARENT:
+                if (!property.hasWorldGuardRegion()) {
+                    player.sendMessage("§cWG領域が未設定です");
+                    break;
+                }
+                startParentInput(player, propertyId);
+                break;
+            case SLOT_WG_UNLINK:
+                if (!property.hasWorldGuardRegion()) {
+                    player.sendMessage("§cWG領域が未設定です");
+                    break;
+                }
+                doUnlink(player, propertyId, false);
+                break;
+            case SLOT_WG_UNLINK_DELETE:
+                if (!property.hasWorldGuardRegion()) {
+                    player.sendMessage("§cWG領域が未設定です");
+                    break;
+                }
+                doUnlink(player, propertyId, true);
+                break;
+            case SLOT_BACK:
+                render(player);
+                break;
+            case SLOT_CLOSE:
+                editing.remove(player.getUniqueId());
+                player.closeInventory();
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void doUnlink(Player player, int propertyId, boolean alsoDelete) {
+        HousingRentalManager.RentalResult result =
+                rentalManager.unlinkWorldGuardRegion(propertyId, alsoDelete);
+        player.sendMessage((result.isSuccess() ? "§a" : "§c") + result.getMessage());
+        openWgEdit(player, propertyId);
+    }
+
+    private void startRelinkInput(Player player, int propertyId) {
+        player.closeInventory();
+        chatInput.prompt(player,
+                "§e紐付けるWGリージョンIDをチャット入力してください（実在する領域）。",
+                input -> {
+                    String regionId = input.trim();
+                    if (!regionId.isEmpty()) {
+                        HousingRentalManager.RentalResult result =
+                                rentalManager.relinkWorldGuardRegion(propertyId, regionId);
+                        player.sendMessage((result.isSuccess() ? "§a" : "§c") + result.getMessage());
+                    }
+                    reopenWgLater(player, propertyId);
+                },
+                () -> reopenWgLater(player, propertyId), INPUT_TIMEOUT_SECONDS);
+    }
+
+    private void startParentInput(Player player, int propertyId) {
+        player.closeInventory();
+        chatInput.prompt(player,
+                "§e親リージョンIDをチャット入力してください（実在する領域）。",
+                input -> {
+                    String parentId = input.trim();
+                    if (!parentId.isEmpty()) {
+                        HousingRentalManager.RentalResult result =
+                                rentalManager.setPropertyParentRegion(propertyId, parentId);
+                        player.sendMessage((result.isSuccess() ? "§a" : "§c") + result.getMessage());
+                    }
+                    reopenWgLater(player, propertyId);
+                },
+                () -> reopenWgLater(player, propertyId), INPUT_TIMEOUT_SECONDS);
+    }
+
+    private void reopenWgLater(Player player, int propertyId) {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline()) {
+                openWgEdit(player, propertyId);
+            }
+        }, 1L);
     }
 
     private void handleConfirmClick(Player player, HousingGUISession session, int slot) {
