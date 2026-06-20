@@ -330,6 +330,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         switch (adminSubCommand) {
             case "register":
                 return handleAdminRegister(sender, args);
+            case "wand":
+                return handleAdminWand(sender);
             case "quickregister":
             case "qr":
                 return handleAdminQuickRegister(sender, args);
@@ -440,6 +442,47 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         } catch (NumberFormatException e) {
             player.sendMessage("§c賃料は数値で指定してください");
         }
+
+        return true;
+    }
+
+    /**
+     * 管理者: 範囲選択ツール（木の斧）を配布する
+     */
+    private boolean handleAdminWand(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        org.bukkit.Material tool = selectionManager.getSelectionTool();
+        org.bukkit.inventory.ItemStack wand = new org.bukkit.inventory.ItemStack(tool);
+        org.bukkit.inventory.meta.ItemMeta meta = wand.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName("§b§l賃貸選択ツール");
+            meta.setLore(Arrays.asList(
+                "§7左クリック: 第1座標を設定",
+                "§7右クリック: 第2座標を設定",
+                "§72点選択後 §f/housing admin qr §7または §f/housing admin gui"
+            ));
+            wand.setItemMeta(meta);
+        }
+
+        // インベントリに追加し、入りきらない分は足元にドロップ
+        java.util.Map<Integer, org.bukkit.inventory.ItemStack> leftover =
+            player.getInventory().addItem(wand);
+        if (!leftover.isEmpty()) {
+            for (org.bukkit.inventory.ItemStack item : leftover.values()) {
+                player.getWorld().dropItemNaturally(player.getLocation(), item);
+            }
+            player.sendMessage("§e範囲選択ツールを足元にドロップしました（インベントリが満杯）");
+        } else {
+            player.sendMessage("§a範囲選択ツール（"
+                + org.tofu.tofunomics.gui.GuiUtil.prettifyMaterial(tool.name()) + "）を配布しました");
+        }
+        player.sendMessage("§7左クリックで1点目、右クリックで2点目を選択してください");
 
         return true;
     }
@@ -920,6 +963,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
      */
     private void sendAdminUsage(CommandSender sender) {
         sender.sendMessage("§6===== 住居管理コマンド =====");
+        sender.sendMessage("§e/housing admin wand §7- 範囲選択ツール(木の斧)を配布");
         sender.sendMessage("§e/housing admin register <名前> <日額> [--wg <領域名>] §7- 物件登録");
         sender.sendMessage("§e/housing admin quickregister [--name <名>] [--rent <日額>] §7- クイック登録(連番自動命名)");
         sender.sendMessage("§e/housing admin gui §7- 物件登録GUIを開く");
@@ -950,7 +994,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                 completions.add("admin");
             }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
-            completions.addAll(Arrays.asList("register", "quickregister", "gui", "checkregion", "list", "setrent", "remove"));
+            completions.addAll(Arrays.asList("wand", "register", "quickregister", "gui", "checkregion", "list", "setrent", "remove"));
         }
 
         return completions;
