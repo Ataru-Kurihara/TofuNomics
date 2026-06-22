@@ -22,7 +22,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 自分の出品管理 GUI。出品者の全出品（status 問わず）をページングして表示する。
+ * 自分の出品管理 GUI。操作が必要な出品（出品中・期限切れの回収待ち）のみをページングして表示する。
+ * 完了済み（売却済み・回収済み）は一覧から除外する。
  * active をクリックでキャンセル回収、expired をクリックで回収する。
  * クリックイベントの受信は {@link MarketGUIListener} が担当する。
  */
@@ -82,6 +83,9 @@ public class MyListingsGUI {
             plugin.getLogger().warning("自分の出品一覧の取得に失敗しました: " + e.getMessage());
             listings = new ArrayList<>();
         }
+
+        // 完了済み（売却済み・回収済み）は除外し、操作が必要なもの（出品中・期限切れの回収待ち）のみ表示する
+        listings.removeIf(listing -> !listing.isActive() && !listing.isExpired());
 
         int totalPages = Math.max(1, (int) Math.ceil(listings.size() / (double) ITEMS_PER_PAGE));
         if (session.getPage() >= totalPages) {
