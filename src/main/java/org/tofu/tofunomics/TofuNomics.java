@@ -482,7 +482,7 @@ public final class TofuNomics extends JavaPlugin {
             jobToolManager = new JobToolManager(configManager);
             
             // JobLevelRewardManagerの初期化
-            jobLevelRewardManager = new JobLevelRewardManager(configManager, playerDAO);
+            jobLevelRewardManager = new JobLevelRewardManager(configManager, currencyConverter);
             
             // JobExperienceManagerの初期化
             jobExperienceManager = new JobExperienceManager(
