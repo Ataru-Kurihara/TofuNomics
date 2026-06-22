@@ -142,11 +142,15 @@ public class JobExperienceManager implements Listener {
         // 採掘経験値テーブル（レア度順。全鉱石が必ず STONE を上回るよう設計）
         miningExperience.put(Material.COAL_ORE, 2.5);
         miningExperience.put(Material.COPPER_ORE, 3.0);  // 1.17追加。安価な鉱石
+        miningExperience.put(Material.GLOWSTONE, 3.0);  // ネザーの採掘対象。容易だが採取手間あり
         miningExperience.put(Material.LAPIS_ORE, 4.0);
         miningExperience.put(Material.REDSTONE_ORE, 4.0);
+        miningExperience.put(Material.AMETHYST_CLUSTER, 4.0);  // ジオード収穫。シャードドロップ
         miningExperience.put(Material.IRON_ORE, 6.0);
         miningExperience.put(Material.NETHER_QUARTZ_ORE, 7.0);
         miningExperience.put(Material.NETHER_GOLD_ORE, 7.0);  // 1.16追加。金鉱石相当
+        miningExperience.put(Material.OBSIDIAN, 8.0);  // ダイヤピッケル必須・採掘約9.4秒の高労力
+        miningExperience.put(Material.CRYING_OBSIDIAN, 8.0);  // 黒曜石相当の労力
         miningExperience.put(Material.GOLD_ORE, 9.0);
         miningExperience.put(Material.EMERALD_ORE, 20.0);
         miningExperience.put(Material.DIAMOND_ORE, 25.0);
