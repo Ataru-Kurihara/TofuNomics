@@ -46,8 +46,12 @@ public class JobCraftPermissionManager {
             Material.STONE_SWORD, Material.IRON_SWORD, Material.GOLDEN_SWORD,
             Material.DIAMOND_SWORD, Material.NETHERITE_SWORD,
             Material.BOW, Material.CROSSBOW, Material.TRIDENT,
+            // 1.21追加武器（メイス）
+            Material.MACE,
             // 防御・鉄製基本道具
             Material.SHIELD, Material.SHEARS, Material.FLINT_AND_STEEL, Material.ARROW,
+            // 鉄製ツール（コンパス）
+            Material.COMPASS, Material.RECOVERY_COMPASS,
             // 設備類
             Material.FURNACE, Material.BLAST_FURNACE, Material.ANVIL, Material.CHIPPED_ANVIL, Material.DAMAGED_ANVIL,
             Material.GRINDSTONE, Material.SMITHING_TABLE,
@@ -77,6 +81,18 @@ public class JobCraftPermissionManager {
             // 鉱石の収納ブロック
             Material.IRON_BLOCK, Material.GOLD_BLOCK, Material.DIAMOND_BLOCK, Material.COAL_BLOCK,
             Material.REDSTONE_BLOCK, Material.LAPIS_BLOCK, Material.EMERALD_BLOCK,
+            Material.COPPER_BLOCK,
+            // 分解レシピ結果（ブロック→素材、インゴット→塊）
+            Material.IRON_INGOT, Material.GOLD_INGOT, Material.DIAMOND, Material.REDSTONE,
+            Material.LAPIS_LAZULI, Material.EMERALD, Material.NETHERITE_INGOT, Material.COPPER_INGOT,
+            Material.IRON_NUGGET, Material.GOLD_NUGGET,
+            // 生鉱石の収納ブロック・分解
+            Material.RAW_IRON, Material.RAW_GOLD, Material.RAW_COPPER,
+            Material.RAW_IRON_BLOCK, Material.RAW_GOLD_BLOCK, Material.RAW_COPPER_BLOCK,
+            // レール・トロッコ（採掘・運搬）
+            Material.RAIL, Material.POWERED_RAIL, Material.DETECTOR_RAIL, Material.ACTIVATOR_RAIL,
+            Material.MINECART, Material.CHEST_MINECART, Material.HOPPER_MINECART,
+            Material.FURNACE_MINECART, Material.TNT_MINECART,
             // 作業台
             Material.CRAFTING_TABLE
         ));
@@ -95,6 +111,8 @@ public class JobCraftPermissionManager {
             Material.MELON_SEEDS, Material.PUMPKIN_SEEDS,
             // 農業の生産・畜産関連
             Material.BONE_MEAL, Material.HAY_BLOCK, Material.SUGAR, Material.LEAD,
+            // 動物装備（鞍・革の馬鎧）
+            Material.SADDLE, Material.LEATHER_HORSE_ARMOR,
             // 農業関連設備
             Material.COMPOSTER, Material.FLOWER_POT, Material.CAULDRON,
             Material.SMOKER,
@@ -123,6 +141,8 @@ public class JobCraftPermissionManager {
             Material.ACACIA_DOOR, Material.DARK_OAK_DOOR, Material.CRIMSON_DOOR, Material.WARPED_DOOR,
             Material.CHEST, Material.TRAPPED_CHEST, Material.CRAFTING_TABLE, Material.CARTOGRAPHY_TABLE,
             Material.FLETCHING_TABLE, Material.LOOM, Material.LECTERN, Material.BARREL,
+            // 収納容器（バンドル）
+            Material.BUNDLE,
             // 看板類
             Material.OAK_SIGN, Material.SPRUCE_SIGN, Material.BIRCH_SIGN, Material.JUNGLE_SIGN,
             Material.ACACIA_SIGN, Material.DARK_OAK_SIGN, Material.CRIMSON_SIGN, Material.WARPED_SIGN,
@@ -210,10 +230,70 @@ public class JobCraftPermissionManager {
             Material.GREEN_STAINED_GLASS, Material.GREEN_STAINED_GLASS_PANE,
             Material.RED_STAINED_GLASS, Material.RED_STAINED_GLASS_PANE,
             Material.BLACK_STAINED_GLASS, Material.BLACK_STAINED_GLASS_PANE,
+            // 鉄格子
+            Material.IRON_BARS,
+            // レッドストーン装置
+            Material.LEVER, Material.REDSTONE_TORCH, Material.REPEATER, Material.COMPARATOR,
+            Material.PISTON, Material.STICKY_PISTON, Material.DISPENSER, Material.DROPPER,
+            Material.OBSERVER, Material.REDSTONE_LAMP, Material.NOTE_BLOCK,
+            Material.DAYLIGHT_DETECTOR, Material.TARGET, Material.TRIPWIRE_HOOK, Material.HOPPER,
+            // 羊毛（全16色）
+            Material.WHITE_WOOL, Material.ORANGE_WOOL, Material.MAGENTA_WOOL, Material.LIGHT_BLUE_WOOL,
+            Material.YELLOW_WOOL, Material.LIME_WOOL, Material.PINK_WOOL, Material.GRAY_WOOL,
+            Material.LIGHT_GRAY_WOOL, Material.CYAN_WOOL, Material.PURPLE_WOOL, Material.BLUE_WOOL,
+            Material.BROWN_WOOL, Material.GREEN_WOOL, Material.RED_WOOL, Material.BLACK_WOOL,
+            // カーペット（全16色）
+            Material.WHITE_CARPET, Material.ORANGE_CARPET, Material.MAGENTA_CARPET, Material.LIGHT_BLUE_CARPET,
+            Material.YELLOW_CARPET, Material.LIME_CARPET, Material.PINK_CARPET, Material.GRAY_CARPET,
+            Material.LIGHT_GRAY_CARPET, Material.CYAN_CARPET, Material.PURPLE_CARPET, Material.BLUE_CARPET,
+            Material.BROWN_CARPET, Material.GREEN_CARPET, Material.RED_CARPET, Material.BLACK_CARPET,
             // 作業台
             Material.CRAFTING_TABLE
         ));
+        // 銅建材（装飾・1.21新建材含む。酸化段階×waxed有無を網羅）
+        addCopperBuildingMaterials(builderItems);
         jobCraftableItems.put("builder", builderItems);
+    }
+
+    /**
+     * 銅系建材を網羅的に追加する。
+     * 酸化4段階（通常/exposed/weathered/oxidized）× waxed有無の全バリアントを対象とし、
+     * APIバージョンに存在しない定数は安全にスキップする。
+     */
+    private void addCopperBuildingMaterials(Set<Material> items) {
+        // 酸化段階プレフィックス（"" は通常）
+        String[] oxidation = {"", "EXPOSED_", "WEATHERED_", "OXIDIZED_"};
+        // 銅建材のベース名
+        String[] bases = {
+            "CUT_COPPER", "CUT_COPPER_STAIRS", "CUT_COPPER_SLAB",
+            "CHISELED_COPPER", "COPPER_GRATE", "COPPER_BULB",
+            "COPPER_DOOR", "COPPER_TRAPDOOR"
+        };
+        for (String ox : oxidation) {
+            for (String base : bases) {
+                addMaterialIfExists(items, ox + base);           // 非waxed
+                addMaterialIfExists(items, "WAXED_" + ox + base); // waxed
+            }
+        }
+        // 銅ブロック本体のwaxed版・避雷針
+        String[] extras = {
+            "WAXED_COPPER_BLOCK", "WAXED_EXPOSED_COPPER", "WAXED_WEATHERED_COPPER", "WAXED_OXIDIZED_COPPER",
+            "LIGHTNING_ROD"
+        };
+        for (String name : extras) {
+            addMaterialIfExists(items, name);
+        }
+    }
+
+    /**
+     * 指定名のMaterial定数が存在すればSetに追加する（存在しなければスキップ）。
+     */
+    private void addMaterialIfExists(Set<Material> items, String name) {
+        try {
+            items.add(Material.valueOf(name));
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().fine("Material定数が存在しないためスキップ: " + name);
+        }
     }
     
     /**
