@@ -270,6 +270,14 @@ public class ScoreboardManager implements Listener {
             if (showTradingHours && !tradingStatusText.isEmpty()) {
                 objective.getScore(ChatColor.GOLD + "💼 取引: " + tradingStatusText).setScore(score--);
             }
+
+            // 中心都市の距離・方角表示
+            if (configManager.isScoreboardShowCenterCity()) {
+                String centerCityText = buildCenterCityLine(player);
+                if (centerCityText != null) {
+                    objective.getScore(centerCityText).setScore(score--);
+                }
+            }
             
             // 職業経験値情報
             if (configManager.isScoreboardShowExperience() && !experienceInfo.isEmpty()) {
@@ -328,6 +336,38 @@ public class ScoreboardManager implements Listener {
     
     // 職業レベルの表示は JobLevelBossBarManager（BossBar）へ移設した。
     // XP バー（setLevel/setExp）には一切触れないことで、バニラ経験値を本来通り利用可能にしている。
+
+    /**
+     * 中心都市までの距離・方角の表示行を生成
+     * 中心都市の基準座標は spawn_location を流用する
+     * @return 表示行。プレイヤーが中心都市と別ワールドにいる場合はnull（行を出さない）
+     */
+    private String buildCenterCityLine(Player player) {
+        String cityWorld = configManager.getSpawnWorldName();
+        // 別ワールドでは距離・方角が計算できないため行を出さない
+        if (!player.getWorld().getName().equals(cityWorld)) {
+            return null;
+        }
+        double dx = configManager.getSpawnX() - player.getLocation().getX();
+        double dz = configManager.getSpawnZ() - player.getLocation().getZ();
+        long distance = Math.round(Math.sqrt(dx * dx + dz * dz));
+        String direction = getCompassDirection(dx, dz);
+        return ChatColor.LIGHT_PURPLE + "🏛 中心都市: "
+             + ChatColor.WHITE + distance + "m " + direction;
+    }
+
+    /**
+     * dx, dz から8方位（矢印＋名称）を算出
+     * Minecraft座標系: +X=東, -X=西, +Z=南, -Z=北
+     */
+    private String getCompassDirection(double dx, double dz) {
+        // 北を0とした時計回りの角度（度）
+        double angle = Math.toDegrees(Math.atan2(dx, -dz));
+        int index = (int) Math.round(angle / 45.0) & 7;
+        String[] arrows = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
+        String[] names  = {"北", "北東", "東", "南東", "南", "南西", "西", "北西"};
+        return arrows[index] + names[index];
+    }
 
     /**
      * 時間をフォーマット（分 -> 時間:分）

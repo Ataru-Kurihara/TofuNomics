@@ -1820,6 +1820,14 @@ public class ConfigManager {
         return (String) getCachedValue("scoreboard.toggle_hint.text", "&7/scoreboard off で非表示");
     }
 
+    /**
+     * スコアボードで中心都市までの距離・方角を表示するかどうか
+     * （中心都市の基準座標は spawn_location を流用する）
+     */
+    public boolean isScoreboardShowCenterCity() {
+        return config.getBoolean("scoreboard.display_settings.show_center_city", true);
+    }
+
     // ==================== 時刻放送システム設定 ====================
     
     /**
