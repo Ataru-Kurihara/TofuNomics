@@ -51,6 +51,11 @@ public class JobCraftPermissionManager {
             Material.MINECART, Material.CHEST_MINECART, Material.HOPPER_MINECART,
             Material.FURNACE_MINECART, Material.TNT_MINECART
         );
+        // 動物装備（鞍・馬鎧）— 農家と鍛冶屋で共有
+        List<Material> horseEquipment = Arrays.asList(
+            Material.SADDLE, Material.LEATHER_HORSE_ARMOR,
+            Material.COPPER_HORSE_ARMOR, Material.NETHERITE_HORSE_ARMOR
+        );
 
         // 鍛冶屋 (blacksmith) - 防具、武器、かまど
         Set<Material> blacksmithItems = new HashSet<>(Arrays.asList(
@@ -61,34 +66,41 @@ public class JobCraftPermissionManager {
             Material.GOLDEN_HELMET, Material.GOLDEN_CHESTPLATE, Material.GOLDEN_LEGGINGS, Material.GOLDEN_BOOTS,
             Material.DIAMOND_HELMET, Material.DIAMOND_CHESTPLATE, Material.DIAMOND_LEGGINGS, Material.DIAMOND_BOOTS,
             Material.NETHERITE_HELMET, Material.NETHERITE_CHESTPLATE, Material.NETHERITE_LEGGINGS, Material.NETHERITE_BOOTS,
+            // 1.21.11追加防具（銅防具・ノーチラス防具）
+            Material.COPPER_HELMET, Material.COPPER_CHESTPLATE, Material.COPPER_LEGGINGS, Material.COPPER_BOOTS,
+            Material.COPPER_NAUTILUS_ARMOR, Material.IRON_NAUTILUS_ARMOR, Material.GOLDEN_NAUTILUS_ARMOR,
+            Material.DIAMOND_NAUTILUS_ARMOR, Material.NETHERITE_NAUTILUS_ARMOR,
             // 武器類
             Material.STONE_SWORD, Material.IRON_SWORD, Material.GOLDEN_SWORD,
-            Material.DIAMOND_SWORD, Material.NETHERITE_SWORD,
+            Material.DIAMOND_SWORD, Material.NETHERITE_SWORD, Material.COPPER_SWORD,
             Material.BOW, Material.CROSSBOW, Material.TRIDENT,
             // 1.21追加武器（メイス）
             Material.MACE,
+            // 1.21.11追加武器（槍）— 木の槍はpublic
+            Material.STONE_SPEAR, Material.COPPER_SPEAR, Material.IRON_SPEAR,
+            Material.GOLDEN_SPEAR, Material.DIAMOND_SPEAR, Material.NETHERITE_SPEAR,
             // 防御・鉄製基本道具
             Material.SHIELD, Material.SHEARS, Material.FLINT_AND_STEEL, Material.ARROW,
             // 鉄製ツール（コンパス）
             Material.COMPASS, Material.RECOVERY_COMPASS,
-            // 動物装備（鞍・革の馬鎧）— 農家と共有
-            Material.SADDLE, Material.LEATHER_HORSE_ARMOR,
             // 設備類
             Material.FURNACE, Material.BLAST_FURNACE, Material.ANVIL, Material.CHIPPED_ANVIL, Material.DAMAGED_ANVIL,
             Material.GRINDSTONE, Material.SMITHING_TABLE,
             // 作業台
             Material.CRAFTING_TABLE
         ));
+        // 動物装備（鞍・馬鎧）— 農家と共有
+        blacksmithItems.addAll(horseEquipment);
         jobCraftableItems.put("blacksmith", blacksmithItems);
         
         // 鉱夫 (miner) - つるはし、石関連
         Set<Material> minerItems = new HashSet<>(Arrays.asList(
             // つるはし類
             Material.WOODEN_PICKAXE, Material.STONE_PICKAXE, Material.IRON_PICKAXE,
-            Material.GOLDEN_PICKAXE, Material.DIAMOND_PICKAXE, Material.NETHERITE_PICKAXE,
+            Material.GOLDEN_PICKAXE, Material.DIAMOND_PICKAXE, Material.NETHERITE_PICKAXE, Material.COPPER_PICKAXE,
             // シャベル類（採掘・整地用）
             Material.WOODEN_SHOVEL, Material.STONE_SHOVEL, Material.IRON_SHOVEL,
-            Material.GOLDEN_SHOVEL, Material.DIAMOND_SHOVEL, Material.NETHERITE_SHOVEL,
+            Material.GOLDEN_SHOVEL, Material.DIAMOND_SHOVEL, Material.NETHERITE_SHOVEL, Material.COPPER_SHOVEL,
             // 石関連
             Material.STONE, Material.SMOOTH_STONE, Material.STONE_BRICKS, Material.MOSSY_STONE_BRICKS,
             Material.CRACKED_STONE_BRICKS, Material.CHISELED_STONE_BRICKS, Material.POLISHED_GRANITE,
@@ -106,7 +118,7 @@ public class JobCraftPermissionManager {
             // 分解レシピ結果（ブロック→素材、インゴット→塊）
             Material.IRON_INGOT, Material.GOLD_INGOT, Material.DIAMOND, Material.REDSTONE,
             Material.LAPIS_LAZULI, Material.EMERALD, Material.NETHERITE_INGOT, Material.COPPER_INGOT,
-            Material.IRON_NUGGET, Material.GOLD_NUGGET,
+            Material.IRON_NUGGET, Material.GOLD_NUGGET, Material.COPPER_NUGGET,
             // 生鉱石の収納ブロック・分解
             Material.RAW_IRON, Material.RAW_GOLD, Material.RAW_COPPER,
             Material.RAW_IRON_BLOCK, Material.RAW_GOLD_BLOCK, Material.RAW_COPPER_BLOCK,
@@ -121,7 +133,7 @@ public class JobCraftPermissionManager {
         Set<Material> farmerItems = new HashSet<>(Arrays.asList(
             // くわ類
             Material.WOODEN_HOE, Material.STONE_HOE, Material.IRON_HOE,
-            Material.GOLDEN_HOE, Material.DIAMOND_HOE, Material.NETHERITE_HOE,
+            Material.GOLDEN_HOE, Material.DIAMOND_HOE, Material.NETHERITE_HOE, Material.COPPER_HOE,
             // 食料関連
             Material.BREAD, Material.CAKE, Material.COOKIE, Material.PUMPKIN_PIE,
             Material.MUSHROOM_STEW, Material.RABBIT_STEW, Material.BEETROOT_SOUP,
@@ -130,8 +142,6 @@ public class JobCraftPermissionManager {
             Material.MELON_SEEDS, Material.PUMPKIN_SEEDS,
             // 農業の生産・畜産関連
             Material.BONE_MEAL, Material.HAY_BLOCK, Material.SUGAR, Material.LEAD,
-            // 動物装備（鞍・革の馬鎧）
-            Material.SADDLE, Material.LEATHER_HORSE_ARMOR,
             // 農業関連設備
             Material.COMPOSTER, Material.FLOWER_POT, Material.CAULDRON,
             Material.SMOKER,
@@ -140,13 +150,15 @@ public class JobCraftPermissionManager {
         ));
         // 羊毛・カーペット（全16色）— 建築家と共有（羊飼い・染色）
         farmerItems.addAll(woolAndCarpet);
+        // 動物装備（鞍・馬鎧）— 鍛冶屋と共有
+        farmerItems.addAll(horseEquipment);
         jobCraftableItems.put("farmer", farmerItems);
         
         // 木こり (woodcutter) - 斧、木関連
         Set<Material> woodcutterItems = new HashSet<>(Arrays.asList(
             // 斧類
             Material.WOODEN_AXE, Material.STONE_AXE, Material.IRON_AXE,
-            Material.GOLDEN_AXE, Material.DIAMOND_AXE, Material.NETHERITE_AXE,
+            Material.GOLDEN_AXE, Material.DIAMOND_AXE, Material.NETHERITE_AXE, Material.COPPER_AXE,
             // 木材関連
             Material.OAK_PLANKS, Material.SPRUCE_PLANKS, Material.BIRCH_PLANKS, Material.JUNGLE_PLANKS,
             Material.ACACIA_PLANKS, Material.DARK_OAK_PLANKS, Material.CRIMSON_PLANKS, Material.WARPED_PLANKS,
@@ -164,6 +176,11 @@ public class JobCraftPermissionManager {
             Material.FLETCHING_TABLE, Material.LOOM, Material.LECTERN, Material.BARREL,
             // 収納容器（バンドル）
             Material.BUNDLE,
+            // 棚（1.21.11追加）
+            Material.OAK_SHELF, Material.SPRUCE_SHELF, Material.BIRCH_SHELF, Material.JUNGLE_SHELF,
+            Material.ACACIA_SHELF, Material.DARK_OAK_SHELF, Material.PALE_OAK_SHELF,
+            Material.CRIMSON_SHELF, Material.WARPED_SHELF, Material.BAMBOO_SHELF,
+            Material.MANGROVE_SHELF, Material.CHERRY_SHELF,
             // 看板類
             Material.OAK_SIGN, Material.SPRUCE_SIGN, Material.BIRCH_SIGN, Material.JUNGLE_SIGN,
             Material.ACACIA_SIGN, Material.DARK_OAK_SIGN, Material.CRIMSON_SIGN, Material.WARPED_SIGN,
@@ -253,8 +270,8 @@ public class JobCraftPermissionManager {
             Material.GREEN_STAINED_GLASS, Material.GREEN_STAINED_GLASS_PANE,
             Material.RED_STAINED_GLASS, Material.RED_STAINED_GLASS_PANE,
             Material.BLACK_STAINED_GLASS, Material.BLACK_STAINED_GLASS_PANE,
-            // 鉄格子
-            Material.IRON_BARS,
+            // 鉄格子・鎖
+            Material.IRON_BARS, Material.IRON_CHAIN,
             // レッドストーン装置
             Material.LEVER, Material.REDSTONE_TORCH, Material.REPEATER, Material.COMPARATOR,
             Material.PISTON, Material.STICKY_PISTON, Material.DISPENSER, Material.DROPPER,
@@ -284,7 +301,10 @@ public class JobCraftPermissionManager {
         String[] bases = {
             "CUT_COPPER", "CUT_COPPER_STAIRS", "CUT_COPPER_SLAB",
             "CHISELED_COPPER", "COPPER_GRATE", "COPPER_BULB",
-            "COPPER_DOOR", "COPPER_TRAPDOOR"
+            "COPPER_DOOR", "COPPER_TRAPDOOR",
+            // 1.21.11追加の銅建材（鉄格子型・鎖・ランタン・チェスト・銅ゴーレム像・避雷針）
+            "COPPER_BARS", "COPPER_CHAIN", "COPPER_LANTERN", "COPPER_CHEST",
+            "COPPER_GOLEM_STATUE", "LIGHTNING_ROD"
         };
         for (String ox : oxidation) {
             for (String base : bases) {
@@ -292,10 +312,10 @@ public class JobCraftPermissionManager {
                 addMaterialIfExists(items, "WAXED_" + ox + base); // waxed
             }
         }
-        // 銅ブロック本体のwaxed版・避雷針
+        // 銅ブロック本体のwaxed版・銅トーチ
         String[] extras = {
             "WAXED_COPPER_BLOCK", "WAXED_EXPOSED_COPPER", "WAXED_WEATHERED_COPPER", "WAXED_OXIDIZED_COPPER",
-            "LIGHTNING_ROD"
+            "COPPER_TORCH"
         };
         for (String name : extras) {
             addMaterialIfExists(items, name);
@@ -319,7 +339,7 @@ public class JobCraftPermissionManager {
     private void initializePublicCraftableItems() {
         publicCraftableItems.addAll(Arrays.asList(
             // 基本的な武器
-            Material.WOODEN_SWORD,
+            Material.WOODEN_SWORD, Material.WOODEN_SPEAR,
             // 基本的なサバイバル用品
             Material.STICK, Material.TORCH, Material.LADDER, 
             Material.WHITE_BED, Material.ORANGE_BED, Material.MAGENTA_BED, Material.LIGHT_BLUE_BED,
