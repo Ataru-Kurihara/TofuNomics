@@ -2147,7 +2147,9 @@ scoreboard:
     show_trading_hours: true
     # ルールコマンド表示
     show_rules_command: true
-  
+    # 中心都市までの距離・方角表示（基準座標は player_join.spawn_location を流用）
+    show_center_city: true
+
   # スコアボードに表示するルールコマンドテキスト
   rules_command_text: "&e/rules でルール確認"
 
