@@ -579,39 +579,42 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         return true;
     }
     
+    // 1ページあたりに表示するNPC数（チャット欄で見切れないように調整）
+    private static final int NPC_LIST_PAGE_SIZE = 8;
+
     private boolean handleListCommand(CommandSender sender, String[] args) {
         if (!sender.hasPermission("tofunomics.npc.admin")) {
             sender.sendMessage(configManager.getMessage("no_permission"));
             return true;
         }
-        
-        // --index オプションの確認
-        boolean showIndex = args.length > 1 && "--index".equals(args[1]);
-        
-        sender.sendMessage("§6=== システムNPC一覧" + (showIndex ? "（番号付き）" : "") + " ===");
-        
-        Collection<NPCManager.NPCData> allNPCs = npcManager.getAllNPCs();
+
+        // 引数を柔軟に解析（--index フラグとページ番号は順不同で指定可能）
+        boolean showIndex = false;
+        int page = 1;
+        for (int i = 1; i < args.length; i++) {
+            if ("--index".equals(args[i])) {
+                showIndex = true;
+            } else {
+                try {
+                    page = Integer.parseInt(args[i]);
+                } catch (NumberFormatException ignored) {
+                    // 数値でもフラグでもない引数は無視
+                }
+            }
+        }
+
+        List<NPCManager.NPCData> allNPCs = new ArrayList<>(npcManager.getAllNPCs());
         if (allNPCs.isEmpty()) {
+            sender.sendMessage("§6=== システムNPC一覧" + (showIndex ? "（番号付き）" : "") + " ===");
             sender.sendMessage("§e現在、スポーンしているNPCはありません。");
             return true;
         }
-        
+
+        // 全体の種別集計（ページに関係なく合計を表示するため先に集計）
         int bankNPCs = 0;
         int tradingNPCs = 0;
         int foodNPCs = 0;
-        int index = 1;
-        
         for (NPCManager.NPCData npcData : allNPCs) {
-            String status = npcData.getEntity().isValid() ? "§a正常" : "§c無効";
-            
-            if (showIndex) {
-                sender.sendMessage(String.format("§f[%d] %s §7(%s) - %s", 
-                    index, npcData.getName(), npcData.getNpcType(), status));
-            } else {
-                sender.sendMessage(String.format("§f• %s §7(%s) - %s", 
-                    npcData.getName(), npcData.getNpcType(), status));
-            }
-                
             if ("banker".equals(npcData.getNpcType())) {
                 bankNPCs++;
             } else if ("trader".equals(npcData.getNpcType())) {
@@ -619,18 +622,49 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             } else if ("food_merchant".equals(npcData.getNpcType())) {
                 foodNPCs++;
             }
-            
-            index++;
         }
-        
+
+        // ページ計算
+        int totalPages = (allNPCs.size() + NPC_LIST_PAGE_SIZE - 1) / NPC_LIST_PAGE_SIZE;
+        if (page < 1) {
+            page = 1;
+        }
+        if (page > totalPages) {
+            page = totalPages;
+        }
+        int startIndex = (page - 1) * NPC_LIST_PAGE_SIZE;
+        int endIndex = Math.min(startIndex + NPC_LIST_PAGE_SIZE, allNPCs.size());
+
+        sender.sendMessage(String.format("§6=== システムNPC一覧%s (ページ %d/%d) ===",
+            showIndex ? "（番号付き）" : "", page, totalPages));
+
+        for (int i = startIndex; i < endIndex; i++) {
+            NPCManager.NPCData npcData = allNPCs.get(i);
+            String status = npcData.getEntity().isValid() ? "§a正常" : "§c無効";
+
+            if (showIndex) {
+                sender.sendMessage(String.format("§f[%d] %s §7(%s) - %s",
+                    i + 1, npcData.getName(), npcData.getNpcType(), status));
+            } else {
+                sender.sendMessage(String.format("§f• %s §7(%s) - %s",
+                    npcData.getName(), npcData.getNpcType(), status));
+            }
+        }
+
         sender.sendMessage("§e合計: §f" + allNPCs.size() + " §e個 (銀行: §f" + bankNPCs + "§e, 取引: §f" + tradingNPCs + "§e, 食料: §f" + foodNPCs + "§e)");
-        
+
+        // 次ページの案内
+        if (page < totalPages) {
+            String nextPageCmd = "/npc list " + (showIndex ? "--index " : "") + (page + 1);
+            sender.sendMessage("§7次のページ: §e" + nextPageCmd);
+        }
+
         if (showIndex) {
             sender.sendMessage("§7ヒント: §e/npc delete <番号> §7で番号指定削除ができます");
         } else {
             sender.sendMessage("§7ヒント: §e/npc list --index §7で番号付き表示、§e/npc delete m1,w1,f1等 §7で簡単削除");
         }
-        
+
         return true;
     }
     
@@ -1264,6 +1298,12 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                     if ("--index".startsWith(args[1].toLowerCase())) {
                         completions.add("--index");
                     }
+                    // ページ番号も補完候補に追加（実際のNPC数から総ページ数を算出）
+                    for (String pageNum : getNPCListPageCandidates()) {
+                        if (pageNum.startsWith(args[1])) {
+                            completions.add(pageNum);
+                        }
+                    }
                     break;
                 case "remove":
                 case "tp":
@@ -1304,10 +1344,31 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                         completions.add(job);
                     }
                 }
+            } else if (args[0].equalsIgnoreCase("list") && args[1].equalsIgnoreCase("--index")) {
+                // "/npc list --index <ページ番号>" のページ補完
+                for (String pageNum : getNPCListPageCandidates()) {
+                    if (pageNum.startsWith(args[2])) {
+                        completions.add(pageNum);
+                    }
+                }
             }
         }
-        
+
         return completions;
+    }
+
+    /**
+     * NPC一覧のページ番号補完候補を生成する。
+     * 実際のNPC数から総ページ数を算出し、1〜総ページ数の文字列リストを返す。
+     */
+    private List<String> getNPCListPageCandidates() {
+        List<String> pages = new ArrayList<>();
+        int totalNPCs = npcManager.getAllNPCs().size();
+        int totalPages = (totalNPCs + NPC_LIST_PAGE_SIZE - 1) / NPC_LIST_PAGE_SIZE;
+        for (int p = 1; p <= totalPages; p++) {
+            pages.add(String.valueOf(p));
+        }
+        return pages;
     }
     
     /**
