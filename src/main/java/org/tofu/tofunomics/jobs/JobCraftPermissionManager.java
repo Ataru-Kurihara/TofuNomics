@@ -33,6 +33,25 @@ public class JobCraftPermissionManager {
      * 職業ごとのクラフト可能アイテムを初期化
      */
     private void initializeJobCraftableItems() {
+        // 複数職業で共有するアイテム群（重複登録により複数職業でクラフト可能になる）
+        List<Material> woolAndCarpet = Arrays.asList(
+            // 羊毛（全16色）
+            Material.WHITE_WOOL, Material.ORANGE_WOOL, Material.MAGENTA_WOOL, Material.LIGHT_BLUE_WOOL,
+            Material.YELLOW_WOOL, Material.LIME_WOOL, Material.PINK_WOOL, Material.GRAY_WOOL,
+            Material.LIGHT_GRAY_WOOL, Material.CYAN_WOOL, Material.PURPLE_WOOL, Material.BLUE_WOOL,
+            Material.BROWN_WOOL, Material.GREEN_WOOL, Material.RED_WOOL, Material.BLACK_WOOL,
+            // カーペット（全16色）
+            Material.WHITE_CARPET, Material.ORANGE_CARPET, Material.MAGENTA_CARPET, Material.LIGHT_BLUE_CARPET,
+            Material.YELLOW_CARPET, Material.LIME_CARPET, Material.PINK_CARPET, Material.GRAY_CARPET,
+            Material.LIGHT_GRAY_CARPET, Material.CYAN_CARPET, Material.PURPLE_CARPET, Material.BLUE_CARPET,
+            Material.BROWN_CARPET, Material.GREEN_CARPET, Material.RED_CARPET, Material.BLACK_CARPET
+        );
+        List<Material> railsAndMinecarts = Arrays.asList(
+            Material.RAIL, Material.POWERED_RAIL, Material.DETECTOR_RAIL, Material.ACTIVATOR_RAIL,
+            Material.MINECART, Material.CHEST_MINECART, Material.HOPPER_MINECART,
+            Material.FURNACE_MINECART, Material.TNT_MINECART
+        );
+
         // 鍛冶屋 (blacksmith) - 防具、武器、かまど
         Set<Material> blacksmithItems = new HashSet<>(Arrays.asList(
             // 防具類
@@ -52,6 +71,8 @@ public class JobCraftPermissionManager {
             Material.SHIELD, Material.SHEARS, Material.FLINT_AND_STEEL, Material.ARROW,
             // 鉄製ツール（コンパス）
             Material.COMPASS, Material.RECOVERY_COMPASS,
+            // 動物装備（鞍・革の馬鎧）— 農家と共有
+            Material.SADDLE, Material.LEATHER_HORSE_ARMOR,
             // 設備類
             Material.FURNACE, Material.BLAST_FURNACE, Material.ANVIL, Material.CHIPPED_ANVIL, Material.DAMAGED_ANVIL,
             Material.GRINDSTONE, Material.SMITHING_TABLE,
@@ -89,13 +110,11 @@ public class JobCraftPermissionManager {
             // 生鉱石の収納ブロック・分解
             Material.RAW_IRON, Material.RAW_GOLD, Material.RAW_COPPER,
             Material.RAW_IRON_BLOCK, Material.RAW_GOLD_BLOCK, Material.RAW_COPPER_BLOCK,
-            // レール・トロッコ（採掘・運搬）
-            Material.RAIL, Material.POWERED_RAIL, Material.DETECTOR_RAIL, Material.ACTIVATOR_RAIL,
-            Material.MINECART, Material.CHEST_MINECART, Material.HOPPER_MINECART,
-            Material.FURNACE_MINECART, Material.TNT_MINECART,
             // 作業台
             Material.CRAFTING_TABLE
         ));
+        // レール・トロッコ（採掘・運搬）— 建築家と共有
+        minerItems.addAll(railsAndMinecarts);
         jobCraftableItems.put("miner", minerItems);
         
         // 農家 (farmer) - くわ、食料関連
@@ -119,6 +138,8 @@ public class JobCraftPermissionManager {
             // 作業台
             Material.CRAFTING_TABLE
         ));
+        // 羊毛・カーペット（全16色）— 建築家と共有（羊飼い・染色）
+        farmerItems.addAll(woolAndCarpet);
         jobCraftableItems.put("farmer", farmerItems);
         
         // 木こり (woodcutter) - 斧、木関連
@@ -170,6 +191,8 @@ public class JobCraftPermissionManager {
             Material.OAK_CHEST_BOAT, Material.SPRUCE_CHEST_BOAT, Material.BIRCH_CHEST_BOAT, Material.JUNGLE_CHEST_BOAT,
             Material.ACACIA_CHEST_BOAT, Material.DARK_OAK_CHEST_BOAT, Material.CHERRY_CHEST_BOAT,
             Material.MANGROVE_CHEST_BOAT, Material.BAMBOO_CHEST_RAFT,
+            // 航海・探索ツール（コンパス）— 鍛冶屋と共有
+            Material.COMPASS, Material.RECOVERY_COMPASS,
             // 作業台
             Material.CRAFTING_TABLE
         ));
@@ -237,19 +260,13 @@ public class JobCraftPermissionManager {
             Material.PISTON, Material.STICKY_PISTON, Material.DISPENSER, Material.DROPPER,
             Material.OBSERVER, Material.REDSTONE_LAMP, Material.NOTE_BLOCK,
             Material.DAYLIGHT_DETECTOR, Material.TARGET, Material.TRIPWIRE_HOOK, Material.HOPPER,
-            // 羊毛（全16色）
-            Material.WHITE_WOOL, Material.ORANGE_WOOL, Material.MAGENTA_WOOL, Material.LIGHT_BLUE_WOOL,
-            Material.YELLOW_WOOL, Material.LIME_WOOL, Material.PINK_WOOL, Material.GRAY_WOOL,
-            Material.LIGHT_GRAY_WOOL, Material.CYAN_WOOL, Material.PURPLE_WOOL, Material.BLUE_WOOL,
-            Material.BROWN_WOOL, Material.GREEN_WOOL, Material.RED_WOOL, Material.BLACK_WOOL,
-            // カーペット（全16色）
-            Material.WHITE_CARPET, Material.ORANGE_CARPET, Material.MAGENTA_CARPET, Material.LIGHT_BLUE_CARPET,
-            Material.YELLOW_CARPET, Material.LIME_CARPET, Material.PINK_CARPET, Material.GRAY_CARPET,
-            Material.LIGHT_GRAY_CARPET, Material.CYAN_CARPET, Material.PURPLE_CARPET, Material.BLUE_CARPET,
-            Material.BROWN_CARPET, Material.GREEN_CARPET, Material.RED_CARPET, Material.BLACK_CARPET,
             // 作業台
             Material.CRAFTING_TABLE
         ));
+        // 羊毛・カーペット（全16色）— 農家と共有
+        builderItems.addAll(woolAndCarpet);
+        // レール・トロッコ — 鉱夫と共有
+        builderItems.addAll(railsAndMinecarts);
         // 銅建材（装飾・1.21新建材含む。酸化段階×waxed有無を網羅）
         addCopperBuildingMaterials(builderItems);
         jobCraftableItems.put("builder", builderItems);
