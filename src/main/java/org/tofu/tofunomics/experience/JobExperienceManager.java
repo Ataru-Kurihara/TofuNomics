@@ -139,20 +139,20 @@ public class JobExperienceManager implements Listener {
     }
 
     private void initializeExperienceTables() {
-        // 採掘経験値テーブル
-        miningExperience.put(Material.COAL_ORE, 2.0);
-        miningExperience.put(Material.IRON_ORE, 5.0);
-        miningExperience.put(Material.GOLD_ORE, 8.0);
-        miningExperience.put(Material.DIAMOND_ORE, 25.0);
-        miningExperience.put(Material.EMERALD_ORE, 20.0);
+        // 採掘経験値テーブル（レア度順。全鉱石が必ず STONE を上回るよう設計）
+        miningExperience.put(Material.COAL_ORE, 2.5);
+        miningExperience.put(Material.COPPER_ORE, 3.0);  // 1.17追加。安価な鉱石
         miningExperience.put(Material.LAPIS_ORE, 4.0);
-        miningExperience.put(Material.REDSTONE_ORE, 3.0);
-        miningExperience.put(Material.NETHER_QUARTZ_ORE, 6.0);
-        miningExperience.put(Material.COPPER_ORE, 5.0);  // 1.17追加。鉄鉱石相当
+        miningExperience.put(Material.REDSTONE_ORE, 4.0);
+        miningExperience.put(Material.IRON_ORE, 6.0);
+        miningExperience.put(Material.NETHER_QUARTZ_ORE, 7.0);
+        miningExperience.put(Material.NETHER_GOLD_ORE, 7.0);  // 1.16追加。金鉱石相当
+        miningExperience.put(Material.GOLD_ORE, 9.0);
+        miningExperience.put(Material.EMERALD_ORE, 20.0);
+        miningExperience.put(Material.DIAMOND_ORE, 25.0);
         miningExperience.put(Material.ANCIENT_DEBRIS, 50.0);
-        miningExperience.put(Material.NETHER_GOLD_ORE, 6.0);  // 1.16追加。金鉱石相当
         // STONE: 自然生成のみ経験値獲得（プレイヤー設置はUnifiedEventHandlerで除外）
-        miningExperience.put(Material.STONE, 5.0);  // 0.5 → 5.0（メッセージ表示のため）
+        miningExperience.put(Material.STONE, 1.0);  // 地グラインドの最低基準。鉱石は必ずこれを上回る
         // COBBLESTONE: 経験値なし（設置→採掘での無限経験値防止）
         
         // 伐採経験値テーブル
