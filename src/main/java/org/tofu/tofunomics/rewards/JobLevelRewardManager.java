@@ -3,7 +3,7 @@ package org.tofu.tofunomics.rewards;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.tofu.tofunomics.config.ConfigManager;
-import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.economy.CurrencyConverter;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,11 +42,11 @@ public class JobLevelRewardManager {
     }
 
     private final ConfigManager configManager;
-    private final PlayerDAO playerDAO;
+    private final CurrencyConverter currencyConverter;
 
-    public JobLevelRewardManager(ConfigManager configManager, PlayerDAO playerDAO) {
+    public JobLevelRewardManager(ConfigManager configManager, CurrencyConverter currencyConverter) {
         this.configManager = configManager;
-        this.playerDAO = playerDAO;
+        this.currencyConverter = currencyConverter;
     }
 
     /**
@@ -74,24 +74,29 @@ public class JobLevelRewardManager {
             return false;
         }
 
-        giveMoney(player, amount);
+        // 残高付与が成功した場合のみメッセージを送る（DBとキャッシュの整合を保つ）
+        if (!giveMoney(player, amount)) {
+            return false;
+        }
         sendLevelUpRewardMessage(player, jobName, level, amount);
         return true;
     }
 
-    private void giveMoney(Player player, double amount) {
-        String uuid = player.getUniqueId().toString();
-        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(uuid);
-
-        if (tofuPlayer == null) {
-            tofuPlayer = new org.tofu.tofunomics.models.Player();
-            tofuPlayer.setUuid(uuid);
-            tofuPlayer.setBalance(configManager.getStartingBalance());
-            playerDAO.insertPlayer(tofuPlayer);
+    /**
+     * お金報酬を付与する。CurrencyConverter経由で付与し、DBとメモリキャッシュの
+     * 両方を更新する（直接DBを書き換えるとオンライン中の残高キャッシュと食い違う）。
+     *
+     * @return 付与に成功した場合true
+     */
+    private boolean giveMoney(Player player, double amount) {
+        boolean ok = currencyConverter.addBalance(player.getUniqueId(), amount);
+        if (!ok) {
+            // 残高上限到達やプレイヤー未登録などで付与できなかった場合
+            org.bukkit.Bukkit.getLogger().warning(
+                "[TofuNomics] レベルアップ報酬の付与に失敗しました: " +
+                player.getName() + " amount=" + amount);
         }
-
-        tofuPlayer.addBalance(amount);
-        playerDAO.updatePlayerData(tofuPlayer);
+        return ok;
     }
 
     private void sendLevelUpRewardMessage(Player player, String jobName, int level, double amount) {
