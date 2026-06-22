@@ -3,6 +3,7 @@ package org.tofu.tofunomics.experience;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
+import org.bukkit.block.data.BlockData;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -60,5 +61,36 @@ public class JobExperienceManagerCropMaturityTest {
     @Test
     public void testNullBlockReturnsTrue() {
         assertTrue(JobExperienceManager.isCropFullyGrown(null));
+    }
+
+    private BlockData mockAgeable(int age, int maxAge) {
+        Ageable data = mock(Ageable.class);
+        when(data.getAge()).thenReturn(age);
+        when(data.getMaximumAge()).thenReturn(maxAge);
+        return data;
+    }
+
+    @Test
+    public void testCropDataFullyGrown_matureReturnsTrue() {
+        // 骨粉成長経路で使う BlockData ベースの成熟判定（完全成長）
+        assertTrue(JobExperienceManager.isCropDataFullyGrown(Material.WHEAT, mockAgeable(7, 7)));
+        assertTrue(JobExperienceManager.isCropDataFullyGrown(Material.CARROTS, mockAgeable(7, 7)));
+        assertTrue(JobExperienceManager.isCropDataFullyGrown(Material.BEETROOTS, mockAgeable(3, 3)));
+    }
+
+    @Test
+    public void testCropDataFullyGrown_immatureReturnsFalse() {
+        // 骨粉で半端に成長した作物は経験値対象外
+        assertFalse(JobExperienceManager.isCropDataFullyGrown(Material.WHEAT, mockAgeable(5, 7)));
+        assertFalse(JobExperienceManager.isCropDataFullyGrown(Material.POTATOES, mockAgeable(3, 7)));
+        assertFalse(JobExperienceManager.isCropDataFullyGrown(Material.NETHER_WART, mockAgeable(2, 3)));
+    }
+
+    @Test
+    public void testCropDataFullyGrown_nonMaturityCropAlwaysTrue() {
+        // 成熟概念のない作物・nullは常に対象（BlockDataを参照しない）
+        assertTrue(JobExperienceManager.isCropDataFullyGrown(Material.PUMPKIN, null));
+        assertTrue(JobExperienceManager.isCropDataFullyGrown(Material.SUGAR_CANE, null));
+        assertTrue(JobExperienceManager.isCropDataFullyGrown(null, null));
     }
 }

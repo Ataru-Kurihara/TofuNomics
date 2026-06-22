@@ -3,13 +3,16 @@ package org.tofu.tofunomics.experience;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.data.Ageable;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockFertilizeEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
@@ -488,6 +491,32 @@ public class JobExperienceManager implements Listener {
     }
 
     /**
+     * 骨粉（ボーンミール）による作物成長で農家経験値を付与する。
+     * 骨粉成長は BlockGrowEvent ではなく BlockFertilizeEvent を発火するため、
+     * 収穫経路（onBlockBreak）と同じ farmingExperience / 付与処理を再利用して経験値を与える。
+     * 完全成長に達した作物のみを対象とし、半端な骨粉連打による無限ファーミングと
+     * 収穫経験値との過度な二重取りを抑える（おおむね作物1サイクルあたり1回の付与）。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockFertilize(BlockFertilizeEvent event) {
+        Player player = event.getPlayer();
+        // ディスペンサー等による自動骨粉（プレイヤー不在）は対象外
+        if (player == null || !jobManager.hasJob(player, "farmer")) {
+            return;
+        }
+
+        for (BlockState state : event.getBlocks()) {
+            // 深層岩鉱石等の正規化と同じ前処理（作物は通常そのまま）
+            Material material = org.tofu.tofunomics.util.BlockNormalizer.normalizeForJob(state.getType());
+            if (farmingExperience.containsKey(material) && isCropDataFullyGrown(material, state.getBlockData())) {
+                double baseExp = farmingExperience.get(material);
+                double multipliedExp = applyJobMultiplier(player, "farmer", baseExp);
+                giveJobExperience(player, "farmer", multipliedExp);
+            }
+        }
+    }
+
+    /**
      * 作物が「完全に成長した状態」かを判定する。
      * 成長段階を持つ作物（小麦・ニンジン・ジャガイモ・ビートルート・ネザーウォート・ココア）は
      * 最大成熟度に達している場合のみtrue。
@@ -497,10 +526,24 @@ public class JobExperienceManager implements Listener {
      * @return 収穫経験値の付与対象ならtrue
      */
     static boolean isCropFullyGrown(Block block) {
-        if (block == null || !MATURITY_REQUIRED_CROPS.contains(block.getType())) {
+        if (block == null) {
             return true;
         }
-        BlockData data = block.getBlockData();
+        return isCropDataFullyGrown(block.getType(), block.getBlockData());
+    }
+
+    /**
+     * 作物の種別と BlockData から「完全に成長した状態」かを判定する。
+     * BlockState（成長後の状態）からも判定できるよう、Block 依存を分離したヘルパー。
+     *
+     * @param material  作物の種別
+     * @param data      対象ブロックの BlockData
+     * @return 経験値付与対象（完全成長または成熟概念なし）ならtrue
+     */
+    static boolean isCropDataFullyGrown(Material material, BlockData data) {
+        if (material == null || !MATURITY_REQUIRED_CROPS.contains(material)) {
+            return true;
+        }
         if (data instanceof Ageable) {
             Ageable ageable = (Ageable) data;
             return ageable.getAge() >= ageable.getMaximumAge();
