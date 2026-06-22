@@ -404,6 +404,13 @@ public class UnifiedEventHandler implements Listener {
             blockType == Material.TUFF) {
             return true;
         }
+
+        // 黒曜石・グロウストーン・アメジスト（採掘経験値対象。建材として設置可能なため、
+        // 設置→採掘による無限経験値を防ぐべく追跡する）
+        if (blockType == Material.OBSIDIAN || blockType == Material.CRYING_OBSIDIAN ||
+            blockType == Material.GLOWSTONE || blockType == Material.AMETHYST_CLUSTER) {
+            return true;
+        }
         
         // 原木類
         if (blockType.name().endsWith("_LOG") || blockType.name().endsWith("_STEM")) {
