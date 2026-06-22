@@ -107,10 +107,8 @@ public class MarketManagerTest {
         when(configManager.getMarketFeeRate()).thenReturn(0.05);
         when(configManager.getMarketMinPrice()).thenReturn(1.0);
         when(configManager.getMarketMaxPrice()).thenReturn(1000000.0);
-        when(configManager.getMarketMaxListingsPerPlayer()).thenReturn(10);
         when(configManager.getMarketListingDurationDays()).thenReturn(7);
         when(configManager.isMarketAllowSelfPurchase()).thenReturn(false);
-        when(configManager.getMarketMaxBuyOrdersPerPlayer()).thenReturn(10);
         when(configManager.isMarketServiceEnabled()).thenReturn(true);
         when(configManager.getMarketServiceMaxRequestsPerPlayer()).thenReturn(10);
 
@@ -192,15 +190,6 @@ public class MarketManagerTest {
         UUID seller = createPlayer(0);
         assertEquals(MarketResult.INVALID_PRICE, manager.executeCreateListing(
                 seller, "Seller", "DATA", "名前", "DIAMOND", 1, 0, System.currentTimeMillis()));
-    }
-
-    @Test
-    public void testExecuteCreateListingLimit() throws SQLException {
-        UUID seller = createPlayer(0);
-        when(configManager.getMarketMaxListingsPerPlayer()).thenReturn(2);
-        assertEquals(MarketResult.LISTED, createListingResult(seller, 100));
-        assertEquals(MarketResult.LISTED, createListingResult(seller, 100));
-        assertEquals("上限到達で出品拒否", MarketResult.LISTING_LIMIT, createListingResult(seller, 100));
     }
 
     private MarketResult createListingResult(UUID seller, double price) {
@@ -366,15 +355,6 @@ public class MarketManagerTest {
         UUID requester = createPlayer(0);
         assertEquals(MarketResult.INVALID_ITEM, manager.executeCreateBuyOrder(
                 requester, "Requester", "DIAMOND", 0, 100, System.currentTimeMillis()));
-    }
-
-    @Test
-    public void testExecuteCreateBuyOrderLimit() throws SQLException {
-        UUID requester = createPlayer(0);
-        when(configManager.getMarketMaxBuyOrdersPerPlayer()).thenReturn(2);
-        assertEquals(MarketResult.REQUESTED, createBuyOrderResult(requester, 100));
-        assertEquals(MarketResult.REQUESTED, createBuyOrderResult(requester, 100));
-        assertEquals("上限到達で募集拒否", MarketResult.ORDER_LIMIT, createBuyOrderResult(requester, 100));
     }
 
     private MarketResult createBuyOrderResult(UUID requester, double price) {

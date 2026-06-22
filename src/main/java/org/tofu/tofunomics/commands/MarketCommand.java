@@ -328,8 +328,7 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
                 "proceeds", String.valueOf(marketManager.calculateSellerProceeds(price)),
                 "currency", configManager.getCurrencyName(),
                 "min", String.valueOf((long) configManager.getMarketMinPrice()),
-                "max", String.valueOf((long) configManager.getMarketMaxPrice()),
-                "limit", String.valueOf(configManager.getMarketMaxBuyOrdersPerPlayer())));
+                "max", String.valueOf((long) configManager.getMarketMaxPrice())));
     }
 
     // ====================================================================

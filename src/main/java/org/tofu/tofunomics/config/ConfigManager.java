@@ -348,10 +348,6 @@ public class ConfigManager {
         return config.getDouble("market.fee_rate", 0.05);
     }
 
-    public int getMarketMaxListingsPerPlayer() {
-        return config.getInt("market.max_listings_per_player", 10);
-    }
-
     public int getMarketListingDurationDays() {
         return config.getInt("market.listing_duration_days", 7);
     }
@@ -370,10 +366,6 @@ public class ConfigManager {
 
     public int getMarketExpireCheckInterval() {
         return config.getInt("market.expire_check_interval", 3600);
-    }
-
-    public int getMarketMaxBuyOrdersPerPlayer() {
-        return config.getInt("market.max_buy_orders_per_player", 10);
     }
 
     // 取引成立時の職業経験値付与（売り出品の購入／買取募集への供給の両方）
@@ -2679,7 +2671,6 @@ public class ConfigManager {
             ensureMessagePath("messages.market.invalid_item", "&c出品するアイテムを手に持ってください。");
             ensureMessagePath("messages.market.invalid_price", "&c価格は &e%min%&c 〜 &e%max%&c の整数で指定してください。");
             ensureMessagePath("messages.market.currency_not_allowed", "&c通貨アイテムは出品できません。");
-            ensureMessagePath("messages.market.listing_limit", "&c出品数の上限（%limit%）に達しています。");
             ensureMessagePath("messages.market.not_available", "&cこの出品は購入できません。");
             ensureMessagePath("messages.market.already_sold", "&cこの出品は既に売り切れました。");
             ensureMessagePath("messages.market.insufficient_funds", "&c残高が不足しています。");
@@ -2694,7 +2685,6 @@ public class ConfigManager {
             ensureMessagePath("messages.market.request_cancelled", "&a募集をキャンセルし、前払い分を返金しました。");
             ensureMessagePath("messages.market.request_reclaimed", "&a成立した募集からアイテムを回収しました。");
             ensureMessagePath("messages.market.request_expired_refund", "&e募集が期限切れになり、前払い分を返金しました。");
-            ensureMessagePath("messages.market.request_limit", "&c募集数の上限（%limit%）に達しています。");
             ensureMessagePath("messages.market.no_matching_item", "&c供給するアイテム（%item% x%amount%）を所持していません。");
             ensureMessagePath("messages.market.request_not_available", "&cこの募集は既に成立済みか、存在しません。");
             ensureMessagePath("messages.market.request_not_owner", "&cこれはあなたの募集ではありません。");

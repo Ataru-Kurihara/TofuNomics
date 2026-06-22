@@ -30,7 +30,6 @@ public enum MarketResult {
     INVALID_ITEM("invalid_item"),
     INVALID_PRICE("invalid_price"),
     CURRENCY_NOT_ALLOWED("currency_not_allowed"),
-    LISTING_LIMIT("listing_limit"),
 
     // 失敗（購入・回収）
     NOT_AVAILABLE("not_available"),
@@ -43,7 +42,6 @@ public enum MarketResult {
     NO_MATCHING_ITEM("no_matching_item"),       // 供給アイテム不所持
     ORDER_NOT_AVAILABLE("request_not_available"),// 募集が成立済み or 存在しない
     ORDER_NOT_OWNER("request_not_owner"),        // 自分の募集ではない
-    ORDER_LIMIT("request_limit"),                // 募集上限超過
 
     // 失敗（サービス依頼＝修理・エンチャント募集）
     INSUFFICIENT_RESOURCES("insufficient_resources"), // worker のリソース不足（経験値・ラピス等）

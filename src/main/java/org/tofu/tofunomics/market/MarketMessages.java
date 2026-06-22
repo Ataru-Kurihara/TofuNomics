@@ -7,7 +7,7 @@ import org.tofu.tofunomics.market.gui.MarketGUIUtil;
  * マーケットの結果メッセージ（messages.market.*）を組み立てるヘルパー。
  *
  * 各 {@link MarketResult} に対応するメッセージへ、必要なプレースホルダ
- * （%item% %price% %currency% %min% %max% %limit% %amount%）をまとめて渡す。
+ * （%item% %price% %currency% %min% %max% %amount%）をまとめて渡す。
  * 未使用のプレースホルダは {@code getMessage} 側で無視されるため、常に全て渡してよい。
  */
 public final class MarketMessages {
@@ -28,7 +28,6 @@ public final class MarketMessages {
                 "currency", configManager.getCurrencyName(),
                 "min", String.valueOf((long) configManager.getMarketMinPrice()),
                 "max", String.valueOf((long) configManager.getMarketMaxPrice()),
-                "limit", String.valueOf(configManager.getMarketMaxListingsPerPlayer()),
                 "amount", MarketGUIUtil.formatPrice(price));
     }
 }

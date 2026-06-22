@@ -21,7 +21,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 自分の募集管理 GUI。募集者の全募集（status 問わず）をページングして表示する。
+ * 自分の募集管理 GUI。操作が必要な募集（募集中・成立の回収待ち）のみをページングして表示する。
+ * 完了済み（回収済み・キャンセル済み・期限切れ返金済み）は一覧から除外する。
  * open をクリックでキャンセル（前払い返金）、fulfilled をクリックで供給アイテムを回収する。
  * クリックイベントの受信は {@link MarketGUIListener} が担当する。
  * （自分の出品 {@link MyListingsGUI} の鏡像）
@@ -82,6 +83,9 @@ public class MyBuyOrdersGUI {
             plugin.getLogger().warning("自分の募集一覧の取得に失敗しました: " + e.getMessage());
             orders = new ArrayList<>();
         }
+
+        // 完了済み（回収済み・キャンセル済み・期限切れ返金済み）は除外し、操作が必要なもの（募集中・成立の回収待ち）のみ表示する
+        orders.removeIf(order -> !order.isOpen() && !order.isFulfilled());
 
         int totalPages = Math.max(1, (int) Math.ceil(orders.size() / (double) ITEMS_PER_PAGE));
         if (session.getPage() >= totalPages) {
