@@ -399,8 +399,7 @@ public class MarketHubGUI {
                 "proceeds", String.valueOf(marketManager.calculateSellerProceeds(price)),
                 "currency", configManager.getCurrencyName(),
                 "min", String.valueOf((long) configManager.getMarketMinPrice()),
-                "max", String.valueOf((long) configManager.getMarketMaxPrice()),
-                "limit", String.valueOf(configManager.getMarketMaxBuyOrdersPerPlayer())));
+                "max", String.valueOf((long) configManager.getMarketMaxPrice())));
     }
 
     private void sendServiceMessage(Player player, MarketResult result, String item, String service, double price) {

@@ -137,9 +137,6 @@ public class MarketManager {
 
         synchronized (connection) {
             try {
-                if (listingDAO.countActiveBySeller(sellerUuid) >= configManager.getMarketMaxListingsPerPlayer()) {
-                    return MarketResult.LISTING_LIMIT;
-                }
                 Long expiresAt = calculateExpiresAtMillis(nowMillis);
                 MarketListing listing = new MarketListing(
                         sellerUuid, sellerName, itemData, displayName, material, amount, price, expiresAt);
@@ -285,9 +282,6 @@ public class MarketManager {
 
         synchronized (connection) {
             try {
-                if (buyOrderDAO.countOpenByRequester(requesterUuid) >= configManager.getMarketMaxBuyOrdersPerPlayer()) {
-                    return MarketResult.ORDER_LIMIT;
-                }
                 Long expiresAt = calculateExpiresAtMillis(nowMillis);
                 MarketBuyOrder order = new MarketBuyOrder(
                         requesterUuid, requesterName, material, amount, price, expiresAt);
@@ -814,19 +808,6 @@ public class MarketManager {
         }
         if (!isValidPrice(price)) {
             return MarketResult.INVALID_PRICE;
-        }
-
-        // 現金を回収する前に募集上限を確認する（無駄な回収→返金の往復を避ける）
-        synchronized (connection) {
-            try {
-                if (buyOrderDAO.countOpenByRequester(requester.getUniqueId())
-                        >= configManager.getMarketMaxBuyOrdersPerPlayer()) {
-                    return MarketResult.ORDER_LIMIT;
-                }
-            } catch (SQLException e) {
-                logger.log(Level.WARNING, "募集数の確認に失敗しました", e);
-                return MarketResult.ERROR;
-            }
         }
 
         // 前払いの現金を先に回収（所持チェックと削除を原子的に行う）。不足なら資金不足

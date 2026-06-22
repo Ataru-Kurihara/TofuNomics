@@ -2173,13 +2173,11 @@ scoreboard:
 market:
   enabled: true
   fee_rate: 0.05                  # 販売手数料率（出品者受取 = price × (1 - fee_rate)、端数は切り捨て）
-  max_listings_per_player: 10     # 1人あたり同時出品上限
   listing_duration_days: 7        # 出品の有効日数（0で無期限）
   min_price: 1                    # 最低出品価格
   max_price: 1000000              # 最高出品価格
   allow_self_purchase: false      # 自分の出品を購入可能にするか（買い注文への自己供給可否も兼ねる）
   expire_check_interval: 3600     # 期限切れチェック間隔（秒）
-  max_buy_orders_per_player: 10   # 買い注文（募集）の同時保有上限
   # fee_rate / listing_duration_days / min_price / max_price は買い注文と共用
 
   # 取引成立時の職業経験値付与（市場への流通を促すインセンティブ）
@@ -2220,7 +2218,6 @@ messages:
     invalid_item: "&c出品するアイテムを手に持ってください。"
     invalid_price: "&c価格は &e%min%&c 〜 &e%max%&c の整数で指定してください。"
     currency_not_allowed: "&c通貨アイテムは出品できません。"
-    listing_limit: "&c出品数の上限（%limit%）に達しています。"
     not_available: "&cこの出品は購入できません。"
     already_sold: "&cこの出品は既に売り切れました。"
     insufficient_funds: "&c残高が不足しています。"
@@ -2233,7 +2230,6 @@ messages:
     request_cancelled: "&a募集をキャンセルし、前払い分を返金しました。"
     request_reclaimed: "&a成立した募集からアイテムを回収しました。"
     request_expired_refund: "&e募集が期限切れになり、前払い分を返金しました。"
-    request_limit: "&c募集数の上限（%limit%）に達しています。"
     no_matching_item: "&c供給するアイテム（%item% x%amount%）を所持していません。"
     request_not_available: "&cこの募集は既に成立済みか、存在しません。"
     request_not_owner: "&cこれはあなたの募集ではありません。"
