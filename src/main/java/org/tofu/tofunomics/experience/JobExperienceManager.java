@@ -20,6 +20,11 @@ import org.bukkit.event.inventory.SmithItemEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.block.data.type.CaveVinesPlant;
+import org.bukkit.block.data.type.Beehive;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.ChatColor;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.PlayerJobDAO;
@@ -74,6 +79,9 @@ public class JobExperienceManager implements Listener {
     private final Map<Material, Double> miningExperience;
     private final Map<Material, Double> loggingExperience;
     private final Map<Material, Double> farmingExperience;
+    // 右クリック採取で得る作物の経験値テーブル（スイートベリー・グローベリー・はちみつ）。
+    // BlockBreakEventでは発火しないため farmingExperience とは分離し、onPlayerInteractHarvestで付与する。
+    private final Map<Material, Double> interactHarvestExperience;
     private final Map<PlayerFishEvent.State, Double> fishingExperience;
     private final Map<Material, Double> craftingExperience;
     private final Map<Material, Double> brewingExperience;
@@ -109,6 +117,7 @@ public class JobExperienceManager implements Listener {
         this.miningExperience = new HashMap<>();
         this.loggingExperience = new HashMap<>();
         this.farmingExperience = new HashMap<>();
+        this.interactHarvestExperience = new HashMap<>();
         this.fishingExperience = new HashMap<>();
         this.craftingExperience = new HashMap<>();
         this.brewingExperience = new HashMap<>();
@@ -175,9 +184,11 @@ public class JobExperienceManager implements Listener {
         loggingExperience.put(Material.CHERRY_LOG, 3.0);    // 1.20追加。jungle/acacia相当
         
         // 農業経験値テーブル（キーは破壊されるブロックのMaterial）
+        // 小麦=基準（鉱夫の石ポジション。草から無限に種が得られる最も基本の作物）。
+        // 入手・栽培に手間のかかるニンジン・ジャガイモは小麦を上回るよう設定する（逆転防止）。
         farmingExperience.put(Material.WHEAT, 1.5);
-        farmingExperience.put(Material.POTATOES, 1.2);
-        farmingExperience.put(Material.CARROTS, 1.2);
+        farmingExperience.put(Material.POTATOES, 2.0);
+        farmingExperience.put(Material.CARROTS, 2.0);
         farmingExperience.put(Material.BEETROOTS, 2.0);
         farmingExperience.put(Material.PUMPKIN, 3.0);
         farmingExperience.put(Material.MELON, 2.5);
@@ -188,7 +199,15 @@ public class JobExperienceManager implements Listener {
         farmingExperience.put(Material.CACTUS, 1.0);
         farmingExperience.put(Material.BROWN_MUSHROOM, 1.5);
         farmingExperience.put(Material.RED_MUSHROOM, 1.5);
-        
+
+        // 右クリック採取経験値テーブル（キーは右クリックされるブロックのMaterial）
+        // スイートベリー・グローベリーは骨粉で量産可能なため控えめ、はちみつは養蜂の手間を考慮しやや高め。
+        interactHarvestExperience.put(Material.SWEET_BERRY_BUSH, 1.0);
+        interactHarvestExperience.put(Material.CAVE_VINES, 1.0);
+        interactHarvestExperience.put(Material.CAVE_VINES_PLANT, 1.0);
+        interactHarvestExperience.put(Material.BEEHIVE, 1.5);
+        interactHarvestExperience.put(Material.BEE_NEST, 1.5);
+
         // 釣り経験値テーブル
         fishingExperience.put(PlayerFishEvent.State.CAUGHT_FISH, 5.0);
         fishingExperience.put(PlayerFishEvent.State.CAUGHT_ENTITY, 8.0);
@@ -353,8 +372,8 @@ public class JobExperienceManager implements Listener {
 
         // 農家（farmer）— 収穫物
         marketSellExperience.put(Material.WHEAT, new MarketSellEntry("farmer", 1.5));
-        marketSellExperience.put(Material.POTATO, new MarketSellEntry("farmer", 1.2));
-        marketSellExperience.put(Material.CARROT, new MarketSellEntry("farmer", 1.2));
+        marketSellExperience.put(Material.POTATO, new MarketSellEntry("farmer", 2.0));
+        marketSellExperience.put(Material.CARROT, new MarketSellEntry("farmer", 2.0));
         marketSellExperience.put(Material.BEETROOT, new MarketSellEntry("farmer", 2.0));
         marketSellExperience.put(Material.PUMPKIN, new MarketSellEntry("farmer", 3.0));
         marketSellExperience.put(Material.MELON_SLICE, new MarketSellEntry("farmer", 2.5));
@@ -369,6 +388,7 @@ public class JobExperienceManager implements Listener {
         marketSellExperience.put(Material.CAKE, new MarketSellEntry("farmer", 8.0));
         marketSellExperience.put(Material.HAY_BLOCK, new MarketSellEntry("farmer", 12.0));
         marketSellExperience.put(Material.SUGAR, new MarketSellEntry("farmer", 0.5));
+        marketSellExperience.put(Material.HONEY_BOTTLE, new MarketSellEntry("farmer", 1.5));
         // 収穫素材の補完 — 農家
         marketSellExperience.put(Material.MELON, new MarketSellEntry("farmer", 2.5));
         marketSellExperience.put(Material.SWEET_BERRIES, new MarketSellEntry("farmer", 1.0));
@@ -550,7 +570,65 @@ public class JobExperienceManager implements Listener {
         }
         return true;
     }
-    
+
+    /**
+     * 右クリック採取系作物（スイートベリー・グローベリー・はちみつ）の収穫経験値を付与する。
+     * これらは BlockBreakEvent では発火しないため PlayerInteractEvent で個別に処理する。
+     * 実際に採取が成立する状態（実が成っている／巣が満杯かつガラス瓶所持）のときのみ付与し、
+     * 空の茂み・空の巣への空振りクリックでは付与しない（濫用防止）。
+     */
+    @EventHandler
+    public void onPlayerInteractHarvest(PlayerInteractEvent event) {
+        // 右クリック、かつメインハンドのみ処理（両手による二重発火を防止）
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getHand() != EquipmentSlot.HAND) return;
+        if (event.getClickedBlock() == null) return;
+
+        Player player = event.getPlayer();
+        if (!jobManager.hasJob(player, "farmer")) return;
+
+        Block block = event.getClickedBlock();
+        Material blockType = block.getType();
+        if (!interactHarvestExperience.containsKey(blockType)) return;
+
+        // 採取が成立する状態のときのみ付与する
+        if (!isInteractHarvestable(player, block)) return;
+
+        double baseExp = interactHarvestExperience.get(blockType);
+        double multipliedExp = applyJobMultiplier(player, "farmer", baseExp);
+        giveJobExperience(player, "farmer", multipliedExp);
+    }
+
+    /**
+     * 右クリック採取で実際に収穫物が得られる状態かを判定する。
+     * - スイートベリーの茂み: 実がドロップする成熟段階（age >= 2）
+     * - 洞窟ツタ: 実が成っている（CaveVinesPlant#isBerries()）
+     * - ハチの巣/ハチの巣箱: 満杯（honey_level == 最大）かつ手にガラス瓶またはハサミを所持
+     */
+    static boolean isInteractHarvestable(Player player, Block block) {
+        BlockData data = block.getBlockData();
+        Material type = block.getType();
+
+        if (type == Material.SWEET_BERRY_BUSH) {
+            return data instanceof Ageable && ((Ageable) data).getAge() >= 2;
+        }
+        if (type == Material.CAVE_VINES || type == Material.CAVE_VINES_PLANT) {
+            return data instanceof CaveVinesPlant && ((CaveVinesPlant) data).isBerries();
+        }
+        if (type == Material.BEEHIVE || type == Material.BEE_NEST) {
+            if (!(data instanceof Beehive)) {
+                return false;
+            }
+            Beehive hive = (Beehive) data;
+            boolean full = hive.getHoneyLevel() >= hive.getMaximumHoneyLevel();
+            // ガラス瓶（はちみつ）・ハサミ（ハニカム）のどちらの採取も対象にする
+            Material mainHand = player.getInventory().getItemInMainHand().getType();
+            boolean harvestTool = mainHand == Material.GLASS_BOTTLE || mainHand == Material.SHEARS;
+            return full && harvestTool;
+        }
+        return false;
+    }
+
     @EventHandler
     public void onPlayerFish(PlayerFishEvent event) {
         if (event.getState() == PlayerFishEvent.State.CAUGHT_FISH || 

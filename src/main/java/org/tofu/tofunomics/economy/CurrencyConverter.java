@@ -302,6 +302,23 @@ public class CurrencyConverter {
         return result;
     }
     
+    // 入る分は金塊で渡し、入りきらない分は銀行口座へ入金。口座へ回した枚数を返す
+    public int receiveCashWithBankFallback(Player player, int nuggetAmount) {
+        if (nuggetAmount <= 0) {
+            return 0;
+        }
+
+        // インベントリに入る分だけ金塊を付与し、入りきらなかった枚数を取得
+        int leftover = itemManager.addGoldNuggetsWithLeftover(player, nuggetAmount);
+
+        // 入りきらなかった分を銀行口座へ入金（金塊1枚=残高1の1:1換算）
+        if (leftover > 0) {
+            addBalance(player.getUniqueId(), convertNuggetsToBalance(leftover));
+        }
+
+        return leftover;
+    }
+
     // 所持金で支払い可能かチェック
     public boolean canAffordWithCash(Player player, double amount) {
         if (amount <= 0) {
