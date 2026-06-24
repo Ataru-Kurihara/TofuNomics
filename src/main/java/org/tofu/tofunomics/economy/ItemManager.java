@@ -478,8 +478,10 @@ public class ItemManager {
             }
         } catch (RuntimeException e) {
             // 金塊付与中の予期せぬ例外。インベントリへ入った分はそのまま維持し、未付与の
-            // 残数は呼び出し元（receiveCashWithBankFallback）で口座へ回し代金の取りこぼしを防ぐ
-            org.bukkit.Bukkit.getLogger().warning("[ItemManager] addGoldNuggetsWithLeftover failed with exception: " + e.getMessage());
+            // 残数は呼び出し元（receiveCashWithBankFallback）で口座へ回し代金の取りこぼしを防ぐ。
+            // 障害調査のためスタックトレースも記録する。
+            org.bukkit.Bukkit.getLogger().log(java.util.logging.Level.WARNING,
+                "[ItemManager] addGoldNuggetsWithLeftover failed with exception", e);
         }
 
         return remaining;

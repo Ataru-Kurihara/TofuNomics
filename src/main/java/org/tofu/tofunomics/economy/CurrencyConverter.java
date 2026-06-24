@@ -313,7 +313,13 @@ public class CurrencyConverter {
 
         // 入りきらなかった分を銀行口座へ入金（金塊1枚=残高1の1:1換算）
         if (leftover > 0) {
-            addBalance(player.getUniqueId(), convertNuggetsToBalance(leftover));
+            boolean banked = addBalance(player.getUniqueId(), convertNuggetsToBalance(leftover));
+            if (!banked) {
+                // 口座未登録などで入金に失敗すると代金消失となるため警告ログを残す
+                org.bukkit.Bukkit.getLogger().warning(
+                    "[CurrencyConverter] 口座フォールバック入金に失敗しました（口座未登録の可能性）: "
+                    + player.getName() + " 金塊" + leftover + "枚");
+            }
         }
 
         return leftover;
