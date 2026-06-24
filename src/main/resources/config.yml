@@ -1830,16 +1830,18 @@ npc_system:
     oak_planks: 0.12
     birch_planks: 0.12
     spruce_planks: 0.12
-    # 農作物系（リリース前バランス調整: 成長待機時間を考慮し増額）
-    wheat: 1.2
-    potato: 0.9
-    carrot: 0.9
-    beetroot: 1.2
-    pumpkin: 2
-    melon: 1.5
-    sugar_cane: 0.8
-    cocoa_beans: 1.5
-    nether_wart: 2
+    # 農作物系（バランス調整: レアリティ順の階段に再設計。小麦=最安基準）
+    # 最安(3): 小麦・ビートルート・サトウキビ / 中(4): じゃがいも・にんじん・メロン
+    # 上(5): かぼちゃ・カカオ豆 / 最高(6): ネザーウォート
+    wheat: 3
+    potato: 4
+    carrot: 4
+    beetroot: 3
+    pumpkin: 5
+    melon: 4
+    sugar_cane: 3
+    cocoa_beans: 5
+    nether_wart: 6
     # 畜産物
     beef: 2
     porkchop: 2
@@ -1933,8 +1935,9 @@ npc_system:
     cherry_sapling: 0.7
     mangrove_propagule: 0.7
     # --- farmer: 作物・種・畜産・染料植物 ---
-    melon_slice: 0.3
+    melon_slice: 1.0
     glow_berries: 1.0
+    sweet_berries: 1
     apple: 1.5
     wheat_seeds: 0.1
     beetroot_seeds: 0.1
