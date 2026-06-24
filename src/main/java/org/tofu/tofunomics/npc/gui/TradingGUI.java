@@ -901,41 +901,8 @@ public class TradingGUI implements Listener {
             return;
         }
 
-        // 事前にスペースをチェック（売却金額を計算して必要なスロット数を確認）
-        double totalEarnings = 0.0;
-
-        // 売却金額の合計を計算（木こりボーナスも考慮）
-        for (ItemStack sellItem : itemsToSell) {
-            Material mat = sellItem.getType();
-            double basePrice = tradingPost.getItemPrice(mat);
-
-            if (basePrice > 0) {
-                // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素のitem_prices×1.0）
-                String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
-                double finalPrice = tradePriceManager.calculateFinalPrice(mat.toString().toLowerCase(), effectiveJob, basePrice);
-
-                // 木こりが原木を売る場合は価格を2倍に（職業専用取引所のみ）
-                if (!tradingPost.isGeneralStore() && "woodcutter".equals(playerJob) && isLogItem(mat)) {
-                    finalPrice *= 2.0;
-                }
-
-                // アイテム単位では切り捨てず合計に累積（processItemSaleの支払い計算と整合）
-                totalEarnings += finalPrice * sellItem.getAmount();
-            }
-        }
-
-        // 必要な金塊数を計算
-        int requiredNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
-
-        // ItemManager.hasInventorySpaceを使用（既存の金塊スタックの空きスペースも考慮される）
-        boolean hasSpace = currencyConverter.getItemManager().hasInventorySpace(player, requiredNuggets);
-
-        if (!hasSpace) {
-            player.sendMessage("§cインベントリに空きがありません。金塊を受け取るスペースを確保してください。");
-            return;
-        }
-
         // 先にインベントリからアイテムを削除（ロールバック用に記録）
+        // 金塊が入りきらない場合は口座へ自動入金されるため、事前のスペースチェックは行わない
         Map<Integer, ItemStack> removedItems = new HashMap<>();
         for (ItemStack sellItem : itemsToSell) {
             int remainingToRemove = sellItem.getAmount();
@@ -973,6 +940,10 @@ public class TradingGUI implements Listener {
             // 成功 - アイテムは既に削除済み
             String earnings = currencyConverter.formatCurrency(result.getTotalEarnings());
             player.sendMessage(configManager.getMessage("npc.trading.sale_success", "total", earnings));
+            // 所持枠が満杯で金塊が入りきらなかった分は口座へ入金済みであることを通知
+            if (result.getBankedNuggets() > 0) {
+                player.sendMessage("§e" + result.getBankedNuggets() + "枚は所持枠が満杯のため口座に入金しました");
+            }
         } else {
             // 失敗 - アイテムをロールバック
             for (Map.Entry<Integer, ItemStack> entry : removedItems.entrySet()) {
@@ -1145,9 +1116,13 @@ public class TradingGUI implements Listener {
         if (result.isSuccess()) {
             // 成功 - アイテムは既に削除済み
             String earnings = currencyConverter.formatCurrency(result.getTotalEarnings());
-            player.sendMessage(configManager.getMessage("npc.trading.sell_all_success", 
+            player.sendMessage(configManager.getMessage("npc.trading.sell_all_success",
                 "total", earnings,
                 "count", String.valueOf(result.getSoldItems().values().stream().mapToInt(Integer::intValue).sum())));
+            // 所持枠が満杯で金塊が入りきらなかった分は口座へ入金済みであることを通知
+            if (result.getBankedNuggets() > 0) {
+                player.sendMessage("§e" + result.getBankedNuggets() + "枚は所持枠が満杯のため口座に入金しました");
+            }
         } else {
             // 失敗 - アイテムをロールバック
             for (Map.Entry<Integer, ItemStack> entry : removedItems.entrySet()) {

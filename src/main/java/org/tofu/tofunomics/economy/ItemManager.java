@@ -446,6 +446,39 @@ public class ItemManager {
         }
     }
     
+    // インベントリに入る分だけ金塊を追加し、入りきらなかった枚数を返す（ロールバックしない）
+    public int addGoldNuggetsWithLeftover(Player player, int amount) {
+        if (amount <= 0) {
+            return 0;
+        }
+
+        PlayerInventory inventory = player.getInventory();
+        int remaining = amount;
+
+        while (remaining > 0) {
+            int stackSize = Math.min(remaining, Material.GOLD_NUGGET.getMaxStackSize());
+            ItemStack goldNugget = createGoldNugget(stackSize);
+
+            HashMap<Integer, ItemStack> leftover = inventory.addItem(goldNugget);
+
+            // このスタックで入りきらなかった枚数を集計
+            int notAdded = 0;
+            for (ItemStack item : leftover.values()) {
+                notAdded += item.getAmount();
+            }
+
+            // 実際にインベントリへ入った枚数を残数から減算
+            remaining -= (stackSize - notAdded);
+
+            // 入りきらない分が出た時点でインベントリは満杯。残りはすべて口座行き
+            if (notAdded > 0) {
+                break;
+            }
+        }
+
+        return remaining;
+    }
+
     public boolean hasInventorySpace(Player player, int amount) {
         PlayerInventory inventory = player.getInventory();
         int emptySlots = 0;

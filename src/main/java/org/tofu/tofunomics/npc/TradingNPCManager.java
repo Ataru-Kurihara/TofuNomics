@@ -646,12 +646,10 @@ public class TradingNPCManager {
         // 累積した合計を通貨換算（四捨五入）。1コイン以上で売却成立
         int payableNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
         if (payableNuggets > 0) {
-            // 換算済みの金塊数を直接渡し、チェック値と支払い額を厳密に一致させる（二重丸め回避）
-            if (!currencyConverter.receiveCash(player, payableNuggets)) {
-                return new TradeResult(false, "インベントリに空きがありません。金塊を受け取るスペースを確保してください", 0.0, new HashMap<>());
-            }
+            // 入る分は金塊で受け取り、入りきらない分は口座へ自動入金（満杯でも代金を取りこぼさない）
+            int bankedNuggets = currencyConverter.receiveCashWithBankFallback(player, payableNuggets);
 
-            return new TradeResult(true, "取引が完了しました", payableNuggets, soldItems);
+            return new TradeResult(true, "取引が完了しました", payableNuggets, soldItems, bankedNuggets);
         } else if (!soldItems.isEmpty()) {
             // 売却対象はあったが、合計額が安すぎて1コインに満たない
             return new TradeResult(false, "売却額が少なすぎます。もう少しまとめて売却してください", 0.0, new HashMap<>());
@@ -703,12 +701,11 @@ public class TradingNPCManager {
         // 累積した合計を通貨換算（四捨五入）。1コイン以上で売却成立
         int payableNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
         if (payableNuggets > 0) {
-            // 換算済みの金塊数を直接渡し、チェック値と支払い額を厳密に一致させる（二重丸め回避）
-            if (!currencyConverter.receiveCash(player, payableNuggets, skipSpaceCheck)) {
-                return new TradeResult(false, "インベントリに空きがありません。金塊を受け取るスペースを確保してください", 0.0, new HashMap<>());
-            }
+            // 入る分は金塊で受け取り、入りきらない分は口座へ自動入金（満杯でも代金を取りこぼさない）
+            // skipSpaceCheck は新方式では不要（部分追加＋口座フォールバックで満杯を吸収）
+            int bankedNuggets = currencyConverter.receiveCashWithBankFallback(player, payableNuggets);
 
-            return new TradeResult(true, "取引が完了しました", payableNuggets, soldItems);
+            return new TradeResult(true, "取引が完了しました", payableNuggets, soldItems, bankedNuggets);
         } else if (!soldItems.isEmpty()) {
             // 売却対象はあったが、合計額が安すぎて1コインに満たない
             return new TradeResult(false, "売却額が少なすぎます。もう少しまとめて売却してください", 0.0, new HashMap<>());
@@ -722,18 +719,25 @@ public class TradingNPCManager {
         private final String message;
         private final double totalEarnings;
         private final Map<Material, Integer> soldItems;
-        
+        private final int bankedNuggets; // インベントリに入りきらず口座へ入金された金塊枚数
+
         public TradeResult(boolean success, String message, double totalEarnings, Map<Material, Integer> soldItems) {
+            this(success, message, totalEarnings, soldItems, 0);
+        }
+
+        public TradeResult(boolean success, String message, double totalEarnings, Map<Material, Integer> soldItems, int bankedNuggets) {
             this.success = success;
             this.message = message;
             this.totalEarnings = totalEarnings;
             this.soldItems = soldItems;
+            this.bankedNuggets = bankedNuggets;
         }
-        
+
         public boolean isSuccess() { return success; }
         public String getMessage() { return message; }
         public double getTotalEarnings() { return totalEarnings; }
         public Map<Material, Integer> getSoldItems() { return soldItems; }
+        public int getBankedNuggets() { return bankedNuggets; }
     }
     
     private TradingPost getTradingPostByNPCId(UUID npcId) {
