@@ -658,62 +658,6 @@ public class TradingNPCManager {
         }
     }
 
-    // スペースチェックスキップオプション付きのアイテム売却処理
-    public TradeResult processItemSale(Player player, UUID npcId, List<ItemStack> items, boolean skipSpaceCheck) {
-        TradingPost tradingPost = getTradingPostByNPCId(npcId);
-        if (tradingPost == null) {
-            return new TradeResult(false, "取引所が見つかりません", 0.0, new HashMap<>());
-        }
-        
-        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
-        if (!tradingPost.acceptsJob(playerJob)) {
-            return new TradeResult(false, "この取引所を利用する権限がありません", 0.0, new HashMap<>());
-        }
-        
-        Map<Material, Integer> soldItems = new HashMap<>();
-        double totalEarnings = 0.0;
-        
-        for (ItemStack item : items) {
-            if (item == null || item.getType() == Material.AIR) continue;
-            
-            Material material = item.getType();
-            double basePrice = tradingPost.getItemPrice(material);
-            
-            if (basePrice > 0) {
-                int amount = item.getAmount();
-                // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素のitem_prices×1.0）
-                String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
-                double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), effectiveJob, basePrice);
-
-                // 木こりが原木を売る場合は価格を2倍に（職業専用取引所のみ）
-                if (!tradingPost.isGeneralStore() && isWoodcutter(player) && isLogItem(material)) {
-                    finalPrice *= 2.0;
-                    plugin.getLogger().info("木こりボーナス適用: " + material + " の価格を2倍に");
-                }
-                
-                // アイテム単位では切り捨てず、合計に端数を累積する
-                // （安価アイテムが floor で0になり売却不能になるのを防ぐ）
-                totalEarnings += finalPrice * amount;
-                soldItems.put(material, soldItems.getOrDefault(material, 0) + amount);
-            }
-        }
-
-        // 累積した合計を通貨換算（四捨五入）。1コイン以上で売却成立
-        int payableNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
-        if (payableNuggets > 0) {
-            // 入る分は金塊で受け取り、入りきらない分は口座へ自動入金（満杯でも代金を取りこぼさない）
-            // skipSpaceCheck は新方式では不要（部分追加＋口座フォールバックで満杯を吸収）
-            int bankedNuggets = currencyConverter.receiveCashWithBankFallback(player, payableNuggets);
-
-            return new TradeResult(true, "取引が完了しました", payableNuggets, soldItems, bankedNuggets);
-        } else if (!soldItems.isEmpty()) {
-            // 売却対象はあったが、合計額が安すぎて1コインに満たない
-            return new TradeResult(false, "売却額が少なすぎます。もう少しまとめて売却してください", 0.0, new HashMap<>());
-        } else {
-            return new TradeResult(false, "売却可能なアイテムがありませんでした", 0.0, new HashMap<>());
-        }
-    }
-    
     public static class TradeResult {
         private final boolean success;
         private final String message;
