@@ -455,25 +455,31 @@ public class ItemManager {
         PlayerInventory inventory = player.getInventory();
         int remaining = amount;
 
-        while (remaining > 0) {
-            int stackSize = Math.min(remaining, Material.GOLD_NUGGET.getMaxStackSize());
-            ItemStack goldNugget = createGoldNugget(stackSize);
+        try {
+            while (remaining > 0) {
+                int stackSize = Math.min(remaining, Material.GOLD_NUGGET.getMaxStackSize());
+                ItemStack goldNugget = createGoldNugget(stackSize);
 
-            HashMap<Integer, ItemStack> leftover = inventory.addItem(goldNugget);
+                HashMap<Integer, ItemStack> leftover = inventory.addItem(goldNugget);
 
-            // このスタックで入りきらなかった枚数を集計
-            int notAdded = 0;
-            for (ItemStack item : leftover.values()) {
-                notAdded += item.getAmount();
+                // このスタックで入りきらなかった枚数を集計
+                int notAdded = 0;
+                for (ItemStack item : leftover.values()) {
+                    notAdded += item.getAmount();
+                }
+
+                // 実際にインベントリへ入った枚数を残数から減算
+                remaining -= (stackSize - notAdded);
+
+                // 入りきらない分が出た時点でインベントリは満杯。残りはすべて口座行き
+                if (notAdded > 0) {
+                    break;
+                }
             }
-
-            // 実際にインベントリへ入った枚数を残数から減算
-            remaining -= (stackSize - notAdded);
-
-            // 入りきらない分が出た時点でインベントリは満杯。残りはすべて口座行き
-            if (notAdded > 0) {
-                break;
-            }
+        } catch (RuntimeException e) {
+            // 金塊付与中の予期せぬ例外。インベントリへ入った分はそのまま維持し、未付与の
+            // 残数は呼び出し元（receiveCashWithBankFallback）で口座へ回し代金の取りこぼしを防ぐ
+            org.bukkit.Bukkit.getLogger().warning("[ItemManager] addGoldNuggetsWithLeftover failed with exception: " + e.getMessage());
         }
 
         return remaining;

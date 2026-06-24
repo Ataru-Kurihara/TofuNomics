@@ -2735,9 +2735,11 @@ public class ConfigManager {
             // 取引NPC基本メッセージを確保
             ensureMessagePath("messages.npc.trading.no_job", 
                 "&c職業に就いていません。/jobs join <職業名> で職業に就いてからご利用ください。");
-            ensureMessagePath("messages.npc.trading.job_not_accepted", 
+            ensureMessagePath("messages.npc.trading.job_not_accepted",
                 "&c申し訳ありませんが、あなたの職業（%job%）では当店をご利用いただけません。");
-            
+            ensureMessagePath("messages.npc.trading.banked_overflow",
+                "&e%amount%枚は所持枠が満杯のため口座に入金しました。");
+
             // central_market固有メッセージを確保
             ensureMessageListPath("messages.npc.trading.npc_specific.central_market.no_job", 
                 java.util.Arrays.asList(

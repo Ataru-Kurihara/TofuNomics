@@ -2330,7 +2330,8 @@ messages:
       no_sellable_items: "&c売却可能なアイテムがありませんでした。"
       sale_success: "&a売却完了！ &f%total% &a獲得しました。"
       sell_all_success: "&a一括売却完了！ &f%count%個のアイテム &aを売却し、&f%total% &a獲得しました。"
-      
+      banked_overflow: "&e%amount%枚は所持枠が満杯のため口座に入金しました。"
+
       # 取引所別の個性的なメッセージ
       npc_specific:
         central_market:

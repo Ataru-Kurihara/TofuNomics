@@ -930,11 +930,9 @@ public class TradingGUI implements Listener {
         
         // 売却処理を実行（満杯分は口座へフォールバックするためスペースチェックは行わない）
         TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(
-            player, 
-            tradingPost.getNpcId(), 
-            itemsToSell,
-            true  // skipSpaceCheck = true
-        );
+            player,
+            tradingPost.getNpcId(),
+            itemsToSell);
         
         if (result.isSuccess()) {
             // 成功 - アイテムは既に削除済み
@@ -942,7 +940,8 @@ public class TradingGUI implements Listener {
             player.sendMessage(configManager.getMessage("npc.trading.sale_success", "total", earnings));
             // 所持枠が満杯で金塊が入りきらなかった分は口座へ入金済みであることを通知
             if (result.getBankedNuggets() > 0) {
-                player.sendMessage("§e" + result.getBankedNuggets() + "枚は所持枠が満杯のため口座に入金しました");
+                player.sendMessage(configManager.getMessage("npc.trading.banked_overflow",
+                    "amount", result.getBankedNuggets()));
             }
         } else {
             // 失敗 - アイテムをロールバック
@@ -1073,11 +1072,9 @@ public class TradingGUI implements Listener {
         
         // 売却処理を実行（満杯分は口座へフォールバックするためスペースチェックは行わない）
         TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(
-            player, 
-            tradingPost.getNpcId(), 
-            allItems,
-            true  // skipSpaceCheck = true
-        );
+            player,
+            tradingPost.getNpcId(),
+            allItems);
         
         if (result.isSuccess()) {
             // 成功 - アイテムは既に削除済み
@@ -1087,7 +1084,8 @@ public class TradingGUI implements Listener {
                 "count", String.valueOf(result.getSoldItems().values().stream().mapToInt(Integer::intValue).sum())));
             // 所持枠が満杯で金塊が入りきらなかった分は口座へ入金済みであることを通知
             if (result.getBankedNuggets() > 0) {
-                player.sendMessage("§e" + result.getBankedNuggets() + "枚は所持枠が満杯のため口座に入金しました");
+                player.sendMessage(configManager.getMessage("npc.trading.banked_overflow",
+                    "amount", result.getBankedNuggets()));
             }
         } else {
             // 失敗 - アイテムをロールバック
