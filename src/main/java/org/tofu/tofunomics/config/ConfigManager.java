@@ -3383,6 +3383,22 @@ public class ConfigManager {
     }
 
     /**
+     * 既により強いバフが有効なため弱い食事効果が無視された時のメッセージテンプレートを取得
+     */
+    public String getFoodBuffWeakerIgnoredMessage() {
+        return config.getString("food_buff.messages.buff_weaker_ignored",
+            "&7既により強い食事効果（%current%）が有効です");
+    }
+
+    /**
+     * 満腹で食料を食べられずバフが付かない時のヒントメッセージテンプレートを取得
+     */
+    public String getFoodBuffBlockedSatiatedMessage() {
+        return config.getString("food_buff.messages.buff_blocked_satiated",
+            "&7満腹のため食事効果が付きません。空腹時に食べてください");
+    }
+
+    /**
      * 食料NPCの設定リストを取得
      */
     @SuppressWarnings("unchecked")

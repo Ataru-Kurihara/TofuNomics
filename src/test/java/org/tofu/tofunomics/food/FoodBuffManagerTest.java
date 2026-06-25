@@ -32,6 +32,7 @@ public class FoodBuffManagerTest {
         when(configManager.isFoodBuffEnabled()).thenReturn(true);
         when(configManager.getFoodBuffAppliedMessage()).thenReturn("applied");
         when(configManager.getFoodBuffReplacedMessage()).thenReturn("replaced");
+        when(configManager.getFoodBuffWeakerIgnoredMessage()).thenReturn("ignored:%current%");
 
         // パン +10% / 180秒, 肉 +30% / 480秒
         when(configManager.getFoodBuffBonusPercent("bread")).thenReturn(10);
@@ -65,6 +66,14 @@ public class FoodBuffManagerTest {
         foodBuffManager.applyBuff(player, FoodCategory.MEAT);  // +30%
         foodBuffManager.applyBuff(player, FoodCategory.BREAD); // +10%（無視されるべき）
         assertEquals(1.30, foodBuffManager.getMultiplier(player), 0.0001);
+    }
+
+    @Test
+    public void weakerBuffSendsIgnoredMessage() {
+        foodBuffManager.applyBuff(player, FoodCategory.MEAT);  // +30%（現在有効: 肉）
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD); // +10%（無視され通知される）
+        // 「食べたのに無反応」防止のため、現在有効なバフ名を含むメッセージが送られる
+        verify(player).sendMessage(contains("肉"));
     }
 
     @Test
