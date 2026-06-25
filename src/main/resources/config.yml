@@ -835,6 +835,7 @@ npc_system:
     hay_block: 10
     honeycomb: 2
     honey_bottle: 2
+    honey_block: 8
     brown_mushroom: 0.5
     red_mushroom: 0.5
     poppy: 0.3
