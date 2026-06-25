@@ -364,6 +364,29 @@ public class UnifiedEventHandler implements Listener {
         eventCache.markAsProcessed(player, "player_fish");
     }
 
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerShearRestriction(PlayerShearEntityEvent event) {
+        Player player = event.getPlayer();
+        org.bukkit.entity.Entity target = event.getEntity();
+
+        // 羊・キノコ牛以外（雪ゴーレム等）は制限対象外
+        if (!(target instanceof org.bukkit.entity.Sheep)
+                && !(target instanceof org.bukkit.entity.MushroomCow)) {
+            return;
+        }
+
+        // 管理者はバイパス（既存の採掘制限と同じ流儀）
+        if (player.hasPermission("tofunomics.admin.shear")) {
+            return;
+        }
+
+        // 農家でなければ毛刈りを拒否
+        if (!jobManager.hasJob(player, "farmer")) {
+            event.setCancelled(true);
+            player.sendMessage("§c毛刈りができるのは農家のみです。");
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerShear(PlayerShearEntityEvent event) {
         if (!shouldProcessEvent(event)) return;

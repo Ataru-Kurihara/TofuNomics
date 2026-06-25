@@ -215,7 +215,11 @@ permissions:
   tofunomics.admin.performance:
     description: パフォーマンス統計表示権限（フェーズ6）
     default: op
-  
+
+  tofunomics.admin.shear:
+    description: 毛刈り制限をバイパスする権限
+    default: op
+
   tofunomics.scoreboard.*:
     description: スコアボード関連権限（全て）
     children:
