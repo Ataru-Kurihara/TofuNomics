@@ -1,0 +1,544 @@
+# TofuNomics 補助設定: ゲームプレイ各種(ルール/UI/取引/市場 等)
+# このファイルはサーバー固有データを含まないため、デプロイ時に上書き可能です。
+# ========================================
+# ルール確認システム設定
+# ========================================
+rules:
+  # ルール確認機能の有効化（同意必須機能は無効化）
+  enabled: false
+  
+  # ルール同意を必須にするか（外部サイト確認方式に変更）
+  require_agreement: false
+  
+  # ルールサイトURL
+  url: "https://to-fu.world/worlds/tofu-nomics/"
+  
+  # ページ内容
+  pages:
+    # ページ1: 初心者ガイド
+    1:
+      title: "§6§l【TofuNomicsへようこそ！】"
+      content:
+        - "§7このサーバーは経済とジョブシステムを"
+        - "§7楽しむことができるサーバーです。"
+        - ""
+        - "§e▼ 最初にやること"
+        - "§f1. §b/jobs §fコマンドでジョブを選ぶ"
+        - "§f2. 選んだジョブで活動して経験値を稼ぐ"
+        - "§f3. レベルアップして新しいスキルを習得"
+        - "§f4. 稼いだお金を銀行に預ける"
+        - ""
+        - "§e▼ ジョブの選び方"
+        - "§f・§b/jobs §fでジョブ一覧を確認"
+        - "§f・自分のプレイスタイルに合ったジョブを選択"
+        - "§f・ジョブは1日1回まで変更可能"
+        - ""
+        - "§e▼ 困ったときは"
+        - "§f・§b/rules §fでこのルールを再確認"
+        - "§f・管理者やベテランプレイヤーに相談"
+    
+    # ページ2: 経済システム（このコンテンツは economy セクションの設定値から動的に生成されます）
+    2:
+      title: "§6§l【経済システム】"
+      content:
+        - "§e▼ 通貨システム"
+        - "§f通貨: §6金塊 (G)"
+        - "§f新規プレイヤーは100Gからスタート"
+        - ""
+        - "§e▼ 銀行システム"
+        - "§f・§b/balance §f- 残高確認"
+        - "§f・§b/deposit <金額> §f- 金塊を預ける"
+        - "§f・§b/withdraw <金額> §f- 金塊を引き出す"
+        - "§f・銀行NPC周辺でのみ取引可能"
+        - ""
+        - "§e▼ 送金"
+        - "§f・§b/pay <プレイヤー名> <金額>"
+        - "§f・他のプレイヤーにお金を送れます"
+        - ""
+        - "§e▼ NPCとの取引"
+        - "§f・取引NPCで物を売買できます"
+        - "§f・ジョブレベルで価格ボーナスあり"
+        - "§f・食料NPCで食べ物を購入できます"
+    
+    # ページ3: ジョブ・スキルシステム（このコンテンツは jobs.job_settings セクションの設定値から動的に生成されます）
+    3:
+      title: "§6§l【ジョブ・スキルシステム】"
+      content:
+        - "§e▼ ジョブの種類"
+        - "§f・鉱夫（Miner） - 鉱石採掘で経験値"
+        - "§f・木こり（Woodcutter） - 木の伐採で経験値"
+        - "§f・農家（Farmer） - 作物栽培・畜産で経験値"
+        - "§f・釣り人（Fisherman） - 釣りで経験値"
+        - "§f・鍛冶屋（Blacksmith） - 道具・武器の生産と修理"
+        - "§f・ポーション屋（Alchemist） - ポーション製造"
+        - "§f・エンチャンター（Enchanter） - エンチャント付与"
+        - "§f・建築家（Architect） - 建築と装飾で経験値"
+        - "§f※ 同時に就けるジョブは1つのみです"
+        - ""
+        - "§e▼ レベルアップ"
+        - "§f・ジョブ関連の作業で経験値を獲得"
+        - "§f・レベルが上がるとスキルを習得"
+        - "§f・最大レベル: 100"
+        - ""
+        - "§e▼ スキル"
+        - "§f・各ジョブ専用のスキルが習得可能"
+        - "§f・作業効率アップや特殊能力を獲得"
+        - ""
+        - "§e▼ ジョブ変更"
+        - "§f・§b/jobs leave §fで現在のジョブを辞める"
+        - "§f・§b/jobs join <ジョブ名> §fで新しいジョブに就く"
+        - "§f・レベル50に達すると他の職業に転職できます"
+    
+    # ページ4: 禁止事項・ペナルティ
+    4:
+      title: "§c§l【禁止事項・ルール】"
+      content:
+        - "§c§l以下の行為は禁止されています"
+        - ""
+        - "§e▼ 不正行為"
+        - "§f・チート・ハックツールの使用"
+        - "§f・バグやグリッチの悪用"
+        - "§f・不正な金銭・アイテム取得"
+        - "§c→ 永久BAN"
+        - ""
+        - "§e▼ 迷惑行為"
+        - "§f・他プレイヤーへの嫌がらせ"
+        - "§f・暴言・差別発言"
+        - "§f・他プレイヤーの建築物の破壊"
+        - "§c→ 警告〜一時BAN"
+        - ""
+        - "§e▼ その他の注意事項"
+        - "§f・他プレイヤーとの取引は慎重に"
+        - "§f・詐欺行為は厳禁"
+        - "§f・AFK（放置）での経験値稼ぎ禁止"
+        - "§c→ 警告〜アカウント停止"
+        - ""
+        - "§6§l楽しく、フェアにプレイしましょう！"
+
+# ========================================
+# チュートリアルシステム設定
+# ========================================
+tutorial:
+  # チュートリアルシステムの有効化
+  enabled: true
+
+  # 新規プレイヤーに自動開始
+  auto_start: true
+
+  # チュートリアル開始遅延（秒）- ウェルカムメッセージ後
+  start_delay_seconds: 10
+
+  # ステップ間のメッセージ遅延（tick）
+  step_message_delay: 60
+
+  # 完了報酬
+  completion_rewards:
+    enabled: true
+    money: 50.0
+
+  # メッセージ設定
+  messages:
+    # チュートリアル開始
+    start:
+      - "&e%player%さん、ようこそ！基本を案内します &7(/tutorial skip でスキップ)"
+
+    # ステップ1: 職業選択
+    step1:
+      title: "&6【1/4】&f職業に就こう → &e/jobs join <職業名>"
+      description:
+        - "&7職業: 鉱夫, 木こり, 農家, 釣り人, 鍛冶屋, ポーション屋, エンチャンター, 建築家"
+      complete: "&a✓ 職業に就職しました！"
+
+    # ステップ2: 初収入
+    step2:
+      title: "&6【2/4】&fお金を稼ごう"
+      description:
+        - "&7職業に応じた作業（採掘、伐採、収穫など）をしてみましょう"
+      complete: "&a✓ 初めての収入を獲得！"
+
+    # ステップ3: 銀行NPC
+    step3:
+      title: "&6【3/4】&f銀行NPCに話しかけよう"
+      description:
+        - "&7街にいる銀行員を右クリックして預け入れ・引き出しができます"
+      complete: "&a✓ 銀行を利用しました！"
+
+    # ステップ4: 取引NPC
+    step4:
+      title: "&6【4/4】&f取引NPCでアイテムを売ろう"
+      description:
+        - "&7街にいる商人を右クリックしてアイテムを売買できます"
+      complete: "&a✓ 取引所を利用しました！"
+
+    # チュートリアル完了
+    completed:
+      - "&a🎉 チュートリアル完了！自由に経済活動を楽しんでください"
+    completed_reward: "&6報酬: &f%money%%currency% &6獲得！"
+
+    # スキップ
+    skip_confirm: "&eチュートリアルをスキップしますか？ &f/tutorial skip confirm &eで確定"
+    skip_success: "&aチュートリアルをスキップしました。"
+    skip_note: "&7いつでも &f/tutorial restart &7でやり直せます。"
+
+    # 進捗表示
+    progress:
+      header: "&6▬▬▬▬▬▬▬▬ チュートリアル進捗 ▬▬▬▬▬▬▬▬"
+      current_step: "&e現在のステップ: &f%step%"
+      step_complete: "&a✓ %step_name% - 完了"
+      step_current: "&e→ %step_name% - 進行中"
+      step_pending: "&7○ %step_name% - 未完了"
+
+    # エラー・その他
+    already_completed: "&eチュートリアルは既に完了しています。"
+    not_started: "&cチュートリアルがまだ開始されていません。"
+    restart_success: "&aチュートリアルを最初からやり直します。"
+    admin_reset_success: "&a%player%さんのチュートリアルをリセットしました。"
+
+# スコアボード設定
+scoreboard:
+  # スコアボード機能の有効化
+  enabled: true
+  
+  # デフォルト表示設定（新規プレイヤー用）
+  default_enabled: true
+  
+  # スコアボードタイトル
+  title: "&6&l★ &eTofuNomics &6&l★"
+  
+  # 更新間隔（秒）
+  update_interval: 1
+
+  # 【非推奨】職業レベルをバニラ経験値バーに反映する旧設定。
+  # 職業レベル表示は job_bossbar（BossBar）へ移設したため、この設定はもう参照されない。
+  # XPバーはバニラ経験値に解放されている。
+  vanilla_exp_bar: true
+
+  # 職業レベルをBossBar（画面上部のバー）で表示する
+  # XPバーを職業レベルに使わずバニラ経験値に解放するため、職業レベルはここで表示する
+  job_bossbar:
+    enabled: true
+    # バーの色（GREEN / BLUE / RED / YELLOW / PURPLE / PINK / WHITE）
+    color: "GREEN"
+    # タイトル書式（%job%=職業名, %level%=レベル, %percent%=次レベルまでの進捗% または MAX）
+    title_format: "&e%job% &fLv.%level% &7(%percent%%)"
+
+  # スコアボード表示対象ワールド
+  enabled_worlds:
+    - "tofuNomics"
+    - "tofunomics_nether"
+    - "tofunomics_the_end"
+  
+  # 表示項目の設定
+  display_settings:
+    # プレイヤー名表示
+    show_player_name: false
+    # 残高表示
+    show_balance: true
+    # 職業情報表示
+    show_job: true
+    # 職業レベル表示
+    show_job_level: true
+    # 経験値進捗表示
+    show_experience: true
+    # オンライン時間表示
+    show_online_time: false
+    # 現在時刻表示
+    show_current_time: true
+    # 取引時間表示
+    show_trading_hours: true
+    # ルールコマンド表示
+    show_rules_command: true
+    # 中心都市までの距離・方角表示（基準座標は player_join.spawn_location を流用）
+    show_center_city: true
+
+  # スコアボードに表示するルールコマンドテキスト
+  rules_command_text: "&e/rules でルール確認"
+
+  # スコアボード表示中のヒントメッセージ
+  toggle_hint:
+    # ヒント表示の有効/無効
+    enabled: true
+    # ヒント表示テキスト
+    text: "&7/scoreboard off で非表示"
+
+  # 非表示時のヒントメッセージ設定
+  hint:
+    # ヒントスコアボードのタイトル
+    title: "&7&l- TofuNomics -"
+    # ヒント表示内容（複数行対応）
+    lines:
+      - "&7スコアボード非表示中"
+      - ""
+      - "&e/scoreboard on"
+      - "&7で表示できます"
+
+# 取引システム設定（フェーズ4）
+trade_system:
+  # 取引システムの有効化
+  enabled: true
+  
+  # 取引確認の必要性
+  confirmation_required: true
+  
+  # 全体価格倍率（すべての取引価格にかかる倍率）
+  # tofunomicsワールドでは経済活性化のため価格を10%上昇
+  global_price_multiplier: 1.0
+  
+  # 職業別価格ボーナス倍率（整数倍に統一）
+  job_price_multipliers:
+    # 初級職業（ボーナスなし）
+    woodcutter: 1.0  # 木こりは基本価格のみ
+    farmer: 1.0      # 農家は基本価格のみ
+    
+    # 中級職業（リリース前バランス調整: 格差縮小 1.5→1.2）
+    miner: 1.2       # 鉱夫は鉱石系アイテムを20%高く買取
+    fisherman: 1.2   # 漁師は魚類を20%高く買取
+    architect: 1.2   # 建築家は建材を20%高く買取
+    
+    # 上級職業（リリース前バランス調整: 格差縮小 2.0→1.4）
+    blacksmith: 1.4  # 鍛冶屋は道具・武器を40%高く買取
+    alchemist: 1.4   # 錬金術師はポーション材料を40%高く買取
+    enchanter: 1.4   # エンチャンターはエンチャント関連を40%高く買取
+  
+  # 取引履歴の保存設定
+  history:
+    # 履歴の最大保存期間（日数）
+    max_days: 30
+    # プレイヤー当たりの最大履歴件数
+    max_records_per_player: 1000
+    # 古い履歴の自動削除
+    auto_cleanup: true
+  
+  # 取引制限
+  limits:
+    # 1日あたりの最大取引回数（適切な制限値を設定）
+    max_trades_per_day: 50
+    # 1回の取引での最大アイテム数
+    max_items_per_trade: 2304  # チェスト満杯分
+    # 1日あたりの最大取引額（適切な制限値を設定）
+    max_earnings_per_day: 10000.0
+  
+  # チェスト設定
+  chest_settings:
+    # チェストの最大設置数
+    max_chests_per_job: 10
+    # 同一座標での重複設置防止
+    prevent_duplicate_location: true
+    # チェスト削除時の確認
+    require_confirmation_on_remove: true
+  
+  # メッセージ設定
+  messages:
+    trade_chest_created: "&a取引チェストを設置しました。職業: %job%"
+    trade_chest_removed: "&c取引チェストを削除しました。"
+    trade_completed: "&a取引が完了しました。合計: %amount%金塊"
+    trade_no_items: "&e買取可能なアイテムがありませんでした。"
+    trade_invalid_item: "&c%item%はこのチェストでは買取できません。"
+    insufficient_permission: "&cこの操作を行う権限がありません。"
+    invalid_job_type: "&c無効な職業タイプです: %job%"
+    chest_not_found: "&cチェストを見てコマンドを実行してください。"
+    chest_already_exists: "&cこの場所には既に取引チェストが設置されています。"
+
+# 時計アイテムシステム設定
+clock_item:
+  # 時計アイテムシステムの有効化
+  enabled: true
+  
+  # 時計の購入価格
+  purchase_price: 500.0
+  
+  # 時計の販売NPC（空の場合は全NPCから購入可能）
+  seller_npcs: []
+  
+  # アクションバー表示設定
+  action_bar:
+    # アクションバー表示の有効化
+    enabled: true
+    # 表示更新間隔（tick）- 20 ticks = 1秒
+    update_interval: 20
+    # 表示フォーマット（%time%：現在時刻、%trading_status%：営業中/閉店中、%time_until%：次の開店/閉店までの時間）
+    format: "&e⏰ %time% &7| %trading_status% %time_until%"
+    # 営業中表示
+    status_open: "&a💼 営業中"
+    # 閉店中表示
+    status_closed: "&c💼 閉店中"
+  
+  # 右クリック時の詳細情報
+  details:
+    # タイトル
+    title: "&6&l=== TofuNomics時計 ==="
+    # 内容（複数行）
+    content:
+      - "&e現在時刻: &f%time%"
+      - "&e取引所: %trading_status%"
+      - "&e営業時間: &f%trading_hours%"
+      - "&e%next_event%: &f%time_until%"
+    # フッター
+    footer: "&6&l====================="
+  
+  # 時計アイテムの設定
+  item:
+    # アイテムタイプ
+    material: "CLOCK"
+    # アイテム名
+    name: "&6&lTofuNomics時計"
+    # Lore（説明文）
+    lore:
+      - "&7TofuNomicsワールドの公式時計"
+      - "&7現在時刻と取引所の営業状況を確認できます"
+      - ""
+      - "&e右クリック: &f詳細情報を表示"
+      - "&e所持中: &fアクションバーに時刻表示"
+    # エンチャントグロウ効果
+    enchanted: true
+  
+  # メッセージ
+  messages:
+    purchase_success: "&a時計を購入しました！所持しているとアクションバーに時刻が表示されます。"
+    purchase_failed: "&c時計の購入に失敗しました: %reason%"
+    insufficient_funds: "&c残高が不足しています。必要: %amount%"
+    already_owned: "&e既に時計を所持しています。"
+
+# プレイヤー参加時の設定
+player_join:
+  
+  # TofuNomicsワールドでのウェルカムメッセージ一覧
+  welcome_messages:
+    - "&6▬▬▬▬▬▬▬▬ ようこそ TofuNomicsワールドへ! ▬▬▬▬▬▬▬▬"
+    - "&e%player%さん、TofuNomicsワールドにようこそ！"
+    - "&fこのワールドでは職業に就いて経済活動を楽しむことができます。"
+    - "&a初期残高として &f%starting_balance%%currency% &aを受け取りました。"
+    - "&b職業システムを活用して、豊かな経済生活を送りましょう！"
+    - "&6▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+  
+  # ウェルカムタイトル設定
+  welcome_title: "&6&lTofuNomicsへようこそ!"
+  welcome_subtitle: "&e%player%さん、経済活動をお楽しみください!"
+  
+  # 新規プレイヤー特典設定
+  new_player_bonus:
+    enabled: true
+    amount: 100.0
+    messages:
+      - "&a初めてのご参加ありがとうございます！"
+      - "&f職業に就くことで収入を得ることができます。"
+      - "&e&l/jobs join <職業名> &rで職業に就職してみましょう！"
+      - "&b利用可能な職業: &f鉱夫, 木こり, 農家, 釣り人, 鍛冶屋, ポーション屋, エンチャンター, 建築家"
+      - "&dチュートリアルクエストも用意されています。&f /quest &dで確認！"
+  
+  # 復帰プレイヤーメッセージ設定
+  welcome_back_message:
+    enabled: true
+    message: "&6★ おかえりなさい、%player%さん！"
+    days_threshold: 7  # この日数以上ログインしていなかったら復帰扱い
+
+  # スポーン座標設定
+  spawn_location:
+    enabled: true
+    world: "tofuNomics"     # テレポート先ワールド
+    x: -96                 # X座標
+    y: 76                  # Y座標  
+    z: -247                # Z座標
+    yaw: -178.8            # 水平方向の向き（-180.0 ~ 180.0、0.0=南、90.0=西、-90.0=東、180.0=北）
+    pitch: -18.8           # 垂直方向の向き（-90.0 ~ 90.0、-90.0=真上、0.0=水平、90.0=真下）
+    teleport_delay: 60     # 遅延時間（tick、3秒）
+
+# プレイヤー間マーケット設定
+market:
+  enabled: true
+  fee_rate: 0.05                  # 販売手数料率（出品者受取 = price × (1 - fee_rate)、端数は切り捨て）
+  listing_duration_days: 7        # 出品の有効日数（0で無期限）
+  min_price: 1                    # 最低出品価格
+  max_price: 1000000              # 最高出品価格
+  allow_self_purchase: false      # 自分の出品を購入可能にするか（買い注文への自己供給可否も兼ねる）
+  expire_check_interval: 3600     # 期限切れチェック間隔（秒）
+  # fee_rate / listing_duration_days / min_price / max_price は買い注文と共用
+
+  # 取引成立時の職業経験値付与（市場への流通を促すインセンティブ）
+  # 対象: 売り出品が購入された時（出品者へ）／買取募集に供給した時（供給者へ）
+  sell_exp:
+    enabled: true                 # 取引成立時、物を流した側の対応職業へ経験値を付与するか
+    multiplier: 0.3               # 付与経験値の係数（基準値 × 数量 × multiplier。直接採取より控えめにする）
+
+  # 修理・エンチャント募集（サービス委託）設定
+  service:
+    enabled: true
+    max_requests_per_player: 10       # 1人あたり同時依頼上限
+    repair_exp_cost: 5                # 修理引受で worker が消費する経験値レベル（損耗スケール時は完全損耗時の最大値）
+    repair_exp_scale_by_damage: true  # 損耗率(damage/最大耐久)に比例して経験値コストを変動させる
+    repair_exp_min_cost: 1            # 損耗スケール時の最低消費経験値レベル
+    enchant_exp_cost_per_level: 3     # エンチャント引受で消費する経験値レベル（×エンチャントレベル）
+    enchant_lapis_cost: 3             # エンチャント引受で消費するラピスラズリ個数
+    max_enchant_level: 5              # エンチャント依頼で指定可能な最大レベル
+    # 引き受けに必要な職業（金床を使えるのは鍛冶屋・エンチャンター）。空で職業制限なし
+    required_jobs:
+      - "blacksmith"
+      - "enchanter"
+    require_anvil: true               # 引き受けに金床（所持）を必須とするか
+    # エンチャント依頼で許可するエンチャント（minecraft key 小文字）。空で全許可
+    allowed_enchantments: []
+
+# ===================================
+# 食事による職業経験値ブーストバフ設定
+# ===================================
+# 食材を食べると、一定時間その職業の経験値が上がりやすくなる。
+# カテゴリ（パン/野菜/魚/肉）ごとに効果量・持続時間を設定でき、
+# 高価な食材ほど強く・長いバフにすることで「高い食材を買う動機」を作る。
+# 重複時は一番強いバフが有効（弱い食材を食べても下がらない・延長されない）。
+food_buff:
+  # 機能の有効化（false で従来通りバフ無し）
+  enabled: true
+
+  # カテゴリ別のバフ設定
+  #   bonus_percent: 経験値の上昇割合(%)
+  #   duration_seconds: バフ持続時間(秒)
+  categories:
+    bread:
+      bonus_percent: 10
+      duration_seconds: 180
+    vegetable:
+      bonus_percent: 15
+      duration_seconds: 240
+    fish:
+      bonus_percent: 25
+      duration_seconds: 360
+    meat:
+      bonus_percent: 30
+      duration_seconds: 480
+
+  # メッセージ設定（%category%=カテゴリ名, %percent%=上昇割合, %duration%=秒）
+  messages:
+    buff_applied: "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%%% &a（%duration%秒）"
+    buff_replaced: "&aより強い食事効果に切り替わりました：&e%category% +%percent%%%"
+
+# ===================================
+# 職業ガイドブック設定
+# ===================================
+guide_book_settings:
+  # ガイドブック機能の有効化
+  enabled: true
+  
+  # 重複配布を防止するか（同じ職業のガイドブックを既に持っている場合はスキップ）
+  prevent_duplicate: true
+  
+  # インベントリが満杯の場合に足元にドロップするか
+  drop_when_full: true
+  
+  # ガイドブック配布時のメッセージ
+  give_message: "&a【職業ガイド】&f%job%のガイドブックを受け取りました！"
+
+# UX/UI演出設定（Minecraft 1.21対応）
+# 各演出はサーバー側で個別に無効化できます（未設定時はすべて有効）
+ux_enhancements:
+  # /jobs list や /balancetop のクリック/ホバー可能なリッチテキスト
+  clickable_messages: true
+  # 職業レベルアップ時の画面中央Title演出
+  levelup_title: true
+  # 職業レベルアップ時のパーティクル演出
+  levelup_particle: true
+  # 送金受取時のActionBar通知
+  pay_actionbar: true
+  # 取引営業時間のBossBar表示
+  trading_bossbar: true
+  # GUIの枠装飾（カラーガラスペイン）
+  gui_decoration: true

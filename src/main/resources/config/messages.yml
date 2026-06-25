@@ -1,0 +1,436 @@
+# TofuNomics 補助設定: メッセージ・イベント・報酬
+# このファイルはサーバー固有データを含まないため、デプロイ時に上書き可能です。
+
+# メッセージ設定
+messages:
+  # 共通メッセージ
+  prefix: "&6[TofuNomics] &f"
+  # プレイヤー間マーケット
+  market:
+    listed: "&a%item% を &e%price% %currency%&a で出品しました。"
+    purchased: "&a%item% を &e%price% %currency%&a で購入しました。"
+    sold_notify: "&a出品した %item% が売れました！手数料を引いた &e%amount% %currency%&a を受け取りました。"
+    cancelled: "&a出品をキャンセルし、アイテムを回収しました。"
+    reclaimed: "&a期限切れの出品からアイテムを回収しました。"
+    invalid_item: "&c出品するアイテムを手に持ってください。"
+    invalid_price: "&c価格は &e%min%&c 〜 &e%max%&c の整数で指定してください。"
+    currency_not_allowed: "&c通貨アイテムは出品できません。"
+    not_available: "&cこの出品は購入できません。"
+    already_sold: "&cこの出品は既に売り切れました。"
+    insufficient_funds: "&c残高が不足しています。"
+    inventory_full: "&cインベントリに空きがありません。アイテムを整理してください。"
+    not_owner: "&cこれはあなたの出品ではありません。"
+    # 募集（買い注文）
+    requested: "&a%item% x%amount% の募集を &e%price% %currency%&a で登録しました（前払い）。"
+    fulfilled: "&a募集に応じ %item% x%amount% を供給しました。&e%proceeds% %currency%&a を受け取りました。"
+    fulfilled_notify: "&aあなたの募集（%item% x%amount%）が成立しました。アイテムは /market myrequests から回収できます。"
+    request_cancelled: "&a募集をキャンセルし、前払い分を返金しました。"
+    request_reclaimed: "&a成立した募集からアイテムを回収しました。"
+    request_expired_refund: "&e募集が期限切れになり、前払い分を返金しました。"
+    no_matching_item: "&c供給するアイテム（%item% x%amount%）を所持していません。"
+    request_not_available: "&cこの募集は既に成立済みか、存在しません。"
+    request_not_owner: "&cこれはあなたの募集ではありません。"
+    error: "&c処理中にエラーが発生しました。もう一度お試しください。"
+  no_permission: "&c権限がありません。"
+  player_not_found: "&cプレイヤーが見つかりません。"
+  invalid_amount: "&c無効な金額です。"
+  insufficient_balance: "&c残高が不足しています。"
+  
+  # 経済関連メッセージ
+  economy:
+    balance_self: "&a残高: &f%amount% %currency%"
+    balance_other: "&a%player%の残高: &f%amount% %currency%"
+    pay_sent: "&a%player%に %amount% %currency% を送金しました。"
+    pay_received: "&a%player%から %amount% %currency% を受け取りました。"
+    withdraw_success: "&a%amount% %currency% を引き出しました。"
+    deposit_success: "&a%amount% %currency% を預け入れました。"
+    bank_access_required: "&c銀行またはATMでのみご利用いただけます。"
+    nearest_location_info: "&e最寄りの場所: &f%location_name% &e(%distance%ブロック先)"
+    location_restrictions_disabled: "&e場所制限が無効になっています。"
+    exceed_max_withdraw: "&c1回の引き出し限度額(%max_amount%)を超えています。"
+  
+  # 職業関連メッセージ
+  jobs:
+    job_joined: "&a職業「%job%」に就職しました。"
+    job_left: "&a職業「%job%」を辞職しました。"
+    no_job: "&c現在就職していません。"
+    job_not_found: "&c指定された職業は存在しません。"
+    already_have_job: "&c既に職業に就いています。"
+  
+  # スコアボード関連メッセージ
+  scoreboard:
+    enabled: "&aスコアボードを有効にしました。"
+    disabled: "&cスコアボードを無効にしました。"
+    already_enabled: "&eスコアボードは既に有効です。"
+    already_disabled: "&eスコアボードは既に無効です。"
+  
+  # NPCシステム関連メッセージ
+  npc:
+    # 共通メッセージ
+    unknown_type: "&cNPCの種類が不明です。"
+    service_error: "&cサービス処理中にエラーが発生しました。しばらく経ってから再度お試しください。"
+    
+    # 銀行NPC関連メッセージ
+    bank:
+      no_permission: "&c銀行NPCを利用する権限がありません。"
+      service_error: "&c銀行サービスでエラーが発生しました。しばらく待ってから再度お試しください。"
+      gui_error: "&c銀行GUIの作成中にエラーが発生しました。"
+      action_error: "&c銀行操作中にエラーが発生しました。"
+      outside_hours: "&c銀行の営業時間外です。"
+      cooldown_active: "&c少し時間を置いてから再度お試しください。"
+      withdraw_failed: "&c引き出しに失敗しました。"
+      no_gold_ingots: "&c手持ちに金塊がありません。"
+      no_tofu_coins: "&c手持ちに豆腐コインがありません。"
+      greeting: "&6「いらっしゃいませ、%player%様」"
+      welcome: "&6いらっしゃいませ、%player%さん！銀行サービスをご利用いただけます。"
+      too_far: "&c銀行NPCに近づいてからご利用ください。"
+    
+    # 取引NPC関連メッセージ
+    trading:
+      no_permission: 
+        - "&c申し訳ありませんが、取引NPCを利用する権限がありません"
+        - "&e管理者に権限の設定をお願いするか、"
+        - "&e何か職業に就いてから再度お試しください"
+        - "&7必要権限: tofunomics.npc.trading.use または tofunomics.trade.basic"
+      service_error: "&c取引サービスでエラーが発生しました。しばらく待ってから再度お試しください。"
+      gui_error: "&c取引GUIの作成中にエラーが発生しました。"
+      action_error: "&c取引操作中にエラーが発生しました。"
+      outside_hours: "&c取引所の営業時間外です。"
+      cooldown_active: "&c少し時間を置いてから再度お試しください。"
+      no_job: 
+        - "&6「おや、お客さん...？」"
+        - "&e「申し訳ないが、この市場では職人さんとしか"
+        - "&eお取引できないんだ」"
+        - "&a「まずは何か職業に就いてから、また来てくれないか？」"
+        - "&7「コマンド: &f/jobs join <職業名>&7 で就職できるよ！」"
+      job_not_accepted: 
+        - "&6「あー、%player%さんでしたか」"
+        - "&e「残念だが、%job%の方との取引は"
+        - "&e専門外でしてね...」"
+        - "&a「%accepted_jobs%の職人さんなら"
+        - "&aお取引できるんだけどなぁ」"
+      post_not_found: "&c取引所が見つかりません。"
+      no_items_to_sell: "&c売却可能なアイテムがありません。"
+      no_sellable_items: "&c売却可能なアイテムがありませんでした。"
+      sale_success: "&a売却完了！ &f%total% &a獲得しました。"
+      sell_all_success: "&a一括売却完了！ &f%count%個のアイテム &aを売却し、&f%total% &a獲得しました。"
+      banked_overflow: "&e%amount%枚は所持枠が満杯のため口座に入金しました。"
+
+      # 取引所別の個性的なメッセージ
+      npc_specific:
+        central_market:
+          welcome: "&6「いらっしゃいませ、%player%さん！中央市場へようこそ。」"
+          no_job:
+            - "&6「いらっしゃい、お客さん！」"
+            - "&e「あら...？まだお仕事は決まってませんか？」"
+            - "&a「この中央市場では、職人さんとのお取引が"
+            - "&a基本なんですよ」"
+            - "&7「&f/jobs join <職業名>&7 でお仕事を見つけて"
+            - "&7また来てくださいね！」"
+        mining_post:
+          welcome: "&8「よう、%player%。鉱山の取引所にようこそ」"
+          no_job:
+            - "&8「おう、そこの...若いの」"
+            - "&7「鉱山で働きもしねぇで、何しに来た？」"
+            - "&6「ここは働く者だけの場所だ」"
+            - "&a「まずは鉱夫になるか、何か職に就いてから来な」"
+            - "&7「コマンド: &f/jobs join miner&7 で鉱夫になれるぞ」"
+        wood_market:
+          welcome: "&2「%player%さん、森の市場へようこそ」"
+          no_job:
+            - "&2「森の風が...君を運んできたのかな？」"
+            - "&a「しかし、この木材市場は職人の集う場所」"
+            - "&e「自然と共に働く者たちとしか"
+            - "&e取引はできないんだ」"
+            - "&7「&f/jobs join woodcutter&7 で木こりに、"
+            - "&7または他の職業に就いてからおいで」"
+
+
+  # ルール確認システムメッセージ
+  rules:
+    book_name: "§6§lTofuNomicsルールブック"
+    book_given: "§aルールブックを受け取りました。右クリックで確認できます。"
+    gui_title: "§6TofuNomics サーバールール"
+    must_agree: "§c§lルールに同意するまでプレイできません。§r§c /rules でルールを確認してください。"
+    agreed: "§a§l✔ ルールに同意しました！§r§a 楽しいサーバーライフを送ってください！"
+    disagreed: "§cルールに同意しませんでした。§e/rules §cでもう一度確認してください。"
+    action_blocked: "§cルールに同意するまで、この操作はできません。§e/rules §cでルールを確認してください。"
+    reset_success: "§aルール同意状態をリセットしました。次回ログイン時にルールが表示されます。"
+    reset_no_permission: "§cこのコマンドを実行する権限がありません。"
+
+# イベント報酬バランス設定（フェーズ6）
+event_rewards:
+  # 全体報酬倍率設定
+  global_multipliers:
+    # 経験値獲得倍率（tofunomicsワールドで成長促進）
+    experience_multiplier: 1.2
+    # 金塊獲得倍率（tofunomicsワールドで収入増加）
+    income_multiplier: 1.1
+    # スキル発動確率倍率
+    skill_probability_multiplier: 1.0
+    
+    # 時間帯別ボーナス
+    time_bonuses:
+      # 朝（1000-5000 tick）
+      morning:
+        experience_bonus: 0.05  # 5%ボーナス
+        income_bonus: 0.05
+      
+      # 昼（5000-12000 tick）
+      day:
+        experience_bonus: 0.0   # ボーナスなし
+        income_bonus: 0.0
+      
+      # 夜（12000-18000 tick）
+      evening:
+        experience_bonus: 0.1   # 10%ボーナス
+        income_bonus: 0.05
+      
+      # 深夜（18000-24000 tick）
+      night:
+        experience_bonus: 0.15  # 15%ボーナス
+        income_bonus: 0.1
+    
+    # 天候ボーナス
+    weather_bonuses:
+      # 雨天時
+      rain:
+        experience_bonus: 0.15  # 15%ボーナス
+        income_bonus: 0.1
+      
+      # 雷雨時
+      thunderstorm:
+        experience_bonus: 0.2   # 20%ボーナス
+        income_bonus: 0.15
+
+  # 個別イベント報酬設定
+  individual_events:
+    # ブロック破壊イベント
+    block_break:
+      base_experience: 1.0
+      base_income: 1.5
+      # レベル連動ボーナス（レベル * multiplier）
+      level_experience_bonus: 0.02
+      level_income_bonus: 0.03
+      
+      # ツール別ボーナス
+      tool_bonuses:
+        enchanted_tools:
+          efficiency:
+            level_1: 0.1      # 10%ボーナス
+            level_2: 0.15
+            level_3: 0.2
+            level_4: 0.25
+            level_5: 0.3
+          
+          fortune:
+            level_1: 0.2      # 20%ボーナス
+            level_2: 0.35
+            level_3: 0.5
+        
+        # ダイヤモンドツール使用時
+        diamond_tools:
+          experience_bonus: 0.1   # 10%ボーナス
+          income_bonus: 0.05
+    
+    # ブロック設置イベント（建築家）
+    block_place:
+      base_experience: 0.5
+      base_income: 0.8
+      level_experience_bonus: 0.015
+      level_income_bonus: 0.02
+      
+      # 建築プロジェクトボーナス
+      project_bonuses:
+        small_project:    # 20-49ブロック
+          threshold: 20
+          experience_multiplier: 1.2
+          income_multiplier: 1.1
+        
+        medium_project:   # 50-99ブロック
+          threshold: 50
+          experience_multiplier: 1.5
+          income_multiplier: 1.3
+        
+        large_project:    # 100+ブロック
+          threshold: 100
+          experience_multiplier: 2.0
+          income_multiplier: 1.6
+    
+    # 釣りイベント
+    fishing:
+      base_experience: 3.0
+      base_income: 4.0
+      level_experience_bonus: 0.05
+      level_income_bonus: 0.08
+      
+      # 魚種別ボーナス
+      fish_bonuses:
+        cod:
+          experience_multiplier: 1.0
+          income_multiplier: 1.0
+        salmon:
+          experience_multiplier: 1.2
+          income_multiplier: 1.3
+        tropical_fish:
+          experience_multiplier: 1.5
+          income_multiplier: 1.8
+        pufferfish:
+          experience_multiplier: 2.0
+          income_multiplier: 2.2
+      
+      # 宝物釣りボーナス
+      treasure_bonuses:
+        enchanted_book:
+          experience_multiplier: 3.0
+          income_multiplier: 5.0
+        name_tag:
+          experience_multiplier: 2.5
+          income_multiplier: 4.0
+    
+    # クラフトイベント
+    crafting:
+      base_experience: 2.0
+      base_income: 2.5
+      level_experience_bonus: 0.03
+      level_income_bonus: 0.04
+      
+      # アイテム複雑度ボーナス
+      complexity_bonuses:
+        simple_items:     # 基本材料のみ
+          experience_multiplier: 1.0
+          income_multiplier: 1.0
+        
+        intermediate_items:  # 中間材料使用
+          experience_multiplier: 1.3
+          income_multiplier: 1.2
+        
+        complex_items:    # 複雑な材料組み合わせ
+          experience_multiplier: 1.8
+          income_multiplier: 1.5
+
+# イベントシステム設定（フェーズ5）
+events:
+  # イベントシステムの有効化
+  enabled: true
+  
+  # 除外ワールド（イベント処理を行わないワールド）
+  excluded_worlds:
+    - "creative_world"
+    - "test_world"
+  
+  # 除外ゲームモード（常に除外: CREATIVE, SPECTATOR）
+  excluded_game_modes:
+    - "ADVENTURE"  # 必要に応じてアドベンチャーモードも除外
+  
+  # イベントキャッシュ設定
+  caching:
+    enabled: true
+    # キャッシュ有効期限（ミリ秒）- 5分
+    expiry_time: 300000
+    # クリーンアップ間隔（ミリ秒）- 1分
+    cleanup_interval: 60000
+  
+  # 非同期処理設定
+  async_processing:
+    enabled: true
+    # スレッドプール数
+    thread_pool_size: 2
+    # バッチ処理間隔（tick）- 5秒
+    batch_interval: 100
+    # バッチサイズ
+    max_batch_size: 50
+  
+  # 個別イベントハンドラ設定
+  handlers:
+    # 醸造イベント（調合師）
+    brewing:
+      enabled: true
+      # 醸造台所有者追跡範囲（ブロック）
+      owner_detection_range: 10
+    
+    # エンチャントイベント（魔術師）
+    enchantment:
+      enabled: true
+      # ボーナスエンチャント確率調整
+      bonus_enchant_rate_multiplier: 1.0
+    
+    # 繁殖イベント（農家）
+    breeding:
+      enabled: true
+      # 希少動物の定義
+      rare_animals:
+        - "HORSE"
+        - "MULE"
+        - "HOGLIN"
+        - "STRIDER"
+        - "AXOLOTL"
+    
+    # 作物成長イベント（農家）
+    growth:
+      enabled: true
+      # 作物所有者追跡範囲（ブロック）
+      owner_detection_range: 50
+      # 成長メッセージ表示確率
+      message_display_rate: 0.3
+    
+    # 建築イベント（建築家）
+    building:
+      enabled: true
+      # 建築プロジェクト追跡設定
+      project_tracking:
+        enabled: true
+        # プロジェクト有効期限（ミリ秒）- 1時間
+        expiry_time: 3600000
+        # プロジェクト範囲（ブロック）
+        max_range: 50
+      
+      # 装飾ブロック制限
+      decorative_restrictions:
+        enabled: true
+        # 一般プレイヤーが使用可能な装飾ブロック
+        allowed_for_non_builders:
+          - "CARVED_PUMPKIN"
+          - "JACK_O_LANTERN"
+  
+  # パフォーマンス最適化設定
+  performance:
+    # 統計収集の有効化
+    statistics_enabled: true
+    # デバッグモード
+    debug_mode: false
+    # 詳細ログ出力
+    verbose_logging: false
+    level_up: "&6おめでとうございます！ %job% がレベル %level% に上がりました！"
+
+# 時刻放送システム設定
+time_announcement:
+  # 時刻放送システムの有効化
+  enabled: true
+  
+  # 放送間隔（Minecraft時間：分単位）
+  # 60分 = Minecraftの1時間 = リアル時間の50秒
+  interval_minutes: 60
+  
+  # 取引開始・終了時刻に特別メッセージを送信
+  announce_trading_hours: true
+  
+  # 放送メッセージ
+  messages:
+    # 通常の時刻放送（%time%：現在時刻、%trading_status%：営業中/閉店中）
+    regular: "&e[時報] &f現在時刻：%time% &7- 取引所：%trading_status%"
+    
+    # 取引所開店メッセージ（6:00）
+    trading_open: "&a🌅 &6[お知らせ] &aおはようございます！取引所が開店しました（営業時間：6:00-22:00）"
+    
+    # 取引所閉店メッセージ（22:00）
+    trading_close: "&c🌙 &6[お知らせ] &c取引所は閉店しました。また明日お越しください（営業時間：6:00-22:00）"
+    
+    # 取引所閉店1時間前の警告（21:00）
+    trading_close_warning: "&e⚠ &6[お知らせ] &e取引所は1時間後に閉店します。お早めにお取引ください"
+    
+    # 営業中表示
+    status_open: "&a営業中"
+    
+    # 閉店中表示
+    status_closed: "&c閉店中"

@@ -24,6 +24,24 @@ public class ConfigManager {
     private final List<ConfigChangeListener> listeners = new CopyOnWriteArrayList<>();
     private final Set<String> validationErrors = new HashSet<>();
     private long lastReloadTime = 0;
+
+    // 機能別に分割された補助設定ファイル（config/ サブフォルダ配下）
+    // これらはサーバー固有データ（NPC座標等）を含まないため、デプロイ時に上書き可能。
+    // 読み込み後は config.yml のデフォルト層として注入し、統合ビューとして読み取る。
+    private static final String AUX_DIR = "config";
+    private static final String[] AUX_FILES = {
+        "jobs.yml", "messages.yml", "gameplay.yml", "system.yml"
+    };
+    private final Map<String, FileConfiguration> auxConfigs = new LinkedHashMap<>();
+
+    // 補助ファイルが管理するトップレベルセクション
+    // （jobs は block_restrictions のみ config.yml 管理、それ以外は補助ファイル管理）
+    private static final Set<String> AUX_TOP_SECTIONS = new HashSet<>(Arrays.asList(
+        "job_skills", "leveling", "messages", "event_rewards", "events", "time_announcement",
+        "rules", "tutorial", "scoreboard", "trade_system", "clock_item", "player_join",
+        "market", "food_buff", "guide_book_settings", "ux_enhancements",
+        "performance", "api", "land_protection", "debug"
+    ));
     
     public interface ConfigChangeListener {
         void onConfigChanged(String section);
@@ -37,10 +55,13 @@ public class ConfigManager {
     public void reloadConfig() {
         try {
             plugin.reloadConfig();
-            
+
+            // 機能別補助ファイルを読み込み、config.yml のデフォルト層として注入
+            loadAuxConfigs();
+
             // 設定自動更新を実行
             updateConfigWithDefaults();
-            
+
             FileConfiguration newConfig = plugin.getConfig();
             
             Map<String, Object> oldValues = new HashMap<>(configCache);
@@ -72,6 +93,93 @@ public class ConfigManager {
         }
     }
     
+    /**
+     * 機能別に分割された補助設定ファイル（config/*.yml）を読み込み、
+     * それらをマージして config.yml のデフォルト層に注入する。
+     *
+     * 仕組み（Bukkit の defaults 機構）:
+     *  - 各補助ファイルの葉キーを1つの YamlConfiguration に統合
+     *  - plugin.getConfig().setDefaults(merged) でデフォルト層として連鎖
+     *  - 以降 config.get/contains は「config.yml に無ければ補助ファイルを見る」統合ビューになる
+     *  - copyDefaults(false) によりデフォルト層は saveConfig() で config.yml に書き戻されない
+     *    （NPC配置保存等で saveConfig が呼ばれても補助セクションが混入・再肥大化しない）
+     */
+    private void loadAuxConfigs() {
+        try {
+            File auxDir = new File(plugin.getDataFolder(), AUX_DIR);
+            YamlConfiguration mergedDefaults = new YamlConfiguration();
+            auxConfigs.clear();
+
+            // plugin.reloadConfig() が設定した既存デフォルト層（jar の config.yml）を保持
+            // → slim 化した config.yml 側セクションのフォールバックを失わない
+            org.bukkit.configuration.Configuration jarDefaults = plugin.getConfig().getDefaults();
+            if (jarDefaults != null) {
+                for (String key : jarDefaults.getKeys(true)) {
+                    if (!jarDefaults.isConfigurationSection(key)) {
+                        mergedDefaults.set(key, jarDefaults.get(key));
+                    }
+                }
+            }
+
+            for (String fileName : AUX_FILES) {
+                String resourcePath = AUX_DIR + "/" + fileName;
+                File auxFile = new File(auxDir, fileName);
+
+                // jar 同梱リソースから初回コピー（既存ファイルは保持）
+                if (!auxFile.exists()) {
+                    try {
+                        plugin.saveResource(resourcePath, false);
+                    } catch (IllegalArgumentException e) {
+                        plugin.getLogger().warning("補助設定ファイルがjar内に存在しません: " + resourcePath);
+                        continue;
+                    }
+                }
+
+                if (!auxFile.exists()) {
+                    continue;
+                }
+
+                FileConfiguration aux = YamlConfiguration.loadConfiguration(auxFile);
+                auxConfigs.put(fileName, aux);
+
+                // 葉キーのみをデフォルト層へ転写（中間セクションは自動生成される）
+                for (String key : aux.getKeys(true)) {
+                    if (!aux.isConfigurationSection(key)) {
+                        mergedDefaults.set(key, aux.get(key));
+                    }
+                }
+            }
+
+            // config.yml のデフォルト層として注入（config.yml 側が常に優先）
+            FileConfiguration primary = plugin.getConfig();
+            primary.setDefaults(mergedDefaults);
+            // saveConfig() でデフォルト層を書き戻さない（再肥大化防止）
+            primary.options().copyDefaults(false);
+
+            plugin.getLogger().info("補助設定ファイルを読み込みました（" + auxConfigs.size() + "件）。");
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("補助設定ファイルの読み込み中にエラーが発生しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 指定パスが補助設定ファイル（config/*.yml）側で管理されているかを判定する。
+     * 補助ファイル側パスは config.yml に書き戻すと孤立キーになり再肥大化するため、
+     * 自動修正系の処理はこの判定で書き込みをスキップする。
+     */
+    public boolean isAuxManagedPath(String path) {
+        if (path == null || path.isEmpty()) {
+            return false;
+        }
+        // jobs は block_restrictions のみ config.yml 管理、それ以外（general/job_settings）は補助ファイル
+        if (path.equals("jobs") || path.startsWith("jobs.")) {
+            return !path.startsWith("jobs.block_restrictions");
+        }
+        String top = path.contains(".") ? path.substring(0, path.indexOf('.')) : path;
+        return AUX_TOP_SECTIONS.contains(top);
+    }
+
     public void addConfigChangeListener(ConfigChangeListener listener) {
         listeners.add(listener);
     }

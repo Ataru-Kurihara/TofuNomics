@@ -1,0 +1,143 @@
+# TofuNomics 補助設定: システム(性能/API/土地保護/デバッグ)
+# このファイルはサーバー固有データを含まないため、デプロイ時に上書き可能です。
+
+# パフォーマンス最適化設定（フェーズ6）
+performance:
+  # データベース最適化
+  database:
+    # コネクションプール設定（HikariCP）
+    connection_pool:
+      enabled: true
+      maximum_pool_size: 15
+      minimum_idle: 3
+      connection_timeout: 30000    # 30秒
+      idle_timeout: 600000         # 10分
+      max_lifetime: 1800000        # 30分
+      leak_detection_threshold: 60000  # 1分
+    
+    # バッチ処理最適化
+    batch_processing:
+      enabled: true
+      batch_size: 100              # バッチサイズ
+      batch_timeout: 5000          # 5秒でタイムアウト
+      max_queue_size: 1000         # 最大キューサイズ
+    
+    # データベースクリーンアップ
+    cleanup:
+      enabled: true
+      cleanup_interval: 3600       # 1時間毎
+      old_data_threshold_days: 30  # 30日以上古いデータを削除
+
+  # メモリキャッシュ設定
+  caching:
+    # プレイヤーデータキャッシュ
+    player_cache:
+      enabled: true
+      max_size: 1000               # 最大キャッシュサイズ
+      expire_after_access: 1800    # アクセス後30分で期限切れ
+      expire_after_write: 3600     # 書き込み後1時間で期限切れ
+    
+    # 職業データキャッシュ
+    job_cache:
+      enabled: true
+      max_size: 500
+      expire_after_access: 3600    # 1時間
+      expire_after_write: 7200     # 2時間
+    
+    # 設定キャッシュ
+    config_cache:
+      enabled: true
+      max_size: 200
+      expire_after_access: 7200    # 2時間
+      expire_after_write: 14400    # 4時間
+
+  # ガベージコレクション最適化
+  memory_management:
+    # オブジェクトプール使用
+    object_pooling:
+      enabled: true
+      pool_sizes:
+        string_builder: 50
+        location_objects: 100
+        event_objects: 200
+    
+    # メモリ監視
+    memory_monitoring:
+      enabled: true
+      warning_threshold: 0.8       # 80%でワーニング
+      critical_threshold: 0.95     # 95%でクリティカル
+      gc_suggestion_threshold: 0.85 # 85%でGC実行提案
+
+  # 統計・監視設定
+  monitoring:
+    # パフォーマンス統計収集
+    statistics:
+      enabled: true
+      collection_interval: 300    # 5分毎に統計収集
+      retention_days: 7           # 7日間統計保持
+    
+    # リアルタイム監視
+    realtime_monitoring:
+      enabled: true
+      cpu_threshold: 80.0         # CPU使用率80%で警告
+      memory_threshold: 85.0      # メモリ使用率85%で警告
+      tps_threshold: 18.0         # TPS 18以下で警告
+    
+    # アラート設定
+    alerts:
+      enabled: true
+      discord_webhook: ""         # Discord Webhook URL
+      admin_notification: true    # 管理者への通知
+
+# ========================================
+# tohu-app API連携設定
+# ========================================
+api:
+  tohu_app:
+    # 機能の有効/無効
+    enabled: false
+
+    # APIベースURL
+    base_url: "http://localhost:3000"
+
+    # 認証トークン（現時点では不要、将来の拡張用）
+    token: ""
+
+    # ワールドID（tohu-appのworld_idに対応）
+    world_id: 1
+
+
+    # リトライ設定
+    retry:
+      # 最大リトライ回数
+      max_attempts: 3
+      # 初回リトライまでの待機時間（秒）
+      initial_delay_seconds: 5
+
+    # デバッグモード（詳細ログ出力）
+    debug: false
+
+# 土地保護システム設定
+land_protection:
+  # WorldGuard連携
+  worldguard_integration: true
+  
+  # 都市部での土地価格（1ブロックあたり）
+  urban_land_price: 100
+  
+  # 土地購入制限
+  max_lands_per_player: 5
+  
+  # 保護対象ワールド
+  protected_worlds:
+    - "tofuNomics"
+    - "tofuNomics_nether"  
+    - "tofuNomics_the_end"
+# デバッグ設定
+debug:
+  # デバッグログの有効化（詳細なログ出力）
+  enabled: true
+  # NPCシステムのデバッグ
+  npc_debug: false
+  # メッセージシステムのデバッグ
+  message_debug: false
