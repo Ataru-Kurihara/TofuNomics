@@ -97,29 +97,22 @@ public class ConfigManager {
      * 機能別に分割された補助設定ファイル（config/*.yml）を読み込み、
      * それらをマージして config.yml のデフォルト層に注入する。
      *
-     * 仕組み（Bukkit の defaults 機構）:
-     *  - 各補助ファイルの葉キーを1つの YamlConfiguration に統合
-     *  - plugin.getConfig().setDefaults(merged) でデフォルト層として連鎖
-     *  - 以降 config.get/contains は「config.yml に無ければ補助ファイルを見る」統合ビューになる
-     *  - copyDefaults(false) によりデフォルト層は saveConfig() で config.yml に書き戻されない
-     *    （NPC配置保存等で saveConfig が呼ばれても補助セクションが混入・再肥大化しない）
+     * 仕組み（in-memory マージ方式）:
+     *  - 各補助ファイルの葉キーを、メモリ上の primary config（plugin.getConfig()）に直接マージする
+     *  - これにより config.getString/getInt 等の通常の読み取りがそのまま補助ファイルの値を返す
+     *    （内部アクセサ・外部クラスの getConfig() 直接読み取りも無改修で動作する）
+     *  - ディスクへの書き込みは saveConfigSlim() を使い、補助管理セクションを除外して保存する
+     *    ため config.yml は再肥大化しない（NPC配置保存等も saveConfigSlim 経由）
+     *
+     * 注意: Bukkit の setDefaults() によるデフォルト層は、親サブツリー全体が primary に
+     * 存在しない場合に config.getString(path, default) がネストした値へ到達できず指定デフォルト
+     * を返す既知の挙動があるため、defaults 層ではなく primary への実体マージを採用している。
      */
     private void loadAuxConfigs() {
         try {
             File auxDir = new File(plugin.getDataFolder(), AUX_DIR);
-            YamlConfiguration mergedDefaults = new YamlConfiguration();
+            FileConfiguration primary = plugin.getConfig();
             auxConfigs.clear();
-
-            // plugin.reloadConfig() が設定した既存デフォルト層（jar の config.yml）を保持
-            // → slim 化した config.yml 側セクションのフォールバックを失わない
-            org.bukkit.configuration.Configuration jarDefaults = plugin.getConfig().getDefaults();
-            if (jarDefaults != null) {
-                for (String key : jarDefaults.getKeys(true)) {
-                    if (!jarDefaults.isConfigurationSection(key)) {
-                        mergedDefaults.set(key, jarDefaults.get(key));
-                    }
-                }
-            }
 
             for (String fileName : AUX_FILES) {
                 String resourcePath = AUX_DIR + "/" + fileName;
@@ -142,24 +135,47 @@ public class ConfigManager {
                 FileConfiguration aux = YamlConfiguration.loadConfiguration(auxFile);
                 auxConfigs.put(fileName, aux);
 
-                // 葉キーのみをデフォルト層へ転写（中間セクションは自動生成される）
+                // 補助ファイルの葉キーを primary にマージ（primary に未設定のもののみ）
+                // 既存サーバーで config.yml 側に同セクションが残っている場合は config.yml を優先
                 for (String key : aux.getKeys(true)) {
-                    if (!aux.isConfigurationSection(key)) {
-                        mergedDefaults.set(key, aux.get(key));
+                    if (!aux.isConfigurationSection(key) && !primary.isSet(key)) {
+                        primary.set(key, aux.get(key));
                     }
                 }
             }
-
-            // config.yml のデフォルト層として注入（config.yml 側が常に優先）
-            FileConfiguration primary = plugin.getConfig();
-            primary.setDefaults(mergedDefaults);
-            // saveConfig() でデフォルト層を書き戻さない（再肥大化防止）
-            primary.options().copyDefaults(false);
 
             plugin.getLogger().info("補助設定ファイルを読み込みました（" + auxConfigs.size() + "件）。");
 
         } catch (Exception e) {
             plugin.getLogger().severe("補助設定ファイルの読み込み中にエラーが発生しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * config.yml を「サーバー固有/実行時書き込みセクションのみ」に絞って保存する。
+     * 補助管理セクション（config/*.yml 側、isAuxManagedPath で判定）は除外するため、
+     * メモリ上に補助ファイルをマージしていても config.yml は slim のまま保たれる。
+     * 通常の plugin.saveConfig() の代わりにこのメソッドを使うこと。
+     */
+    public void saveConfigSlim() {
+        try {
+            // タイミング非依存にするため config フィールドではなく plugin.getConfig() を使う
+            // （reloadConfig の途中、config 代入前に呼ばれても安全）
+            FileConfiguration current = plugin.getConfig();
+            File configFile = new File(plugin.getDataFolder(), "config.yml");
+            YamlConfiguration slim = new YamlConfiguration();
+            for (String key : current.getKeys(true)) {
+                if (current.isConfigurationSection(key)) {
+                    continue;
+                }
+                if (isAuxManagedPath(key)) {
+                    continue;
+                }
+                slim.set(key, current.get(key));
+            }
+            slim.save(configFile);
+        } catch (Exception e) {
+            plugin.getLogger().severe("config.yml（slim）の保存に失敗しました: " + e.getMessage());
         }
     }
 
@@ -2499,7 +2515,7 @@ public class ConfigManager {
 
             // 設定更新・保存
             updateConfigValue("npc_system.trading_posts", tradingPosts);
-            plugin.saveConfig();
+            saveConfigSlim();
 
             String modeInfo = emergencyMode ? " (緊急モード: 倍率" + priceMultiplier + "倍)" : "";
             plugin.getLogger().info("取引所データを追加しました: " + npcName + " (" + jobType + ")" + modeInfo);
@@ -2684,7 +2700,7 @@ public class ConfigManager {
             
             // 設定更新・保存
             updateConfigValue("npc_system.bank_npc.locations", bankNPCs);
-            plugin.saveConfig();
+            saveConfigSlim();
             
             plugin.getLogger().info("銀行NPCデータを追加しました: " + npcName + " (" + npcType + ")");
             
@@ -2761,7 +2777,7 @@ public class ConfigManager {
             
             // 設定更新・保存
             updateConfigValue("npc_system.food_npc.locations", foodNPCs);
-            plugin.saveConfig();
+            saveConfigSlim();
             
             plugin.getLogger().info("食料NPCデータを追加しました: " + npcName);
             
@@ -3017,7 +3033,7 @@ public class ConfigManager {
             
             if (removed) {
                 updateConfigValue("npc_system.trading_posts", tradingPosts);
-                plugin.saveConfig();
+                saveConfigSlim();
                 plugin.getLogger().info("取引所データの削除が完了しました: " + npcName);
             } else {
                 plugin.getLogger().warning("削除対象の取引所データが見つかりません: " + npcName);
@@ -3071,7 +3087,7 @@ public class ConfigManager {
             
             if (removed) {
                 updateConfigValue("npc_system.bank_npc.locations", bankNPCs);
-                plugin.saveConfig();
+                saveConfigSlim();
                 plugin.getLogger().info("銀行NPCデータの削除が完了しました: " + npcName);
             } else {
                 plugin.getLogger().warning("削除対象の銀行NPCデータが見つかりません: " + npcName);
@@ -3123,7 +3139,7 @@ public class ConfigManager {
             
             if (removed) {
                 updateConfigValue("npc_system.food_npc.locations", foodNPCs);
-                plugin.saveConfig();
+                saveConfigSlim();
                 plugin.getLogger().info("食料NPCデータの削除が完了しました: " + npcName);
             } else {
                 plugin.getLogger().warning("削除対象の食料NPCデータが見つかりません: " + npcName);
@@ -3141,7 +3157,7 @@ public class ConfigManager {
         try {
             plugin.getLogger().info("すべての取引所データを削除しています...");
             updateConfigValue("npc_system.trading_npcs.trading_posts", new java.util.ArrayList<>());
-            plugin.saveConfig();
+            saveConfigSlim();
             plugin.getLogger().info("すべての取引所データを削除しました");
         } catch (Exception e) {
             plugin.getLogger().severe("取引所データ全削除エラー: " + e.getMessage());
@@ -3189,7 +3205,7 @@ public class ConfigManager {
         
         if (anyDeletionOccurred) {
             plugin.getLogger().info("設定ファイル保存を実行します...");
-            plugin.saveConfig();
+            saveConfigSlim();
             plugin.getLogger().info("包括的NPC削除処理が完了しました: " + npcName);
         } else {
             plugin.getLogger().warning("削除対象のNPCが見つかりませんでした: " + npcName);
@@ -3519,7 +3535,7 @@ public class ConfigManager {
             
             // 設定を保存
             if (configUpdated) {
-                plugin.saveConfig();
+                saveConfigSlim();
                 plugin.getLogger().info("設定ファイルを自動更新しました。追加された設定: " + addedKeys.size() + "項目");
                 
                 if (!addedKeys.isEmpty()) {
@@ -3625,7 +3641,7 @@ public class ConfigManager {
             configChanged = true;
             
             if (configChanged) {
-                plugin.saveConfig();
+                saveConfigSlim();
                 reloadConfig();
                 
                 plugin.getLogger().info("設定の問題を自動修正しました。修正項目数: " + fixedIssues.size());
@@ -4309,7 +4325,7 @@ public class ConfigManager {
             
             // config.ymlに保存
             config.set("npc_system.processing_npc.locations", processingNPCs);
-            plugin.saveConfig();
+            saveConfigSlim();
             
             plugin.getLogger().info("加工NPC「" + npcName + "」をconfig.ymlに追加しました");
             plugin.getLogger().info("  座標: " + newWorld + " (" + newX + ", " + newY + ", " + newZ + ")");
@@ -4452,7 +4468,7 @@ public class ConfigManager {
             }
 
             config.set("npc_system.quest_npc.locations", questNPCs);
-            plugin.saveConfig();
+            saveConfigSlim();
 
             plugin.getLogger().info("クエストNPC「" + npcName + "」をconfig.ymlに追加しました");
             plugin.getLogger().info("  座標: " + newWorld + " (" + newX + ", " + newY + ", " + newZ + ")");
@@ -4481,8 +4497,8 @@ public class ConfigManager {
         });
         
         config.set("npc_system.processing_npc.locations", processingNPCs);
-        plugin.saveConfig();
-        
+        saveConfigSlim();
+
         plugin.getLogger().info("加工NPC「" + npcName + "」のデータを削除しました");
     }
 
@@ -4532,7 +4548,7 @@ public class ConfigManager {
             config.set("config_version", templateVersion);
             
             // 設定を保存
-            plugin.saveConfig();
+            saveConfigSlim();
             
             // 設定を再読み込み
             reloadConfig();

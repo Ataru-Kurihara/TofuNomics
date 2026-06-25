@@ -590,7 +590,7 @@ public final class TofuNomics extends JavaPlugin {
             
             // クラフト制限メッセージの強制初期化（緊急対応）
             configManager.ensureCraftRestrictionMessagesExist();
-            saveConfig(); // 設定を確実に保存
+            configManager.saveConfigSlim(); // 設定を確実に保存（補助セクション除外）
             configManager.reloadConfig(); // リロードで反映
             
             // CraftRestrictionEventHandlerの初期化（職業別クラフト制限の唯一の責任者）
@@ -622,8 +622,8 @@ public final class TofuNomics extends JavaPlugin {
             // プレイヤー間マーケット（売り・募集）メッセージの自動初期化
             configManager.ensureMarketMessagesExist();
 
-            // 設定を保存
-            saveConfig();
+            // 設定を保存（補助セクション除外）
+            configManager.saveConfigSlim();
 
             getLogger().info("設定の自動初期化が完了しました");
 

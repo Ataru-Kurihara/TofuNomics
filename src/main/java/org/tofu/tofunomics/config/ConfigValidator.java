@@ -361,7 +361,7 @@ public class ConfigValidator {
         }
 
         plugin.getConfig().set(configPath, defaultValue);
-        plugin.saveConfig();
+        configManager.saveConfigSlim();
         configManager.reloadConfig();
 
         plugin.getLogger().info("設定項目 '" + configPath + "' をデフォルト値 '" + defaultValue + "' で修正しました。");
