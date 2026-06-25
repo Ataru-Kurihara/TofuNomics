@@ -1,5 +1,33 @@
 # TofuNomics プロジェクト固有ルール
 
+## 設定ファイルの分割構成（PR #90 / #91）
+
+config.yml は肥大化のため機能別に分割されている。**設定を変更する前に、対象がどのファイルに属するか必ず確認すること。**
+
+### ファイル構成
+
+| ファイル | 内容 | デプロイ時の上書き |
+|---|---|---|
+| `config.yml`（本体） | **サーバー固有/実行時書き込み**: `npc_system`(NPC座標・trading_posts・item_prices), `economy`, `housing_rental`, `area_system`, `city_map`, `config_version`, `database`, `jobs.block_restrictions` のみ | ❌ **厳禁**（NPC座標等が消失） |
+| `config/jobs.yml` | jobs(general/job_settings), job_skills, leveling | ✅ 可 |
+| `config/messages.yml` | messages, event_rewards, events, time_announcement | ✅ 可 |
+| `config/gameplay.yml` | rules, tutorial, scoreboard, trade_system, clock_item, player_join, market, food_buff, guide_book_settings, ux_enhancements | ✅ 可 |
+| `config/system.yml` | performance, api, land_protection, debug | ✅ 可 |
+
+### 設定変更時の使い分け
+
+- **静的設定**（メッセージ・職業詳細・報酬・UI 等）→ `config/*.yml` を編集。サーバー固有データを含まないため**デプロイで安全に上書き可能**。
+- **サーバー固有設定**（NPC座標・trading_posts・economy・housing 等）→ `config.yml` 本体を編集（後述の上書き禁止ルールを厳守）。
+- 本番反映で `config/*.yml` を上書きする場合、サーバー側の値がリポジトリと**ドリフトしている**ことがある（本番API URL・独自メッセージ等）。必ずサーバーの実ファイルと差分確認してから反映する。
+
+### 動作の仕組み（開発時の注意）
+
+- `ConfigManager.loadAuxConfigs()` が起動時に補助ファイルの葉キーを **in-memory の primary config に実体マージ**する（config.yml 側が優先）。
+- 書き込みは `saveConfigSlim()` を使用し、補助管理セクション（`isAuxManagedPath`）を除外して保存 → config.yml の再肥大化を防止。**新たに `plugin.saveConfig()` を追加せず `saveConfigSlim()` を使うこと。**
+- ⚠️ **Bukkit の `setDefaults()` デフォルト層は使わない**こと。「親サブツリー全体が primary に無いと `getString(path,default)` がネストキーに到達できず指定デフォルトを返す」既知の挙動があり、これで銀行NPCメッセージ等が全滅した（PR #90 → #91 で in-memory マージに修正）。回帰防止に `ConfigSplitMergeTest` がある。
+
+---
+
 ## サーバーconfig.yml修正ルール
 
 ### 【最重要】config.yml上書き禁止ルール
