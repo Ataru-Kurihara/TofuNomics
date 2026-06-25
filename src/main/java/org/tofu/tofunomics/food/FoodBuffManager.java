@@ -3,6 +3,7 @@ package org.tofu.tofunomics.food;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.jobs.JobManager;
 
 import java.util.Map;
 import java.util.UUID;
@@ -11,42 +12,48 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 食事による職業経験値ブーストバフの管理クラス。
  *
- * 食材を食べると、そのカテゴリ（パン/野菜/魚/肉）に応じた一定時間の
- * 職業経験値倍率バフを付与する。倍率は経験値獲得時（JobExperienceManager）に乗算される。
+ * 「職業マッチ制」: 食材カテゴリ（パン/野菜/魚/肉）にはそれぞれ対応職業が設定されており、
+ * 自分の職業に対応した食材を食べたときだけ経験値ブーストが効く。対応しない食材を
+ * 食べてもブーストは付かない（倍率1.0）。ボーナス量・持続時間は全職業共通。
  *
- * 重複挙動: 上書き（一番強いものが有効）。
- *   - より強い（または同等の）バフを食べた場合は上書き（持続時間もリセット）。
- *   - 既存より弱いバフを食べても無視（下げない・延長しない）。
+ * 重複挙動: 1バフ上書き式（最後に食べた食材のカテゴリを保持）。
+ * マッチ判定の正本は {@link #getMultiplier(Player, String)} 側に置く
+ * （食後の転職や経験値経路ごとの職業差に正しく追従するため）。
  */
 public class FoodBuffManager {
 
     private final ConfigManager configManager;
+    // applyBuff 時のマッチ/非マッチ メッセージ出し分け用（倍率算出には不要）
+    private final JobManager jobManager;
 
     // プレイヤーUUID -> 有効中のバフ
     private final Map<UUID, ActiveBuff> activeBuffs = new ConcurrentHashMap<>();
 
-    public FoodBuffManager(ConfigManager configManager) {
+    public FoodBuffManager(ConfigManager configManager, JobManager jobManager) {
         this.configManager = configManager;
+        this.jobManager = jobManager;
     }
 
     /**
      * 有効中のバフ情報
      */
     private static class ActiveBuff {
-        final double factor;       // 経験値倍率（例: +30% -> 1.30）
+        final double factor;        // 経験値倍率（例: +25% -> 1.25）
         final long expiresAtMillis; // 失効時刻（エポックミリ秒）
-        final String displayName;  // カテゴリ表示名
+        final String categoryKey;   // 対応職業を引くためのカテゴリキー（bread/vegetable/fish/meat）
 
-        ActiveBuff(double factor, long expiresAtMillis, String displayName) {
+        ActiveBuff(double factor, long expiresAtMillis, String categoryKey) {
             this.factor = factor;
             this.expiresAtMillis = expiresAtMillis;
-            this.displayName = displayName;
+            this.categoryKey = categoryKey;
         }
     }
 
     /**
      * 食材カテゴリに応じたバフを付与する。
-     * 既に有効なバフより弱い場合は何もしない（一番強いものが有効）。
+     * バフ自体は常に最後に食べたカテゴリで上書きするが、実際にブーストが効くかは
+     * 経験値獲得時のマッチ判定（getMultiplier）に委ねる。
+     * ここでは現在の職業に対応するかでメッセージのみ出し分ける。
      */
     public void applyBuff(Player player, FoodCategory category) {
         if (player == null || category == null) {
@@ -56,42 +63,38 @@ public class FoodBuffManager {
             return;
         }
 
-        String key = category.getConfigKey();
-        int bonusPercent = configManager.getFoodBuffBonusPercent(key);
-        int durationSeconds = configManager.getFoodBuffDurationSeconds(key);
+        int bonusPercent = configManager.getFoodBuffBonusPercent();
+        int durationSeconds = configManager.getFoodBuffDurationSeconds();
 
         // 効果が無い設定（0%や0秒）の場合はバフを付与しない
         if (bonusPercent <= 0 || durationSeconds <= 0) {
             return;
         }
 
+        String key = category.getConfigKey();
         double newFactor = 1.0 + (bonusPercent / 100.0);
-        long now = System.currentTimeMillis();
-        long expiresAt = now + (durationSeconds * 1000L);
+        long expiresAt = System.currentTimeMillis() + (durationSeconds * 1000L);
 
-        UUID uuid = player.getUniqueId();
-        ActiveBuff current = activeBuffs.get(uuid);
-        boolean currentValid = current != null && current.expiresAtMillis > now;
+        activeBuffs.put(player.getUniqueId(), new ActiveBuff(newFactor, expiresAt, key));
 
-        // 既存が有効かつ今回が弱い場合は何もしない（下げない・延長しない）
-        // 「食べたのに無反応」に見えるのを防ぐため、理由をプレイヤーに通知する
-        if (currentValid && newFactor < current.factor) {
-            sendWeakerIgnoredMessage(player, current);
-            return;
+        // 現在の職業がこのカテゴリにマッチするか判定し、メッセージを出し分ける
+        String jobName = (jobManager != null) ? jobManager.getPlayerJob(player.getUniqueId()) : null;
+        boolean matches = jobName != null
+            && configManager.getFoodBuffCategoryJobs(key).contains(jobName);
+
+        if (matches) {
+            sendBuffMessage(player, category, bonusPercent, durationSeconds);
+        } else {
+            sendNoMatchMessage(player, category, jobName);
         }
-
-        boolean replaced = currentValid;
-        activeBuffs.put(uuid, new ActiveBuff(newFactor, expiresAt, category.getDisplayName()));
-
-        sendBuffMessage(player, replaced, category, bonusPercent, durationSeconds);
     }
 
     /**
-     * プレイヤーの現在の経験値倍率を取得する。
-     * 有効なバフが無い、または失効済みの場合は 1.0 を返す（遅延失効）。
+     * プレイヤーの指定職業に対する経験値倍率を取得する（マッチ判定の正本）。
+     * 有効なバフが無い・失効済み・現在のバフカテゴリが jobName に対応しない場合は 1.0 を返す。
      */
-    public double getMultiplier(Player player) {
-        if (player == null) {
+    public double getMultiplier(Player player, String jobName) {
+        if (player == null || jobName == null) {
             return 1.0;
         }
         UUID uuid = player.getUniqueId();
@@ -102,6 +105,10 @@ public class FoodBuffManager {
         if (buff.expiresAtMillis <= System.currentTimeMillis()) {
             // 失効済みは破棄
             activeBuffs.remove(uuid);
+            return 1.0;
+        }
+        // 保持カテゴリの対応職業に jobName が含まれるときだけブースト
+        if (!configManager.getFoodBuffCategoryJobs(buff.categoryKey).contains(jobName)) {
             return 1.0;
         }
         return buff.factor;
@@ -116,11 +123,9 @@ public class FoodBuffManager {
         }
     }
 
-    private void sendBuffMessage(Player player, boolean replaced, FoodCategory category,
+    private void sendBuffMessage(Player player, FoodCategory category,
                                  int bonusPercent, int durationSeconds) {
-        String template = replaced
-            ? configManager.getFoodBuffReplacedMessage()
-            : configManager.getFoodBuffAppliedMessage();
+        String template = configManager.getFoodBuffAppliedMessage();
         if (template == null || template.isEmpty()) {
             return;
         }
@@ -132,14 +137,18 @@ public class FoodBuffManager {
     }
 
     /**
-     * 既により強いバフが有効なため、弱い食事効果が無視されたことを通知する。
+     * 食べた食材が現在の職業に対応しないため、ブーストが効かないことを通知する。
      */
-    private void sendWeakerIgnoredMessage(Player player, ActiveBuff current) {
-        String template = configManager.getFoodBuffWeakerIgnoredMessage();
+    private void sendNoMatchMessage(Player player, FoodCategory category, String jobName) {
+        String template = configManager.getFoodBuffNoMatchMessage();
         if (template == null || template.isEmpty()) {
             return;
         }
-        String message = template.replace("%current%", current.displayName);
+        // 無職時は「無職」と表示。就職済みは職業の日本語表示名を表示。
+        String jobLabel = (jobName != null) ? configManager.getJobDisplayName(jobName) : "無職";
+        String message = template
+            .replace("%category%", category.getDisplayName())
+            .replace("%job%", jobLabel);
         player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
     }
 }

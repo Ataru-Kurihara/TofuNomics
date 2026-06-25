@@ -482,36 +482,36 @@ market:
 # 食事による職業経験値ブーストバフ設定
 # ===================================
 # 食材を食べると、一定時間その職業の経験値が上がりやすくなる。
-# カテゴリ（パン/野菜/魚/肉）ごとに効果量・持続時間を設定でき、
-# 高価な食材ほど強く・長いバフにすることで「高い食材を買う動機」を作る。
-# 重複時は一番強いバフが有効（弱い食材を食べても下がらない・延長されない）。
+# 「職業マッチ制」: 自分の現在の職業に対応した食材を食べたときだけブーストが効く。
+# 対応しない食材を食べてもブーストは付かない（倍率1.0）。
+# これにより各職業に固有の食生活が生まれ、食料NPCの需要が分散する。
 food_buff:
   # 機能の有効化（false で従来通りバフ無し）
   enabled: true
 
-  # カテゴリ別のバフ設定
+  # 全職業共通のブースト設定（職業間の有利不利をなくすため統一）
   #   bonus_percent: 経験値の上昇割合(%)
   #   duration_seconds: バフ持続時間(秒)
+  bonus_percent: 25
+  duration_seconds: 300
+
+  # カテゴリ別の対応職業（この職業のときだけブーストが効く）
+  #   jobs: 内部職業名のリスト（miner/woodcutter/farmer/fisherman/blacksmith/alchemist/enchanter/architect）
   categories:
     bread:
-      bonus_percent: 10
-      duration_seconds: 180
+      jobs: [woodcutter, architect]
     vegetable:
-      bonus_percent: 15
-      duration_seconds: 240
+      jobs: [farmer, alchemist]
     fish:
-      bonus_percent: 25
-      duration_seconds: 360
+      jobs: [fisherman, enchanter]
     meat:
-      bonus_percent: 30
-      duration_seconds: 480
+      jobs: [miner, blacksmith]
 
-  # メッセージ設定（%category%=カテゴリ名, %percent%=上昇割合, %duration%=秒）
+  # メッセージ設定（%category%=カテゴリ名, %percent%=上昇割合, %duration%=秒, %job%=職業名）
   messages:
-    buff_applied: "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%%% &a（%duration%秒）"
-    buff_replaced: "&aより強い食事効果に切り替わりました：&e%category% +%percent%%%"
-    # %current%=現在有効なより強いバフのカテゴリ名
-    buff_weaker_ignored: "&7既により強い食事効果（%current%）が有効です"
+    buff_applied: "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%% &a（%duration%秒）"
+    # 自分の職業に合わない食材を食べたときのヒント
+    buff_no_match: "&7%category%は今の職業（%job%）には効果がありません"
     buff_blocked_satiated: "&7満腹のため食事効果が付きません。空腹時に食べてください"
 
 # ===================================

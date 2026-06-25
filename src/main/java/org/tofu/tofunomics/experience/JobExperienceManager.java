@@ -805,9 +805,9 @@ public class JobExperienceManager implements Listener {
         double configMultiplier = job != null ?
             configManager.getJobExpMultiplier(jobName) : 1.0;
 
-        // 食事バフ倍率を適用（バフ無し・失効時は1.0で従来と同一）
+        // 食事バフ倍率を適用（職業マッチ制: 対応食材を食べた職業のみ。非マッチ・バフ無し・失効時は1.0）
         double foodBuffMultiplier = (foodBuffManager != null) ?
-            foodBuffManager.getMultiplier(player) : 1.0;
+            foodBuffManager.getMultiplier(player, jobName) : 1.0;
 
         return baseExperience * levelPenalty * configMultiplier * foodBuffMultiplier;
     }
@@ -829,9 +829,9 @@ public class JobExperienceManager implements Listener {
             return false;
         }
 
-        // 食事バフ倍率を適用（Mob討伐経験値などの経路でも一貫して反映。バフ無し時は1.0）
+        // 食事バフ倍率を適用（職業マッチ制。Mob討伐経験値などの経路でも一貫して反映。非マッチ・バフ無し時は1.0）
         double foodBuffMultiplier = (foodBuffManager != null) ?
-            foodBuffManager.getMultiplier(player) : 1.0;
+            foodBuffManager.getMultiplier(player, jobName) : 1.0;
 
         giveJobExperience(player, jobName, amount * foodBuffMultiplier);
         return true;
