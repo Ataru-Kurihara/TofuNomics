@@ -510,6 +510,9 @@ food_buff:
   messages:
     buff_applied: "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%%% &a（%duration%秒）"
     buff_replaced: "&aより強い食事効果に切り替わりました：&e%category% +%percent%%%"
+    # %current%=現在有効なより強いバフのカテゴリ名
+    buff_weaker_ignored: "&7既により強い食事効果（%current%）が有効です"
+    buff_blocked_satiated: "&7満腹のため食事効果が付きません。空腹時に食べてください"
 
 # ===================================
 # 職業ガイドブック設定

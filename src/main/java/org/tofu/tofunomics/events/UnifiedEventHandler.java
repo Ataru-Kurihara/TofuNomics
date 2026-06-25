@@ -469,7 +469,7 @@ public class UnifiedEventHandler implements Listener {
      * 経験値が得られる可能性のあるブロックのみ追跡
      * 注意: 鉱石ブロックは設置禁止のため追跡不要
      */
-    private boolean shouldTrackPlacedBlock(Material blockType) {
+    static boolean shouldTrackPlacedBlock(Material blockType) {
         // 鉱石類は設置禁止のため追跡不要（isOreBlockで判定）
         
         // STONE, COBBLESTONE（無限経験値防止）
@@ -493,14 +493,20 @@ public class UnifiedEventHandler implements Listener {
             return true;
         }
         
-        // 農作物類
-        if (blockType == Material.WHEAT || blockType == Material.POTATOES || 
-            blockType == Material.CARROTS || blockType == Material.BEETROOTS ||
-            blockType == Material.PUMPKIN || blockType == Material.MELON ||
-            blockType == Material.SUGAR_CANE || blockType == Material.NETHER_WART) {
+        // 農作物類（茎から自然成長したブロックを収穫するため、手動設置→破壊の悪用のみ防ぐ）
+        // カボチャ・スイカ・サトウキビは、収穫対象が「茎から自然成長したブロック」であり
+        // プレイヤー設置ブロックではないため、追跡しても正規の収穫には影響しない。
+        if (blockType == Material.PUMPKIN || blockType == Material.MELON ||
+            blockType == Material.SUGAR_CANE) {
             return true;
         }
-        
+
+        // 成熟度ゲートのある作物（小麦・ニンジン・ジャガイモ・ビートルート・ネザーウォート）は
+        // あえて追跡しない。これらはプレイヤーが種を植えた作物ブロックそのものを収穫するため、
+        // 追跡すると「自分で植えて収穫する」農業の基本ループで経験値が入らなくなる。
+        // 無限ファーミングは JobExperienceManager.isCropFullyGrown()（完全成長時のみ付与）で
+        // 既に防止済みのため、追跡対象から除外しても悪用は不可能。
+
         return false;
     }
     

@@ -74,7 +74,9 @@ public class FoodBuffManager {
         boolean currentValid = current != null && current.expiresAtMillis > now;
 
         // 既存が有効かつ今回が弱い場合は何もしない（下げない・延長しない）
+        // 「食べたのに無反応」に見えるのを防ぐため、理由をプレイヤーに通知する
         if (currentValid && newFactor < current.factor) {
+            sendWeakerIgnoredMessage(player, current);
             return;
         }
 
@@ -126,6 +128,18 @@ public class FoodBuffManager {
             .replace("%category%", category.getDisplayName())
             .replace("%percent%", String.valueOf(bonusPercent))
             .replace("%duration%", String.valueOf(durationSeconds));
+        player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+    }
+
+    /**
+     * 既により強いバフが有効なため、弱い食事効果が無視されたことを通知する。
+     */
+    private void sendWeakerIgnoredMessage(Player player, ActiveBuff current) {
+        String template = configManager.getFoodBuffWeakerIgnoredMessage();
+        if (template == null || template.isEmpty()) {
+            return;
+        }
+        String message = template.replace("%current%", current.displayName);
         player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
     }
 }
