@@ -509,7 +509,7 @@ food_buff:
 
   # メッセージ設定（%category%=カテゴリ名, %percent%=上昇割合, %duration%=秒, %job%=職業名）
   messages:
-    buff_applied: "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%%% &a（%duration%秒）"
+    buff_applied: "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%% &a（%duration%秒）"
     # 自分の職業に合わない食材を食べたときのヒント
     buff_no_match: "&7%category%は今の職業（%job%）には効果がありません"
     buff_blocked_satiated: "&7満腹のため食事効果が付きません。空腹時に食べてください"

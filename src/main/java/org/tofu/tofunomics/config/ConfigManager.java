@@ -3379,7 +3379,7 @@ public class ConfigManager {
      */
     public String getFoodBuffAppliedMessage() {
         return config.getString("food_buff.messages.buff_applied",
-            "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%%% &a（%duration%秒）");
+            "&a食事の効果！ &e%category% &aで職業経験値 &e+%percent%% &a（%duration%秒）");
     }
 
     /**
