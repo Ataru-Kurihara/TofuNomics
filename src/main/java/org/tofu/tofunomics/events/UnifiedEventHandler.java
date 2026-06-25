@@ -19,8 +19,10 @@ import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.player.PlayerEggThrowEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -58,6 +60,7 @@ public class UnifiedEventHandler implements Listener {
     private final org.tofu.tofunomics.events.handlers.BreedingEventHandler breedingHandler;
     private final org.tofu.tofunomics.events.handlers.GrowthEventHandler growthHandler;
     private final org.tofu.tofunomics.events.handlers.BuildingEventHandler buildingHandler;
+    private final org.tofu.tofunomics.events.handlers.FarmingActivityEventHandler farmingActivityHandler;
     
     // 既存のハンドラ参照
     private final org.tofu.tofunomics.experience.JobExperienceManager experienceManager;
@@ -109,6 +112,9 @@ public class UnifiedEventHandler implements Listener {
             configManager, playerDAO, jobManager, asyncUpdater
         );
         this.buildingHandler = new org.tofu.tofunomics.events.handlers.BuildingEventHandler(
+            configManager, playerDAO, jobManager, asyncUpdater
+        );
+        this.farmingActivityHandler = new org.tofu.tofunomics.events.handlers.FarmingActivityEventHandler(
             configManager, playerDAO, jobManager, asyncUpdater
         );
     }
@@ -357,7 +363,54 @@ public class UnifiedEventHandler implements Listener {
         // キャッシュに記録
         eventCache.markAsProcessed(player, "player_fish");
     }
-    
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerShear(PlayerShearEntityEvent event) {
+        if (!shouldProcessEvent(event)) return;
+
+        Player player = event.getPlayer();
+
+        // キャッシュチェック
+        if (eventCache.isRecentlyProcessed(player, "player_shear", 500)) {
+            return;
+        }
+
+        // 農家専用処理（羊毛・キノコ牛の刈り取り）
+        farmingActivityHandler.handleShear(event);
+
+        // キャッシュに記録
+        eventCache.markAsProcessed(player, "player_shear");
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerEggThrow(PlayerEggThrowEvent event) {
+        if (!shouldProcessEvent(event)) return;
+
+        Player player = event.getPlayer();
+
+        // キャッシュチェック
+        if (eventCache.isRecentlyProcessed(player, "egg_throw", 500)) {
+            return;
+        }
+
+        // 農家専用処理（卵の孵化）
+        farmingActivityHandler.handleEggHatch(event);
+
+        // キャッシュに記録
+        eventCache.markAsProcessed(player, "egg_throw");
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerInteractComposter(PlayerInteractEvent event) {
+        if (!shouldProcessEvent(event)) return;
+
+        // 農家専用処理（コンポスターの骨粉生成）
+        // 満杯(LEVEL 8)の取り出し時のみ成立し、取り出すとLEVEL 0になるため
+        // 1操作で1回しか経験値が入らない。材料消費も伴うためキャッシュ不要。
+        // 両手分の二重発火はハンドラ側でメインハンド限定にして防ぐ。
+        farmingActivityHandler.handleComposterHarvest(event);
+    }
+
     // ========== ユーティリティメソッド ==========
     
     /**
