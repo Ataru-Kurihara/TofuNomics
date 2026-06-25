@@ -1,0 +1,1448 @@
+# TofuNomics 補助設定: 職業・スキル・レベリング
+# このファイルはサーバー固有データを含まないため、デプロイ時に上書き可能です。
+    # 設定例:
+    # atms:
+    #   - world: "world_name"
+    #     x: 0
+    #     y: 65
+    #     z: 0
+    #     name: "商店街ATM"
+    #   - world: "world_name"
+    #     x: 100
+    #     y: 70
+    #     z: 100
+    #     name: "住宅街ATM"
+
+# 職業システム設定
+jobs:
+  # 職業の基本設定
+  general:
+    # プレイヤーが同時に持てる職業数
+    max_jobs_per_player: 1
+    # 転職時のレベル保持（true: 保持, false: リセット）
+    keep_level_on_change: true
+    # 職業変更のクールダウン時間（秒）。0で制限なし、86400で1日1回
+    job_change_cooldown: 0
+    # 上級職業: 初回就職では選べず、いずれかの職業でレベル50に到達した後に解禁される
+    advanced_jobs:
+      - "alchemist"
+      - "enchanter"
+      - "architect"
+
+  # 各職業の設定
+  job_settings:
+    miner:
+      display_name: "鉱夫"
+      description: "鉱物資源と石材の供給を担当"
+      max_level: 100
+      base_income_multiplier: 1.0
+      # レベルアップに必要な経験値倍率
+      exp_multiplier: 10.0
+      # 売却ボーナス（レベル1での基本ボーナス）
+      base_sell_bonus: 0.05
+      # 職業ガイドブック設定
+      guide_book:
+        enabled: true
+        title: "&6&l鉱夫ガイドブック"
+        author: "TofuNomics職業組合"
+        pages:
+          - |
+            &0&l【鉱夫の仕事】
+
+            &0鉱夫は鉱物資源と
+            石材の供給を担当
+            する職業です。
+
+            採掘で経験値と
+            報酬を獲得できます。
+          - |
+            &0&l【主な収入源】
+
+            &8採掘した鉱石を
+            &8取引所NPCで売却！
+
+            &0・石炭/鉄が基本
+            &0・金/ダイヤが高額
+            &0・エメラルドも◎
+
+            &eレベルUPで
+            &e売却ボーナス増加！
+          - |
+            &0&l【経験値の上げ方】
+
+            &0対象の鉱石や石を
+            採掘すると職業
+            経験値を獲得！
+
+            &8■自分で掘った
+            　ブロックが対象
+            &8■設置した石は
+            　経験値対象外
+
+            &e掘るほど成長！
+          - |
+            &0&l【経験値一覧①】
+
+            &8採掘1個あたり:
+
+            &8■石炭鉱石 25
+            &8■鉄鉱石 50
+            &8■金鉱石 80
+            &8■レッドストーン 30
+            &8■ラピスラズリ 40
+            &8■石 50
+          - |
+            &0&l【経験値一覧②】
+
+            &8採掘1個あたり:
+
+            &8■ダイヤ鉱石 200
+            &8■エメラルド鉱石 200
+            &8■ネザークォーツ 60
+            &8■古代の残骸 500
+
+            &e希少な鉱石ほど
+            &e経験値も大量！
+          - |
+            &0&l【必要経験値】
+
+            &8レベルUPに必要な
+            &8累計経験値:
+
+            &8■Lv5: 1,393
+            &8■Lv10: 6,502
+            &8■Lv25: 41,918
+            &8■Lv50: 162,694
+            &8■Lv100: 619,023
+
+            &8高Lvほど経験値
+            &8効率が低下します
+          - |
+            &0&l【職業スキル①】
+
+            &6幸運の一撃
+            &8Lv10〜 発動5〜25%
+            &8ドロップ量が1.5倍
+
+            &6鉱脈発見
+            &8Lv25〜 発動8〜30%
+            &8周囲3マスも採掘
+          - |
+            &0&l【職業スキル②】
+
+            &6採掘の極意
+            &8Lv50〜 発動10〜40%
+            &8ツール耐久を
+            &830%節約できる
+
+            &eスキルはレベルUPで
+            &e発動率が上昇！
+          - |
+            &0&l【レベルUP特典】
+
+            &8到達報酬:
+            &8■Lv10: 200金塊
+            &8■Lv25: 500金塊
+            &8　＋ダイヤのツルハシ
+            &8■Lv50: 1000金塊
+            &8■Lv75: 2000金塊
+
+            &8レベルに応じて
+            &8称号も変化！
+
+            &eLv50で転職可能！
+          - |
+            &0&l【稼ぐコツ】
+
+            &8■まず石炭と鉄を
+            　集めて売ろう
+            &8■ツルハシの耐久
+            　に注意
+            &8■ダイヤ/エメラルド
+            　は特に高経験値
+            &8■洞窟や廃坑が
+            　おすすめ
+          - |
+            &0&l【便利なコマンド】
+
+            &0/jobs stats
+            &8→ 職業の統計情報
+
+            &0/jobs info
+            &8→ 職業の詳細
+
+            &0/jobs guide
+            &8→ この本を再取得
+      
+    woodcutter:
+      display_name: "木こり"
+      description: "木材の供給を担当"
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+      # 職業ガイドブック設定
+      guide_book:
+        enabled: true
+        title: "&2&l木こりガイドブック"
+        author: "TofuNomics職業組合"
+        pages:
+          - |
+            &0&l【木こりの仕事】
+
+            &0木こりは木材の
+            供給を担当する
+            職業です。
+
+            伐採で経験値と
+            報酬を獲得できます。
+          - |
+            &0&l【主な収入源】
+
+            &8原木を取引所NPCで
+            &8売却して稼ごう！
+
+            &0・苗木も売れる
+            &0・ダークオークが
+            　 高額
+            &0・レベルUPで
+            　 売却ボーナス増加
+          - |
+            &0&l【経験値の上げ方】
+
+            &0対象の原木を
+            伐採すると職業
+            経験値を獲得！
+
+            &8■原木の種類で
+            　経験値が変化
+            &8■苗木を植えて
+            　持続的に伐採
+
+            &a森を育てよう！
+          - |
+            &0&l【経験値一覧】
+
+            &8伐採1本あたり:
+
+            &8■オーク原木 30
+            &8■白樺原木 30
+            &8■トウヒ原木 30
+            &8■ジャングル原木 40
+            &8■アカシア原木 40
+            &8■ダークオーク原木 40
+            &8■歪んだ幹 50
+            &8■真紅の幹 50
+          - |
+            &0&l【必要経験値】
+
+            &8レベルUPに必要な
+            &8累計経験値:
+
+            &8■Lv5: 1,393
+            &8■Lv10: 6,502
+            &8■Lv25: 41,918
+            &8■Lv50: 162,694
+            &8■Lv100: 619,023
+
+            &8高Lvほど経験値
+            &8効率が低下します
+          - |
+            &0&l【職業スキル①】
+
+            &2一斉伐採
+            &8Lv15〜 発動10〜35%
+            &8木全体を一括伐採
+            &8(最大64ブロック)
+
+            &2苗木の恵み
+            &8Lv30〜 発動15〜50%
+            &8苗木が追加ドロップ
+          - |
+            &0&l【職業スキル②】
+
+            &2森の番人
+            &8Lv45〜 発動5〜20%
+            &8木材の品質が
+            &81.8倍に向上
+
+            &aスキルはレベルUPで
+            &a発動率が上昇！
+          - |
+            &0&l【レベルUP特典】
+
+            &8到達報酬:
+            &8■Lv10: 200金塊
+            &8■Lv25: 500金塊
+            &8　＋ダイヤの斧
+            &8■Lv50: 1000金塊
+            &8■Lv75: 2000金塊
+
+            &8レベルに応じて
+            &8称号も変化！
+
+            &aLv50で転職可能！
+          - |
+            &0&l【稼ぐコツ】
+
+            &8■オークや白樺は
+            　育てやすい
+            &8■苗木を植えて
+            　持続可能に
+            &8■ダークオークが
+            　高値で売れる
+            &8■斧の耐久に
+            　注意しよう
+          - |
+            &0&l【便利なコマンド】
+
+            &0/jobs stats
+            &8→ 職業の統計情報
+
+            &0/jobs info
+            &8→ 職業の詳細
+
+            &0/jobs guide
+            &8→ この本を再取得
+      
+    farmer:
+      display_name: "農家"
+      description: "農作物・畜産物の供給を担当"
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+      # 職業ガイドブック設定
+      guide_book:
+        enabled: true
+        title: "&a&l農家ガイドブック"
+        author: "TofuNomics職業組合"
+        pages:
+          - |
+            &0&l【農家の仕事】
+
+            &0農家は農作物と
+            畜産物の供給を
+            担当する職業です。
+
+            収穫で経験値と
+            報酬を獲得できます。
+          - |
+            &0&l【主な収入源】
+
+            &8農作物を取引所NPCで
+            &8売却して稼ごう！
+
+            &0・小麦/にんじんが
+            　 基本
+            &0・かぼちゃ/スイカ
+            　 が高額
+            &0・レベルUPで
+            　 売却ボーナス増加
+          - |
+            &0&l【経験値の上げ方】
+
+            &0育てた農作物を
+            収穫すると職業
+            経験値を獲得！
+
+            &8■成熟した作物を
+            　収穫しよう
+            &8■種を撒いて
+            　再び育てよう
+
+            &a畑を広げよう！
+          - |
+            &0&l【経験値一覧①】
+
+            &8収穫1個あたり:
+
+            &8■小麦 30
+            &8■にんじん 30
+            &8■じゃがいも 30
+            &8■ビートルート 30
+            &8■サトウキビ 20
+          - |
+            &0&l【経験値一覧②】
+
+            &8収穫1個あたり:
+
+            &8■かぼちゃ 35
+            &8■スイカ 30
+            &8■カカオ豆 30
+            &8■ネザーウォート 35
+
+            &e作物の種類で
+            &e経験値が変化
+          - |
+            &0&l【経験値一覧③】
+
+            &8右クリック採取:
+
+            &8■スイートベリー 20
+            &8■グローベリー 20
+            &8■はちみつ 30
+
+            &e茂み・洞窟ツタ・
+            &eハチの巣から採取
+          - |
+            &0&l【必要経験値】
+
+            &8レベルUPに必要な
+            &8累計経験値:
+
+            &8■Lv5: 1,393
+            &8■Lv10: 6,502
+            &8■Lv25: 41,918
+            &8■Lv50: 162,694
+            &8■Lv100: 619,023
+
+            &8高Lvほど経験値
+            &8効率が低下します
+          - |
+            &0&l【職業スキル①】
+
+            &a豊穣の恵み
+            &8Lv10〜 発動12〜40%
+            &8収穫量が50%増加
+
+            &a双子の奇跡
+            &8Lv15〜 発動10〜25%
+            &8繁殖で双子が誕生
+          - |
+            &0&l【職業スキル②】
+
+            &a成長促進
+            &8Lv30〜 発動20〜60%
+            &8作物の成長が
+            &825%加速
+
+            &a品種改良
+            &8Lv50〜 発動5〜15%
+            &8品質が2.0倍に
+          - |
+            &0&l【レベルUP特典】
+
+            &8到達報酬:
+            &8■Lv10: 200金塊
+            &8■Lv25: 500金塊
+            &8■Lv50: 1000金塊
+            &8■Lv75: 2000金塊
+
+            &8レベルに応じて
+            &8称号も変化！
+
+            &aLv50で転職可能！
+          - |
+            &0&l【稼ぐコツ】
+
+            &8■水源の近くに
+            　畑を作ろう
+            &8■かぼちゃ/スイカが
+            　高値で売れる
+            &8■骨粉で成長を
+            　早めよう
+            &8■動物の繁殖でも
+            　収入を得られる
+          - |
+            &0&l【便利なコマンド】
+
+            &0/jobs stats
+            &8→ 職業の統計情報
+
+            &0/jobs info
+            &8→ 職業の詳細
+
+            &0/jobs guide
+            &8→ この本を再取得
+      
+    fisherman:
+      display_name: "釣り人"
+      description: "魚と宝の供給を担当"
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+      # 職業ガイドブック設定
+      guide_book:
+        enabled: true
+        title: "&b&l釣り人ガイドブック"
+        author: "TofuNomics職業組合"
+        pages:
+          - |
+            &0&l【釣り人の仕事】
+
+            &0釣り人は魚と宝の
+            供給を担当する
+            職業です。
+
+            釣りで経験値と
+            報酬を獲得できます。
+          - |
+            &0&l【主な収入源】
+
+            &8釣った魚を取引所
+            &8NPCで売却！
+
+            &0・タラ/サケが基本
+            &0・宝物もドロップ
+            &0・レベルUPで
+            　 売却ボーナス増加
+
+            &bレア魚は高額！
+          - |
+            &0&l【経験値の上げ方】
+
+            &0釣りをすると
+            職業経験値を
+            獲得できます。
+
+            &8■魚や宝物を
+            　釣り上げよう
+            &8■雨や夜は
+            　経験値ボーナス
+
+            &b釣り続けよう！
+          - |
+            &0&l【経験値一覧】
+
+            &8釣り1回あたり:
+
+            &8■魚を釣る 100
+            &8■生物を釣る 150
+            &8■宝物ボーナス +150
+
+            &8天候ボーナス:
+            &8■雨天時 経験値1.2倍
+            &8■夜間 経験値1.15倍
+          - |
+            &0&l【必要経験値】
+
+            &8レベルUPに必要な
+            &8累計経験値:
+
+            &8■Lv5: 1,393
+            &8■Lv10: 6,502
+            &8■Lv25: 41,918
+            &8■Lv50: 162,694
+            &8■Lv100: 619,023
+
+            &8高Lvほど経験値
+            &8効率が低下します
+          - |
+            &0&l【職業スキル①】
+
+            &b大物釣り
+            &8Lv20〜 発動8〜30%
+            &8魚のサイズが1.5倍
+
+            &b宝探し
+            &8Lv35〜 発動5〜20%
+            &8宝物の確率が1.8倍
+          - |
+            &0&l【職業スキル②】
+
+            &b海の加護
+            &8Lv50〜 常時発動
+            &8天候による
+            &8釣果のムラを解消
+
+            &bスキルはレベルUPで
+            &b発動率が上昇！
+          - |
+            &0&l【レベルUP特典】
+
+            &8到達報酬:
+            &8■Lv10: 200金塊
+            &8■Lv25: 500金塊
+            &8■Lv50: 1000金塊
+            &8■Lv75: 2000金塊
+
+            &8レベルに応じて
+            &8称号も変化！
+
+            &bLv50で転職可能！
+          - |
+            &0&l【稼ぐコツ】
+
+            &8■雨の日は
+            　釣り効率UP
+            &8■宝釣りエンチャント
+            　を付けよう
+            &8■開けた水場が
+            　ベスト
+            &8■宝物は高値で
+            　売れる
+          - |
+            &0&l【便利なコマンド】
+
+            &0/jobs stats
+            &8→ 職業の統計情報
+
+            &0/jobs info
+            &8→ 職業の詳細
+
+            &0/jobs guide
+            &8→ この本を再取得
+      
+    blacksmith:
+      display_name: "鍛冶屋"
+      description: "ツール、武器、防具の生産と修理を担当"
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+      # 職業ガイドブック設定
+      guide_book:
+        enabled: true
+        title: "&8&l鍛冶屋ガイドブック"
+        author: "TofuNomics職業組合"
+        pages:
+          - |
+            &0&l【鍛冶屋の仕事】
+
+            &0鍛冶屋はツール、
+            武器、防具の生産
+            と修理を担当する
+            職業です。
+
+            作成で経験値と
+            報酬を獲得できます。
+          - |
+            &0&l【主な収入源】
+
+            &8作成した装備を
+            &8取引所NPCで売却！
+
+            &0・鉄装備が基本
+            &0・ダイヤ装備が高額
+            &0・レベルUPで
+            　 売却ボーナス増加
+
+            &7高品質ほど高額！
+          - |
+            &0&l【経験値の上げ方】
+
+            &0作業台で装備や
+            ツールを作成すると
+            職業経験値を獲得！
+
+            &8■高品質な装備
+            　ほど高経験値
+            &8■素材は鉱夫から
+            　仕入れよう
+
+            &7名工を目指せ！
+          - |
+            &0&l【経験値一覧①】
+
+            &8作成1個あたり:
+
+            &8■鉄インゴット 50
+            &8■金インゴット 80
+            &8■鉄の剣 120
+            &8■鉄ツルハシ/斧 150
+            &8■鉄シャベル 90
+            &8■鉄防具 各100
+            &8■盾 80
+          - |
+            &0&l【経験値一覧②】
+
+            &8作成1個あたり:
+
+            &8■ダイヤの剣 300
+            &8■ダイヤツール 350
+            &8■ダイヤ防具 各250
+            &8■ネザライト 750
+            &8■金リンゴ 150
+
+            &e高級品ほど高経験値
+          - |
+            &0&l【必要経験値】
+
+            &8レベルUPに必要な
+            &8累計経験値:
+
+            &8■Lv5: 1,393
+            &8■Lv10: 6,502
+            &8■Lv25: 41,918
+            &8■Lv50: 162,694
+            &8■Lv100: 619,023
+
+            &8高Lvほど経験値
+            &8効率が低下します
+          - |
+            &0&l【職業スキル①】
+
+            &7完璧な修理
+            &8Lv10〜 発動15〜50%
+            &8修理時に耐久を
+            &820%上乗せ
+
+            &7名工の技
+            &8Lv25〜 発動10〜35%
+            &8装備の品質1.5倍
+          - |
+            &0&l【職業スキル②】
+
+            &7神器創造
+            &8Lv60〜 発動2〜8%
+            &8特殊エンチャントが
+            &8付与される
+
+            &7スキルはレベルUPで
+            &7発動率が上昇！
+          - |
+            &0&l【レベルUP特典】
+
+            &8到達報酬:
+            &8■Lv10: 200金塊
+            &8■Lv25: 500金塊
+            &8■Lv50: 1000金塊
+            &8■Lv75: 2000金塊
+
+            &8レベルに応じて
+            &8称号も変化！
+
+            &7Lv50で転職可能！
+          - |
+            &0&l【稼ぐコツ】
+
+            &8■まず鉄装備から
+            　作り始めよう
+            &8■作業台と金床を
+            　用意しよう
+            &8■ダイヤ装備は
+            　高値で売れる
+            &8■鉱夫と協力して
+            　素材を確保
+          - |
+            &0&l【便利なコマンド】
+
+            &0/jobs stats
+            &8→ 職業の統計情報
+
+            &0/jobs info
+            &8→ 職業の詳細
+
+            &0/jobs guide
+            &8→ この本を再取得
+      
+    alchemist:
+      display_name: "ポーション屋"
+      description: "ポーションの生産を担当"
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+      # 職業ガイドブック設定
+      guide_book:
+        enabled: true
+        title: "&5&lポーション屋ガイドブック"
+        author: "TofuNomics職業組合"
+        pages:
+          - |
+            &0&l【ポーション屋の仕事】
+
+            &0ポーション屋は
+            各種ポーションの
+            生産を担当する
+            職業です。
+
+            醸造で経験値と
+            報酬を獲得できます。
+          - |
+            &0&l【主な収入源】
+
+            &8ポーションを取引所
+            &8NPCで売却！
+
+            &0・基本ポーション
+            　 から始めよう
+            &0・高効果ほど高額
+            &0・レベルUPで
+            　 売却ボーナス増加
+          - |
+            &0&l【経験値の上げ方】
+
+            &0醸造台でポーション
+            を醸造すると職業
+            経験値を獲得！
+
+            &8■醸造が完了する
+            　たびに経験値
+            &8■醸造台の近くに
+            　いる必要あり
+
+            &5醸造を続けよう！
+          - |
+            &0&l【経験値一覧】
+
+            &8醸造1回あたり:
+
+            &8■ポーション醸造 100
+
+            &7※醸造台での醸造が
+            &7完了するたびに
+            &7経験値を獲得
+
+            &eどの種類でも
+            &e経験値は同じです
+          - |
+            &0&l【必要経験値】
+
+            &8レベルUPに必要な
+            &8累計経験値:
+
+            &8■Lv5: 1,393
+            &8■Lv10: 6,502
+            &8■Lv25: 41,918
+            &8■Lv50: 162,694
+            &8■Lv100: 619,023
+
+            &8高Lvほど経験値
+            &8効率が低下します
+          - |
+            &0&l【職業スキル①】
+
+            &5材料節約
+            &8Lv15〜 発動20〜60%
+            &8醸造材料を50%節約
+
+            &5二重醸造
+            &8Lv30〜 発動10〜25%
+            &8ポーションが追加生成
+          - |
+            &0&l【職業スキル②】
+
+            &5錬金の極意
+            &8Lv50〜 発動15〜40%
+            &8ポーションの効果
+            &8時間が1.5倍に
+
+            &5スキルはレベルUPで
+            &5発動率が上昇！
+          - |
+            &0&l【レベルUP特典】
+
+            &8到達報酬:
+            &8■Lv10: 200金塊
+            &8■Lv25: 500金塊
+            &8■Lv50: 1000金塊
+            &8■Lv75: 2000金塊
+
+            &8レベルに応じて
+            &8称号も変化！
+
+            &5Lv50で転職可能！
+          - |
+            &0&l【稼ぐコツ】
+
+            &8■醸造台とブレイズ
+            　パウダーが必須
+            &8■ネザーウォートを
+            　確保しよう
+            &8■高効果ポーション
+            　ほど高値で売れる
+            &8■残留ポーションが
+            　最も高額
+          - |
+            &0&l【便利なコマンド】
+
+            &0/jobs stats
+            &8→ 職業の統計情報
+
+            &0/jobs info
+            &8→ 職業の詳細
+
+            &0/jobs guide
+            &8→ この本を再取得
+      
+    enchanter:
+      display_name: "エンチャンター"
+      description: "エンチャントサービスを担当"
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+      # 職業ガイドブック設定
+      guide_book:
+        enabled: true
+        title: "&d&lエンチャンターガイドブック"
+        author: "TofuNomics職業組合"
+        pages:
+          - |
+            &0&l【エンチャンターの仕事】
+
+            &0エンチャンターは
+            エンチャントサービス
+            を担当する職業です。
+
+            エンチャントで
+            経験値と報酬を
+            獲得できます。
+          - |
+            &0&l【主な収入源】
+
+            &8エンチャント済み
+            &8アイテムを取引所
+            &8NPCで売却！
+
+            &0・高レベルエンチャ
+            　 ほど高額
+            &0・レベルUPで
+            　 売却ボーナス増加
+          - |
+            &0&l【経験値の上げ方】
+
+            &0エンチャント台で
+            エンチャントすると
+            職業経験値を獲得！
+
+            &8■付与レベルの
+            　合計が高いほど
+            　経験値も多い
+
+            &dラピスを用意！
+          - |
+            &0&l【経験値一覧】
+
+            &8エンチャント1回:
+            &8(付与Lv合計で変化)
+
+            &8■合計Lv1 150
+            &8■合計Lv2 250
+            &8■合計Lv3 400
+            &8■合計Lv4 550
+            &8■合計Lv5 750
+
+            &d高レベルほど高経験値
+          - |
+            &0&l【必要経験値】
+
+            &8レベルUPに必要な
+            &8累計経験値:
+
+            &8■Lv5: 1,393
+            &8■Lv10: 6,502
+            &8■Lv25: 41,918
+            &8■Lv50: 162,694
+            &8■Lv100: 619,023
+
+            &8高Lvほど経験値
+            &8効率が低下します
+          - |
+            &0&l【職業スキル①】
+
+            &d経験値節約
+            &8Lv10〜 発動25〜70%
+            &8エンチャントコスト
+            &8を30%削減
+
+            &dボーナスエンチャント
+            &8Lv25〜 発動8〜25%
+            &8エンチャレベル+1
+          - |
+            &0&l【職業スキル②】
+
+            &d魔術の神秘
+            &8Lv45〜 発動5〜15%
+            &8希少エンチャントの
+            &8確率が2.0倍に
+
+            &dスキルはレベルUPで
+            &d発動率が上昇！
+          - |
+            &0&l【レベルUP特典】
+
+            &8到達報酬:
+            &8■Lv10: 200金塊
+            &8■Lv25: 500金塊
+            &8■Lv50: 1000金塊
+            &8■Lv75: 2000金塊
+
+            &8レベルに応じて
+            &8称号も変化！
+
+            &dLv50で転職可能！
+          - |
+            &0&l【稼ぐコツ】
+
+            &8■本棚15個で
+            　最大レベル解放
+            &8■経験値を貯めて
+            　おこう
+            &8■高レベルエンチャント
+            　は高値で売れる
+            &8■ラピスラズリを
+            　常備しよう
+          - |
+            &0&l【便利なコマンド】
+
+            &0/jobs stats
+            &8→ 職業の統計情報
+
+            &0/jobs info
+            &8→ 職業の詳細
+
+            &0/jobs guide
+            &8→ この本を再取得
+      
+    architect:
+      display_name: "建築家"
+      description: "建築と装飾を担当"
+      max_level: 100
+      base_income_multiplier: 1.0
+      exp_multiplier: 10.0
+      base_sell_bonus: 0.05
+      # 職業ガイドブック設定
+      guide_book:
+        enabled: true
+        title: "&e&l建築家ガイドブック"
+        author: "TofuNomics職業組合"
+        pages:
+          - |
+            &0&l【建築家の仕事】
+
+            &0建築家は建築と
+            装飾を担当する
+            職業です。
+
+            建築で経験値と
+            報酬を獲得できます。
+          - |
+            &0&l【主な収入源】
+
+            &8建築ブロックを
+            &8取引所NPCで売却！
+
+            &0・石系ブロックが
+            　 基本
+            &0・装飾ブロックが
+            　 高額
+            &0・レベルUPで
+            　 売却ボーナス増加
+          - |
+            &0&l【経験値の上げ方】
+
+            &0対象ブロックを
+            設置すると職業
+            経験値を獲得！
+
+            &8■設置するブロック
+            　の種類で変化
+            &8■装飾ブロックは
+            　高経験値
+
+            &e建てて稼ごう！
+          - |
+            &0&l【経験値一覧①】
+
+            &8ブロック設置1個:
+
+            &8■石 8
+            &8■丸石 5
+            &8■各種板材 6
+            &8■レンガ 20
+            &8■ガラス 10
+          - |
+            &0&l【経験値一覧②】
+
+            &8ブロック設置1個:
+
+            &8■石レンガ 15
+            &8■クォーツブロック 30
+            &8■プリズマリン 40
+            &8■プルプァブロック 50
+            &8■エンドレンガ 60
+
+            &e装飾系ほど高経験値
+          - |
+            &0&l【必要経験値】
+
+            &8レベルUPに必要な
+            &8累計経験値:
+
+            &8■Lv5: 1,393
+            &8■Lv10: 6,502
+            &8■Lv25: 41,918
+            &8■Lv50: 162,694
+            &8■Lv100: 619,023
+
+            &8高Lvほど経験値
+            &8効率が低下します
+          - |
+            &0&l【職業スキル①】
+
+            &e材料節約
+            &8Lv10〜 発動15〜45%
+            &8建築材料を25%節約
+
+            &e建築の美学
+            &8Lv30〜 発動20〜60%
+            &8美観ボーナスで
+            &8価値が1.5倍
+          - |
+            &0&l【職業スキル②】
+
+            &e巨匠の設計
+            &8Lv50〜 規模で発動
+            &8100ブロック以上の
+            &8建築でボーナス
+
+            &eスキルはレベルUPで
+            &e効果が上昇！
+          - |
+            &0&l【レベルUP特典】
+
+            &8到達報酬:
+            &8■Lv10: 200金塊
+            &8■Lv25: 500金塊
+            &8■Lv50: 1000金塊
+            &8■Lv75: 2000金塊
+
+            &8レベルに応じて
+            &8称号も変化！
+
+            &eLv50で転職可能！
+          - |
+            &0&l【稼ぐコツ】
+
+            &8■石系ブロックが
+            　基本素材
+            &8■装飾ブロックは
+            　高値で売れる
+            &8■大規模建築で
+            　スキル発動
+            &8■染料で彩りを
+            　加えよう
+          - |
+            &0&l【便利なコマンド】
+
+            &0/jobs stats
+            &8→ 職業の統計情報
+
+            &0/jobs info
+            &8→ 職業の詳細
+
+            &0/jobs guide
+            &8→ この本を再取得
+
+# 職業別スキル詳細設定（フェーズ6）
+job_skills:
+  # 鉱夫のスキル設定
+  miner:
+    # 幸運の一撃（レベル10～）- 追加ドロップ
+    fortune_strike:
+      base_probability: 0.05    # 基本発動確率（5%）
+      level_bonus: 0.002        # レベル毎のボーナス（0.2%）
+      max_probability: 0.25     # 最大発動確率（25%）
+      cooldown_seconds: 0       # クールダウンなし
+      effect_multiplier: 1.5    # ドロップ量倍率
+    
+    # 鉱脈発見（レベル25～）- 連続採掘ボーナス
+    vein_discovery:
+      base_probability: 0.08
+      level_bonus: 0.003
+      max_probability: 0.3
+      cooldown_seconds: 10
+      effect_range: 3           # 効果範囲（ブロック）
+    
+    # 採掘の極意（レベル50～）- ツール耐久度節約
+    mining_mastery:
+      base_probability: 0.1
+      level_bonus: 0.004
+      max_probability: 0.4
+      cooldown_seconds: 0
+      durability_save_rate: 0.3  # 耐久度節約率（30%）
+
+  # 木こりのスキル設定
+  woodcutter:
+    # 一斉伐採（レベル15～）- 木全体を伐採
+    tree_feller:
+      base_probability: 0.1
+      level_bonus: 0.003
+      max_probability: 0.35
+      cooldown_seconds: 30
+      max_blocks: 64            # 最大伐採ブロック数
+    
+    # 苗木の恵み（レベル30～）- 苗木ドロップボーナス
+    sapling_blessing:
+      base_probability: 0.15
+      level_bonus: 0.005
+      max_probability: 0.5
+      cooldown_seconds: 0
+      bonus_drops: 1            # 追加苗木数
+    
+    # 森の番人（レベル45～）- 木材品質向上
+    forest_guardian:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.2
+      cooldown_seconds: 0
+      quality_multiplier: 1.8   # 品質向上倍率
+
+  # 農家のスキル設定
+  farmer:
+    # 豊穣の恵み（レベル10～）- 作物追加ドロップ
+    harvest_blessing:
+      base_probability: 0.12
+      level_bonus: 0.004
+      max_probability: 0.4
+      cooldown_seconds: 0
+      bonus_yield_rate: 0.5     # 追加収穫率
+    
+    # 双子の奇跡（レベル15～）- 動物繁殖時双子確率
+    twin_miracle:
+      base_probability: 0.1
+      level_bonus: 0.003
+      max_probability: 0.25
+      cooldown_seconds: 0
+      effect_duration: 600      # 効果持続時間（秒）
+    
+    # 成長促進（レベル30～）- 作物・動物成長加速
+    growth_acceleration:
+      base_probability: 0.2
+      level_bonus: 0.005
+      max_probability: 0.6
+      cooldown_seconds: 0
+      acceleration_rate: 0.25   # 成長加速率（25%）
+    
+    # 品種改良（レベル50～）- 高品質作物・動物
+    selective_breeding:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.15
+      cooldown_seconds: 0
+      quality_bonus: 2.0        # 品質ボーナス倍率
+
+  # 漁師のスキル設定
+  fisherman:
+    # 大物釣り（レベル20～）- 大型魚釣り確率向上
+    big_catch:
+      base_probability: 0.08
+      level_bonus: 0.003
+      max_probability: 0.3
+      cooldown_seconds: 0
+      size_multiplier: 1.5      # サイズ倍率
+    
+    # 宝探し（レベル35～）- 宝物釣り確率向上
+    treasure_hunter:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.2
+      cooldown_seconds: 0
+      treasure_rate: 1.8        # 宝物確率倍率
+    
+    # 海の加護（レベル50～）- 天候無視釣り
+    sea_blessing:
+      base_probability: 1.0     # 常時発動
+      level_bonus: 0.0
+      max_probability: 1.0
+      cooldown_seconds: 0
+      weather_immunity: true    # 天候影響無効
+
+  # 鍛冶屋のスキル設定  
+  blacksmith:
+    # 完璧な修理（レベル10～）- 修理時耐久度ボーナス
+    perfect_repair:
+      base_probability: 0.15
+      level_bonus: 0.005
+      max_probability: 0.5
+      cooldown_seconds: 0
+      durability_bonus: 0.2     # 耐久度ボーナス（20%）
+    
+    # 名工の技（レベル25～）- 製作時品質向上
+    master_craftsmanship:
+      base_probability: 0.1
+      level_bonus: 0.004
+      max_probability: 0.35
+      cooldown_seconds: 0
+      quality_improvement: 1.5  # 品質向上倍率
+    
+    # 神器創造（レベル60～）- 特別エンチャント付与
+    artifact_creation:
+      base_probability: 0.02
+      level_bonus: 0.001
+      max_probability: 0.08
+      cooldown_seconds: 300     # 5分クールダウン
+      special_enchant_rate: 1.0 # 特殊エンチャント確率
+
+  # 錬金術師のスキル設定
+  alchemist:
+    # 材料節約（レベル15～）- 醸造材料消費削減
+    ingredient_conservation:
+      base_probability: 0.2
+      level_bonus: 0.006
+      max_probability: 0.6
+      cooldown_seconds: 0
+      save_rate: 0.5            # 材料節約率（50%）
+    
+    # 二重醸造（レベル30～）- ポーション2個作成
+    double_brewing:
+      base_probability: 0.1
+      level_bonus: 0.003
+      max_probability: 0.25
+      cooldown_seconds: 0
+      extra_potions: 1          # 追加ポーション数
+    
+    # 錬金の極意（レベル50～）- 効果時間延長
+    alchemy_mastery:
+      base_probability: 0.15
+      level_bonus: 0.004
+      max_probability: 0.4
+      cooldown_seconds: 0
+      duration_multiplier: 1.5  # 効果時間倍率
+
+  # 魔術師のスキル設定
+  enchanter:
+    # 経験値節約（レベル10～）- エンチャント経験値コスト削減
+    experience_conservation:
+      base_probability: 0.25
+      level_bonus: 0.008
+      max_probability: 0.7
+      cooldown_seconds: 0
+      cost_reduction: 0.3       # コスト削減率（30%）
+    
+    # ボーナスエンチャント（レベル25～）- 追加エンチャント付与
+    bonus_enchantment:
+      base_probability: 0.08
+      level_bonus: 0.003
+      max_probability: 0.25
+      cooldown_seconds: 0
+      bonus_levels: 1           # 追加エンチャントレベル
+    
+    # 魔術の神秘（レベル45～）- 希少エンチャント確率向上
+    mystical_arts:
+      base_probability: 0.05
+      level_bonus: 0.002
+      max_probability: 0.15
+      cooldown_seconds: 0
+      rare_enchant_rate: 2.0    # 希少エンチャント確率倍率
+
+  # 建築家のスキル設定
+  architect:
+    # 材料節約（レベル10～）- 建築材料消費削減
+    material_efficiency:
+      base_probability: 0.15
+      level_bonus: 0.005
+      max_probability: 0.45
+      cooldown_seconds: 0
+      material_save_rate: 0.25  # 材料節約率（25%）
+    
+    # 建築の美学（レベル30～）- 装飾ブロックボーナス
+    architectural_aesthetics:
+      base_probability: 0.2
+      level_bonus: 0.006
+      max_probability: 0.6
+      cooldown_seconds: 0
+      aesthetic_bonus: 1.5      # 美観ボーナス倍率
+    
+    # 巨匠の設計（レベル50～）- 大規模建築ボーナス
+    master_architect:
+      base_probability: 1.0     # プロジェクト規模による
+      level_bonus: 0.0
+      max_probability: 1.0
+      cooldown_seconds: 0
+      scale_bonus_threshold: 100 # ボーナス発動最小ブロック数
+
+# レベルアップシステム設定（フェーズ6）
+leveling:
+  # 経験値計算設定
+  experience:
+    # 必要経験値計算式: base_multiplier * ((level - 1) ^ exponent)
+    # バランス調整(案1): 100→80。全体の必要経験値を約20%緩和しレベルを上げやすく
+    base_multiplier: 80
+    # バランス調整(案1): 1.9→1.7。高レベルの必要経験値の急騰を緩和
+    exponent: 1.7
+
+    # 高レベル時の経験値獲得ペナルティ（実効 = max(minimum, 1.0 - level * factor)）
+    # リリース前バランス調整: factor 0.01→0.005, minimum 0.1→0.4 に緩和
+    level_penalty:
+      factor: 0.005
+      minimum: 0.4
+
+    # 注意: 下記 level_scaling は現行実装（ExperienceManager）では未使用
+    
+    # レベル毎の経験値上昇率調整
+    level_scaling:
+      # レベル1-10: 標準成長
+      early_levels:
+        min_level: 1
+        max_level: 10
+        multiplier: 1.0
+      
+      # レベル11-25: やや加速
+      mid_levels:
+        min_level: 11
+        max_level: 25
+        multiplier: 0.9
+      
+      # レベル26-50: 標準成長に戻る
+      advanced_levels:
+        min_level: 26
+        max_level: 50
+        multiplier: 1.0
+      
+      # レベル51-75: 大幅に必要経験値増加
+      master_levels:
+        min_level: 51
+        max_level: 100
+        multiplier: 1.5
+
+  # レベルアップ報酬設定
+  rewards:
+    # 基本報酬（全職業共通）
+    base_rewards:
+      # 金塊報酬（レベル * multiplier）
+      money:
+        enabled: true
+        base_amount: 50.0
+        level_multiplier: 2.5
+        max_amount: 500.0
+      
+      # スキルポイント（特定レベルで付与）
+      skill_points:
+        enabled: true
+        levels: [10, 25, 50, 75]
+        points_per_level: 1
+    
+    # 職業別特別報酬
+    job_specific_rewards:
+      # マイルストーン報酬（特定レベル到達時）
+      milestone_rewards:
+        level_10:
+          all_jobs:
+            - type: "money"
+              amount: 200.0
+            - type: "message"
+              text: "初級職人になりました！"
+        
+        level_25:
+          all_jobs:
+            - type: "money"
+              amount: 500.0
+            - type: "message"
+              text: "中級職人になりました！"
+          miner:
+            - type: "item"
+              material: "DIAMOND_PICKAXE"
+              enchantments: ["EFFICIENCY:3", "UNBREAKING:2"]
+          woodcutter:
+            - type: "item"
+              material: "DIAMOND_AXE"
+              enchantments: ["EFFICIENCY:3", "UNBREAKING:2"]
+        
+        level_50:
+          all_jobs:
+            - type: "money"
+              amount: 1000.0
+            - type: "message"
+              text: "上級職人になりました！"
+        
+        level_75:
+          all_jobs:
+            - type: "money"
+              amount: 2000.0
+            - type: "message"
+              text: "マスター職人になりました！"

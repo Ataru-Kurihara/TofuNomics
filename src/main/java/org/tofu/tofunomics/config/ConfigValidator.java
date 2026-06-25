@@ -351,10 +351,19 @@ public class ConfigValidator {
      * 特定の設定パスの値をデフォルト値で修正
      */
     public void fixConfigValue(String configPath, Object defaultValue) {
+        // 補助ファイル（config/*.yml）側のパスは config.yml に書き戻すと孤立キーになり
+        // 再肥大化を招くため、自動修正は行わず警告のみに留める。
+        if (configManager.isAuxManagedPath(configPath)) {
+            plugin.getLogger().warning("設定項目 '" + configPath
+                + "' は補助設定ファイル（config/*.yml）側で管理されています。"
+                + "自動修正はスキップしました。該当ファイルを直接修正し、推奨値 '" + defaultValue + "' を設定してください。");
+            return;
+        }
+
         plugin.getConfig().set(configPath, defaultValue);
         plugin.saveConfig();
         configManager.reloadConfig();
-        
+
         plugin.getLogger().info("設定項目 '" + configPath + "' をデフォルト値 '" + defaultValue + "' で修正しました。");
     }
     
