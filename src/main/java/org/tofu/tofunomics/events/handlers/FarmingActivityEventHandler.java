@@ -171,12 +171,11 @@ public class FarmingActivityEventHandler {
 
         asyncUpdater.updateJobExperience(player.getUniqueId().toString(), "farmer", experience);
 
-        // 経験値5以上の場合のみ通知（小さな獲得でチャットを埋めない）
-        if (experience >= 5.0) {
-            player.sendMessage(String.format(
-                "%s%s成功！ §a+%.1f経験値",
-                ChatColor.GREEN, displayName, experience
-            ));
-        }
+        // 毛刈り・卵孵化・コンポスターは頻度の低い意図的アクションのため、
+        // 獲得量に関わらず必ず通知する（BreedingEventHandler と同じ挙動）。
+        player.sendMessage(String.format(
+            "%s%s成功！ §a+%.1f経験値",
+            ChatColor.GREEN, displayName, experience
+        ));
     }
 }
