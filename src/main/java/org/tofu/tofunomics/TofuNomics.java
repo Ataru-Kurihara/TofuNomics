@@ -498,7 +498,7 @@ public final class TofuNomics extends JavaPlugin {
             jobExperienceManager.setJobLevelRewardManager(jobLevelRewardManager);
 
             // 食事による職業経験値ブーストバフの初期化・注入
-            foodBuffManager = new org.tofu.tofunomics.food.FoodBuffManager(configManager);
+            foodBuffManager = new org.tofu.tofunomics.food.FoodBuffManager(configManager, jobManager);
             jobExperienceManager.setFoodBuffManager(foodBuffManager);
             foodConsumeListener = new org.tofu.tofunomics.food.FoodConsumeListener(configManager, foodBuffManager);
 

@@ -3353,17 +3353,25 @@ public class ConfigManager {
     }
 
     /**
-     * 指定カテゴリ（bread/vegetable/fish/meat）の経験値ボーナス割合(%)を取得
+     * 全職業共通の経験値ボーナス割合(%)を取得
      */
-    public int getFoodBuffBonusPercent(String categoryKey) {
-        return config.getInt("food_buff.categories." + categoryKey + ".bonus_percent", 0);
+    public int getFoodBuffBonusPercent() {
+        return config.getInt("food_buff.bonus_percent", 0);
     }
 
     /**
-     * 指定カテゴリ（bread/vegetable/fish/meat）のバフ持続時間(秒)を取得
+     * 全職業共通のバフ持続時間(秒)を取得
      */
-    public int getFoodBuffDurationSeconds(String categoryKey) {
-        return config.getInt("food_buff.categories." + categoryKey + ".duration_seconds", 0);
+    public int getFoodBuffDurationSeconds() {
+        return config.getInt("food_buff.duration_seconds", 0);
+    }
+
+    /**
+     * 指定カテゴリ（bread/vegetable/fish/meat）に対応する職業（内部名）のリストを取得。
+     * このリストに含まれる職業のときだけ、そのカテゴリの食材ブーストが効く。
+     */
+    public java.util.List<String> getFoodBuffCategoryJobs(String categoryKey) {
+        return config.getStringList("food_buff.categories." + categoryKey + ".jobs");
     }
 
     /**
@@ -3375,19 +3383,11 @@ public class ConfigManager {
     }
 
     /**
-     * より強いバフへ上書きされた時のメッセージテンプレートを取得
+     * 自分の職業に合わない食材を食べた時のヒントメッセージテンプレートを取得
      */
-    public String getFoodBuffReplacedMessage() {
-        return config.getString("food_buff.messages.buff_replaced",
-            "&aより強い食事効果に切り替わりました：&e%category% +%percent%%%");
-    }
-
-    /**
-     * 既により強いバフが有効なため弱い食事効果が無視された時のメッセージテンプレートを取得
-     */
-    public String getFoodBuffWeakerIgnoredMessage() {
-        return config.getString("food_buff.messages.buff_weaker_ignored",
-            "&7既により強い食事効果（%current%）が有効です");
+    public String getFoodBuffNoMatchMessage() {
+        return config.getString("food_buff.messages.buff_no_match",
+            "&7%category%は今の職業（%job%）には効果がありません");
     }
 
     /**
