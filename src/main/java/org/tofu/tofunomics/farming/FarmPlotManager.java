@@ -140,6 +140,78 @@ public class FarmPlotManager {
         }
     }
 
+    /**
+     * 選択範囲で既存区画の座標範囲を更新する。
+     * 所有者(owner_uuid)・WGメンバー登録・リージョンID・各種フラグは保持し、範囲のみ変更する。
+     */
+    public boolean resizePlot(Player admin, String name) {
+        WorldGuardIntegration wg = wg();
+        if (wg == null || !wg.isEnabled()) {
+            admin.sendMessage(ChatColor.RED + "WorldGuardが無効なため区画をリサイズできません。");
+            return false;
+        }
+        if (!hasSelection(admin)) {
+            admin.sendMessage(ChatColor.RED + "範囲が未選択です。/farmplot pos1 と /farmplot pos2 で角を指定してください。");
+            return false;
+        }
+        Location p1 = pos1.get(admin.getUniqueId());
+        Location p2 = pos2.get(admin.getUniqueId());
+        if (p1.getWorld() == null || p2.getWorld() == null
+                || !p1.getWorld().getName().equals(p2.getWorld().getName())) {
+            admin.sendMessage(ChatColor.RED + "pos1とpos2は同じワールドで指定してください。");
+            return false;
+        }
+
+        try {
+            FarmPlot plot = farmPlotDAO.getPlotByName(name);
+            if (plot == null) {
+                admin.sendMessage(ChatColor.RED + "区画 '" + name + "' は存在しません。");
+                return false;
+            }
+            World world = p1.getWorld();
+            // 別ワールドへのリサイズは禁止（リージョンはワールド固有）
+            if (!world.getName().equals(plot.getWorldName())) {
+                admin.sendMessage(ChatColor.RED + "区画 '" + name + "' は別ワールド("
+                        + plot.getWorldName() + ")にあります。同じワールドで範囲を選択してください。");
+                return false;
+            }
+
+            String regionId = plot.getWorldguardRegionId();
+
+            // 旧座標を控える（DB更新失敗時のロールバック用）
+            Location oldP1 = new Location(world, plot.getX1(), plot.getY1(), plot.getZ1());
+            Location oldP2 = new Location(world, plot.getX2(), plot.getY2(), plot.getZ2());
+
+            // WGリージョンを新範囲で再構築（メンバー/オーナー/フラグを保持）
+            if (!wg.redefineRegion(regionId, world, p1, p2)) {
+                admin.sendMessage(ChatColor.RED + "WorldGuardリージョンの再構築に失敗しました。");
+                return false;
+            }
+
+            // DBの座標を更新
+            boolean dbUpdated = farmPlotDAO.updateCoordinates(plot.getId(),
+                    p1.getBlockX(), p1.getBlockY(), p1.getBlockZ(),
+                    p2.getBlockX(), p2.getBlockY(), p2.getBlockZ());
+            if (!dbUpdated) {
+                // DB更新失敗時はWGリージョンを旧範囲に戻してロールバック
+                wg.redefineRegion(regionId, world, oldP1, oldP2);
+                admin.sendMessage(ChatColor.RED + "区画のDB更新に失敗しました。リージョンを元の範囲に戻しました。");
+                return false;
+            }
+
+            // 選択をクリア
+            pos1.remove(admin.getUniqueId());
+            pos2.remove(admin.getUniqueId());
+
+            admin.sendMessage(ChatColor.GREEN + "畑区画 '" + name + "' の範囲を更新しました。");
+            return true;
+        } catch (SQLException e) {
+            admin.sendMessage(ChatColor.RED + "区画リサイズ中にエラーが発生しました。");
+            plugin.getLogger().severe("farm plot リサイズエラー: " + e.getMessage());
+            return false;
+        }
+    }
+
     public List<FarmPlot> listPlots() {
         try {
             return farmPlotDAO.getAllPlots();
