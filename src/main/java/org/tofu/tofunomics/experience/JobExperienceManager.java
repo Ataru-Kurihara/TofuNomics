@@ -89,6 +89,8 @@ public class JobExperienceManager implements Listener {
     // BlockBreakEventでは発火しないため farmingExperience とは分離し、onPlayerInteractHarvestで付与する。
     private final Map<Material, Double> interactHarvestExperience;
     private final Map<PlayerFishEvent.State, Double> fishingExperience;
+    // 釣り人が海洋系モブを討伐した際に得る経験値テーブル（キーは討伐されたモブのEntityType）
+    private final Map<EntityType, Double> aquaticKillExperience;
     private final Map<Material, Double> craftingExperience;
     private final Map<Material, Double> brewingExperience;
     private final Map<Integer, Double> enchantingExperience;
@@ -125,6 +127,7 @@ public class JobExperienceManager implements Listener {
         this.farmingExperience = new HashMap<>();
         this.interactHarvestExperience = new HashMap<>();
         this.fishingExperience = new HashMap<>();
+        this.aquaticKillExperience = new HashMap<>();
         this.craftingExperience = new HashMap<>();
         this.brewingExperience = new HashMap<>();
         this.enchantingExperience = new HashMap<>();
@@ -266,6 +269,22 @@ public class JobExperienceManager implements Listener {
         fishingExperience.put(PlayerFishEvent.State.CAUGHT_FISH, 5.0);
         fishingExperience.put(PlayerFishEvent.State.CAUGHT_ENTITY, 8.0);
         fishingExperience.put(PlayerFishEvent.State.IN_GROUND, 1.0);
+
+        // 海洋モブ討伐経験値テーブル（釣り人）— 釣り経験値量と統一
+        // 魚系 = 釣りCAUGHT_FISH(5.0) と同額
+        aquaticKillExperience.put(EntityType.COD, 5.0);
+        aquaticKillExperience.put(EntityType.SALMON, 5.0);
+        aquaticKillExperience.put(EntityType.PUFFERFISH, 5.0);
+        aquaticKillExperience.put(EntityType.TROPICAL_FISH, 5.0);
+        // 海洋モブ = 釣りCAUGHT_ENTITY(8.0) と同額
+        aquaticKillExperience.put(EntityType.SQUID, 8.0);
+        aquaticKillExperience.put(EntityType.GLOW_SQUID, 8.0);
+        aquaticKillExperience.put(EntityType.DOLPHIN, 8.0);
+        aquaticKillExperience.put(EntityType.TURTLE, 8.0);
+        aquaticKillExperience.put(EntityType.AXOLOTL, 8.0);
+        aquaticKillExperience.put(EntityType.DROWNED, 8.0);
+        aquaticKillExperience.put(EntityType.GUARDIAN, 8.0);
+        aquaticKillExperience.put(EntityType.ELDER_GUARDIAN, 8.0);
         
         // 製作経験値テーブル（鍛冶屋）
         // インゴット精錬
@@ -703,7 +722,25 @@ public class JobExperienceManager implements Listener {
             }
         }
     }
-    
+
+    /**
+     * 釣り人が海洋系モブ（魚・イカ・ガーディアン等）を討伐した際の経験値付与。
+     * UnifiedEventHandler.onEntityDeath から委譲される
+     * （本クラスはListener未登録のため@EventHandlerは付けない）。
+     */
+    public void onFishermanEntityKill(Player player, org.bukkit.entity.Entity entity) {
+        if (player == null || entity == null) return;
+        Double baseExp = aquaticKillExperience.get(entity.getType());
+        if (baseExp == null) return; // 対象外エンティティ
+        if (!jobManager.hasJob(player, "fisherman")) return;
+
+        double multipliedExp = applyJobMultiplier(player, "fisherman", baseExp);
+        // 海洋モブ種別ごとに初回討伐ボーナス（釣りのFISHERMAN_FIRST_KEYとは別系統）
+        multipliedExp = applyFirstAcquisitionBonus(player, "fisherman",
+            "KILL_" + entity.getType().name(), multipliedExp);
+        giveJobExperience(player, "fisherman", multipliedExp);
+    }
+
     @EventHandler
     public void onCraftItem(CraftItemEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
