@@ -1853,6 +1853,14 @@ public class ConfigManager {
     }
 
     /**
+     * 職業レベル BossBar に付与する食事バフ表示の接尾辞書式
+     * （%percent%=経験値上昇割合, %seconds%=残り秒 を置換）。マッチ有効時のみ使用。
+     */
+    public String getJobBossBarFoodBuffSuffix() {
+        return (String) getCachedValue("scoreboard.job_bossbar.food_buff_suffix", " &b⚡+%percent%% &7(残り%seconds%秒)");
+    }
+
+    /**
      * スコアボードでプレイヤー名を表示するかどうか
      */
     public boolean isScoreboardShowPlayerName() {

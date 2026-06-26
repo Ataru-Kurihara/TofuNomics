@@ -156,4 +156,49 @@ public class FoodBuffManagerTest {
         foodBuffManager.applyBuff(player, FoodCategory.BREAD);
         assertEquals(1.0, foodBuffManager.getMultiplier(player, "woodcutter"), 0.0001);
     }
+
+    // --- getActiveBuffInfo（BossBar表示用）のテスト ---
+
+    @Test
+    public void activeBuffInfoNullWhenNoBuff() {
+        assertNull(foodBuffManager.getActiveBuffInfo(player, "woodcutter"));
+    }
+
+    @Test
+    public void activeBuffInfoReturnsPercentAndRemainingWhenMatching() {
+        // 木こりがパンを食べる -> マッチ。+25% / 300秒設定
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD);
+        FoodBuffManager.ActiveBuffInfo info = foodBuffManager.getActiveBuffInfo(player, "woodcutter");
+        assertNotNull(info);
+        assertEquals(25, info.getBonusPercent());
+        // 残り秒は切り上げで 300 付近（経過分で 299 になることがあるため範囲で確認）
+        assertTrue(info.getRemainingSeconds() >= 299 && info.getRemainingSeconds() <= 300);
+    }
+
+    @Test
+    public void activeBuffInfoNullForNonMatchingJob() {
+        // パンのバフは鉱夫には効かない -> 表示も出さない
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD);
+        assertNull(foodBuffManager.getActiveBuffInfo(player, "miner"));
+    }
+
+    @Test
+    public void activeBuffInfoNullWhenExpired() {
+        when(configManager.getFoodBuffDurationSeconds()).thenReturn(1);
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD);
+        assertNotNull(foodBuffManager.getActiveBuffInfo(player, "woodcutter"));
+
+        try {
+            Thread.sleep(1100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        assertNull(foodBuffManager.getActiveBuffInfo(player, "woodcutter"));
+    }
+
+    @Test
+    public void activeBuffInfoNullForNullJob() {
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD);
+        assertNull(foodBuffManager.getActiveBuffInfo(player, null));
+    }
 }

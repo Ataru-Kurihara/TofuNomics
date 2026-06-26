@@ -115,6 +115,57 @@ public class FoodBuffManager {
     }
 
     /**
+     * 現在の職業に対して有効な食事バフのスナップショット（表示用）。
+     */
+    public static final class ActiveBuffInfo {
+        private final int bonusPercent;      // 経験値上昇割合（例: +25% -> 25）
+        private final long remainingSeconds; // 失効までの残り秒（切り上げ）
+
+        public ActiveBuffInfo(int bonusPercent, long remainingSeconds) {
+            this.bonusPercent = bonusPercent;
+            this.remainingSeconds = remainingSeconds;
+        }
+
+        public int getBonusPercent() {
+            return bonusPercent;
+        }
+
+        public long getRemainingSeconds() {
+            return remainingSeconds;
+        }
+    }
+
+    /**
+     * 指定職業に対して現在有効な食事バフの表示用情報を返す。
+     * 判定条件は {@link #getMultiplier(Player, String)} と完全一致させる
+     * （バフ存在・未失効・保持カテゴリの対応職業に jobName が含まれる）。
+     * 一つでも満たさなければ null を返す。jobName は内部職業名を渡すこと。
+     */
+    public ActiveBuffInfo getActiveBuffInfo(Player player, String jobName) {
+        if (player == null || jobName == null) {
+            return null;
+        }
+        UUID uuid = player.getUniqueId();
+        ActiveBuff buff = activeBuffs.get(uuid);
+        if (buff == null) {
+            return null;
+        }
+        long now = System.currentTimeMillis();
+        if (buff.expiresAtMillis <= now) {
+            // 失効済みは破棄（getMultiplier と同じ副作用に揃える）
+            activeBuffs.remove(uuid);
+            return null;
+        }
+        // 保持カテゴリの対応職業に jobName が含まれるときだけ有効
+        if (!configManager.getFoodBuffCategoryJobs(buff.categoryKey).contains(jobName)) {
+            return null;
+        }
+        int bonusPercent = (int) Math.round((buff.factor - 1.0) * 100);
+        long remainingSeconds = (buff.expiresAtMillis - now + 999) / 1000; // 切り上げ
+        return new ActiveBuffInfo(bonusPercent, remainingSeconds);
+    }
+
+    /**
      * プレイヤーの状態をクリアする（ログアウト時などに呼ぶ想定。任意）
      */
     public void clear(UUID uuid) {
