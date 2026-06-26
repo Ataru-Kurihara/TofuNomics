@@ -75,6 +75,12 @@ public class JobExperienceManager implements Listener {
     // レベルアップ時のお金報酬用（setter注入。null許容）
     private org.tofu.tofunomics.rewards.JobLevelRewardManager jobLevelRewardManager;
 
+    // 各職業で初めて入手したアイテムへの経験値ボーナス用（setter注入。null許容）
+    private org.tofu.tofunomics.dao.FirstAcquisitionDAO firstAcquisitionDAO;
+
+    // 釣り人の初回ボーナス判定キー（魚種別を問わず「最初の1匹だけ」ボーナスにするための固定キー）
+    private static final String FISHERMAN_FIRST_KEY = "ANY_FISH";
+
     // 経験値テーブル
     private final Map<Material, Double> miningExperience;
     private final Map<Material, Double> loggingExperience;
@@ -148,6 +154,31 @@ public class JobExperienceManager implements Listener {
      */
     public void setJobLevelRewardManager(org.tofu.tofunomics.rewards.JobLevelRewardManager jobLevelRewardManager) {
         this.jobLevelRewardManager = jobLevelRewardManager;
+    }
+
+    /**
+     * 初回入手経験値ボーナス用のFirstAcquisitionDAOを注入する
+     */
+    public void setFirstAcquisitionDAO(org.tofu.tofunomics.dao.FirstAcquisitionDAO firstAcquisitionDAO) {
+        this.firstAcquisitionDAO = firstAcquisitionDAO;
+    }
+
+    /**
+     * 各職業で初めて入手したアイテムの場合、経験値に初回ボーナス倍率を掛けて返す。
+     * 初回でない・機能無効・DAO未注入の場合は exp をそのまま返す（通知は出さない）。
+     *
+     * @param itemKey 初回判定キー（多くの職業は Material 名、釣り人のみ {@link #FISHERMAN_FIRST_KEY}）
+     */
+    double applyFirstAcquisitionBonus(Player player, String jobName, String itemKey, double exp) {
+        if (firstAcquisitionDAO == null || !configManager.isFirstAcquisitionBonusEnabled()) {
+            return exp;
+        }
+        UUID uuid = player.getUniqueId();
+        if (!firstAcquisitionDAO.isFirstAcquisition(uuid, jobName, itemKey)) {
+            return exp;
+        }
+        firstAcquisitionDAO.recordAcquisition(uuid, jobName, itemKey);
+        return exp * configManager.getFirstAcquisitionMultiplier();
     }
 
     private void initializeExperienceTables() {
@@ -491,21 +522,24 @@ public class JobExperienceManager implements Listener {
         if (jobManager.hasJob(player, "miner") && miningExperience.containsKey(blockType)) {
             double baseExp = miningExperience.get(blockType);
             double multipliedExp = applyJobMultiplier(player, "miner", baseExp);
+            multipliedExp = applyFirstAcquisitionBonus(player, "miner", blockType.name(), multipliedExp);
             giveJobExperience(player, "miner", multipliedExp);
         }
-        
+
         // 木こりの伐採経験値
         if (jobManager.hasJob(player, "woodcutter") && loggingExperience.containsKey(blockType)) {
             double baseExp = loggingExperience.get(blockType);
             double multipliedExp = applyJobMultiplier(player, "woodcutter", baseExp);
+            multipliedExp = applyFirstAcquisitionBonus(player, "woodcutter", blockType.name(), multipliedExp);
             giveJobExperience(player, "woodcutter", multipliedExp);
         }
-        
+
         // 農家の収穫経験値（完全に成長した作物のみ付与）
         if (jobManager.hasJob(player, "farmer") && farmingExperience.containsKey(blockType)
                 && isCropFullyGrown(event.getBlock())) {
             double baseExp = farmingExperience.get(blockType);
             double multipliedExp = applyJobMultiplier(player, "farmer", baseExp);
+            multipliedExp = applyFirstAcquisitionBonus(player, "farmer", blockType.name(), multipliedExp);
             giveJobExperience(player, "farmer", multipliedExp);
         }
     }
@@ -531,6 +565,7 @@ public class JobExperienceManager implements Listener {
             if (farmingExperience.containsKey(material) && isCropDataFullyGrown(material, state.getBlockData())) {
                 double baseExp = farmingExperience.get(material);
                 double multipliedExp = applyJobMultiplier(player, "farmer", baseExp);
+                multipliedExp = applyFirstAcquisitionBonus(player, "farmer", material.name(), multipliedExp);
                 giveJobExperience(player, "farmer", multipliedExp);
             }
         }
@@ -596,6 +631,7 @@ public class JobExperienceManager implements Listener {
 
         double baseExp = interactHarvestExperience.get(blockType);
         double multipliedExp = applyJobMultiplier(player, "farmer", baseExp);
+        multipliedExp = applyFirstAcquisitionBonus(player, "farmer", blockType.name(), multipliedExp);
         giveJobExperience(player, "farmer", multipliedExp);
     }
 
@@ -638,6 +674,8 @@ public class JobExperienceManager implements Listener {
             if (jobManager.hasJob(player, "fisherman")) {
                 double baseExp = fishingExperience.getOrDefault(event.getState(), 5.0);
                 double multipliedExp = applyJobMultiplier(player, "fisherman", baseExp);
+                // 釣り人は魚種別を問わず「最初の1匹だけ」初回ボーナス（固定キー）
+                multipliedExp = applyFirstAcquisitionBonus(player, "fisherman", FISHERMAN_FIRST_KEY, multipliedExp);
                 giveJobExperience(player, "fisherman", multipliedExp);
             }
         }
@@ -653,6 +691,7 @@ public class JobExperienceManager implements Listener {
         if (jobManager.hasJob(player, "blacksmith") && craftingExperience.containsKey(craftedItem)) {
             double baseExp = craftingExperience.get(craftedItem);
             double multipliedExp = applyJobMultiplier(player, "blacksmith", baseExp);
+            multipliedExp = applyFirstAcquisitionBonus(player, "blacksmith", craftedItem.name(), multipliedExp);
             giveJobExperience(player, "blacksmith", multipliedExp);
         }
     }
@@ -669,6 +708,7 @@ public class JobExperienceManager implements Listener {
         if (jobManager.hasJob(player, "blacksmith") && craftingExperience.containsKey(smithedItem)) {
             double baseExp = craftingExperience.get(smithedItem);
             double multipliedExp = applyJobMultiplier(player, "blacksmith", baseExp);
+            multipliedExp = applyFirstAcquisitionBonus(player, "blacksmith", smithedItem.name(), multipliedExp);
             giveJobExperience(player, "blacksmith", multipliedExp);
         }
     }
@@ -693,9 +733,12 @@ public class JobExperienceManager implements Listener {
         if (jobManager.hasJob(player, "enchanter")) {
             int totalLevels = event.getEnchantsToAdd().values().stream()
                 .mapToInt(Integer::intValue).sum();
-            
+
             double baseExp = enchantingExperience.getOrDefault(totalLevels, 10.0);
             double multipliedExp = applyJobMultiplier(player, "enchanter", baseExp);
+            // エンチャント対象アイテムの種類ごとに初回ボーナス
+            multipliedExp = applyFirstAcquisitionBonus(player, "enchanter",
+                event.getItem().getType().name(), multipliedExp);
             giveJobExperience(player, "enchanter", multipliedExp);
         }
     }

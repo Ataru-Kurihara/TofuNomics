@@ -39,7 +39,7 @@ public class ConfigManager {
     private static final Set<String> AUX_TOP_SECTIONS = new HashSet<>(Arrays.asList(
         "job_skills", "leveling", "messages", "event_rewards", "events", "time_announcement",
         "rules", "tutorial", "scoreboard", "trade_system", "clock_item", "player_join",
-        "market", "food_buff", "guide_book_settings", "ux_enhancements",
+        "market", "food_buff", "first_acquisition_bonus", "guide_book_settings", "ux_enhancements",
         "performance", "api", "land_protection", "debug"
     ));
     
@@ -3351,6 +3351,24 @@ public class ConfigManager {
         return config.getInt("npc_system.food_npc.inventory_system.daily_stock_limit", 64);
     }
     
+    // ===== 初回入手経験値ボーナス（first_acquisition_bonus）=====
+
+    /**
+     * 初回入手経験値ボーナス機能が有効かどうか
+     */
+    public boolean isFirstAcquisitionBonusEnabled() {
+        return config.getBoolean("first_acquisition_bonus.enabled", false);
+    }
+
+    /**
+     * 初回入手時の経験値倍率を取得する（通常経験値の何倍にするか）。
+     * 1.0未満の不正値が設定された場合は倍率を掛けない（1.0）扱いとする。
+     */
+    public double getFirstAcquisitionMultiplier() {
+        double multiplier = config.getDouble("first_acquisition_bonus.multiplier", 1.0);
+        return multiplier < 1.0 ? 1.0 : multiplier;
+    }
+
     // ===== 食事による職業経験値ブーストバフ（food_buff）=====
 
     /**

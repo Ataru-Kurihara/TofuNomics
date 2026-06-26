@@ -220,6 +220,16 @@ public class HikariDatabaseManager {
                 "FOREIGN KEY (player_uuid) REFERENCES players(uuid)" +
                 ")";
             
+            // 初回入手記録テーブル（各職業で初めて入手したアイテム種類を記録）
+            String createFirstAcquisitionsTable = "CREATE TABLE IF NOT EXISTS player_first_acquisitions (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "uuid TEXT NOT NULL," +
+                "job_name TEXT NOT NULL," +
+                "item_key TEXT NOT NULL," +
+                "acquired_at DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                "UNIQUE(uuid, job_name, item_key)" +
+                ")";
+
             // パフォーマンス統計テーブル（フェーズ6）
             String createPerformanceStatsTable = "CREATE TABLE IF NOT EXISTS performance_stats (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
@@ -236,6 +246,7 @@ public class HikariDatabaseManager {
                 "CREATE INDEX IF NOT EXISTS idx_trade_chests_location ON trade_chests(world_name, x, y, z)",
                 "CREATE INDEX IF NOT EXISTS idx_trade_history_player ON player_trade_history(player_uuid)",
                 "CREATE INDEX IF NOT EXISTS idx_trade_history_date ON player_trade_history(trade_date)",
+                "CREATE INDEX IF NOT EXISTS idx_first_acq_uuid ON player_first_acquisitions(uuid)",
                 "CREATE INDEX IF NOT EXISTS idx_performance_stats_type ON performance_stats(stat_type, recorded_at)"
             };
             
@@ -249,6 +260,7 @@ public class HikariDatabaseManager {
                 stmt.execute(createLandOwnershipTable);
                 stmt.execute(createTradeChestsTable);
                 stmt.execute(createPlayerTradeHistoryTable);
+                stmt.execute(createFirstAcquisitionsTable);
                 stmt.execute(createPerformanceStatsTable);
                 
                 // インデックス作成
