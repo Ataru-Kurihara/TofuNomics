@@ -16,8 +16,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * 自分の職業に対応した食材を食べたときだけ経験値ブーストが効く。対応しない食材を
  * 食べてもブーストは付かない（倍率1.0）。ボーナス量・持続時間は全職業共通。
  *
- * 重複挙動: 1バフ上書き式（最後に食べた食材のカテゴリを保持）。
- * マッチ判定の正本は {@link #getMultiplier(Player, String)} 側に置く
+ * 重複挙動: マッチした食材のときだけバフを付与/更新する（最後に食べたマッチ食材で上書き）。
+ * 非マッチ食材は既存の有効バフを上書きしないため、効果中に別系統の食材を食べても
+ * バフは消えない。マッチ判定の正本は {@link #getMultiplier(Player, String)} 側に置く
  * （食後の転職や経験値経路ごとの職業差に正しく追従するため）。
  */
 public class FoodBuffManager {
@@ -72,10 +73,6 @@ public class FoodBuffManager {
         }
 
         String key = category.getConfigKey();
-        double newFactor = 1.0 + (bonusPercent / 100.0);
-        long expiresAt = System.currentTimeMillis() + (durationSeconds * 1000L);
-
-        activeBuffs.put(player.getUniqueId(), new ActiveBuff(newFactor, expiresAt, key));
 
         // 現在の職業がこのカテゴリにマッチするか判定し、メッセージを出し分ける
         String jobName = (jobManager != null) ? jobManager.getPlayerJob(player.getUniqueId()) : null;
@@ -83,6 +80,12 @@ public class FoodBuffManager {
             && configManager.getFoodBuffCategoryJobs(key).contains(jobName);
 
         if (matches) {
+            // マッチした食材のときだけバフを付与/更新する。
+            // 非マッチ食材で既存の有効バフを上書きしないことで、効果中に別系統の
+            // 食材を食べてもバフ（と職業レベルバーの表示）が消えないようにする。
+            double newFactor = 1.0 + (bonusPercent / 100.0);
+            long expiresAt = System.currentTimeMillis() + (durationSeconds * 1000L);
+            activeBuffs.put(player.getUniqueId(), new ActiveBuff(newFactor, expiresAt, key));
             sendBuffMessage(player, category, bonusPercent, durationSeconds);
         } else {
             sendNoMatchMessage(player, category, jobName);
