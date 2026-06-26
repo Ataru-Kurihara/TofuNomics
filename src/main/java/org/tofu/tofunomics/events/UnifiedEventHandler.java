@@ -316,8 +316,8 @@ public class UnifiedEventHandler implements Listener {
             return;
         }
         
-        // エンティティ討伐による基本的な報酬処理（将来実装）
-        // handleEntityDeathRewards(event, player);
+        // 釣り人: 海洋系モブ討伐による経験値付与
+        experienceManager.onFishermanEntityKill(player, event.getEntity());
         
         // キャッシュに記録
         eventCache.markAsProcessed(player, "entity_death");
