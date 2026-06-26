@@ -33,6 +33,10 @@ public class FarmPlotManager {
     private final Map<UUID, Location> pos1 = new HashMap<>();
     private final Map<UUID, Location> pos2 = new HashMap<>();
 
+    // 全区画のインメモリキャッシュ（フェンスゲート/ドア開閉判定で高頻度に参照されるためDBアクセスを避ける）
+    // 区画やオーナーが変わるたびに invalidateCache() で破棄する
+    private List<FarmPlot> plotCache = null;
+
     public FarmPlotManager(TofuNomics plugin, ConfigManager configManager, FarmPlotDAO farmPlotDAO) {
         this.plugin = plugin;
         this.configManager = configManager;
@@ -109,6 +113,7 @@ public class FarmPlotManager {
             pos1.remove(admin.getUniqueId());
             pos2.remove(admin.getUniqueId());
 
+            invalidateCache();
             admin.sendMessage(ChatColor.GREEN + "畑区画 '" + name + "' を作成しました（リージョン: " + regionId + "）。");
             return true;
         } catch (SQLException e) {
@@ -131,6 +136,7 @@ public class FarmPlotManager {
                 wg.removeRegion(plot.getWorldguardRegionId(), world);
             }
             farmPlotDAO.deletePlot(plot.getId());
+            invalidateCache();
             admin.sendMessage(ChatColor.GREEN + "畑区画 '" + name + "' を削除しました。");
             return true;
         } catch (SQLException e) {
@@ -203,6 +209,7 @@ public class FarmPlotManager {
             pos1.remove(admin.getUniqueId());
             pos2.remove(admin.getUniqueId());
 
+            invalidateCache();
             admin.sendMessage(ChatColor.GREEN + "畑区画 '" + name + "' の範囲を更新しました。");
             return true;
         } catch (SQLException e) {
@@ -228,6 +235,39 @@ public class FarmPlotManager {
             plugin.getLogger().severe("farm plot 取得エラー: " + e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 指定座標を含む畑区画を返す（無ければnull）。
+     * フェンスゲート/ドアの開閉判定など高頻度呼び出しを想定し、全区画をキャッシュして走査する。
+     */
+    public FarmPlot getPlotAt(Location location) {
+        if (location == null) {
+            return null;
+        }
+        List<FarmPlot> plots = plotCache;
+        if (plots == null) {
+            try {
+                plots = farmPlotDAO.getAllPlots();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("farm plot キャッシュ取得エラー: " + e.getMessage());
+                return null;
+            }
+            plotCache = plots;
+        }
+        for (FarmPlot plot : plots) {
+            if (plot.contains(location)) {
+                return plot;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 区画キャッシュを破棄する。区画の作成/削除/リサイズや所有者の割り当て/解放の成功後に呼ぶ。
+     */
+    private void invalidateCache() {
+        plotCache = null;
     }
 
     // ========== 割り当て / 解放 ==========
@@ -267,6 +307,7 @@ public class FarmPlotManager {
                 return;
             }
             farmPlotDAO.updateOwner(plot.getId(), uuid);
+            invalidateCache();
 
             int cx = (plot.getX1() + plot.getX2()) / 2;
             int cy = Math.max(plot.getY1(), plot.getY2());
@@ -295,6 +336,7 @@ public class FarmPlotManager {
                 wg.removeMember(plot.getWorldguardRegionId(), world, playerUuid);
             }
             farmPlotDAO.updateOwner(plot.getId(), null);
+            invalidateCache();
 
             Player player = Bukkit.getPlayer(playerUuid);
             if (player != null && player.isOnline()) {
@@ -336,6 +378,7 @@ public class FarmPlotManager {
             }
             wg.addMember(plot.getWorldguardRegionId(), world, target.getUniqueId());
             farmPlotDAO.updateOwner(plot.getId(), uuid);
+            invalidateCache();
             admin.sendMessage(ChatColor.GREEN + target.getName() + " に区画 '" + plot.getPlotName() + "' を割り当てました。");
             target.sendMessage(ChatColor.GREEN + "農家の畑区画 '" + plot.getPlotName() + "' が割り当てられました。");
             return true;
