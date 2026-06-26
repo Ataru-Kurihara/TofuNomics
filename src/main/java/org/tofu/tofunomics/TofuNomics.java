@@ -130,6 +130,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.dao.MarketServiceRequestDAO marketServiceRequestDAO;
     private org.tofu.tofunomics.dao.QuestProgressDAO questProgressDAO;
     private org.tofu.tofunomics.dao.FarmPlotDAO farmPlotDAO;
+    private org.tofu.tofunomics.dao.FirstAcquisitionDAO firstAcquisitionDAO;
     private org.tofu.tofunomics.farming.FarmPlotManager farmPlotManager;
     private org.tofu.tofunomics.market.MarketManager marketManager;
     private org.tofu.tofunomics.market.gui.MarketBrowseGUI marketBrowseGUI;
@@ -346,6 +347,7 @@ public final class TofuNomics extends JavaPlugin {
             marketServiceRequestDAO = new org.tofu.tofunomics.dao.MarketServiceRequestDAO(databaseManager.getConnection());
             questProgressDAO = new org.tofu.tofunomics.dao.QuestProgressDAO(databaseManager.getConnection());
             farmPlotDAO = new org.tofu.tofunomics.dao.FarmPlotDAO(databaseManager.getConnection());
+            firstAcquisitionDAO = new org.tofu.tofunomics.dao.FirstAcquisitionDAO(databaseManager.getConnection());
 
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
@@ -496,6 +498,9 @@ public final class TofuNomics extends JavaPlugin {
 
             // レベルアップ時のお金報酬を注入
             jobExperienceManager.setJobLevelRewardManager(jobLevelRewardManager);
+
+            // 各職業の初回入手経験値ボーナスを注入
+            jobExperienceManager.setFirstAcquisitionDAO(firstAcquisitionDAO);
 
             // 食事による職業経験値ブーストバフの初期化・注入
             foodBuffManager = new org.tofu.tofunomics.food.FoodBuffManager(configManager, jobManager);

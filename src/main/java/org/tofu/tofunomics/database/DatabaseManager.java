@@ -311,6 +311,16 @@ public class DatabaseManager {
             "    owner_uuid TEXT," +
             "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
             "    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+            ");",
+
+            // 初回入手記録テーブル（各職業で初めて入手したアイテム種類を記録）
+            "CREATE TABLE IF NOT EXISTS player_first_acquisitions (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    uuid TEXT NOT NULL," +
+            "    job_name TEXT NOT NULL," +
+            "    item_key TEXT NOT NULL," +
+            "    acquired_at DATETIME DEFAULT CURRENT_TIMESTAMP," +
+            "    UNIQUE(uuid, job_name, item_key)" +
             ");"
         };
 
@@ -461,6 +471,8 @@ public class DatabaseManager {
 
             // クエスト受注状態検索高速化用インデックス（存在しなければ作成）
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_quest_player ON quest_progress(player_uuid, status)");
+
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_first_acq_uuid ON player_first_acquisitions(uuid)");
         } catch (SQLException e) {
             logger.warning("マイグレーション処理に失敗しました: " + e.getMessage());
         }
