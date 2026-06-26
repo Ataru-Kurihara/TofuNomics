@@ -11,6 +11,7 @@ import org.tofu.tofunomics.economy.CurrencyConverter;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.trade.TradePriceManager;
 import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.util.NPCPurchaseMarker;
 
 import java.util.*;
 
@@ -620,7 +621,9 @@ public class TradingNPCManager {
         
         for (ItemStack item : items) {
             if (item == null || item.getType() == Material.AIR) continue;
-            
+            // NPC購入マーカー付きアイテムは転売不可（GUI側でも除外するが精算側でも防御）
+            if (NPCPurchaseMarker.isMarked(plugin, item)) continue;
+
             Material material = item.getType();
             double basePrice = tradingPost.getItemPrice(material);
             
