@@ -3369,6 +3369,15 @@ public class ConfigManager {
         return multiplier < 1.0 ? 1.0 : multiplier;
     }
 
+    /**
+     * 初回入手ボーナス時に表示するメッセージのテンプレートを取得する。
+     * 空文字を設定すればメッセージ非表示にできる。%multiplier% で倍率を埋め込める。
+     */
+    public String getFirstAcquisitionMessage() {
+        return config.getString("first_acquisition_bonus.message",
+            "&6&l✦ 初めての入手！ &r&a職業経験値 &e×%multiplier% &aボーナス獲得！");
+    }
+
     // ===== 食事による職業経験値ブーストバフ（food_buff）=====
 
     /**

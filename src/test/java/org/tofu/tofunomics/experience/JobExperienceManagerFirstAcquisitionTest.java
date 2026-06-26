@@ -33,6 +33,8 @@ public class JobExperienceManagerFirstAcquisitionTest {
         configManager = mock(ConfigManager.class);
         when(configManager.isFirstAcquisitionBonusEnabled()).thenReturn(true);
         when(configManager.getFirstAcquisitionMultiplier()).thenReturn(5.0);
+        when(configManager.getFirstAcquisitionMessage())
+            .thenReturn("&6初めての入手！ &e×%multiplier% &aボーナス");
 
         connection = DriverManager.getConnection("jdbc:sqlite::memory:");
         try (Statement statement = connection.createStatement()) {
@@ -82,6 +84,17 @@ public class JobExperienceManagerFirstAcquisitionTest {
         double second = manager.applyFirstAcquisitionBonus(player, "fisherman", "ANY_FISH", 6.0);
         assertEquals(30.0, first, 0.0001);
         assertEquals(6.0, second, 0.0001);
+    }
+
+    @Test
+    public void testFirstAcquisitionSendsMessageOnce() {
+        // 初回はメッセージ表示、2回目は表示しない
+        manager.applyFirstAcquisitionBonus(player, "miner", "COAL_ORE", 10.0);
+        manager.applyFirstAcquisitionBonus(player, "miner", "COAL_ORE", 10.0);
+
+        // 倍率5.0は "5" に整形され、§ に変換されたメッセージが1回だけ送られる
+        verify(player, times(1)).sendMessage(contains("×5"));
+        verify(player, times(1)).sendMessage(anyString());
     }
 
     @Test

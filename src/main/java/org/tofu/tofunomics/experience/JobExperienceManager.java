@@ -165,7 +165,8 @@ public class JobExperienceManager implements Listener {
 
     /**
      * 各職業で初めて入手したアイテムの場合、経験値に初回ボーナス倍率を掛けて返す。
-     * 初回でない・機能無効・DAO未注入の場合は exp をそのまま返す（通知は出さない）。
+     * 初回でない・機能無効・DAO未注入の場合は exp をそのまま返す。
+     * 初回入手時は「初めてだからボーナスが付いた」旨のメッセージをプレイヤーに表示する。
      *
      * @param itemKey 初回判定キー（多くの職業は Material 名、釣り人のみ {@link #FISHERMAN_FIRST_KEY}）
      */
@@ -178,7 +179,29 @@ public class JobExperienceManager implements Listener {
             return exp;
         }
         firstAcquisitionDAO.recordAcquisition(uuid, jobName, itemKey);
-        return exp * configManager.getFirstAcquisitionMultiplier();
+
+        double multiplier = configManager.getFirstAcquisitionMultiplier();
+        sendFirstAcquisitionMessage(player, multiplier);
+        return exp * multiplier;
+    }
+
+    /**
+     * 初回入手ボーナスのメッセージをプレイヤーに表示する。
+     * 文言は config（gameplay.yml の first_acquisition_bonus.message）で変更可能。
+     * プレースホルダ %multiplier% に倍率（小数が無ければ整数表記）を埋め込む。
+     */
+    private void sendFirstAcquisitionMessage(Player player, double multiplier) {
+        String template = configManager.getFirstAcquisitionMessage();
+        if (template == null || template.isEmpty()) {
+            return;
+        }
+        // 倍率は 5.0 → "5"、2.5 → "2.5" のように余分な小数を省いて表示
+        String multiplierText = (multiplier == Math.floor(multiplier))
+            ? String.valueOf((long) multiplier)
+            : String.valueOf(multiplier);
+        String message = ChatColor.translateAlternateColorCodes('&',
+            template.replace("%multiplier%", multiplierText));
+        player.sendMessage(message);
     }
 
     private void initializeExperienceTables() {
