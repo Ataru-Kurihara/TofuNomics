@@ -807,6 +807,13 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(worldGuardTestModeListener, this);
                 getLogger().info("WorldGuardテストモードリスナーを登録しました");
             }
+
+            // 畑区画保護リスナーの登録（区画内のフェンスゲート/ドアを所有者に限定）
+            if (farmPlotManager != null) {
+                getServer().getPluginManager().registerEvents(
+                    new org.tofu.tofunomics.farming.FarmPlotProtectionListener(farmPlotManager), this);
+                getLogger().info("畑区画保護リスナーを登録しました");
+            }
             
             // ルール確認システムリスナーの登録
             if (rulesManager != null) {
