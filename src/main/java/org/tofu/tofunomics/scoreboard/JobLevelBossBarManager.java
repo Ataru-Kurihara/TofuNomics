@@ -13,6 +13,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
+import org.tofu.tofunomics.food.FoodBuffManager;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.models.PlayerJob;
@@ -40,11 +41,21 @@ public class JobLevelBossBarManager implements Listener {
     private final Map<UUID, BossBar> playerBars = new HashMap<>();
     private BukkitTask updateTask;
 
+    // 食事バフ表示用（初期化順序の都合で後から setter 注入。未注入でも動作する）
+    private FoodBuffManager foodBuffManager;
+
     public JobLevelBossBarManager(TofuNomics plugin, ConfigManager configManager, JobManager jobManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.jobManager = jobManager;
         startUpdateTask();
+    }
+
+    /**
+     * 食事バフ表示のため FoodBuffManager を注入する（任意）。
+     */
+    public void setFoodBuffManager(FoodBuffManager foodBuffManager) {
+        this.foodBuffManager = foodBuffManager;
     }
 
     private void startUpdateTask() {
@@ -118,6 +129,20 @@ public class JobLevelBossBarManager implements Listener {
                     .replace("%job%", jobName)
                     .replace("%level%", String.valueOf(currentJob.getLevel()))
                     .replace("%percent%", maxLevel ? "MAX" : String.valueOf(percent));
+
+            // 食事バフが現在の職業にマッチして有効ならタイトル末尾に表示する。
+            // getActiveBuffInfo には内部職業名（jobData.getName()）を渡す。
+            // 表示名の jobName 変数を渡すと常に非マッチになり suffix が出ないため注意。
+            if (foodBuffManager != null && jobData != null) {
+                FoodBuffManager.ActiveBuffInfo buffInfo =
+                        foodBuffManager.getActiveBuffInfo(player, jobData.getName());
+                if (buffInfo != null) {
+                    String suffix = configManager.getJobBossBarFoodBuffSuffix()
+                            .replace("%percent%", String.valueOf(buffInfo.getBonusPercent()))
+                            .replace("%seconds%", String.valueOf(buffInfo.getRemainingSeconds()));
+                    title = title + suffix;
+                }
+            }
 
             BossBar bar = getOrCreate(player);
             bar.setColor(parseColor(configManager.getJobBossBarColor()));

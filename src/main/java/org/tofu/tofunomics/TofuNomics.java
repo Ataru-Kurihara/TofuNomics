@@ -713,6 +713,11 @@ public final class TofuNomics extends JavaPlugin {
                 jobExperienceManager.setJobLevelBossBarManager(jobLevelBossBarManager);
             }
 
+            // 食事バフ効果を職業レベルBossBarに表示するため、FoodBuffManagerを注入
+            if (foodBuffManager != null) {
+                jobLevelBossBarManager.setFoodBuffManager(foodBuffManager);
+            }
+
             // 取引営業時間BossBarシステムの初期化
             bossBarManager = new org.tofu.tofunomics.scoreboard.BossBarManager(this, configManager);
             getLogger().info("取引営業時間BossBarシステムを初期化しました");

@@ -83,12 +83,21 @@ public class FoodBuffManagerTest {
     }
 
     @Test
-    public void lastEatenCategoryWins() {
-        // パン -> 肉 の順で食べると、最後の肉カテゴリのみ有効
+    public void lastMatchingCategoryWins() {
+        // 現在職業を鉱夫にして、パン(非対応) -> 肉(対応) の順で食べる
+        when(jobManager.getPlayerJob(uuid)).thenReturn("miner");
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD); // 非マッチ -> バフ付与されない
+        foodBuffManager.applyBuff(player, FoodCategory.MEAT);  // マッチ -> 付与
+        assertEquals(1.25, foodBuffManager.getMultiplier(player, "miner"), 0.0001);
+    }
+
+    @Test
+    public void nonMatchingFoodDoesNotOverrideActiveBuff() {
+        // 木こりがパン(マッチ)でバフ取得中に、肉(木こりに非マッチ)を食べても消えない
         foodBuffManager.applyBuff(player, FoodCategory.BREAD);
         foodBuffManager.applyBuff(player, FoodCategory.MEAT);
-        assertEquals(1.25, foodBuffManager.getMultiplier(player, "miner"), 0.0001);      // 肉=鉱夫 -> 適用
-        assertEquals(1.0, foodBuffManager.getMultiplier(player, "woodcutter"), 0.0001);  // 肉≠木こり -> なし
+        assertEquals(1.25, foodBuffManager.getMultiplier(player, "woodcutter"), 0.0001); // パンバフ保持
+        assertEquals(1.0, foodBuffManager.getMultiplier(player, "miner"), 0.0001);       // 肉バフは作られない
     }
 
     @Test
@@ -155,5 +164,50 @@ public class FoodBuffManagerTest {
         when(configManager.getFoodBuffCategoryJobs("bread")).thenReturn(Collections.emptyList());
         foodBuffManager.applyBuff(player, FoodCategory.BREAD);
         assertEquals(1.0, foodBuffManager.getMultiplier(player, "woodcutter"), 0.0001);
+    }
+
+    // --- getActiveBuffInfo（BossBar表示用）のテスト ---
+
+    @Test
+    public void activeBuffInfoNullWhenNoBuff() {
+        assertNull(foodBuffManager.getActiveBuffInfo(player, "woodcutter"));
+    }
+
+    @Test
+    public void activeBuffInfoReturnsPercentAndRemainingWhenMatching() {
+        // 木こりがパンを食べる -> マッチ。+25% / 300秒設定
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD);
+        FoodBuffManager.ActiveBuffInfo info = foodBuffManager.getActiveBuffInfo(player, "woodcutter");
+        assertNotNull(info);
+        assertEquals(25, info.getBonusPercent());
+        // 残り秒は切り上げで 300 付近（経過分で 299 になることがあるため範囲で確認）
+        assertTrue(info.getRemainingSeconds() >= 299 && info.getRemainingSeconds() <= 300);
+    }
+
+    @Test
+    public void activeBuffInfoNullForNonMatchingJob() {
+        // パンのバフは鉱夫には効かない -> 表示も出さない
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD);
+        assertNull(foodBuffManager.getActiveBuffInfo(player, "miner"));
+    }
+
+    @Test
+    public void activeBuffInfoNullWhenExpired() {
+        when(configManager.getFoodBuffDurationSeconds()).thenReturn(1);
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD);
+        assertNotNull(foodBuffManager.getActiveBuffInfo(player, "woodcutter"));
+
+        try {
+            Thread.sleep(1100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        assertNull(foodBuffManager.getActiveBuffInfo(player, "woodcutter"));
+    }
+
+    @Test
+    public void activeBuffInfoNullForNullJob() {
+        foodBuffManager.applyBuff(player, FoodCategory.BREAD);
+        assertNull(foodBuffManager.getActiveBuffInfo(player, null));
     }
 }

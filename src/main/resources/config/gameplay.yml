@@ -221,6 +221,9 @@ scoreboard:
     color: "GREEN"
     # タイトル書式（%job%=職業名, %level%=レベル, %percent%=次レベルまでの進捗% または MAX）
     title_format: "&e%job% &fLv.%level% &7(%percent%%)"
+    # 食事バフが現在の職業にマッチして有効な間だけタイトル末尾に表示する
+    # （%percent%=経験値上昇割合, %seconds%=残り秒）。空文字にすると非表示。
+    food_buff_suffix: " &b⚡+%percent%% &7(残り%seconds%秒)"
 
   # スコアボード表示対象ワールド
   enabled_worlds:
