@@ -134,6 +134,24 @@ public class FarmPlotDAO {
         }
     }
 
+    /**
+     * 区画の座標範囲を更新する（owner_uuid・worldguard_region_id・world_nameは変更しない）
+     */
+    public boolean updateCoordinates(int id, int x1, int y1, int z1, int x2, int y2, int z2) throws SQLException {
+        String query = "UPDATE farm_plots SET x1 = ?, y1 = ?, z1 = ?, x2 = ?, y2 = ?, z2 = ?, " +
+                "updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+        try (PreparedStatement st = connection.prepareStatement(query)) {
+            st.setInt(1, x1);
+            st.setInt(2, y1);
+            st.setInt(3, z1);
+            st.setInt(4, x2);
+            st.setInt(5, y2);
+            st.setInt(6, z2);
+            st.setInt(7, id);
+            return st.executeUpdate() > 0;
+        }
+    }
+
     public boolean deletePlot(int id) throws SQLException {
         String query = "DELETE FROM farm_plots WHERE id = ?";
         try (PreparedStatement st = connection.prepareStatement(query)) {

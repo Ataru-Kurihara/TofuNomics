@@ -263,6 +263,74 @@ public class WorldGuardIntegration {
     }
 
     /**
+     * 既存領域を新しい座標範囲で再定義する。
+     * WorldGuardのCuboid領域はbounds（min/max）の直接変更APIを持たないため、
+     * 同IDで新しい領域を作成し、旧領域のメンバー/オーナー/フラグ/親/優先度を引き継ぐ。
+     * （区画リサイズ用。所有者・WGメンバー登録を保持したまま範囲のみ変更する）
+     *
+     * @param regionId 領域ID
+     * @param world ワールド
+     * @param pos1 新しい範囲の角1
+     * @param pos2 新しい範囲の角2
+     * @return 成功した場合true
+     */
+    public boolean redefineRegion(String regionId, World world, Location pos1, Location pos2) {
+        if (!enabled) {
+            logger.warning("WorldGuardが無効なため領域を再定義できません");
+            return false;
+        }
+
+        try {
+            RegionManager regionManager = regionContainer.get(BukkitAdapter.adapt(world));
+            if (regionManager == null) {
+                return false;
+            }
+
+            ProtectedRegion oldRegion = regionManager.getRegion(regionId);
+            if (oldRegion == null) {
+                logger.warning("再定義対象の領域 " + regionId + " が見つかりません");
+                return false;
+            }
+
+            BlockVector3 min = BlockVector3.at(
+                Math.min(pos1.getBlockX(), pos2.getBlockX()),
+                Math.min(pos1.getBlockY(), pos2.getBlockY()),
+                Math.min(pos1.getBlockZ(), pos2.getBlockZ())
+            );
+            BlockVector3 max = BlockVector3.at(
+                Math.max(pos1.getBlockX(), pos2.getBlockX()),
+                Math.max(pos1.getBlockY(), pos2.getBlockY()),
+                Math.max(pos1.getBlockZ(), pos2.getBlockZ())
+            );
+
+            // 同IDで新しいCuboid領域を作成し、旧領域の属性（メンバー/オーナー/フラグ/親/優先度）を引き継ぐ
+            // copyFromはbounds以外をコピーするため、まさにリサイズ用途に適する
+            ProtectedCuboidRegion newRegion = new ProtectedCuboidRegion(regionId, min, max);
+            newRegion.copyFrom(oldRegion);
+
+            // 同IDでaddRegionすると既存領域を置き換える
+            regionManager.addRegion(newRegion);
+
+            // 変更を保存
+            try {
+                regionManager.save();
+                logger.info("WorldGuard領域 " + regionId + " を新しい範囲で再定義しました");
+            } catch (Exception saveException) {
+                logger.severe("領域再定義の保存に失敗しました: " + saveException.getMessage());
+                // 保存失敗時は旧領域を再登録してロールバック
+                regionManager.addRegion(oldRegion);
+                return false;
+            }
+
+            return true;
+
+        } catch (Exception e) {
+            logger.severe("WorldGuard領域の再定義に失敗しました: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * プレイヤーが指定された場所で操作可能かをチェック
      * WorldGuardの保護設定を考慮してチェックする
      * 

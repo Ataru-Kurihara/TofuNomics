@@ -70,6 +70,13 @@ public class FarmPlotCommand implements CommandExecutor, TabCompleter {
                 }
                 farmPlotManager.deletePlot(player, args[1]);
                 return true;
+            case "resize":
+                if (args.length < 2) {
+                    player.sendMessage(ChatColor.RED + "使用法: /farmplot resize <名前>");
+                    return true;
+                }
+                farmPlotManager.resizePlot(player, args[1]);
+                return true;
             case "list":
                 handleList(player);
                 return true;
@@ -168,6 +175,7 @@ public class FarmPlotCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.YELLOW + "/farmplot pos1|pos2" + ChatColor.GRAY + " - 立っている位置を角に設定");
         player.sendMessage(ChatColor.YELLOW + "/farmplot create <名前>" + ChatColor.GRAY + " - 選択範囲で区画を作成");
         player.sendMessage(ChatColor.YELLOW + "/farmplot delete <名前>" + ChatColor.GRAY + " - 区画を削除");
+        player.sendMessage(ChatColor.YELLOW + "/farmplot resize <名前>" + ChatColor.GRAY + " - 選択範囲で区画の範囲を更新（所有者保持）");
         player.sendMessage(ChatColor.YELLOW + "/farmplot list" + ChatColor.GRAY + " - 区画一覧");
         player.sendMessage(ChatColor.YELLOW + "/farmplot info <名前>" + ChatColor.GRAY + " - 区画詳細");
         player.sendMessage(ChatColor.YELLOW + "/farmplot assign <プレイヤー> [区画名]" + ChatColor.GRAY + " - 手動割り当て");
@@ -180,7 +188,7 @@ public class FarmPlotCommand implements CommandExecutor, TabCompleter {
             return new ArrayList<>();
         }
         if (args.length == 1) {
-            List<String> subs = Arrays.asList("pos1", "pos2", "create", "delete", "list", "info", "assign", "release");
+            List<String> subs = Arrays.asList("pos1", "pos2", "create", "delete", "resize", "list", "info", "assign", "release");
             List<String> result = new ArrayList<>();
             for (String s : subs) {
                 if (s.startsWith(args[0].toLowerCase())) {
@@ -191,7 +199,7 @@ public class FarmPlotCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 2) {
             String sub = args[0].toLowerCase();
-            if (sub.equals("delete") || sub.equals("info")) {
+            if (sub.equals("delete") || sub.equals("info") || sub.equals("resize")) {
                 List<String> names = new ArrayList<>();
                 for (FarmPlot p : farmPlotManager.listPlots()) {
                     if (p.getPlotName().toLowerCase().startsWith(args[1].toLowerCase())) {
