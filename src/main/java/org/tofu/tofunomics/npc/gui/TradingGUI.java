@@ -20,6 +20,7 @@ import org.tofu.tofunomics.trade.TradePriceManager;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.tofu.tofunomics.util.NPCPurchaseMarker;
 
 public class TradingGUI implements Listener {
     
@@ -469,7 +470,8 @@ public class TradingGUI implements Listener {
     private int countPlayerItems(Player player, Material material) {
         int count = 0;
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && matchesSellable(item.getType(), material)) {
+            if (item != null && matchesSellable(item.getType(), material)
+                    && !NPCPurchaseMarker.isMarked(plugin, item)) {
                 count += item.getAmount();
             }
         }
@@ -869,7 +871,8 @@ public class TradingGUI implements Listener {
         int remaining = sellAmount;
         
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && matchesSellable(item.getType(), material) && !isCurrencyItem(item) && remaining > 0) {
+            if (item != null && matchesSellable(item.getType(), material) && !isCurrencyItem(item)
+                    && !NPCPurchaseMarker.isMarked(plugin, item) && remaining > 0) {
                 int available = item.getAmount();
                 int takeAmount = Math.min(available, remaining);
                 
@@ -910,7 +913,8 @@ public class TradingGUI implements Listener {
             
             for (int i = 0; i < player.getInventory().getSize(); i++) {
                 ItemStack item = player.getInventory().getItem(i);
-                if (item != null && item.getType() == sellMaterial && remainingToRemove > 0) {
+                if (item != null && item.getType() == sellMaterial && remainingToRemove > 0
+                        && !NPCPurchaseMarker.isMarked(plugin, item)) {
                     int removeAmount = Math.min(item.getAmount(), remainingToRemove);
                     
                     // バックアップ
@@ -1033,7 +1037,8 @@ public class TradingGUI implements Listener {
         List<ItemStack> allItems = new ArrayList<>();
         
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getAmount() > 0 && tradingPost.getItemPrice(item.getType()) > 0) {
+            if (item != null && item.getAmount() > 0 && tradingPost.getItemPrice(item.getType()) > 0
+                    && !NPCPurchaseMarker.isMarked(plugin, item)) {
                 allItems.add(item.clone());
             }
         }
@@ -1052,7 +1057,8 @@ public class TradingGUI implements Listener {
             
             for (int i = 0; i < player.getInventory().getSize(); i++) {
                 ItemStack item = player.getInventory().getItem(i);
-                if (item != null && item.getType() == sellMaterial && remainingToRemove > 0) {
+                if (item != null && item.getType() == sellMaterial && remainingToRemove > 0
+                        && !NPCPurchaseMarker.isMarked(plugin, item)) {
                     int removeAmount = Math.min(item.getAmount(), remainingToRemove);
                     
                     // バックアップ
