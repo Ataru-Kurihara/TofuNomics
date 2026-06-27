@@ -701,19 +701,20 @@ npc_system:
     emerald_ore: 16
     coal_ore: 1
     copper_ore: 1.5
-    # 木材系（リリース前バランス調整: 採取系の極端な安値を是正）
-    oak_log: 0.5
-    birch_log: 0.5
-    spruce_log: 0.5
-    jungle_log: 0.7
-    acacia_log: 0.7
-    dark_oak_log: 0.7
-    mangrove_log: 0.7
-    cherry_log: 0.7
-    # 木材製品
-    oak_planks: 0.12
-    birch_planks: 0.12
-    spruce_planks: 0.12
+    # 木材系（職業間格差是正: 原木と板材の価値を整合。原木1個=板材4個(4×1)で中立にし、クラフト転売を解消。
+    #         専用取引所の原木2倍ボーナスで実効4 = 板材4個分。サーバー実値の板材=1に合わせ原木を2へ）
+    oak_log: 2
+    birch_log: 2
+    spruce_log: 2
+    jungle_log: 2
+    acacia_log: 2
+    dark_oak_log: 2
+    mangrove_log: 2
+    cherry_log: 2
+    # 木材製品（原木1個→板材4個。整数通貨で個別売却できるよう1に統一）
+    oak_planks: 1
+    birch_planks: 1
+    spruce_planks: 1
     # 農作物系（バランス調整: レアリティ順の階段に再設計。小麦=最安基準）
     # 最安(3): 小麦・ビートルート・サトウキビ / 中(4): じゃがいも・にんじん・メロン
     # 上(5): かぼちゃ・カカオ豆 / 最高(6): ネザーウォート
@@ -792,24 +793,24 @@ npc_system:
     diorite: 1
     granite: 1
     # --- woodcutter: 板材・剥いだ原木・苗木・竹 ---
-    jungle_planks: 0.12
-    acacia_planks: 0.12
-    dark_oak_planks: 0.12
-    mangrove_planks: 0.12
-    cherry_planks: 0.12
-    crimson_planks: 0.18
-    warped_planks: 0.18
+    jungle_planks: 1
+    acacia_planks: 1
+    dark_oak_planks: 1
+    mangrove_planks: 1
+    cherry_planks: 1
+    crimson_planks: 1
+    warped_planks: 1
     bamboo_planks: 0.1
-    bamboo: 0.3
+    bamboo: 1
     stick: 0.05
-    stripped_oak_log: 0.5
-    stripped_birch_log: 0.5
-    stripped_spruce_log: 0.5
-    stripped_jungle_log: 0.7
-    stripped_acacia_log: 0.7
-    stripped_dark_oak_log: 0.7
-    stripped_mangrove_log: 0.7
-    stripped_cherry_log: 0.7
+    stripped_oak_log: 2
+    stripped_birch_log: 2
+    stripped_spruce_log: 2
+    stripped_jungle_log: 2
+    stripped_acacia_log: 2
+    stripped_dark_oak_log: 2
+    stripped_mangrove_log: 2
+    stripped_cherry_log: 2
     oak_sapling: 0.5
     birch_sapling: 0.5
     spruce_sapling: 0.5
