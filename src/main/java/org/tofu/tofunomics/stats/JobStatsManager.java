@@ -1,6 +1,8 @@
 package org.tofu.tofunomics.stats;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.PlayerJobDAO;
@@ -352,10 +354,20 @@ public class JobStatsManager {
     }
     
     /**
-     * UUIDからプレイヤー名を取得（簡略実装）
+     * UUIDからプレイヤー名を取得する。
+     * サーバーの usercache に基づき OfflinePlayer から名前を解決する。
+     * 一度もサーバーに参加したことがない等で名前を解決できない場合は「不明なプレイヤー」を返す。
      */
     private String getPlayerNameByUUID(String uuid) {
-        // 実際の実装では Bukkit.getOfflinePlayer() を使用
-        return "Player"; // プレースホルダー
+        try {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(java.util.UUID.fromString(uuid));
+            String name = offlinePlayer.getName();
+            if (name != null && !name.isEmpty()) {
+                return name;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // UUID の形式が不正な場合はフォールバックする
+        }
+        return "不明なプレイヤー";
     }
 }
