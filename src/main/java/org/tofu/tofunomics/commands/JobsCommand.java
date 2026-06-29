@@ -11,6 +11,7 @@ import org.tofu.tofunomics.jobs.ExperienceManager;
 import org.tofu.tofunomics.jobs.gui.JobsHubGUI;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.models.Job;
+import org.tofu.tofunomics.stats.JobStatsManager;
 
 public class JobsCommand implements CommandExecutor {
 
@@ -18,13 +19,16 @@ public class JobsCommand implements CommandExecutor {
     private final JobManager jobManager;
     private final ExperienceManager experienceManager;
     private final JobsHubGUI jobsHubGUI;
+    private final JobStatsManager jobStatsManager;
 
     public JobsCommand(ConfigManager configManager, JobManager jobManager,
-                       ExperienceManager experienceManager, JobsHubGUI jobsHubGUI) {
+                       ExperienceManager experienceManager, JobsHubGUI jobsHubGUI,
+                       JobStatsManager jobStatsManager) {
         this.configManager = configManager;
         this.jobManager = jobManager;
         this.experienceManager = experienceManager;
         this.jobsHubGUI = jobsHubGUI;
+        this.jobStatsManager = jobStatsManager;
     }
 
     @Override
@@ -266,73 +270,25 @@ public class JobsCommand implements CommandExecutor {
         return true;
     }
 
-    private boolean handleJobStats(Player player, String[] args) {
-        if (args.length > 2) {
-            player.sendMessage(ChatColor.RED + "使用法: /jobs stats [職業名]");
-            return true;
-        }
-        
-        if (args.length == 1) {
-            // すべての職業の統計を表示
-            player.sendMessage(ChatColor.GOLD + "=== あなたの職業統計 ===");
-            
-            for (PlayerJob playerJob : jobManager.getPlayerJobs(player)) {
-                Job job = jobManager.getJobById(playerJob.getJobId());
-                if (job != null) {
-                    String displayName = job.getDisplayName();
-                    int level = playerJob.getLevel();
-
-                    player.sendMessage(ChatColor.YELLOW + "▶ " + displayName);
-                    player.sendMessage(ChatColor.WHITE + "  レベル: " + level + " " + formatExperienceProgress(playerJob, job.getName()));
-                }
-            }
-        } else {
-            // 特定の職業の統計を表示
-            String jobName = args[1].toLowerCase();
-            if (!jobManager.hasJob(player, jobName)) {
-                player.sendMessage(ChatColor.RED + "その職業には就いていません: " + jobName);
-                return true;
-            }
-            
-            PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
-            if (playerJob != null) {
-                String displayName = jobManager.getJobDisplayName(jobName);
-                int level = playerJob.getLevel();
-
-                player.sendMessage(ChatColor.GOLD + "=== " + displayName + " 統計 ===");
-                player.sendMessage(ChatColor.WHITE + "レベル: " + level);
-                player.sendMessage(ChatColor.WHITE + formatExperienceProgress(playerJob, jobName));
-            }
-        }
-
-        return true;
-    }
-
     /**
-     * 現在のレベル内での経験値進捗を整形して返す。
-     * 形式: 「経験値: <現レベル内で獲得>/<現レベルに必要> [進捗バー] (次のレベルまで: <残り>)」
-     * 実際のレベリング（JobExperienceManager）と同じ ExperienceManager の計算式を使い、
-     * 累積経験値ではなく「現在のレベル内での進捗」を表示する。
-     * 最大レベル時は累積経験値と「最大レベル」を表示する。
+     * /jobs stats は /jobstats のエイリアス。表示を一本化するため JobStatsManager に委譲する。
+     * 使用法は /jobstats と同一:
+     *   /jobs stats              … 全職業の統計
+     *   /jobs stats &lt;職業名&gt;     … 指定職業の詳細統計
+     *   /jobs stats top &lt;職業名&gt; … 指定職業のランキング
+     * （args[0] は "stats"。以降を /jobstats と同じ引数として扱う）
      */
-    private String formatExperienceProgress(PlayerJob playerJob, String jobName) {
-        double currentExp = playerJob.getExperience();
-
-        if (experienceManager.isMaxLevel(playerJob, jobName)) {
-            return "経験値: " + (int) currentExp + " (最大レベル)";
+    private boolean handleJobStats(Player player, String[] args) {
+        if (args.length == 1) {
+            jobStatsManager.showAllJobStats(player);
+        } else if (args.length == 3 && args[1].equalsIgnoreCase("top")) {
+            jobStatsManager.showJobTopRanking(player, args[2].toLowerCase(), 10);
+        } else if (args.length == 2 && !args[1].equalsIgnoreCase("top")) {
+            jobStatsManager.showJobStats(player, args[1].toLowerCase());
+        } else {
+            player.sendMessage(ChatColor.RED + "使用法: /jobs stats [職業名|top <職業名>]");
         }
-
-        int level = playerJob.getLevel();
-        double expForCurrentLevel = experienceManager.calculateRequiredExperience(level);
-        double expForNextLevel = experienceManager.calculateRequiredExperience(level + 1);
-
-        int expInLevel = (int) Math.max(0, currentExp - expForCurrentLevel);
-        int expNeededForLevel = (int) Math.max(0, expForNextLevel - expForCurrentLevel);
-        int remaining = (int) Math.ceil(experienceManager.getExperienceToNextLevel(playerJob));
-        String progressBar = experienceManager.getExperienceProgressBar(playerJob, 20);
-
-        return "経験値: " + expInLevel + "/" + expNeededForLevel + " "
-                + progressBar + " (次のレベルまで: " + remaining + ")";
+        return true;
     }
 
     private boolean handleJobInfo(Player player, String[] args) {
@@ -502,7 +458,7 @@ public class JobsCommand implements CommandExecutor {
         player.sendMessage(ChatColor.YELLOW + "/jobs list " + ChatColor.WHITE + "- 利用可能な職業一覧を表示");
         player.sendMessage(ChatColor.YELLOW + "/jobs join <職業名> " + ChatColor.WHITE + "- 指定した職業に就く");
         player.sendMessage(ChatColor.YELLOW + "/jobs leave <職業名> " + ChatColor.WHITE + "- 指定した職業を辞める");
-        player.sendMessage(ChatColor.YELLOW + "/jobs stats [職業名] " + ChatColor.WHITE + "- 職業の統計を表示");
+        player.sendMessage(ChatColor.YELLOW + "/jobs stats [職業名|top <職業名>] " + ChatColor.WHITE + "- 職業の統計を表示（/jobstats と同じ）");
         player.sendMessage(ChatColor.YELLOW + "/jobs info <職業名> " + ChatColor.WHITE + "- 職業の詳細情報を表示");
         player.sendMessage(ChatColor.YELLOW + "/jobs debug " + ChatColor.WHITE + "- 職業の詳細デバッグ情報を表示");
     }

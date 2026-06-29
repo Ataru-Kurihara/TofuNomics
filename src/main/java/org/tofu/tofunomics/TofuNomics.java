@@ -853,7 +853,7 @@ public final class TofuNomics extends JavaPlugin {
             getCommand("eco").setExecutor(new EcoCommand(configManager, currencyConverter, playerDAO));
             
             // 職業系コマンド
-            getCommand("jobs").setExecutor(new JobsCommand(configManager, jobManager, experienceManager, jobsHubGUI));
+            getCommand("jobs").setExecutor(new JobsCommand(configManager, jobManager, experienceManager, jobsHubGUI, jobStatsManager));
 
             // 畑区画コマンド
             if (farmPlotManager != null && getCommand("farmplot") != null) {
