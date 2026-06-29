@@ -247,6 +247,53 @@ public class PlayerJobTest {
     }
 
     @Test
+    public void testCalculateLevelProgressPercentNormal() {
+        // レベル5で、現在レベルと次レベルの中間の経験値 → 約50%
+        int level = 5;
+        double prev = PlayerJob.calculateExperienceRequired(level);
+        double next = PlayerJob.calculateExperienceRequired(level + 1);
+        double midExp = prev + (next - prev) / 2.0;
+
+        double progress = PlayerJob.calculateLevelProgressPercent(level, midExp);
+        assertEquals("中間の経験値では進捗率が約50%になるべき", 50.0, progress, DELTA);
+    }
+
+    @Test
+    public void testCalculateLevelProgressPercentClampsNegative() {
+        // 本バグ再現: 経験値が現在レベルの必要値を下回る（レベルだけ先行した不整合状態）
+        // → 負値ではなく0.0にクランプされるべき
+        int level = 50;
+        double belowExp = PlayerJob.calculateExperienceRequired(level) - 1000.0;
+
+        double progress = PlayerJob.calculateLevelProgressPercent(level, belowExp);
+        assertEquals("経験値がレベルに満たない場合は0.0にクランプされるべき(負にならない)",
+                     0.0, progress, DELTA);
+    }
+
+    @Test
+    public void testCalculateLevelProgressPercentClampsOverflow() {
+        // 経験値が次レベル必要値を超える場合 → 100.0にクランプされるべき
+        int level = 10;
+        double overExp = PlayerJob.calculateExperienceRequired(level + 1) + 10000.0;
+
+        double progress = PlayerJob.calculateLevelProgressPercent(level, overExp);
+        assertEquals("経験値が次レベルを超える場合は100.0にクランプされるべき",
+                     100.0, progress, DELTA);
+    }
+
+    @Test
+    public void testCalculateLevelProgressPercentDegenerate() {
+        // レベル0以下は prevLevelExp == requiredExp == 0 で0除算となる縮退ケース
+        // → ガードにより100.0を返すべき(NaN/Infinityにならない)
+        double progress = PlayerJob.calculateLevelProgressPercent(0, 0.0);
+        assertEquals("レベル0の縮退ケースでは100.0を返すべき", 100.0, progress, DELTA);
+
+        // レベル1で経験値0は縮退ではなく進捗の起点 → 0.0が正しい
+        double level1Start = PlayerJob.calculateLevelProgressPercent(1, 0.0);
+        assertEquals("レベル1で経験値0は進捗0.0であるべき", 0.0, level1Start, DELTA);
+    }
+
+    @Test
     public void testExperienceFormula() {
         // 各レベルでの必要経験値の増加を確認
         double level1Exp = PlayerJob.calculateExperienceRequired(1);
