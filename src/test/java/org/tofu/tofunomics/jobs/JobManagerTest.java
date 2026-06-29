@@ -526,4 +526,53 @@ public class JobManagerTest {
         verify(playerJobDAO, never()).insertPlayerJob(any(PlayerJob.class));
         verify(jobChangeDAO, never()).recordJobChangeToday(anyString());
     }
+
+    // ===== 管理者テスト用 adminForceJoinJob =====
+
+    @Test
+    public void testAdminForceJoinJobSuccess() throws Exception {
+        // 上級職を含む各種就職制限を無視して、強制的に就職させられること
+        String jobName = "miner"; // farmer以外を使い畑区画割当(TofuNomics経由)の副作用を避ける
+        Job job = new Job(jobName, "鉱夫", 100, 12.0);
+        job.setId(1);
+
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
+        // resetAllJobs内部の削除呼び出し
+        when(jobHistoryDAO.deleteAllHistoriesByUUID(playerUuidString)).thenReturn(true);
+        // ensurePlayerExists: 既存プレイヤーありとして新規作成を回避
+        when(playerDAO.getPlayerByUUID(playerUuidString))
+            .thenReturn(new org.tofu.tofunomics.models.Player(playerUuid, 100.0));
+        when(playerJobDAO.insertPlayerJob(any(PlayerJob.class))).thenReturn(true);
+        when(player.getName()).thenReturn("TestPlayer");
+
+        // adminForceJoinJob/resetAllJobsはTofuNomics.getInstance().getLogger()を使うためstaticをモック
+        try (org.mockito.MockedStatic<org.tofu.tofunomics.TofuNomics> mocked =
+                 mockStatic(org.tofu.tofunomics.TofuNomics.class)) {
+            org.tofu.tofunomics.TofuNomics pluginMock = mock(org.tofu.tofunomics.TofuNomics.class);
+            when(pluginMock.getLogger()).thenReturn(java.util.logging.Logger.getLogger("test"));
+            mocked.when(org.tofu.tofunomics.TofuNomics::getInstance).thenReturn(pluginMock);
+
+            PlayerJob result = jobManager.adminForceJoinJob(player, jobName);
+
+            assertNotNull("強制就職でPlayerJobが返るべき", result);
+            assertEquals("職業IDが一致するべき", 1, result.getJobId());
+            assertEquals("初期レベルは1であるべき", 1, result.getLevel());
+            // 既存データのリセットと新規登録が行われること
+            verify(playerJobDAO).deleteAllPlayerJobs(playerUuid);
+            verify(playerJobDAO).insertPlayerJob(any(PlayerJob.class));
+        }
+    }
+
+    @Test
+    public void testAdminForceJoinJobInvalidJob() throws Exception {
+        // 存在しない職業名ではnullを返し、就職処理を行わないこと
+        String jobName = "nonexistent";
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(null);
+
+        PlayerJob result = jobManager.adminForceJoinJob(player, jobName);
+
+        assertNull("不正な職業名ではnullを返すべき", result);
+        verify(playerJobDAO, never()).insertPlayerJob(any(PlayerJob.class));
+        verify(playerJobDAO, never()).deleteAllPlayerJobs(any(UUID.class));
+    }
 }

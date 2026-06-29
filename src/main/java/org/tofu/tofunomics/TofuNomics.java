@@ -900,10 +900,18 @@ public final class TofuNomics extends JavaPlugin {
             
             // テストモードコマンド
             if (testModeManager != null) {
-                org.tofu.tofunomics.commands.TestModeCommand testModeCommand = 
+                org.tofu.tofunomics.commands.TestModeCommand testModeCommand =
                     new org.tofu.tofunomics.commands.TestModeCommand(this, testModeManager);
                 getCommand("testmode").setExecutor(testModeCommand);
                 getCommand("testmode").setTabCompleter(testModeCommand);
+            }
+
+            // テストキットコマンド（管理者テスト支援: 前提条件のセットアップ）
+            if (getCommand("tntest") != null) {
+                org.tofu.tofunomics.commands.TestKitCommand testKitCommand =
+                    new org.tofu.tofunomics.commands.TestKitCommand(this);
+                getCommand("tntest").setExecutor(testKitCommand);
+                getCommand("tntest").setTabCompleter(testKitCommand);
             }
             
             // 時計アイテムコマンド
@@ -1007,6 +1015,10 @@ public final class TofuNomics extends JavaPlugin {
     
     public ExperienceManager getExperienceManager() {
         return experienceManager;
+    }
+
+    public JobLevelRewardManager getJobLevelRewardManager() {
+        return jobLevelRewardManager;
     }
 
     public org.tofu.tofunomics.farming.FarmPlotManager getFarmPlotManager() {
