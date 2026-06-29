@@ -198,14 +198,14 @@ public class ScoreboardManager implements Listener {
                     levelInfo = "Lv." + currentJob.getLevel() + " " + jobTitle;
                     
                     // 次レベルまでの経験値計算
-                    double requiredExp = PlayerJob.calculateExperienceRequired(currentJob.getLevel() + 1);
-                    double currentExp = currentJob.getExperience();
-                    double prevLevelExp = PlayerJob.calculateExperienceRequired(currentJob.getLevel());
-                    
-                    if (currentJob.getLevel() >= configManager.getMaxJobLevel()) {
+                    // レベル上限は職業別設定(既定75)を使用する。getMaxJobLevel()(=100固定)
+                    // ではないことに注意(JobLevelBossBarManager と共通)。
+                    if (currentJob.getLevel() >= configManager.getJobMaxLevel(jobInfo)) {
                         experienceInfo = "MAX";
                     } else {
-                        double progress = ((currentExp - prevLevelExp) / (requiredExp - prevLevelExp)) * 100;
+                        // [0,100]クランプ＋0除算ガード付きの共通ヘルパーで計算(負値・100超え・NaN防止)
+                        double progress = PlayerJob.calculateLevelProgressPercent(
+                                currentJob.getLevel(), currentJob.getExperience());
                         experienceInfo = String.format("%.1f%%", progress);
                     }
                 }

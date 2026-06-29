@@ -110,19 +110,20 @@ public class JobLevelBossBarManager implements Listener {
                     ? configManager.getJobDisplayName(jobData.getName())
                     : "職業";
 
-            // 進捗率（0.0〜1.0）を計算（旧 ScoreboardManager.updateExperienceBar と同一ロジック）
-            double currentExp = currentJob.getExperience();
-            double prevLevelExp = PlayerJob.calculateExperienceRequired(currentJob.getLevel());
-            double requiredExp = PlayerJob.calculateExperienceRequired(currentJob.getLevel() + 1);
+            // 進捗率（0.0〜1.0）を計算（ScoreboardManager と共通ヘルパーを使用）
+            // レベル上限は職業別設定(既定75)を使用。jobData が null の場合のみ 100 固定にフォールバック。
+            // config キーには内部職業名(jobData.getName())を渡すこと(表示名 jobName 変数は不可)。
+            int jobMaxLevel = (jobData != null) ? configManager.getJobMaxLevel(jobData.getName())
+                                                : configManager.getMaxJobLevel();
 
             float progress;
-            boolean maxLevel = currentJob.getLevel() >= configManager.getMaxJobLevel() || requiredExp <= prevLevelExp;
+            boolean maxLevel = currentJob.getLevel() >= jobMaxLevel;
             if (maxLevel) {
                 progress = 1.0f;
             } else {
-                progress = (float) ((currentExp - prevLevelExp) / (requiredExp - prevLevelExp));
+                progress = (float) (PlayerJob.calculateLevelProgressPercent(
+                        currentJob.getLevel(), currentJob.getExperience()) / 100.0);
             }
-            progress = Math.max(0.0f, Math.min(1.0f, progress));
 
             int percent = (int) Math.floor(progress * 100);
             String title = configManager.getJobBossBarTitleFormat()

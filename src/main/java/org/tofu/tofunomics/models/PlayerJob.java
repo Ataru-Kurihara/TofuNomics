@@ -85,6 +85,20 @@ public class PlayerJob {
         return Math.pow(level - 1, 2.2) * 100;
     }
 
+    /**
+     * 現在レベル内での次レベルまでの進捗率を 0.0〜100.0 にクランプして返す。
+     * requiredExp <= prevLevelExp の縮退ケース(0除算)では 100.0 を返す。
+     */
+    public static double calculateLevelProgressPercent(int level, double experience) {
+        double prevLevelExp = calculateExperienceRequired(level);
+        double requiredExp = calculateExperienceRequired(level + 1);
+        if (requiredExp <= prevLevelExp) {
+            return 100.0;
+        }
+        double progress = ((experience - prevLevelExp) / (requiredExp - prevLevelExp)) * 100.0;
+        return Math.max(0.0, Math.min(100.0, progress));
+    }
+
     public Timestamp getJoinedAt() {
         return joinedAt;
     }
