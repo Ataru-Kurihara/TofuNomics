@@ -82,25 +82,42 @@ public class JobsCommand implements CommandExecutor {
             int maxLevel = configManager.getJobMaxLevel(jobName);
             double incomeMultiplier = configManager.getJobIncomeMultiplier(jobName);
             boolean employed = jobManager.hasJob(player, jobName);
+            // 上級職業の判定（GUIのJobsHubGUIと同じロジック）
+            boolean advanced = configManager.isAdvancedJob(jobName);
+            // 上級職業が未解禁か（未就職かつLv50到達経験なし）
+            boolean advancedLocked = advanced && !employed && !jobManager.hasReachedLevel50(player);
 
             if (clickable) {
                 // ホバーで詳細（説明・最大レベル・収入倍率）を表示するツールチップを構築
                 StringBuilder hover = new StringBuilder();
+                if (advanced) {
+                    hover.append("&6&l【上級職業】\n");
+                }
                 hover.append("&e").append(displayName).append(" &7(").append(jobName).append(")\n");
                 if (description != null && !description.isEmpty()) {
                     hover.append("&f").append(description).append("\n");
                 }
                 hover.append("&b最大レベル: ").append(maxLevel)
                      .append(" &7| &b収入倍率: ").append(String.format("%.1f", incomeMultiplier)).append("x");
+                if (advanced) {
+                    hover.append("\n&7※いずれかの職業でLv50到達後に就職できます");
+                }
+
+                String label = advanced
+                    ? "&6▶ ★[上級] " + displayName + " &7(" + jobName + ")  "
+                    : "&e▶ " + displayName + " &7(" + jobName + ")  ";
 
                 org.tofu.tofunomics.util.RichMessageBuilder builder =
                     org.tofu.tofunomics.util.RichMessageBuilder.create()
-                        .hoverText("&e▶ " + displayName + " &7(" + jobName + ")  ", hover.toString());
+                        .hoverText(label, hover.toString());
 
                 if (employed) {
                     PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
                     int currentLevel = playerJob != null ? playerJob.getLevel() : 0;
                     builder.text("&a[現在就職中 Lv." + currentLevel + "]");
+                } else if (advancedLocked) {
+                    // 未解禁の上級職業はクリック不可のテキスト表示
+                    builder.text("&c[未解禁] &7Lv50到達で解禁");
                 } else {
                     // クリックで就職できるボタン
                     builder.runButton("&a&l[就職する]", "/jobs join " + jobName,
@@ -108,7 +125,12 @@ public class JobsCommand implements CommandExecutor {
                 }
                 builder.sendTo(player);
             } else {
-                player.sendMessage(ChatColor.YELLOW + "▶ " + displayName + ChatColor.GRAY + " (" + jobName + ")");
+                if (advanced) {
+                    player.sendMessage(ChatColor.GOLD + "▶ ★[上級] " + displayName + ChatColor.GRAY + " (" + jobName + ")");
+                    player.sendMessage(ChatColor.GOLD + "  【上級職業】");
+                } else {
+                    player.sendMessage(ChatColor.YELLOW + "▶ " + displayName + ChatColor.GRAY + " (" + jobName + ")");
+                }
                 if (description != null && !description.isEmpty()) {
                     player.sendMessage(ChatColor.WHITE + "  " + description);
                 }
@@ -125,6 +147,8 @@ public class JobsCommand implements CommandExecutor {
                         player.sendMessage(ChatColor.GREEN + "  ★ 現在就職中 - レベル " + currentLevel +
                                          " (経験値: " + (int)currentExp + "/" + requiredExp + ")");
                     }
+                } else if (advancedLocked) {
+                    player.sendMessage(ChatColor.RED + "  ✖ 未解禁 - いずれかの職業でLv50到達後に就職できます");
                 }
                 player.sendMessage("");
             }
