@@ -481,6 +481,20 @@ public class FoodNPCManager {
     }
     
     /**
+     * 管理者テスト用: 日付に関係なく食料NPCの日次状態を強制リセットする。
+     * 全プレイヤーの当日購入履歴をクリアし、全店舗の在庫を上限まで補充する。
+     * 営業時間(午前6時)の自動リセットを待たずに在庫切れ・購入制限のテストを繰り返すためのメソッド。
+     */
+    public void forceDailyReset() {
+        dailyPurchases.clear();
+        for (UUID storeId : foodStores.keySet()) {
+            initializeStoreInventory(storeId);
+        }
+        lastResetDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        plugin.getLogger().info("管理者コマンドにより食料NPCの在庫・購入制限を手動リセットしました");
+    }
+
+    /**
      * リセット日付の初期化
      */
     private void initializeResetDate() {

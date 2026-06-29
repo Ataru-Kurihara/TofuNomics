@@ -305,12 +305,50 @@ public class JobManager {
         return success;
     }
     
+    /**
+     * 管理者テスト用: 各種就職制限（上級職ロック・転職Lv50制限・max_jobs・日次変更制限）を
+     * すべて無視して、指定職業に強制的に就かせる。
+     * 既存の職業データ・履歴・変更記録は resetAllJobs() で全削除してから新規登録するため、
+     * 確実に「指定職業のみを Lv1 で持つ」状態になる。
+     * レベルを引き上げる場合は呼び出し側で ExperienceManager.setLevel() を使う。
+     *
+     * @return 登録した PlayerJob。職業名が不正、またはDB登録失敗時は null
+     */
+    public PlayerJob adminForceJoinJob(Player player, String jobName) {
+        Job job = jobDAO.getJobByNameSafe(jobName);
+        if (job == null) {
+            return null;
+        }
+
+        // 既存の職業・履歴・変更記録をすべて初期化してクリーンな状態にする
+        resetAllJobs(player);
+        ensurePlayerExists(player);
+
+        PlayerJob playerJob = new PlayerJob();
+        playerJob.setUuid(player.getUniqueId().toString());
+        playerJob.setJobId(job.getId());
+        playerJob.setLevel(1);
+        playerJob.setExperience(0.0);
+
+        if (!playerJobDAO.insertPlayerJob(playerJob)) {
+            return null;
+        }
+
+        // 農家就職時は畑区画を自動割り当て（joinJobと同じ副作用を再現）
+        onFarmerJobJoined(player, jobName);
+
+        TofuNomics.getInstance().getLogger().info(
+            "管理者コマンドにより職業を強制設定しました: " + player.getName() + " -> " + jobName);
+
+        return playerJob;
+    }
+
     public PlayerJob getPlayerJob(Player player, String jobName) {
         Job job = jobDAO.getJobByNameSafe(jobName);
         if (job == null) {
             return null;
         }
-        
+
         return playerJobDAO.getPlayerJob(player.getUniqueId().toString(), job.getId());
     }
     

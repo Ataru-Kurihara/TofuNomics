@@ -1,8 +1,10 @@
 package org.tofu.tofunomics.jobs;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.bukkit.entity.Player;
 import org.tofu.tofunomics.config.ConfigManager;
@@ -53,17 +55,37 @@ public class JobManagerTest {
     private JobManager jobManager;
     private UUID playerUuid;
     private String playerUuidString;
-    
+
+    // JobManagerの一部メソッド（joinJob成功時の農家区画割当、resetAllJobs等）は
+    // TofuNomics.getInstance() を参照するため、クラス全体でstaticをモックする
+    private MockedStatic<org.tofu.tofunomics.TofuNomics> tofuNomicsStatic;
+    private org.tofu.tofunomics.TofuNomics pluginMock;
+
     @Before
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        
+
         jobManager = new JobManager(configManager, jobDAO, playerDAO, playerJobDAO, jobChangeDAO, jobHistoryDAO);
         playerUuid = UUID.randomUUID();
         playerUuidString = playerUuid.toString();
-        
+
         // プレイヤーのモック設定
         when(player.getUniqueId()).thenReturn(playerUuid);
+        when(player.getName()).thenReturn("TestPlayer");
+
+        // TofuNomics.getInstance() をモック（ロガー取得・農家区画割当の参照に使用）
+        tofuNomicsStatic = mockStatic(org.tofu.tofunomics.TofuNomics.class);
+        pluginMock = mock(org.tofu.tofunomics.TofuNomics.class);
+        when(pluginMock.getLogger()).thenReturn(java.util.logging.Logger.getLogger("test"));
+        when(pluginMock.getFarmPlotManager()).thenReturn(null); // 農家区画割当はスキップ
+        tofuNomicsStatic.when(org.tofu.tofunomics.TofuNomics::getInstance).thenReturn(pluginMock);
+    }
+
+    @After
+    public void tearDown() {
+        if (tofuNomicsStatic != null) {
+            tofuNomicsStatic.close();
+        }
     }
 
     @Test
@@ -138,9 +160,11 @@ public class JobManagerTest {
         when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(false);
         when(configManager.getMaxJobsPerPlayer()).thenReturn(3);
         when(playerJobDAO.getPlayerJobsByUUID(playerUuidString)).thenReturn(existingJobs);
-        
+        // Lv50到達済み（転職可能）として、最大職業数チェックまで到達させる
+        when(jobHistoryDAO.hasReachedLevel50(playerUuidString)).thenReturn(true);
+
         JobJoinResult result = jobManager.joinJob(player, jobName);
-        
+
         assertEquals("最大職業数到達で失敗するべき", JobJoinResult.MAX_JOBS_REACHED, result);
         verify(playerJobDAO, never()).insertPlayerJob(any(PlayerJob.class));
     }
@@ -161,9 +185,11 @@ public class JobManagerTest {
         when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(false);
         when(configManager.getMaxJobsPerPlayer()).thenReturn(3);
         when(playerJobDAO.getPlayerJobsByUUID(playerUuidString)).thenReturn(existingJobs);
-        
+        // Lv50到達済み（転職可能）として、既存職業チェックまで到達させる
+        when(jobHistoryDAO.hasReachedLevel50(playerUuidString)).thenReturn(true);
+
         JobJoinResult result = jobManager.joinJob(player, jobName);
-        
+
         assertEquals("既に持っている職業で失敗するべき", JobJoinResult.ALREADY_HAS_JOB, result);
         verify(playerJobDAO, never()).insertPlayerJob(any(PlayerJob.class));
     }
@@ -260,9 +286,10 @@ public class JobManagerTest {
         when(jobChangeDAO.recordJobChangeToday(playerUuidString)).thenReturn(true);
         
         JobJoinResult result = jobManager.joinJob(player, jobName);
-        
-        assertEquals("1日制限が有効で職業参加が成功するべき", JobJoinResult.SUCCESS, result);
-        verify(jobChangeDAO).recordJobChangeToday(playerUuidString);
+
+        assertEquals("1日制限が有効でも初回就職は成功するべき", JobJoinResult.SUCCESS, result);
+        // 日次変更の記録は退職(leaveJob)時のみ。就職では消費しない
+        verify(jobChangeDAO, never()).recordJobChangeToday(playerUuidString);
     }
 
     @Test
@@ -273,14 +300,16 @@ public class JobManagerTest {
         
         PlayerJob playerJob = new PlayerJob();
         playerJob.setJobId(1);
-        
+        playerJob.setLevel(50); // 退職にはLv50到達が必要
+
         when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(false);
         when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
         when(playerJobDAO.getPlayerJob(playerUuidString, 1)).thenReturn(playerJob);
+        when(jobHistoryDAO.insertJobHistory(any())).thenReturn(true);
         when(playerJobDAO.deletePlayerJob(playerUuidString, 1)).thenReturn(true);
-        
+
         JobLeaveResult result = jobManager.leaveJob(player, jobName);
-        
+
         assertEquals("職業離脱が成功するべき", JobLeaveResult.SUCCESS, result);
         verify(playerJobDAO).deletePlayerJob(playerUuidString, 1);
     }
@@ -319,14 +348,16 @@ public class JobManagerTest {
         
         PlayerJob playerJob = new PlayerJob();
         playerJob.setJobId(1);
-        
+        playerJob.setLevel(50); // 退職にはLv50到達が必要
+
         when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(false);
         when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
         when(playerJobDAO.getPlayerJob(playerUuidString, 1)).thenReturn(playerJob);
+        when(jobHistoryDAO.insertJobHistory(any())).thenReturn(true);
         when(playerJobDAO.deletePlayerJob(playerUuidString, 1)).thenReturn(false);
-        
+
         JobLeaveResult result = jobManager.leaveJob(player, jobName);
-        
+
         assertEquals("データベースエラーで失敗するべき", JobLeaveResult.DATABASE_ERROR, result);
     }
 
@@ -519,11 +550,54 @@ public class JobManagerTest {
         when(jobChangeDAO.canPlayerChangeJobToday(playerUuidString)).thenReturn(true);
         when(configManager.getMaxJobsPerPlayer()).thenReturn(3);
         when(playerJobDAO.getPlayerJobsByUUID(playerUuidString)).thenReturn(existingJobs);
-        
+        // Lv50到達済み（転職可能）として、最大職業数チェックまで到達させる
+        when(jobHistoryDAO.hasReachedLevel50(playerUuidString)).thenReturn(true);
+
         JobJoinResult result = jobManager.joinJob(player, newJobName);
-        
+
         assertEquals("最大職業数到達により失敗するべき", JobJoinResult.MAX_JOBS_REACHED, result);
         verify(playerJobDAO, never()).insertPlayerJob(any(PlayerJob.class));
         verify(jobChangeDAO, never()).recordJobChangeToday(anyString());
+    }
+
+    // ===== 管理者テスト用 adminForceJoinJob =====
+
+    @Test
+    public void testAdminForceJoinJobSuccess() throws Exception {
+        // 上級職を含む各種就職制限を無視して、強制的に就職させられること
+        String jobName = "miner"; // farmer以外を使い畑区画割当(TofuNomics経由)の副作用を避ける
+        Job job = new Job(jobName, "鉱夫", 100, 12.0);
+        job.setId(1);
+
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
+        // resetAllJobs内部の削除呼び出し
+        when(jobHistoryDAO.deleteAllHistoriesByUUID(playerUuidString)).thenReturn(true);
+        // ensurePlayerExists: 既存プレイヤーありとして新規作成を回避
+        when(playerDAO.getPlayerByUUID(playerUuidString))
+            .thenReturn(new org.tofu.tofunomics.models.Player(playerUuid, 100.0));
+        when(playerJobDAO.insertPlayerJob(any(PlayerJob.class))).thenReturn(true);
+
+        // TofuNomics.getInstance() はクラス共通の@Beforeでモック済み
+        PlayerJob result = jobManager.adminForceJoinJob(player, jobName);
+
+        assertNotNull("強制就職でPlayerJobが返るべき", result);
+        assertEquals("職業IDが一致するべき", 1, result.getJobId());
+        assertEquals("初期レベルは1であるべき", 1, result.getLevel());
+        // 既存データのリセットと新規登録が行われること
+        verify(playerJobDAO).deleteAllPlayerJobs(playerUuid);
+        verify(playerJobDAO).insertPlayerJob(any(PlayerJob.class));
+    }
+
+    @Test
+    public void testAdminForceJoinJobInvalidJob() throws Exception {
+        // 存在しない職業名ではnullを返し、就職処理を行わないこと
+        String jobName = "nonexistent";
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(null);
+
+        PlayerJob result = jobManager.adminForceJoinJob(player, jobName);
+
+        assertNull("不正な職業名ではnullを返すべき", result);
+        verify(playerJobDAO, never()).insertPlayerJob(any(PlayerJob.class));
+        verify(playerJobDAO, never()).deleteAllPlayerJobs(any(UUID.class));
     }
 }

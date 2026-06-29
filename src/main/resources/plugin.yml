@@ -97,6 +97,11 @@ commands:
     usage: /market <sell|mylistings|cancel|reclaim|buy|requests|myrequests|cancelrequest|reclaimrequest|repair|enchant|services|myservices|cancelservice|reclaimservice|reload> [args]
     aliases: [mk]
     permission: tofunomics.market.use
+  tntest:
+    description: 管理者テスト支援コマンド（テスト前提条件のセットアップ）
+    usage: /tntest <job|lv50|reward|money|reset|kit|time|stockreset|help> [args]
+    aliases: [tnt]
+    permission: tofunomics.admin
 
 permissions:
   tofunomics.*:
