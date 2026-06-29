@@ -282,11 +282,9 @@ public class JobsCommand implements CommandExecutor {
                 if (job != null) {
                     String displayName = job.getDisplayName();
                     int level = playerJob.getLevel();
-                    double experience = playerJob.getExperience();
-                    int requiredExp = configManager.calculateRequiredExperience(level + 1);
-                    
+
                     player.sendMessage(ChatColor.YELLOW + "▶ " + displayName);
-                    player.sendMessage(ChatColor.WHITE + "  レベル: " + level + " (経験値: " + (int)experience + "/" + requiredExp + ")");
+                    player.sendMessage(ChatColor.WHITE + "  レベル: " + level + " " + formatExperienceProgress(playerJob, job.getName()));
                 }
             }
         } else {
@@ -301,16 +299,41 @@ public class JobsCommand implements CommandExecutor {
             if (playerJob != null) {
                 String displayName = jobManager.getJobDisplayName(jobName);
                 int level = playerJob.getLevel();
-                double experience = playerJob.getExperience();
-                int requiredExp = configManager.calculateRequiredExperience(level + 1);
-                
+
                 player.sendMessage(ChatColor.GOLD + "=== " + displayName + " 統計 ===");
                 player.sendMessage(ChatColor.WHITE + "レベル: " + level);
-                player.sendMessage(ChatColor.WHITE + "経験値: " + (int)experience + "/" + requiredExp);
+                player.sendMessage(ChatColor.WHITE + formatExperienceProgress(playerJob, jobName));
             }
         }
-        
+
         return true;
+    }
+
+    /**
+     * 現在のレベル内での経験値進捗を整形して返す。
+     * 形式: 「経験値: <現レベル内で獲得>/<現レベルに必要> [進捗バー] (次のレベルまで: <残り>)」
+     * 実際のレベリング（JobExperienceManager）と同じ ExperienceManager の計算式を使い、
+     * 累積経験値ではなく「現在のレベル内での進捗」を表示する。
+     * 最大レベル時は累積経験値と「最大レベル」を表示する。
+     */
+    private String formatExperienceProgress(PlayerJob playerJob, String jobName) {
+        double currentExp = playerJob.getExperience();
+
+        if (experienceManager.isMaxLevel(playerJob, jobName)) {
+            return "経験値: " + (int) currentExp + " (最大レベル)";
+        }
+
+        int level = playerJob.getLevel();
+        double expForCurrentLevel = experienceManager.calculateRequiredExperience(level);
+        double expForNextLevel = experienceManager.calculateRequiredExperience(level + 1);
+
+        int expInLevel = (int) Math.max(0, currentExp - expForCurrentLevel);
+        int expNeededForLevel = (int) Math.max(0, expForNextLevel - expForCurrentLevel);
+        int remaining = (int) Math.ceil(experienceManager.getExperienceToNextLevel(playerJob));
+        String progressBar = experienceManager.getExperienceProgressBar(playerJob, 20);
+
+        return "経験値: " + expInLevel + "/" + expNeededForLevel + " "
+                + progressBar + " (次のレベルまで: " + remaining + ")";
     }
 
     private boolean handleJobInfo(Player player, String[] args) {
