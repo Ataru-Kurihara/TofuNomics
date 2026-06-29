@@ -82,6 +82,9 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
             case "job":
                 handleJob(player, args);
                 break;
+            case "setlevel":
+                handleSetLevel(player, args);
+                break;
             case "lv50":
                 handleLv50(player, args);
                 break;
@@ -153,6 +156,51 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
             target.sendMessage("§7管理者により職業が " + jobName + " Lv" + appliedLevel + " に設定されました");
         }
         logAction(sender, target, "job " + jobName + " Lv" + appliedLevel);
+    }
+
+    // ===== setlevel: 現在就いている職業のレベルだけを変更（リセットなし） =====
+    private void handleSetLevel(Player sender, String[] args) {
+        // /tntest setlevel <level> [player]
+        if (args.length < 2) {
+            sender.sendMessage("§c使用法: /tntest setlevel <レベル> [プレイヤー]");
+            sender.sendMessage("§7現職を保持したままレベルのみ変更します（職業データ・履歴・畑区画は維持）");
+            return;
+        }
+        Integer level = parseLevel(sender, args[1]);
+        if (level == null) {
+            return;
+        }
+        Player target = resolveTarget(sender, args.length >= 3 ? args[2] : null);
+        if (target == null) {
+            return;
+        }
+
+        PlayerJob playerJob = jobManager.getCurrentJob(target.getUniqueId());
+        if (playerJob == null) {
+            sender.sendMessage("§c" + target.getName() + " は職業に就いていません（先に /tntest job で就職させてください）");
+            return;
+        }
+        org.tofu.tofunomics.models.Job job = jobManager.getJobById(playerJob.getJobId());
+        if (job == null) {
+            sender.sendMessage("§c現在の職業情報を取得できませんでした");
+            return;
+        }
+        String jobName = job.getName();
+        if (!experienceManager.setLevel(playerJob, jobName, level)) {
+            sender.sendMessage("§cレベル設定に失敗しました");
+            return;
+        }
+
+        int maxLevel = configManager.getJobMaxLevel(jobName);
+        int appliedLevel = Math.min(level, maxLevel);
+        sender.sendMessage("§a" + target.getName() + " の §e" + jobName + "§a を Lv" + appliedLevel + " に変更しました");
+        if (appliedLevel != level) {
+            sender.sendMessage("§7（最大レベル " + maxLevel + " にクランプされました）");
+        }
+        if (!sender.equals(target)) {
+            target.sendMessage("§7管理者により " + jobName + " が Lv" + appliedLevel + " に変更されました");
+        }
+        logAction(sender, target, "setlevel " + jobName + " Lv" + appliedLevel);
     }
 
     // ===== lv50: 上級職解禁の前提「いずれかの職でLv50到達」を即達成 =====
@@ -490,7 +538,8 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
 
     private void sendUsage(CommandSender sender) {
         sender.sendMessage("§6===== /tntest 管理者テスト支援コマンド =====");
-        sender.sendMessage("§e/tntest job <職業> <Lv> [対象] §7- 指定職業に就かせLvを即設定（上級職もOK）");
+        sender.sendMessage("§e/tntest job <職業> <Lv> [対象] §7- 指定職業に就かせLvを即設定（リセットあり・上級職OK）");
+        sender.sendMessage("§e/tntest setlevel <Lv> [対象] §7- 現職のレベルのみ変更（リセットなし）");
         sender.sendMessage("§e/tntest lv50 [対象] §7- 上級職解禁状態（いずれかの職でLv50）にする");
         sender.sendMessage("§e/tntest reward <職業> <Lv> [対象] §7- レベルアップ報酬を手動付与");
         sender.sendMessage("§e/tntest money <cash|bank> <額> [対象] §7- 現金付与/預金設定");
@@ -507,7 +556,7 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         List<String> result = new ArrayList<>();
         if (args.length == 1) {
             return filter(Arrays.asList(
-                "job", "lv50", "reward", "money", "reset", "kit", "time", "stockreset", "help"), args[0]);
+                "job", "setlevel", "lv50", "reward", "money", "reset", "kit", "time", "stockreset", "help"), args[0]);
         }
 
         String sub = args[0].toLowerCase();
@@ -534,7 +583,7 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         if (args.length == 4 && (sub.equals("job") || sub.equals("reward") || sub.equals("money"))) {
             return filter(onlinePlayerNames(), args[3]);
         }
-        if (args.length == 3 && sub.equals("kit")) {
+        if (args.length == 3 && (sub.equals("kit") || sub.equals("setlevel"))) {
             return filter(onlinePlayerNames(), args[2]);
         }
         return result;
