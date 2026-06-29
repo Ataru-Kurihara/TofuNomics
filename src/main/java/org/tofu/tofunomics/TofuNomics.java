@@ -146,6 +146,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.jobs.gui.JobsGUIListener jobsGUIListener;
     private org.tofu.tofunomics.jobs.gui.JobsHubGUI jobsHubGUI;
     private org.tofu.tofunomics.jobs.gui.JobDetailGUI jobDetailGUI;
+    private org.tofu.tofunomics.jobs.JobGuideBookService jobGuideBookService;
     private org.tofu.tofunomics.jobs.gui.JobStatsGUI jobStatsGUI;
     private org.tofu.tofunomics.jobs.gui.JobConfirmGUI jobConfirmGUI;
     private org.tofu.tofunomics.market.MarketExpirationTask marketExpirationTask;
@@ -452,8 +453,9 @@ public final class TofuNomics extends JavaPlugin {
 
             // 職業GUI（ハブ・詳細・ステータス・確認）を配線する（Market と同型）
             jobsGUIListener = new org.tofu.tofunomics.jobs.gui.JobsGUIListener(this);
+            jobGuideBookService = new org.tofu.tofunomics.jobs.JobGuideBookService(configManager, jobManager);
             jobDetailGUI = new org.tofu.tofunomics.jobs.gui.JobDetailGUI(
-                this, configManager, jobManager, experienceManager, jobsGUIListener);
+                this, configManager, jobManager, experienceManager, jobsGUIListener, jobGuideBookService);
             jobStatsGUI = new org.tofu.tofunomics.jobs.gui.JobStatsGUI(
                 this, configManager, jobManager, experienceManager, jobsGUIListener);
             jobConfirmGUI = new org.tofu.tofunomics.jobs.gui.JobConfirmGUI(
@@ -853,7 +855,7 @@ public final class TofuNomics extends JavaPlugin {
             getCommand("eco").setExecutor(new EcoCommand(configManager, currencyConverter, playerDAO));
             
             // 職業系コマンド
-            getCommand("jobs").setExecutor(new JobsCommand(configManager, jobManager, experienceManager, jobsHubGUI, jobStatsManager));
+            getCommand("jobs").setExecutor(new JobsCommand(configManager, jobManager, experienceManager, jobsHubGUI, jobStatsManager, jobGuideBookService));
 
             // 畑区画コマンド
             if (farmPlotManager != null && getCommand("farmplot") != null) {
