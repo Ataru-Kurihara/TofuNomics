@@ -42,11 +42,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 /**
  * 職業別経験値獲得システム
  */
 public class JobExperienceManager implements Listener {
+
+    private static final Logger LOGGER = Logger.getLogger(JobExperienceManager.class.getName());
 
     // 収穫経験値の付与に「完全成長」を必要とする作物（成長段階を持つ作物）
     private static final Set<Material> MATURITY_REQUIRED_CROPS = EnumSet.of(
@@ -818,20 +821,28 @@ public class JobExperienceManager implements Listener {
     /**
      * プレイヤーに職業経験値を付与
      */
-    private void giveJobExperience(Player player, String jobName, double experience) {
+    private boolean giveJobExperience(Player player, String jobName, double experience) {
         PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
-        if (playerJob == null) return;
-        
+        if (playerJob == null) {
+            LOGGER.warning("経験値付与の対象職業データが取得できませんでした (player="
+                + player.getName() + ", job=" + jobName + ")");
+            return false;
+        }
+
         double currentExp = playerJob.getExperience();
         int currentLevel = playerJob.getLevel();
-        
+
         playerJob.addExperience(experience);
-        
+
         // レベルアップチェック
         checkLevelUp(player, playerJob, jobName, currentLevel);
-        
-        // データベース更新
-        playerJobDAO.updatePlayerJobData(playerJob);
+
+        // データベース更新（失敗時は in-memory の加算が永続化されず、表示に反映されないため呼び出し元へ伝播する）
+        if (!playerJobDAO.updatePlayerJobData(playerJob)) {
+            LOGGER.warning("経験値のデータベース保存に失敗しました (player=" + player.getName()
+                + ", job=" + jobName + ", exp=" + currentExp + " -> " + playerJob.getExperience() + ")");
+            return false;
+        }
 
         // 職業レベルBossBarへ即時反映（経験値獲得・レベルアップを即座に表示）
         if (jobLevelBossBarManager != null) {
@@ -840,9 +851,10 @@ public class JobExperienceManager implements Listener {
 
         // 経験値獲得メッセージ（5経験値以上の場合のみ表示）
         if (experience >= 5.0) {
-            player.sendMessage(ChatColor.GREEN + String.format("+ %.1f %s経験値", 
+            player.sendMessage(ChatColor.GREEN + String.format("+ %.1f %s経験値",
                 experience, configManager.getJobDisplayName(jobName)));
         }
+        return true;
     }
     
     /**
@@ -936,7 +948,7 @@ public class JobExperienceManager implements Listener {
         double foodBuffMultiplier = (foodBuffManager != null) ?
             foodBuffManager.getMultiplier(player, jobName) : 1.0;
 
-        giveJobExperience(player, jobName, amount * foodBuffMultiplier);
-        return true;
+        // DB保存まで含めた成否を呼び出し元へ返す（保存失敗を成功と誤報告しない）
+        return giveJobExperience(player, jobName, amount * foodBuffMultiplier);
     }
 }

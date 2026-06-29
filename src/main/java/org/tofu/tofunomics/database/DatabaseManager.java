@@ -21,6 +21,11 @@ public class DatabaseManager {
         try {
             Class.forName("org.sqlite.JDBC");
             connection = DriverManager.getConnection("jdbc:sqlite:" + databasePath);
+            // ロック競合（SQLITE_BUSY: database is locked）時に即例外とせず、最大5秒待機してリトライさせる。
+            // 単一接続だが他処理との一時的な競合で書き込みが黙って失敗するのを防ぐ。
+            try (java.sql.Statement pragma = connection.createStatement()) {
+                pragma.execute("PRAGMA busy_timeout = 5000;");
+            }
             logger.info("SQLiteデータベースに接続しました");
             return true;
         } catch (ClassNotFoundException | SQLException e) {

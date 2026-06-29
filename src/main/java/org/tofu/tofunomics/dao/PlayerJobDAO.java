@@ -10,8 +10,11 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 public class PlayerJobDAO {
+    private static final Logger LOGGER = Logger.getLogger(PlayerJobDAO.class.getName());
+
     private final Connection connection;
 
     public PlayerJobDAO(Connection connection) {
@@ -175,6 +178,7 @@ public class PlayerJobDAO {
         try {
             return getPlayerJobs(UUID.fromString(uuidString));
         } catch (SQLException | IllegalArgumentException e) {
+            LOGGER.warning("職業一覧の取得に失敗しました (uuid=" + uuidString + "): " + e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -185,6 +189,8 @@ public class PlayerJobDAO {
             createPlayerJob(playerJob);
             return true;
         } catch (SQLException e) {
+            LOGGER.warning("職業データの登録に失敗しました (uuid=" + playerJob.getUuid()
+                + ", jobId=" + playerJob.getJobId() + "): " + e.getMessage());
             return false;
         }
     }
@@ -199,29 +205,42 @@ public class PlayerJobDAO {
                 statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
                 statement.setString(4, playerJob.getUuid().toString());
                 statement.setInt(5, playerJob.getJobId());
-                statement.executeUpdate();
+                int rowsAffected = statement.executeUpdate();
+                if (rowsAffected == 0) {
+                    // 該当行が無い＝UUID/job_idの不一致。書き込みが黙って捨てられるためログに残す
+                    LOGGER.warning("職業データの更新で対象行が見つかりませんでした (uuid="
+                        + playerJob.getUuid() + ", jobId=" + playerJob.getJobId() + ")");
+                    return false;
+                }
                 return true;
             }
         } catch (SQLException e) {
+            LOGGER.warning("職業データの更新に失敗しました (uuid=" + playerJob.getUuid()
+                + ", jobId=" + playerJob.getJobId() + ", level=" + playerJob.getLevel()
+                + ", exp=" + playerJob.getExperience() + "): " + e.getMessage());
             return false;
         }
     }
-    
+
     // StringのUUIDとjobIdを受け取るdeletePlayerJobメソッド
     public boolean deletePlayerJob(String uuidString, int jobId) {
         try {
             deletePlayerJob(UUID.fromString(uuidString), jobId);
             return true;
         } catch (SQLException | IllegalArgumentException e) {
+            LOGGER.warning("職業データの削除に失敗しました (uuid=" + uuidString
+                + ", jobId=" + jobId + "): " + e.getMessage());
             return false;
         }
     }
-    
+
     // StringのUUIDを受け取るgetPlayerJobメソッド
     public PlayerJob getPlayerJob(String uuidString, int jobId) {
         try {
             return getPlayerJob(UUID.fromString(uuidString), jobId);
         } catch (SQLException | IllegalArgumentException e) {
+            LOGGER.warning("職業データの取得に失敗しました (uuid=" + uuidString
+                + ", jobId=" + jobId + "): " + e.getMessage());
             return null;
         }
     }
