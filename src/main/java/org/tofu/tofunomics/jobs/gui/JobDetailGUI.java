@@ -6,11 +6,11 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.BookMeta;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.gui.GuiUtil;
 import org.tofu.tofunomics.jobs.ExperienceManager;
+import org.tofu.tofunomics.jobs.JobGuideBookService;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.models.PlayerJob;
 
@@ -40,18 +40,20 @@ public class JobDetailGUI {
     private final JobManager jobManager;
     private final ExperienceManager experienceManager;
     private final JobsGUIListener listener;
+    private final JobGuideBookService guideBookService;
 
     private JobsHubGUI hubGUI;
     private JobConfirmGUI confirmGUI;
 
     public JobDetailGUI(TofuNomics plugin, ConfigManager configManager,
                         JobManager jobManager, ExperienceManager experienceManager,
-                        JobsGUIListener listener) {
+                        JobsGUIListener listener, JobGuideBookService guideBookService) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.jobManager = jobManager;
         this.experienceManager = experienceManager;
         this.listener = listener;
+        this.guideBookService = guideBookService;
     }
 
     public void setGUIs(JobsHubGUI hubGUI, JobConfirmGUI confirmGUI) {
@@ -188,7 +190,9 @@ public class JobDetailGUI {
                 // 就職中の職業のガイドブックのみ入手可能
                 if (jobName != null && jobManager.hasJob(player, jobName)
                         && configManager.isJobGuideBookEnabled(jobName)) {
-                    giveGuideBook(player, jobName);
+                    if (guideBookService.giveGuideBook(player, jobName)) {
+                        player.closeInventory();
+                    }
                 }
                 break;
             case SLOT_BACK:
@@ -202,50 +206,5 @@ public class JobDetailGUI {
             default:
                 break;
         }
-    }
-
-    /**
-     * 指定職業のガイドブックを生成してプレイヤーに渡す。
-     * インベントリに空きがなければドロップせず警告する。
-     */
-    private void giveGuideBook(Player player, String jobName) {
-        List<String> pageContents = configManager.getJobGuideBookPages(jobName);
-        if (pageContents.isEmpty()) {
-            player.sendMessage(ChatColor.RED + "この職業のガイドブックは用意されていません。");
-            return;
-        }
-
-        ItemStack book = createGuideBook(jobName, pageContents);
-        java.util.Map<Integer, ItemStack> leftover = player.getInventory().addItem(book);
-        if (!leftover.isEmpty()) {
-            player.sendMessage(ChatColor.RED + "インベントリに空きがありません。整理してから再度お試しください。");
-            return;
-        }
-
-        String displayName = jobManager.getJobDisplayName(jobName);
-        player.closeInventory();
-        player.sendMessage(ChatColor.GREEN + "「" + ChatColor.stripColor(displayName)
-                + "」のガイドブックを入手しました。右クリックで読めます。");
-    }
-
-    /**
-     * config の guide_book 設定から WRITTEN_BOOK を生成する。色コード（&）は変換する。
-     */
-    private ItemStack createGuideBook(String jobName, List<String> pageContents) {
-        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
-        BookMeta meta = (BookMeta) book.getItemMeta();
-        if (meta != null) {
-            meta.setTitle(ChatColor.translateAlternateColorCodes('&',
-                    configManager.getJobGuideBookTitle(jobName)));
-            meta.setAuthor(ChatColor.translateAlternateColorCodes('&',
-                    configManager.getJobGuideBookAuthor(jobName)));
-            List<String> pages = new ArrayList<>();
-            for (String page : pageContents) {
-                pages.add(ChatColor.translateAlternateColorCodes('&', page));
-            }
-            meta.setPages(pages);
-            book.setItemMeta(meta);
-        }
-        return book;
     }
 }

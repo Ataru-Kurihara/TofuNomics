@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.jobs.ExperienceManager;
+import org.tofu.tofunomics.jobs.JobGuideBookService;
 import org.tofu.tofunomics.jobs.gui.JobsHubGUI;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.models.Job;
@@ -20,15 +21,17 @@ public class JobsCommand implements CommandExecutor {
     private final ExperienceManager experienceManager;
     private final JobsHubGUI jobsHubGUI;
     private final JobStatsManager jobStatsManager;
+    private final JobGuideBookService guideBookService;
 
     public JobsCommand(ConfigManager configManager, JobManager jobManager,
                        ExperienceManager experienceManager, JobsHubGUI jobsHubGUI,
-                       JobStatsManager jobStatsManager) {
+                       JobStatsManager jobStatsManager, JobGuideBookService guideBookService) {
         this.configManager = configManager;
         this.jobManager = jobManager;
         this.experienceManager = experienceManager;
         this.jobsHubGUI = jobsHubGUI;
         this.jobStatsManager = jobStatsManager;
+        this.guideBookService = guideBookService;
     }
 
     @Override
@@ -66,6 +69,8 @@ public class JobsCommand implements CommandExecutor {
                 return handleJobStats(player, args);
             case "info":
                 return handleJobInfo(player, args);
+            case "guide":
+                return handleJobGuide(player, args);
             case "debug":
                 return handleJobDebug(player);
             case "admin":
@@ -329,7 +334,60 @@ public class JobsCommand implements CommandExecutor {
         return true;
     }
 
+    /**
+     * /jobs guide [職業名] - 職業ガイドブックを入手する。
+     * GUI（職業詳細 スロット22）と同じく「その職業に就職中」のみ入手可能。
+     *   /jobs guide          … 就職中の全職業のガイドをまとめて入手
+     *   /jobs guide <職業名> … 指定職業（就職中のもの）のガイドを入手
+     */
+    private boolean handleJobGuide(Player player, String[] args) {
+        // 引数なし: 就職中の職業のガイドをまとめて配布
+        if (args.length == 1) {
+            int given = 0;
+            for (PlayerJob playerJob : jobManager.getPlayerJobs(player)) {
+                Job job = jobManager.getJobById(playerJob.getJobId());
+                if (job == null) {
+                    continue;
+                }
+                String jobName = job.getName();
+                if (configManager.isJobGuideBookEnabled(jobName)
+                        && !configManager.getJobGuideBookPages(jobName).isEmpty()) {
+                    if (guideBookService.giveGuideBook(player, jobName)) {
+                        given++;
+                    }
+                }
+            }
+            if (given == 0) {
+                player.sendMessage(ChatColor.YELLOW + "ガイドブックを入手するには、まず職業に就職してください。");
+                player.sendMessage(ChatColor.YELLOW + "使用法: " + ChatColor.WHITE + "/jobs guide <職業名>");
+            }
+            return true;
+        }
 
+        // /jobs guide <職業名>
+        if (args.length == 2) {
+            String jobName = args[1].toLowerCase();
+
+            if (!jobManager.isValidJobName(jobName)) {
+                player.sendMessage(ChatColor.RED + "存在しない職業です: " + jobName);
+                player.sendMessage(ChatColor.YELLOW + "利用可能な職業: " + String.join(", ", jobManager.getJobNames()));
+                return true;
+            }
+
+            if (!jobManager.hasJob(player, jobName)) {
+                player.sendMessage(ChatColor.RED + "「" + jobManager.getJobDisplayName(jobName)
+                        + "」に就職していません。ガイドブックは就職後に入手できます。");
+                player.sendMessage(ChatColor.YELLOW + "就職するには: " + ChatColor.WHITE + "/jobs join " + jobName);
+                return true;
+            }
+
+            guideBookService.giveGuideBook(player, jobName);
+            return true;
+        }
+
+        player.sendMessage(ChatColor.RED + "使用法: /jobs guide [職業名]");
+        return true;
+    }
 
     private boolean handleJobDebug(Player player) {
         player.sendMessage(ChatColor.GOLD + "=== 職業デバッグ情報 ===");
@@ -460,6 +518,7 @@ public class JobsCommand implements CommandExecutor {
         player.sendMessage(ChatColor.YELLOW + "/jobs leave <職業名> " + ChatColor.WHITE + "- 指定した職業を辞める");
         player.sendMessage(ChatColor.YELLOW + "/jobs stats [職業名|top <職業名>] " + ChatColor.WHITE + "- 職業の統計を表示（/jobstats と同じ）");
         player.sendMessage(ChatColor.YELLOW + "/jobs info <職業名> " + ChatColor.WHITE + "- 職業の詳細情報を表示");
+        player.sendMessage(ChatColor.YELLOW + "/jobs guide [職業名] " + ChatColor.WHITE + "- 職業のガイドブックを入手（就職中のみ）");
         player.sendMessage(ChatColor.YELLOW + "/jobs debug " + ChatColor.WHITE + "- 職業の詳細デバッグ情報を表示");
     }
 }
