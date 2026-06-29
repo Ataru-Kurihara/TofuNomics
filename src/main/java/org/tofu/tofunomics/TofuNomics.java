@@ -1021,6 +1021,10 @@ public final class TofuNomics extends JavaPlugin {
         return jobLevelRewardManager;
     }
 
+    public JobExperienceManager getJobExperienceManager() {
+        return jobExperienceManager;
+    }
+
     public org.tofu.tofunomics.farming.FarmPlotManager getFarmPlotManager() {
         return farmPlotManager;
     }
