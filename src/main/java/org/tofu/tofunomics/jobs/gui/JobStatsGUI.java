@@ -9,6 +9,7 @@ import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.gui.GuiUtil;
+import org.tofu.tofunomics.jobs.ExperienceManager;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.models.PlayerJob;
@@ -34,15 +35,18 @@ public class JobStatsGUI {
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private final JobManager jobManager;
+    private final ExperienceManager experienceManager;
     private final JobsGUIListener listener;
 
     private JobsHubGUI hubGUI;
 
     public JobStatsGUI(TofuNomics plugin, ConfigManager configManager,
-                       JobManager jobManager, JobsGUIListener listener) {
+                       JobManager jobManager, ExperienceManager experienceManager,
+                       JobsGUIListener listener) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.jobManager = jobManager;
+        this.experienceManager = experienceManager;
         this.listener = listener;
     }
 
@@ -109,12 +113,26 @@ public class JobStatsGUI {
         String displayName = job.getDisplayName();
         int level = playerJob.getLevel();
         double experience = playerJob.getExperience();
-        int requiredExp = configManager.calculateRequiredExperience(level + 1);
 
         List<String> lore = new ArrayList<>();
         lore.add("§bレベル: §f" + level);
-        lore.add("§b経験値: §f" + (int) experience + " / " + requiredExp);
-        lore.add("§7" + buildProgressBar(experience, requiredExp));
+
+        // 実際のレベリングと同じ ExperienceManager の計算式を使用し、
+        // 累積値ではなく「現在のレベル内での進捗」を表示する（/jobs stats と統一）。
+        if (experienceManager.isMaxLevel(playerJob, jobName)) {
+            lore.add("§b経験値: §f" + (int) experience + " §7(最大レベル)");
+        } else {
+            double expForCurrentLevel = experienceManager.calculateRequiredExperience(level);
+            double expForNextLevel = experienceManager.calculateRequiredExperience(level + 1);
+            int expInLevel = (int) Math.max(0, experience - expForCurrentLevel);
+            int expNeededForLevel = (int) Math.max(0, expForNextLevel - expForCurrentLevel);
+            double progress = experienceManager.getExperienceProgress(playerJob);
+            int remaining = (int) Math.ceil(experienceManager.getExperienceToNextLevel(playerJob));
+
+            lore.add("§b経験値: §f" + expInLevel + " / " + expNeededForLevel);
+            lore.add("§7" + buildProgressBar(progress));
+            lore.add("§7次のレベルまで: §f" + remaining);
+        }
 
         return GuiUtil.createButton(JobsGUIIconMapper.getIcon(jobName),
                 "§a§l" + displayName + " §7(" + jobName + ")", lore);
@@ -122,10 +140,11 @@ public class JobStatsGUI {
 
     /**
      * 経験値の進捗バーを生成する（20 マス）。
+     * @param ratio 現在のレベル内での進捗率（0.0〜1.0）
      */
-    private String buildProgressBar(double experience, int requiredExp) {
+    private String buildProgressBar(double ratio) {
         int total = 20;
-        double ratio = requiredExp > 0 ? Math.min(1.0, experience / requiredExp) : 0.0;
+        ratio = Math.max(0.0, Math.min(1.0, ratio));
         int filled = (int) Math.round(ratio * total);
         StringBuilder sb = new StringBuilder("§a");
         for (int i = 0; i < total; i++) {

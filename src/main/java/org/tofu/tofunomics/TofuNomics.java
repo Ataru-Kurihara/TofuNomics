@@ -453,9 +453,9 @@ public final class TofuNomics extends JavaPlugin {
             // 職業GUI（ハブ・詳細・ステータス・確認）を配線する（Market と同型）
             jobsGUIListener = new org.tofu.tofunomics.jobs.gui.JobsGUIListener(this);
             jobDetailGUI = new org.tofu.tofunomics.jobs.gui.JobDetailGUI(
-                this, configManager, jobManager, jobsGUIListener);
+                this, configManager, jobManager, experienceManager, jobsGUIListener);
             jobStatsGUI = new org.tofu.tofunomics.jobs.gui.JobStatsGUI(
-                this, configManager, jobManager, jobsGUIListener);
+                this, configManager, jobManager, experienceManager, jobsGUIListener);
             jobConfirmGUI = new org.tofu.tofunomics.jobs.gui.JobConfirmGUI(
                 this, configManager, jobManager, jobsGUIListener);
             jobsHubGUI = new org.tofu.tofunomics.jobs.gui.JobsHubGUI(
@@ -525,10 +525,11 @@ public final class TofuNomics extends JavaPlugin {
             
             // JobStatsManagerの初期化
             jobStatsManager = new JobStatsManager(
-                configManager, 
-                playerJobDAO, 
-                jobManager, 
-                jobLevelRewardManager
+                configManager,
+                playerJobDAO,
+                jobManager,
+                jobLevelRewardManager,
+                experienceManager
             );
             
             // JobBlockPermissionManagerの初期化

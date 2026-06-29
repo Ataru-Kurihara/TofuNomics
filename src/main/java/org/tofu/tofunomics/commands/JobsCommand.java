@@ -141,11 +141,10 @@ public class JobsCommand implements CommandExecutor {
                     PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
                     if (playerJob != null) {
                         int currentLevel = playerJob.getLevel();
-                        double currentExp = playerJob.getExperience();
-                        int requiredExp = configManager.calculateRequiredExperience(currentLevel + 1);
+                        String expRatio = experienceManager.getExperienceRatioText(playerJob, jobName);
 
                         player.sendMessage(ChatColor.GREEN + "  ★ 現在就職中 - レベル " + currentLevel +
-                                         " (経験値: " + (int)currentExp + "/" + requiredExp + ")");
+                                         " (経験値: " + expRatio + ")");
                     }
                 } else if (advancedLocked) {
                     player.sendMessage(ChatColor.RED + "  ✖ 未解禁 - いずれかの職業でLv50到達後に就職できます");
