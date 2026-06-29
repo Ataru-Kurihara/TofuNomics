@@ -85,6 +85,10 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
             case "setlevel":
                 handleSetLevel(player, args);
                 break;
+            case "exp":
+            case "xp":
+                handleExp(player, args);
+                break;
             case "lv50":
                 handleLv50(player, args);
                 break;
@@ -201,6 +205,56 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
             target.sendMessage("§7管理者により " + jobName + " が Lv" + appliedLevel + " に変更されました");
         }
         logAction(sender, target, "setlevel " + jobName + " Lv" + appliedLevel);
+    }
+
+    // ===== exp: 現職に経験値を付与（本物の獲得処理＝レベルアップ通知・報酬・ボスバーも発火） =====
+    private void handleExp(Player sender, String[] args) {
+        // /tntest exp <amount> [player]
+        if (args.length < 2) {
+            sender.sendMessage("§c使用法: /tntest exp <経験値> [プレイヤー]");
+            sender.sendMessage("§7現職に経験値を付与します（実際の獲得と同じ処理：レベルアップ通知・報酬・食事バフ倍率が反映）");
+            return;
+        }
+        double amount;
+        try {
+            amount = Double.parseDouble(args[1]);
+        } catch (NumberFormatException e) {
+            sender.sendMessage("§c経験値は数値で指定してください");
+            return;
+        }
+        if (amount <= 0) {
+            sender.sendMessage("§c経験値は0より大きい値で指定してください");
+            return;
+        }
+        Player target = resolveTarget(sender, args.length >= 3 ? args[2] : null);
+        if (target == null) {
+            return;
+        }
+
+        PlayerJob playerJob = jobManager.getCurrentJob(target.getUniqueId());
+        if (playerJob == null) {
+            sender.sendMessage("§c" + target.getName() + " は職業に就いていません（先に /tntest job で就職させてください）");
+            return;
+        }
+        org.tofu.tofunomics.models.Job job = jobManager.getJobById(playerJob.getJobId());
+        if (job == null) {
+            sender.sendMessage("§c現在の職業情報を取得できませんでした");
+            return;
+        }
+        if (plugin.getJobExperienceManager() == null) {
+            sender.sendMessage("§c経験値システムが無効です");
+            return;
+        }
+        String jobName = job.getName();
+        // 実際のXP獲得経路を使用（レベルアップ判定・通知・報酬・ボスバー更新まで実行）
+        boolean ok = plugin.getJobExperienceManager().giveExperienceManual(target, jobName, amount);
+        if (!ok) {
+            sender.sendMessage("§c経験値の付与に失敗しました");
+            return;
+        }
+        sender.sendMessage("§a" + target.getName() + " の §e" + jobName + "§a に経験値 " + (int) amount + " を付与しました");
+        sender.sendMessage("§7※ 食事バフ中は倍率が乗るため実付与量が増える場合があります");
+        logAction(sender, target, "exp " + jobName + " +" + (int) amount);
     }
 
     // ===== lv50: 上級職解禁の前提「いずれかの職でLv50到達」を即達成 =====
@@ -540,6 +594,7 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§6===== /tntest 管理者テスト支援コマンド =====");
         sender.sendMessage("§e/tntest job <職業> <Lv> [対象] §7- 指定職業に就かせLvを即設定（リセットあり・上級職OK）");
         sender.sendMessage("§e/tntest setlevel <Lv> [対象] §7- 現職のレベルのみ変更（リセットなし）");
+        sender.sendMessage("§e/tntest exp <経験値> [対象] §7- 現職に経験値付与（通知・報酬も発火）");
         sender.sendMessage("§e/tntest lv50 [対象] §7- 上級職解禁状態（いずれかの職でLv50）にする");
         sender.sendMessage("§e/tntest reward <職業> <Lv> [対象] §7- レベルアップ報酬を手動付与");
         sender.sendMessage("§e/tntest money <cash|bank> <額> [対象] §7- 現金付与/預金設定");
@@ -556,7 +611,7 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         List<String> result = new ArrayList<>();
         if (args.length == 1) {
             return filter(Arrays.asList(
-                "job", "setlevel", "lv50", "reward", "money", "reset", "kit", "time", "stockreset", "help"), args[0]);
+                "job", "setlevel", "exp", "lv50", "reward", "money", "reset", "kit", "time", "stockreset", "help"), args[0]);
         }
 
         String sub = args[0].toLowerCase();
@@ -583,7 +638,8 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         if (args.length == 4 && (sub.equals("job") || sub.equals("reward") || sub.equals("money"))) {
             return filter(onlinePlayerNames(), args[3]);
         }
-        if (args.length == 3 && (sub.equals("kit") || sub.equals("setlevel"))) {
+        if (args.length == 3 && (sub.equals("kit") || sub.equals("setlevel")
+                || sub.equals("exp") || sub.equals("xp"))) {
             return filter(onlinePlayerNames(), args[2]);
         }
         return result;
