@@ -109,6 +109,27 @@ public class ExperienceManager {
         return level;
     }
     
+    /**
+     * 現在のレベル内での経験値進捗を「x/y」形式の簡潔な文字列で返す。
+     * x = 現在のレベル内で獲得した経験値、y = 現在のレベルに必要な経験値。
+     * 一覧表示など省スペースな箇所で、各表示間の数値を統一するために使用する。
+     * 最大レベル時は「&lt;累積経験値&gt; (最大レベル)」を返す。
+     */
+    public String getExperienceRatioText(PlayerJob playerJob, String jobName) {
+        if (playerJob == null) {
+            return "";
+        }
+        if (isMaxLevel(playerJob, jobName)) {
+            return (int) playerJob.getExperience() + " (最大レベル)";
+        }
+        int level = playerJob.getLevel();
+        double expForCurrentLevel = calculateRequiredExperience(level);
+        double expForNextLevel = calculateRequiredExperience(level + 1);
+        int expInLevel = (int) Math.max(0, playerJob.getExperience() - expForCurrentLevel);
+        int expNeededForLevel = (int) Math.max(0, expForNextLevel - expForCurrentLevel);
+        return expInLevel + "/" + expNeededForLevel;
+    }
+
     public double getExperienceProgress(PlayerJob playerJob) {
         if (playerJob == null) {
             return 0.0;

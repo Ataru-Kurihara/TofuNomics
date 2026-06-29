@@ -1,9 +1,12 @@
 package org.tofu.tofunomics.stats;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.PlayerJobDAO;
+import org.tofu.tofunomics.jobs.ExperienceManager;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.rewards.JobLevelRewardManager;
@@ -21,14 +24,17 @@ public class JobStatsManager {
     private final PlayerJobDAO playerJobDAO;
     private final JobManager jobManager;
     private final JobLevelRewardManager rewardManager;
+    private final ExperienceManager experienceManager;
     private final DecimalFormat decimalFormat;
-    
-    public JobStatsManager(ConfigManager configManager, PlayerJobDAO playerJobDAO, 
-                          JobManager jobManager, JobLevelRewardManager rewardManager) {
+
+    public JobStatsManager(ConfigManager configManager, PlayerJobDAO playerJobDAO,
+                          JobManager jobManager, JobLevelRewardManager rewardManager,
+                          ExperienceManager experienceManager) {
         this.configManager = configManager;
         this.playerJobDAO = playerJobDAO;
         this.jobManager = jobManager;
         this.rewardManager = rewardManager;
+        this.experienceManager = experienceManager;
         this.decimalFormat = new DecimalFormat("#,##0.0");
     }
     
@@ -86,26 +92,35 @@ public class JobStatsManager {
             ChatColor.AQUA, displayName, ChatColor.WHITE, currentLevel);
         player.sendMessage(levelInfo);
         
-        // 経験値情報
-        double requiredExp = calculateRequiredExperience(currentLevel + 1);
-        double progressPercent = (currentExp / requiredExp) * 100.0;
-        
-        String expInfo = String.format("  %s経験値: %s%s / %s (%.1f%%)", 
-            ChatColor.GREEN, 
-            ChatColor.YELLOW, decimalFormat.format(currentExp),
-            decimalFormat.format(requiredExp), progressPercent);
-        player.sendMessage(expInfo);
-        
-        // 経験値バー表示
-        if (detailed) {
-            player.sendMessage("  " + createProgressBar(progressPercent));
-        }
-        
-        // 次のレベルまでの必要経験値
-        double remainingExp = requiredExp - currentExp;
-        if (remainingExp > 0) {
-            player.sendMessage(String.format("  %s次のレベルまで: %s%s経験値", 
-                ChatColor.GRAY, ChatColor.WHITE, decimalFormat.format(remainingExp)));
+        // 経験値情報（実際のレベリングと同じ ExperienceManager の計算式を使用し、
+        // 累積値ではなく「現在のレベル内での進捗」を表示する。/jobs stats と表示を統一）
+        if (experienceManager.isMaxLevel(playerJob, jobName)) {
+            player.sendMessage(String.format("  %s経験値: %s%s %s(最大レベル)",
+                ChatColor.GREEN, ChatColor.YELLOW, decimalFormat.format(currentExp), ChatColor.GRAY));
+        } else {
+            double expForCurrentLevel = experienceManager.calculateRequiredExperience(currentLevel);
+            double expForNextLevel = experienceManager.calculateRequiredExperience(currentLevel + 1);
+            double expInLevel = Math.max(0, currentExp - expForCurrentLevel);
+            double expNeededForLevel = Math.max(0, expForNextLevel - expForCurrentLevel);
+            double progressPercent = experienceManager.getExperienceProgress(playerJob) * 100.0;
+
+            String expInfo = String.format("  %s経験値: %s%s / %s (%.1f%%)",
+                ChatColor.GREEN,
+                ChatColor.YELLOW, decimalFormat.format(expInLevel),
+                decimalFormat.format(expNeededForLevel), progressPercent);
+            player.sendMessage(expInfo);
+
+            // 経験値バー表示
+            if (detailed) {
+                player.sendMessage("  " + createProgressBar(progressPercent));
+            }
+
+            // 次のレベルまでの必要経験値
+            double remainingExp = experienceManager.getExperienceToNextLevel(playerJob);
+            if (remainingExp > 0) {
+                player.sendMessage(String.format("  %s次のレベルまで: %s%s経験値",
+                    ChatColor.GRAY, ChatColor.WHITE, decimalFormat.format(remainingExp)));
+            }
         }
         
         // 次の報酬レベル情報
@@ -293,13 +308,6 @@ public class JobStatsManager {
     }
     
     /**
-     * レベルアップに必要な経験値を計算
-     */
-    private double calculateRequiredExperience(int level) {
-        return Math.pow(level, 2.2) * 100.0;
-    }
-    
-    /**
      * ランクの色を取得
      */
     private ChatColor getRankColor(int rank) {
@@ -346,10 +354,20 @@ public class JobStatsManager {
     }
     
     /**
-     * UUIDからプレイヤー名を取得（簡略実装）
+     * UUIDからプレイヤー名を取得する。
+     * サーバーの usercache に基づき OfflinePlayer から名前を解決する。
+     * 一度もサーバーに参加したことがない等で名前を解決できない場合は「不明なプレイヤー」を返す。
      */
     private String getPlayerNameByUUID(String uuid) {
-        // 実際の実装では Bukkit.getOfflinePlayer() を使用
-        return "Player"; // プレースホルダー
+        try {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(java.util.UUID.fromString(uuid));
+            String name = offlinePlayer.getName();
+            if (name != null && !name.isEmpty()) {
+                return name;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // UUID の形式が不正な場合はフォールバックする
+        }
+        return "不明なプレイヤー";
     }
 }

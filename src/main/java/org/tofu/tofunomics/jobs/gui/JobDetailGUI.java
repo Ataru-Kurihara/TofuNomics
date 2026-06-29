@@ -10,6 +10,7 @@ import org.bukkit.inventory.meta.BookMeta;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.gui.GuiUtil;
+import org.tofu.tofunomics.jobs.ExperienceManager;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.models.PlayerJob;
 
@@ -37,16 +38,19 @@ public class JobDetailGUI {
     private final TofuNomics plugin;
     private final ConfigManager configManager;
     private final JobManager jobManager;
+    private final ExperienceManager experienceManager;
     private final JobsGUIListener listener;
 
     private JobsHubGUI hubGUI;
     private JobConfirmGUI confirmGUI;
 
     public JobDetailGUI(TofuNomics plugin, ConfigManager configManager,
-                        JobManager jobManager, JobsGUIListener listener) {
+                        JobManager jobManager, ExperienceManager experienceManager,
+                        JobsGUIListener listener) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.jobManager = jobManager;
+        this.experienceManager = experienceManager;
         this.listener = listener;
     }
 
@@ -101,10 +105,9 @@ public class JobDetailGUI {
             PlayerJob playerJob = jobManager.getPlayerJob(player, jobName);
             if (playerJob != null) {
                 int level = playerJob.getLevel();
-                double experience = playerJob.getExperience();
-                int requiredExp = configManager.calculateRequiredExperience(level + 1);
+                String expRatio = experienceManager.getExperienceRatioText(playerJob, jobName);
                 infoLore.add("");
-                infoLore.add("§a現在のレベル: §f" + level + " §7(経験値: " + (int) experience + "/" + requiredExp + ")");
+                infoLore.add("§a現在のレベル: §f" + level + " §7(経験値: " + expRatio + ")");
             }
         }
         gui.setItem(SLOT_INFO, GuiUtil.createButton(JobsGUIIconMapper.getIcon(jobName),
