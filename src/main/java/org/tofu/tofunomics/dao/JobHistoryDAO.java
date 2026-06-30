@@ -27,13 +27,14 @@ public class JobHistoryDAO {
      * @return 成功時true
      */
     public boolean insertJobHistory(JobHistory jobHistory) {
-        String query = "INSERT INTO job_history (uuid, job_id, max_level, left_at) VALUES (?, ?, ?, ?)";
-        
+        String query = "INSERT INTO job_history (uuid, job_id, max_level, experience, left_at) VALUES (?, ?, ?, ?, ?)";
+
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, jobHistory.getUuid());
             statement.setInt(2, jobHistory.getJobId());
             statement.setInt(3, jobHistory.getMaxLevel());
-            statement.setTimestamp(4, jobHistory.getLeftAt());
+            statement.setDouble(4, jobHistory.getExperience());
+            statement.setTimestamp(5, jobHistory.getLeftAt());
             
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -48,12 +49,12 @@ public class JobHistoryDAO {
      * @return 職業履歴のリスト
      */
     public List<JobHistory> getJobHistoriesByUUID(String uuid) {
-        String query = "SELECT id, uuid, job_id, max_level, left_at FROM job_history WHERE uuid = ? ORDER BY left_at DESC";
+        String query = "SELECT id, uuid, job_id, max_level, experience, left_at FROM job_history WHERE uuid = ? ORDER BY left_at DESC";
         List<JobHistory> histories = new ArrayList<>();
-        
+
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, uuid);
-            
+
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     JobHistory history = new JobHistory();
@@ -61,6 +62,7 @@ public class JobHistoryDAO {
                     history.setUuid(resultSet.getString("uuid"));
                     history.setJobId(resultSet.getInt("job_id"));
                     history.setMaxLevel(resultSet.getInt("max_level"));
+                    history.setExperience(resultSet.getDouble("experience"));
                     history.setLeftAt(resultSet.getTimestamp("left_at"));
                     histories.add(history);
                 }
@@ -127,13 +129,13 @@ public class JobHistoryDAO {
      * @return 最新の職業履歴（履歴がない場合はnull）
      */
     public JobHistory getLatestJobHistory(String uuid, int jobId) {
-        String query = "SELECT id, uuid, job_id, max_level, left_at FROM job_history " +
-                      "WHERE uuid = ? AND job_id = ? ORDER BY max_level DESC LIMIT 1";
-        
+        String query = "SELECT id, uuid, job_id, max_level, experience, left_at FROM job_history " +
+                      "WHERE uuid = ? AND job_id = ? ORDER BY max_level DESC, experience DESC LIMIT 1";
+
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, uuid);
             statement.setInt(2, jobId);
-            
+
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
                     JobHistory history = new JobHistory();
@@ -141,6 +143,7 @@ public class JobHistoryDAO {
                     history.setUuid(resultSet.getString("uuid"));
                     history.setJobId(resultSet.getInt("job_id"));
                     history.setMaxLevel(resultSet.getInt("max_level"));
+                    history.setExperience(resultSet.getDouble("experience"));
                     history.setLeftAt(resultSet.getTimestamp("left_at"));
                     return history;
                 }

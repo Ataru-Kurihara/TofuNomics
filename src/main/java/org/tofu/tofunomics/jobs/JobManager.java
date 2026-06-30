@@ -107,16 +107,17 @@ public class JobManager {
         playerJob.setUuid(uuid);
         playerJob.setJobId(job.getId());
         
-        // job_historyから過去の記録を取得してレベルを復元
+        // job_historyから過去の記録を取得してレベルと経験値を復元
         JobHistory history = jobHistoryDAO.getLatestJobHistory(uuid, job.getId());
         if (history != null) {
-            // 過去の記録がある場合はレベルを復元
+            // 過去の記録がある場合はレベルと経験値を復元
             playerJob.setLevel(history.getMaxLevel());
+            playerJob.setExperience(history.getExperience());
         } else {
-            // 初回就職の場合はレベル1
+            // 初回就職の場合はレベル1・経験値0
             playerJob.setLevel(1);
+            playerJob.setExperience(0.0);
         }
-        playerJob.setExperience(0.0); // 経験値は常に0
         
         if (!playerJobDAO.insertPlayerJob(playerJob)) {
             return JobJoinResult.DATABASE_ERROR;
@@ -195,7 +196,7 @@ public class JobManager {
         }
         
         // 退職前に職業履歴を保存
-        JobHistory jobHistory = new JobHistory(uuid, job.getId(), playerJob.getLevel());
+        JobHistory jobHistory = new JobHistory(uuid, job.getId(), playerJob.getLevel(), playerJob.getExperience());
         if (!jobHistoryDAO.insertJobHistory(jobHistory)) {
             TofuNomics.getInstance().getLogger().warning("職業履歴の保存に失敗しました: " + uuid + ", job=" + jobName);
         }
@@ -242,7 +243,7 @@ public class JobManager {
         // レベルチェックをスキップして辞職処理を実行
         
         // 退職前に職業履歴を保存
-        JobHistory jobHistory = new JobHistory(uuid, job.getId(), playerJob.getLevel());
+        JobHistory jobHistory = new JobHistory(uuid, job.getId(), playerJob.getLevel(), playerJob.getExperience());
         if (!jobHistoryDAO.insertJobHistory(jobHistory)) {
             TofuNomics.getInstance().getLogger().warning("職業履歴の保存に失敗しました: " + uuid + ", job=" + jobName);
         }

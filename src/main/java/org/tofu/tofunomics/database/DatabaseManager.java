@@ -137,6 +137,7 @@ public class DatabaseManager {
             "    uuid TEXT NOT NULL," +
             "    job_id INTEGER NOT NULL," +
             "    max_level INTEGER NOT NULL," +
+            "    experience REAL NOT NULL DEFAULT 0.0," +
             "    left_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
             "    FOREIGN KEY (uuid) REFERENCES players(uuid) ON DELETE CASCADE," +
             "    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE" +
@@ -458,6 +459,15 @@ public class DatabaseManager {
                 logger.info("housing_rentals テーブルに end_tick カラムを追加しています...");
                 statement.executeUpdate("ALTER TABLE housing_rentals ADD COLUMN end_tick INTEGER DEFAULT 0");
                 logger.info("housing_rentals テーブルに end_tick カラムを追加しました");
+            }
+
+            // job_history テーブルの experience カラムが存在するかチェック
+            try {
+                statement.executeQuery("SELECT experience FROM job_history LIMIT 1");
+            } catch (SQLException e) {
+                logger.info("job_history テーブルに experience カラムを追加しています...");
+                statement.executeUpdate("ALTER TABLE job_history ADD COLUMN experience REAL NOT NULL DEFAULT 0.0");
+                logger.info("job_history テーブルに experience カラムを追加しました");
             }
 
             // 期限切れ検索高速化用インデックス（存在しなければ作成）
