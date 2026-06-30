@@ -12,14 +12,20 @@ public class JobHistory {
     private String uuid;
     private int jobId;
     private int maxLevel;
+    private double experience;
     private Timestamp leftAt;
-    
+
     public JobHistory() {}
-    
+
     public JobHistory(String uuid, int jobId, int maxLevel) {
+        this(uuid, jobId, maxLevel, 0.0);
+    }
+
+    public JobHistory(String uuid, int jobId, int maxLevel, double experience) {
         this.uuid = uuid;
         this.jobId = jobId;
         this.maxLevel = maxLevel;
+        this.experience = experience;
         this.leftAt = new Timestamp(System.currentTimeMillis());
     }
     
@@ -39,7 +45,11 @@ public class JobHistory {
     public int getMaxLevel() {
         return maxLevel;
     }
-    
+
+    public double getExperience() {
+        return experience;
+    }
+
     public Timestamp getLeftAt() {
         return leftAt;
     }
@@ -60,7 +70,11 @@ public class JobHistory {
     public void setMaxLevel(int maxLevel) {
         this.maxLevel = maxLevel;
     }
-    
+
+    public void setExperience(double experience) {
+        this.experience = experience;
+    }
+
     public void setLeftAt(Timestamp leftAt) {
         this.leftAt = leftAt;
     }
@@ -72,6 +86,7 @@ public class JobHistory {
                 ", uuid='" + uuid + '\'' +
                 ", jobId=" + jobId +
                 ", maxLevel=" + maxLevel +
+                ", experience=" + experience +
                 ", leftAt=" + leftAt +
                 '}';
     }

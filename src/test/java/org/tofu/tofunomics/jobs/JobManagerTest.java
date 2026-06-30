@@ -3,6 +3,7 @@ package org.tofu.tofunomics.jobs;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -14,6 +15,7 @@ import org.tofu.tofunomics.dao.PlayerJobDAO;
 import org.tofu.tofunomics.dao.JobChangeDAO;
 import org.tofu.tofunomics.dao.JobHistoryDAO;
 import org.tofu.tofunomics.models.Job;
+import org.tofu.tofunomics.models.JobHistory;
 import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.jobs.JobManager.JobJoinResult;
 import org.tofu.tofunomics.jobs.JobManager.JobLeaveResult;
@@ -312,6 +314,60 @@ public class JobManagerTest {
 
         assertEquals("職業離脱が成功するべき", JobLeaveResult.SUCCESS, result);
         verify(playerJobDAO).deletePlayerJob(playerUuidString, 1);
+    }
+
+    @Test
+    public void testLeaveJobSavesExperienceToHistory() {
+        // 辞職時に現在の経験値が job_history に保存されることを検証
+        String jobName = "farmer";
+        Job job = new Job(jobName, "農家", 100, 15.0);
+        job.setId(1);
+
+        PlayerJob playerJob = new PlayerJob();
+        playerJob.setJobId(1);
+        playerJob.setLevel(50);
+        playerJob.setExperience(123456.0); // 付与済みの経験値
+
+        when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(false);
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
+        when(playerJobDAO.getPlayerJob(playerUuidString, 1)).thenReturn(playerJob);
+        when(jobHistoryDAO.insertJobHistory(any())).thenReturn(true);
+        when(playerJobDAO.deletePlayerJob(playerUuidString, 1)).thenReturn(true);
+
+        JobLeaveResult result = jobManager.leaveJob(player, jobName);
+
+        assertEquals("職業離脱が成功するべき", JobLeaveResult.SUCCESS, result);
+
+        ArgumentCaptor<JobHistory> captor = ArgumentCaptor.forClass(JobHistory.class);
+        verify(jobHistoryDAO).insertJobHistory(captor.capture());
+        assertEquals("辞職時のレベルが履歴に保存されるべき", 50, captor.getValue().getMaxLevel());
+        assertEquals("辞職時の経験値が履歴に保存されるべき", 123456.0, captor.getValue().getExperience(), 0.001);
+    }
+
+    @Test
+    public void testJoinJobRestoresLevelAndExperienceFromHistory() {
+        // 再就職時に job_history からレベルと経験値の両方が復元されることを検証
+        String jobName = "farmer";
+        Job job = new Job(jobName, "農家", 100, 15.0);
+        job.setId(1);
+
+        JobHistory history = new JobHistory(playerUuidString, 1, 50, 123456.0);
+
+        when(jobDAO.getJobByNameSafe(jobName)).thenReturn(job);
+        when(configManager.isDailyJobChangeLimitEnabled()).thenReturn(false);
+        when(configManager.getMaxJobsPerPlayer()).thenReturn(3);
+        when(playerJobDAO.getPlayerJobsByUUID(playerUuidString)).thenReturn(new ArrayList<>());
+        when(jobHistoryDAO.getLatestJobHistory(playerUuidString, 1)).thenReturn(history);
+        when(playerJobDAO.insertPlayerJob(any(PlayerJob.class))).thenReturn(true);
+
+        JobJoinResult result = jobManager.joinJob(player, jobName);
+
+        assertEquals("再就職が成功するべき", JobJoinResult.SUCCESS, result);
+
+        ArgumentCaptor<PlayerJob> captor = ArgumentCaptor.forClass(PlayerJob.class);
+        verify(playerJobDAO).insertPlayerJob(captor.capture());
+        assertEquals("過去の最高レベルが復元されるべき", 50, captor.getValue().getLevel());
+        assertEquals("過去の経験値が復元されるべき", 123456.0, captor.getValue().getExperience(), 0.001);
     }
 
     @Test
