@@ -41,5 +41,8 @@ public class UnifiedEventHandlerTrackingTest {
         assertTrue("石は追跡対象", UnifiedEventHandler.shouldTrackPlacedBlock(Material.STONE));
         assertTrue("丸石は追跡対象", UnifiedEventHandler.shouldTrackPlacedBlock(Material.COBBLESTONE));
         assertTrue("原木は追跡対象", UnifiedEventHandler.shouldTrackPlacedBlock(Material.OAK_LOG));
+        assertTrue("安山岩は追跡対象", UnifiedEventHandler.shouldTrackPlacedBlock(Material.ANDESITE));
+        assertTrue("閃緑岩は追跡対象", UnifiedEventHandler.shouldTrackPlacedBlock(Material.DIORITE));
+        assertTrue("花崗岩は追跡対象", UnifiedEventHandler.shouldTrackPlacedBlock(Material.GRANITE));
     }
 }
