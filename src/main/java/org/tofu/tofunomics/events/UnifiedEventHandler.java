@@ -473,11 +473,13 @@ public class UnifiedEventHandler implements Listener {
         // 鉱石類は設置禁止のため追跡不要（isOreBlockで判定）
         
         // STONE, COBBLESTONE（無限経験値防止）
-        // 深層岩石材（DEEPSLATE/COBBLED_DEEPSLATE/TUFF）はSTONEへ正規化され採掘経験値の対象になるため、
-        // 設置→採掘による無限経験値を防ぐべく追跡する
+        // 深層岩石材（DEEPSLATE/COBBLED_DEEPSLATE/TUFF）および岩系（ANDESITE/DIORITE/GRANITE）は
+        // STONEへ正規化され採掘経験値の対象になるため、設置→採掘による無限経験値を防ぐべく追跡する
         if (blockType == Material.STONE || blockType == Material.COBBLESTONE ||
             blockType == Material.DEEPSLATE || blockType == Material.COBBLED_DEEPSLATE ||
-            blockType == Material.TUFF) {
+            blockType == Material.TUFF ||
+            blockType == Material.ANDESITE || blockType == Material.DIORITE ||
+            blockType == Material.GRANITE) {
             return true;
         }
 

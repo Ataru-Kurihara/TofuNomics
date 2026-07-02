@@ -121,6 +121,10 @@ public final class BlockNormalizer {
             case DEEPSLATE:
             case COBBLED_DEEPSLATE:
             case TUFF:                   return Material.STONE;
+            // 岩系（自然生成の石バリエーション → 石。採掘経験値の対象にする）
+            case ANDESITE:
+            case DIORITE:
+            case GRANITE:                return Material.STONE;
             default:                     return material;
         }
     }

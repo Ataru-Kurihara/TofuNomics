@@ -34,6 +34,13 @@ public class BlockNormalizerTest {
     }
 
     @Test
+    public void 岩系ブロックは石へ正規化される() {
+        assertEquals(Material.STONE, BlockNormalizer.normalizeForJob(Material.ANDESITE));
+        assertEquals(Material.STONE, BlockNormalizer.normalizeForJob(Material.DIORITE));
+        assertEquals(Material.STONE, BlockNormalizer.normalizeForJob(Material.GRANITE));
+    }
+
+    @Test
     public void 通常版ブロックはそのまま返る() {
         assertEquals(Material.IRON_ORE, BlockNormalizer.normalizeForJob(Material.IRON_ORE));
         assertEquals(Material.COPPER_ORE, BlockNormalizer.normalizeForJob(Material.COPPER_ORE));
