@@ -12,7 +12,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 /**
- * JobBlockPermissionManager の植え付け制限機能テスト
+ * JobBlockPermissionManager の植え付け制限・採掘制限機能テスト
  */
 public class JobBlockPermissionManagerTest {
 
@@ -114,5 +114,82 @@ public class JobBlockPermissionManagerTest {
         assertTrue(message.contains("農家"));
         assertTrue(message.contains("WHEAT"));
         assertTrue(message.contains("植える"));
+    }
+
+    // ========== 採掘制限テスト（無職プレイヤーが鉱石を掘れる問題の回帰防止） ==========
+
+    @Test
+    public void testNonJobPlayerCannotBreakOre() {
+        // 無職（鉱夫でない）プレイヤーは鉱石を採掘不可
+        when(configManager.isJobBlockRestrictionEnabled()).thenReturn(true);
+        when(jobManager.hasJob(player, "miner")).thenReturn(false);
+
+        assertFalse("無職は石炭鉱石を掘れない", permissionManager.canPlayerBreakBlock(player, Material.COAL_ORE));
+        assertFalse("無職は鉄鉱石を掘れない", permissionManager.canPlayerBreakBlock(player, Material.IRON_ORE));
+        assertFalse("無職はダイヤ鉱石を掘れない", permissionManager.canPlayerBreakBlock(player, Material.DIAMOND_ORE));
+    }
+
+    @Test
+    public void testDeepslateOreNormalizedForNonJob() {
+        // 深層岩鉱石も通常鉱石へ正規化され、無職では採掘不可（抜け穴封じ）
+        when(configManager.isJobBlockRestrictionEnabled()).thenReturn(true);
+        when(jobManager.hasJob(player, "miner")).thenReturn(false);
+
+        assertFalse("無職は深層岩石炭鉱石を掘れない", permissionManager.canPlayerBreakBlock(player, Material.DEEPSLATE_COAL_ORE));
+        assertFalse("無職は深層岩鉄鉱石を掘れない", permissionManager.canPlayerBreakBlock(player, Material.DEEPSLATE_IRON_ORE));
+        assertFalse("無職は深層岩ダイヤ鉱石を掘れない", permissionManager.canPlayerBreakBlock(player, Material.DEEPSLATE_DIAMOND_ORE));
+    }
+
+    @Test
+    public void testMinerCanBreakOre() {
+        // 鉱夫は鉱石を採掘可能
+        when(configManager.isJobBlockRestrictionEnabled()).thenReturn(true);
+        when(jobManager.hasJob(player, "miner")).thenReturn(true);
+
+        assertTrue(permissionManager.canPlayerBreakBlock(player, Material.COAL_ORE));
+        assertTrue(permissionManager.canPlayerBreakBlock(player, Material.DIAMOND_ORE));
+        assertTrue(permissionManager.canPlayerBreakBlock(player, Material.DEEPSLATE_COAL_ORE));
+    }
+
+    @Test
+    public void testBasicBlocksBreakableByEveryone() {
+        // 基本ブロック（石・丸石・原木等）は無職でも採掘可能
+        when(configManager.isJobBlockRestrictionEnabled()).thenReturn(true);
+        when(jobManager.hasJob(player, "miner")).thenReturn(false);
+
+        assertTrue(permissionManager.canPlayerBreakBlock(player, Material.STONE));
+        assertTrue(permissionManager.canPlayerBreakBlock(player, Material.COBBLESTONE));
+        assertTrue(permissionManager.canPlayerBreakBlock(player, Material.OAK_LOG));
+    }
+
+    @Test
+    public void testBreakAllowedWhenRestrictionDisabled() {
+        // 採掘制限が無効なら無職でも鉱石を採掘可能
+        when(configManager.isJobBlockRestrictionEnabled()).thenReturn(false);
+        when(jobManager.hasJob(player, "miner")).thenReturn(false);
+
+        assertTrue(permissionManager.canPlayerBreakBlock(player, Material.COAL_ORE));
+    }
+
+    @Test
+    public void testAdminBypassesBreakRestriction() {
+        // 管理者権限があれば無職でも鉱石を採掘可能
+        when(configManager.isJobBlockRestrictionEnabled()).thenReturn(true);
+        when(player.hasPermission("tofunomics.admin.break")).thenReturn(true);
+        when(jobManager.hasJob(player, "miner")).thenReturn(false);
+
+        assertTrue(permissionManager.canPlayerBreakBlock(player, Material.COAL_ORE));
+    }
+
+    @Test
+    public void testMiningDeniedMessage() {
+        // 拒否メッセージに必要職業名とブロック名が含まれる
+        when(jobManager.getJobDisplayName("miner")).thenReturn("鉱夫");
+
+        String message = permissionManager.getDeniedMessage(player, Material.COAL_ORE);
+
+        assertTrue(message.contains("鉱夫"));
+        assertTrue(message.contains("COAL_ORE"));
+        assertTrue(message.contains("採掘"));
     }
 }
