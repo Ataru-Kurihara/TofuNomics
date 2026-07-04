@@ -123,19 +123,22 @@ public class UnifiedEventHandler implements Listener {
     
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        // 基本的なイベント処理チェック
-        if (!shouldProcessEvent(event)) {
-            return;
-        }
-
         Player player = event.getPlayer();
         Material blockType = event.getBlock().getType();
 
-        // 職業ブロック制限チェック（優先度HIGHで早期チェック）
+        // 職業ブロック制限チェック（採掘禁止はハードルールのため、報酬システムの
+        // ワールド/ゲームモードフィルタ shouldProcessEvent より前に必ず実行する。
+        // canPlayerBreakBlock 内で「制限無効なら許可」「管理者権限バイパス」を自己ガード済み。
+        // onBlockPlace の植え付け制限と対称の順序）
         if (!blockPermissionManager.canPlayerBreakBlock(player, blockType)) {
             event.setCancelled(true);
             String message = blockPermissionManager.getDeniedMessage(player, blockType);
             player.sendMessage(message);
+            return;
+        }
+
+        // 以降の報酬/経験値/クエスト処理は従来どおりフィルタの対象
+        if (!shouldProcessEvent(event)) {
             return;
         }
 
