@@ -91,17 +91,24 @@ public class JobCraftPermissionManager {
         ));
         jobCraftableItems.put("miner", minerItems);
 
-        // 木こり (woodcutter) - 斧
+        // 木こり (woodcutter) - 斧・木材加工品（板材・階段・ドア等）
         Set<Material> woodcutterItems = new HashSet<>(Arrays.asList(
             Material.WOODEN_AXE, Material.STONE_AXE, Material.IRON_AXE,
             Material.GOLDEN_AXE, Material.DIAMOND_AXE, Material.NETHERITE_AXE, Material.COPPER_AXE
         ));
+        // 木材加工品（板材含む・実用品含む）をループ生成で追加
+        woodcutterItems.addAll(collectWoodProcessedItems());
         jobCraftableItems.put("woodcutter", woodcutterItems);
 
-        // 農家 (farmer) - くわ・動物装備
+        // 農家 (farmer) - くわ・動物装備・料理・貴重食料
         Set<Material> farmerItems = new HashSet<>(Arrays.asList(
             Material.WOODEN_HOE, Material.STONE_HOE, Material.IRON_HOE,
-            Material.GOLDEN_HOE, Material.DIAMOND_HOE, Material.NETHERITE_HOE, Material.COPPER_HOE
+            Material.GOLDEN_HOE, Material.DIAMOND_HOE, Material.NETHERITE_HOE, Material.COPPER_HOE,
+            // 料理全般（クラフトレシピを持つもののみ。焼き料理は精錬のため対象外）
+            Material.BREAD, Material.COOKIE, Material.CAKE, Material.PUMPKIN_PIE,
+            Material.MUSHROOM_STEW, Material.BEETROOT_SOUP, Material.RABBIT_STEW, Material.SUSPICIOUS_STEW,
+            // 貴重食料
+            Material.GOLDEN_APPLE, Material.GOLDEN_CARROT
         ));
         // 動物装備 — 鍛冶屋と共有
         farmerItems.addAll(horseEquipment);
@@ -126,6 +133,53 @@ public class JobCraftPermissionManager {
         jobCraftableItems.put("enchanter", enchanterItems);
 
         // 建築家 (builder) - 専売なし（建材・装飾は誰でもクラフト可）
+    }
+
+    // 木材種プレフィックス（この接頭辞を持つMaterialのみ木材加工品として扱う）
+    private static final Set<String> WOOD_TYPE_PREFIXES = new HashSet<>(Arrays.asList(
+        "OAK", "SPRUCE", "BIRCH", "JUNGLE", "ACACIA", "DARK_OAK",
+        "MANGROVE", "CHERRY", "PALE_OAK", "BAMBOO", "CRIMSON", "WARPED"
+    ));
+
+    // 木材加工品のサフィックス（実用品も含む・広め）。板材専売のため _PLANKS を含める。
+    // ※板材を専売対象から外す場合はこのリストから "_PLANKS" を削るだけでよい。
+    private static final List<String> WOOD_PROCESSED_SUFFIXES = Arrays.asList(
+        "_PLANKS", "_STAIRS", "_SLAB", "_FENCE", "_FENCE_GATE", "_DOOR", "_TRAPDOOR",
+        "_PRESSURE_PLATE", "_BUTTON", "_SIGN", "_HANGING_SIGN", "_BOAT", "_CHEST_BOAT"
+    );
+
+    /**
+     * 木材加工品（板材・階段・フェンス・ドア等）を Material enum から動的収集する。
+     *
+     * 「木材種プレフィックス」と「加工品サフィックス」の AND 条件で判定するため、
+     * 石・鉄・ブラックストーン等の非木材（STONE_STAIRS, IRON_DOOR 等）は誤って含まれない。
+     * Material.values() 走査により、新バージョンで追加された木材種も自動追従する。
+     */
+    private Set<Material> collectWoodProcessedItems() {
+        Set<Material> result = EnumSet.noneOf(Material.class);
+        for (Material m : Material.values()) {
+            String n = m.name();
+            boolean prefixOk = WOOD_TYPE_PREFIXES.stream().anyMatch(p -> n.startsWith(p + "_"));
+            if (!prefixOk) {
+                continue;
+            }
+            for (String suf : WOOD_PROCESSED_SUFFIXES) {
+                if (n.endsWith(suf)) {
+                    result.add(m);
+                    break;
+                }
+            }
+        }
+        // 竹の特殊加工品（サフィックス規則から漏れるもの）
+        for (String extra : new String[]{
+                "BAMBOO_MOSAIC", "BAMBOO_MOSAIC_STAIRS", "BAMBOO_MOSAIC_SLAB",
+                "BAMBOO_RAFT", "BAMBOO_CHEST_RAFT"}) {
+            Material m = Material.getMaterial(extra); // 存在しなければ null
+            if (m != null) {
+                result.add(m);
+            }
+        }
+        return result;
     }
 
     /**
