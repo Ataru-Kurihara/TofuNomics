@@ -343,6 +343,12 @@ trade_system:
     chest_already_exists: "&cこの場所には既に取引チェストが設置されています。"
 
 # 時計アイテムシステム設定
+# 作業台アイテム右クリック機能
+# 保護区域（WorldGuardリージョン）内で作業台を手に持って右クリックすると、
+# 設置せずに作業台GUIを直接開く。区域外では従来通りブロックとして設置できる。
+workbench_item:
+  enabled: true
+
 clock_item:
   # 時計アイテムシステムの有効化
   enabled: true

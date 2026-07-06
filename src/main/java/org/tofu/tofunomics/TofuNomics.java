@@ -215,6 +215,9 @@ public final class TofuNomics extends JavaPlugin {
         // 時計アイテムシステムの初期化
         initializeClockItemSystem();
 
+        // 作業台アイテム右クリックシステムの初期化
+        initializeWorkbenchItemSystem();
+
         // プレイヤー間マーケットシステムの初期化
         initializeMarketSystem();
 
@@ -1600,6 +1603,24 @@ public final class TofuNomics extends JavaPlugin {
      */
     public org.tofu.tofunomics.items.ClockItemManager getClockItemManager() {
         return clockItemManager;
+    }
+
+    /**
+     * 作業台アイテム右クリックシステムの初期化
+     * 保護区域内で作業台を持って右クリックするとGUIを開く
+     */
+    private void initializeWorkbenchItemSystem() {
+        try {
+            getLogger().info("作業台アイテム右クリックシステムを初期化しています...");
+
+            org.tofu.tofunomics.items.WorkbenchItemListener workbenchItemListener =
+                new org.tofu.tofunomics.items.WorkbenchItemListener(this, configManager, worldGuardIntegration);
+            getServer().getPluginManager().registerEvents(workbenchItemListener, this);
+
+            getLogger().info("作業台アイテム右クリックシステムが初期化されました");
+        } catch (Exception e) {
+            getLogger().severe("作業台アイテム右クリックシステムの初期化に失敗しました: " + e.getMessage());
+        }
     }
     
     /**

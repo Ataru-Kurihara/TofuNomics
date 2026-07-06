@@ -2039,6 +2039,14 @@ public class ConfigManager {
     public boolean isClockItemEnabled() {
         return (Boolean) getCachedValue("clock_item.enabled", true);
     }
+
+    /**
+     * 作業台アイテム右クリック機能が有効かどうか
+     * （保護区域内で作業台を持って右クリックするとGUIを開く）
+     */
+    public boolean isWorkbenchItemEnabled() {
+        return (Boolean) getCachedValue("workbench_item.enabled", true);
+    }
     
     /**
      * 時計の購入価格
