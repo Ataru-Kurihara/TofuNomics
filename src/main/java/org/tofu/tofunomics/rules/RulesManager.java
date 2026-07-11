@@ -213,9 +213,22 @@ public class RulesManager implements Listener {
     }
     
     /**
+     * ルール同意の強制（未同意プレイヤーの行動制限）が有効かどうか
+     * rules.enabled と rules.require_agreement の両方が true の場合のみ制限を行う。
+     * 外部サイト確認方式（require_agreement: false）では制限を一切かけない。
+     */
+    public boolean isAgreementEnforced() {
+        return configManager.isRulesEnabled() && configManager.isRulesAgreementRequired();
+    }
+
+    /**
      * プレイヤーをルール未同意リストに追加（行動制限対象）
+     * 同意強制が無効な場合は登録しない
      */
     public void markAsUnagreed(UUID uuid) {
+        if (!isAgreementEnforced()) {
+            return;
+        }
         unagreedPlayers.add(uuid);
     }
     
@@ -274,11 +287,11 @@ public class RulesManager implements Listener {
 
     /**
      * 現在のワールドでルール制限を適用すべきか確認
-     * economy.enabled_worlds（ワールド制限ホワイトリスト）に従い、
+     * 同意強制が無効な場合、および economy.enabled_worlds（ワールド制限ホワイトリスト）の
      * 対象ワールド外（tofunomics系以外）ではルール同意システムを動作させない
      */
     private boolean isRulesEnabledInWorld(Player player) {
-        return configManager.isEconomyEnabledInWorld(player.getWorld().getName());
+        return isAgreementEnforced() && configManager.isEconomyEnabledInWorld(player.getWorld().getName());
     }
     
     // ========== イベントハンドラ：未同意プレイヤーの行動制限 ==========

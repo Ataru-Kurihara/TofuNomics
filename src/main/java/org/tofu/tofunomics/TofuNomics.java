@@ -1640,6 +1640,12 @@ public final class TofuNomics extends JavaPlugin {
             
             getLogger().info("ルール確認システムの初期化が完了しました");
             
+            // ルール同意の強制が無効な場合は既存プレイヤーへのチェックを行わない
+            if (!rulesManager.isAgreementEnforced()) {
+                getLogger().info("ルール同意の強制は無効です（rules.enabled / require_agreement）- 行動制限は行いません");
+                return;
+            }
+
             // 既存のオンラインプレイヤーに対してルール同意チェック
             getServer().getScheduler().runTaskLater(this, () -> {
                 for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
