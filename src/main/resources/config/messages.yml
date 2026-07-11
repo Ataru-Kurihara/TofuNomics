@@ -56,7 +56,13 @@ messages:
     no_job: "&c現在就職していません。"
     job_not_found: "&c指定された職業は存在しません。"
     already_have_job: "&c既に職業に就いています。"
-  
+
+  # クラフト制限メッセージ
+  craft:
+    no_job_required: "&c職業に就いていないため、このアイテムをクラフトできません。まず /job join で就職してください。"
+    wrong_job_required: "&c{item}をクラフトするには{required_job}である必要があります。（現在: {current_job}）"
+    item_not_craftable: "&cこのアイテムはクラフトできません。"
+
   # スコアボード関連メッセージ
   scoreboard:
     enabled: "&aスコアボードを有効にしました。"
