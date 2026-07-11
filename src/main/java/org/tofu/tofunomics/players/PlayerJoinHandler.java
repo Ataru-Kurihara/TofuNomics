@@ -120,6 +120,11 @@ public class PlayerJoinHandler implements Listener {
             return;
         }
 
+        // ルール同意の強制が無効な場合は制限もGUI表示も行わない
+        if (!rulesManager.isAgreementEnforced()) {
+            return;
+        }
+
         // 対象ワールド外（tofunomics系以外）はルール同意システムの対象外
         if (!configManager.isEconomyEnabledInWorld(worldName)) {
             return;

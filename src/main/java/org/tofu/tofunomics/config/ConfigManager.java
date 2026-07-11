@@ -4832,6 +4832,22 @@ public class ConfigManager {
     // ========================================
     
     /**
+     * ルール確認システムが有効かどうか
+     * @return 有効な場合 true（デフォルト: false）
+     */
+    public boolean isRulesEnabled() {
+        return config.getBoolean("rules.enabled", false);
+    }
+
+    /**
+     * ルール同意を必須にするか（未同意プレイヤーの行動制限を行うか）
+     * @return 必須の場合 true（デフォルト: false）
+     */
+    public boolean isRulesAgreementRequired() {
+        return config.getBoolean("rules.require_agreement", false);
+    }
+
+    /**
      * ルールサイトのURLを取得
      * @return ルールサイトURL（デフォルト: https://example.com/tofunomics-rules）
      */
