@@ -127,10 +127,12 @@ public class UnifiedEventHandler implements Listener {
         Material blockType = event.getBlock().getType();
 
         // 職業ブロック制限チェック（採掘禁止はハードルールのため、報酬システムの
-        // ワールド/ゲームモードフィルタ shouldProcessEvent より前に必ず実行する。
+        // ゲームモードフィルタ shouldProcessEvent より前に必ず実行する。
+        // ただしワールド判定だけは先に行い、TofuNomics 対象外ワールド
+        // （ロビー・ミニゲーム等）には干渉しない。
         // canPlayerBreakBlock 内で「制限無効なら許可」「管理者権限バイパス」を自己ガード済み。
         // onBlockPlace の植え付け制限と対称の順序）
-        if (!blockPermissionManager.canPlayerBreakBlock(player, blockType)) {
+        if (isJobRestrictionWorld(player) && !blockPermissionManager.canPlayerBreakBlock(player, blockType)) {
             event.setCancelled(true);
             String message = blockPermissionManager.getDeniedMessage(player, blockType);
             player.sendMessage(message);
@@ -172,18 +174,22 @@ public class UnifiedEventHandler implements Listener {
         Player player = event.getPlayer();
         Material blockType = event.getBlock().getType();
         
-        // 鉱石ブロックの設置を禁止（管理者権限がない場合）
-        if (isOreBlock(blockType) && !player.hasPermission("tofunomics.place.ore")) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "鉱石ブロックは設置できません。");
-            return;
-        }
+        // TofuNomics 対象ワールドでのみ設置系の制限を適用する
+        // （ロビー・ミニゲーム等の他ワールドには干渉しない）
+        if (isJobRestrictionWorld(player)) {
+            // 鉱石ブロックの設置を禁止（管理者権限がない場合）
+            if (isOreBlock(blockType) && !player.hasPermission("tofunomics.place.ore")) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "鉱石ブロックは設置できません。");
+                return;
+            }
 
-        // 職業別 植え付け制限チェック（農家以外の作物植え付けを拒否）
-        if (!blockPermissionManager.canPlayerPlantBlock(player, blockType)) {
-            event.setCancelled(true);
-            player.sendMessage(blockPermissionManager.getPlantingDeniedMessage(player, blockType));
-            return;
+            // 職業別 植え付け制限チェック（農家以外の作物植え付けを拒否）
+            if (!blockPermissionManager.canPlayerPlantBlock(player, blockType)) {
+                event.setCancelled(true);
+                player.sendMessage(blockPermissionManager.getPlantingDeniedMessage(player, blockType));
+                return;
+            }
         }
 
         if (!shouldProcessEvent(event)) return;
@@ -236,10 +242,26 @@ public class UnifiedEventHandler implements Listener {
         if (!validSurface) return;
 
         Player player = event.getPlayer();
+        // TofuNomics 対象ワールド以外では制限しない
+        if (!isJobRestrictionWorld(player)) return;
+
         if (!blockPermissionManager.canPlayerPlantBlock(player, cropBlock)) {
             event.setCancelled(true);
             player.sendMessage(blockPermissionManager.getPlantingDeniedMessage(player, cropBlock));
         }
+    }
+
+    /**
+     * 職業制限（採掘・植え付け・鉱石設置）を適用すべきワールドかどうかを判定する。
+     * CraftRestrictionEventHandler と同じ基準（events.excluded_worlds 除外 +
+     * economy.enabled_worlds ホワイトリスト）。
+     */
+    private boolean isJobRestrictionWorld(Player player) {
+        if (configManager == null) {
+            // 設定が取得できない場合は安全側（制限なし）に倒す
+            return false;
+        }
+        return configManager.isJobRestrictionEnabledInWorld(player.getWorld().getName());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
