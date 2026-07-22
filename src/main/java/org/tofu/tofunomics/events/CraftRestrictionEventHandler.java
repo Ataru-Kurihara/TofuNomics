@@ -64,7 +64,8 @@ public class CraftRestrictionEventHandler implements Listener {
 
     /**
      * クラフト制限を適用すべきワールドかどうかを判定する。
-     * EventProcessor.isValidWorld() と同じ判定基準（除外ワールド + economy.enabled_worlds ホワイトリスト）。
+     * 判定は ConfigManager.isJobRestrictionEnabledInWorld() に集約されており、
+     * 採掘・植え付け制限（UnifiedEventHandler）と同じ基準になる。
      * 対象外ワールドでは制限を適用しない。
      */
     private boolean isCraftRestrictionEnabledWorld(Player player) {
@@ -73,15 +74,6 @@ public class CraftRestrictionEventHandler implements Listener {
             return true;
         }
 
-        String worldName = player.getWorld().getName();
-
-        // 除外ワールドはスキップ
-        java.util.List<String> excludedWorlds = plugin.getConfigManager().getExcludedWorlds();
-        if (excludedWorlds != null && excludedWorlds.contains(worldName)) {
-            return false;
-        }
-
-        // 経済機能を有効にするワールドのホワイトリスト（空の場合は全ワールドで有効：後方互換）
-        return plugin.getConfigManager().isEconomyEnabledInWorld(worldName);
+        return plugin.getConfigManager().isJobRestrictionEnabledInWorld(player.getWorld().getName());
     }
 }

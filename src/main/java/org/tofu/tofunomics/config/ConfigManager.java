@@ -724,7 +724,23 @@ public class ConfigManager {
         }
         return enabledWorlds.contains(worldName);
     }
-    
+
+    /**
+     * 職業制限（採掘・植え付け・クラフト）を適用すべきワールドかどうか
+     * events.excluded_worlds を除外し、economy.enabled_worlds のホワイトリストで判定する
+     * （ホワイトリストが空の場合は全ワールドで有効：後方互換）
+     */
+    public boolean isJobRestrictionEnabledInWorld(String worldName) {
+        if (worldName == null) {
+            return false;
+        }
+        java.util.List<String> excludedWorlds = getExcludedWorlds();
+        if (excludedWorlds != null && excludedWorlds.contains(worldName)) {
+            return false;
+        }
+        return isEconomyEnabledInWorld(worldName);
+    }
+
     public java.util.List<String> getExcludedGameModes() {
         return config.getStringList("events.excluded_game_modes");
     }
