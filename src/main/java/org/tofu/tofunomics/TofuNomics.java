@@ -131,6 +131,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.dao.QuestProgressDAO questProgressDAO;
     private org.tofu.tofunomics.dao.FarmPlotDAO farmPlotDAO;
     private org.tofu.tofunomics.dao.FirstAcquisitionDAO firstAcquisitionDAO;
+    private org.tofu.tofunomics.dao.PlayerTradeHistoryDAO playerTradeHistoryDAO;
     private org.tofu.tofunomics.farming.FarmPlotManager farmPlotManager;
     private org.tofu.tofunomics.market.MarketManager marketManager;
     private org.tofu.tofunomics.market.gui.MarketBrowseGUI marketBrowseGUI;
@@ -352,6 +353,7 @@ public final class TofuNomics extends JavaPlugin {
             questProgressDAO = new org.tofu.tofunomics.dao.QuestProgressDAO(databaseManager.getConnection());
             farmPlotDAO = new org.tofu.tofunomics.dao.FarmPlotDAO(databaseManager.getConnection());
             firstAcquisitionDAO = new org.tofu.tofunomics.dao.FirstAcquisitionDAO(databaseManager.getConnection());
+            playerTradeHistoryDAO = new org.tofu.tofunomics.dao.PlayerTradeHistoryDAO(databaseManager.getConnection());
 
             getLogger().info("データアクセス層（DAO）を初期化しました");
         }
@@ -1075,6 +1077,9 @@ public final class TofuNomics extends JavaPlugin {
                 tradePriceManager,
                 playerDAO
             );
+
+            // NPC売却の履歴記録を有効化（公開後のバランス調整に使う実データ）
+            tradingNPCManager.setPlayerTradeHistoryDAO(playerTradeHistoryDAO);
 
             // 食料NPCマネージャーの初期化
             foodNPCManager = new org.tofu.tofunomics.npc.FoodNPCManager(
