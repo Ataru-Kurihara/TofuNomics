@@ -22,8 +22,15 @@ public class JobLevelRewardManager {
     /** 報酬を付与するレベル間隔 */
     private static final int REWARD_INTERVAL = 5;
 
-    /** 報酬対象の最大レベル */
-    private static final int MAX_REWARD_LEVEL = 100;
+    /**
+     * 報酬対象の最大レベルを職業ごとに返す。
+     *
+     * 上限をハードコードすると jobs.yml / DB の max_level とずれ、
+     * 到達不能なレベルの報酬を案内してしまうため設定から引く。
+     */
+    private int maxRewardLevel(String jobName) {
+        return configManager.getJobMaxLevel(jobName == null ? "" : jobName.toLowerCase());
+    }
 
     /** 未知の職業に対するデフォルト基礎額 */
     private static final double DEFAULT_BASE_REWARD = 40.0;
@@ -54,7 +61,7 @@ public class JobLevelRewardManager {
      * 報酬対象でないレベル（5の倍数でない、0以下、上限超過）は0を返す。
      */
     public double getRewardAmount(String jobName, int level) {
-        if (level <= 0 || level > MAX_REWARD_LEVEL || level % REWARD_INTERVAL != 0) {
+        if (level <= 0 || level > maxRewardLevel(jobName) || level % REWARD_INTERVAL != 0) {
             return 0.0;
         }
         double base = JOB_BASE_REWARD.getOrDefault(
@@ -119,15 +126,15 @@ public class JobLevelRewardManager {
      */
     public int getNextRewardLevel(String jobName, int currentLevel) {
         int next = ((currentLevel / REWARD_INTERVAL) + 1) * REWARD_INTERVAL;
-        return next <= MAX_REWARD_LEVEL ? next : -1;
+        return next <= maxRewardLevel(jobName) ? next : -1;
     }
 
     /**
-     * 全報酬レベルの一覧（Lv5, 10, …, 100）を返す。
+     * 全報酬レベルの一覧（Lv5, 10, … 最大レベル）を返す。
      */
     public List<Integer> getAllRewardLevels(String jobName) {
         List<Integer> levels = new ArrayList<>();
-        for (int level = REWARD_INTERVAL; level <= MAX_REWARD_LEVEL; level += REWARD_INTERVAL) {
+        for (int level = REWARD_INTERVAL; level <= maxRewardLevel(jobName); level += REWARD_INTERVAL) {
             levels.add(level);
         }
         return levels;

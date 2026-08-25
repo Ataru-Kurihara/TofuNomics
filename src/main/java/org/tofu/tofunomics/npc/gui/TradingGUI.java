@@ -1024,7 +1024,10 @@ public class TradingGUI implements Listener {
         }
         
         // アイテムを付与
-        ItemStack purchasedItem = new ItemStack(material, purchaseAmount);
+        // NPC購入マーカーを付与し、購入したアイテムの取引所での再売却を防止する。
+        // 売却価格には職業倍率がかかるが購入価格にはかからないため、マーカーが無いと
+        // 「同一NPCで購入 → 即売却」で差額を無限に得られてしまう。
+        ItemStack purchasedItem = NPCPurchaseMarker.mark(plugin, new ItemStack(material, purchaseAmount));
         player.getInventory().addItem(purchasedItem);
 
         // メッセージ

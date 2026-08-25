@@ -2217,8 +2217,10 @@ public class ConfigManager {
      * 職業の最大レベルを取得
      */
     public int getMaxJobLevel() {
-        // すべての職業で共通の最大レベル（100）を返す
-        return 100;
+        // 職業別の設定が引けない場合のフォールバック値。
+        // DBシード（DatabaseManager）および jobs.yml の max_level と揃えて75とする。
+        // 職業が判明している場合は getJobMaxLevel(jobName) を使うこと。
+        return 75;
     }
     
     // ========== 銀行・ATM場所制限設定 ==========

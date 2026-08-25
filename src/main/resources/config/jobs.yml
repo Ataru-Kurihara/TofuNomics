@@ -34,7 +34,7 @@ jobs:
     miner:
       display_name: "鉱夫"
       description: "鉱物資源と石材の供給を担当"
-      max_level: 100
+      max_level: 75
       base_income_multiplier: 1.0
       # レベルアップに必要な経験値倍率
       exp_multiplier: 10.0
@@ -177,7 +177,7 @@ jobs:
     woodcutter:
       display_name: "木こり"
       description: "木材の供給を担当"
-      max_level: 100
+      max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
@@ -308,7 +308,7 @@ jobs:
     farmer:
       display_name: "農家"
       description: "農作物・畜産物の供給を担当"
-      max_level: 100
+      max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
@@ -459,7 +459,7 @@ jobs:
     fisherman:
       display_name: "釣り人"
       description: "魚と宝の供給を担当"
-      max_level: 100
+      max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
@@ -588,7 +588,7 @@ jobs:
     blacksmith:
       display_name: "鍛冶屋"
       description: "ツール、武器、防具の生産と修理を担当"
-      max_level: 100
+      max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
@@ -731,7 +731,7 @@ jobs:
     alchemist:
       display_name: "ポーション屋"
       description: "ポーションの生産を担当"
-      max_level: 100
+      max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
@@ -861,7 +861,7 @@ jobs:
     enchanter:
       display_name: "エンチャンター"
       description: "エンチャントサービスを担当"
-      max_level: 100
+      max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
@@ -991,7 +991,7 @@ jobs:
     architect:
       display_name: "建築家"
       description: "建築と装飾を担当"
-      max_level: 100
+      max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
       base_sell_bonus: 0.05
@@ -1387,7 +1387,7 @@ leveling:
       # レベル51-75: 大幅に必要経験値増加
       master_levels:
         min_level: 51
-        max_level: 100
+        max_level: 75
         multiplier: 1.5
 
   # レベルアップ報酬設定

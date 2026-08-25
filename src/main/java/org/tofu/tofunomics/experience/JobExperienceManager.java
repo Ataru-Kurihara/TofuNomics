@@ -69,6 +69,9 @@ public class JobExperienceManager implements Listener {
     private final ExperienceManager experienceManager;
     private final NotificationManager notificationManager = new NotificationManager();
 
+    /** checkLevelUp 内で最大レベルが未解決であることを示す番兵値 */
+    private static final int MAX_LEVEL_UNRESOLVED = -1;
+
     // 職業レベルBossBarへの即時反映用（setter注入。null許容）
     private org.tofu.tofunomics.scoreboard.JobLevelBossBarManager jobLevelBossBarManager;
 
@@ -861,7 +864,24 @@ public class JobExperienceManager implements Listener {
      * レベルアップチェックと処理
      */
     private void checkLevelUp(Player player, PlayerJob playerJob, String jobName, int previousLevel) {
-        while (canPlayerLevelUp(playerJob)) {
+        // 最大レベルは「レベルアップの可能性が出た時」に初めて解決する。
+        // 経験値付与はブロック破壊のたびに走るホットパスのため、
+        // 昇格が起きないケースでDAOを引かないようにしている。
+        int maxLevel = MAX_LEVEL_UNRESOLVED;
+
+        while (hasExperienceForNextLevel(playerJob)) {
+            if (maxLevel == MAX_LEVEL_UNRESOLVED) {
+                Job job = jobDAO.getJobByNameSafe(jobName);
+                maxLevel = (job != null) ? job.getMaxLevel() : Integer.MAX_VALUE;
+            }
+
+            // 上限到達済みなら経験値が足りていてもレベルは上げない。
+            // この判定が無いと上限を超えて上がり続け、
+            // 「最大レベル到達」演出が経験値を得るたびに再生されてしまう。
+            if (playerJob.getLevel() >= maxLevel) {
+                break;
+            }
+
             playerJob.levelUp();
             int newLevel = playerJob.getLevel();
             String displayName = configManager.getJobDisplayName(jobName);
@@ -890,8 +910,9 @@ public class JobExperienceManager implements Listener {
             }
 
             // 職業レベル最大値チェック
-            Job job = jobDAO.getJobByNameSafe(jobName);
-            if (job != null && newLevel >= job.getMaxLevel()) {
+            // ここに到達するのは上限に「到達した瞬間」のみ。到達後の経験値取得では
+            // ループ先頭の上限判定で break するため、演出は再生されない。
+            if (newLevel >= maxLevel) {
                 player.sendMessage(ChatColor.LIGHT_PURPLE + "★ おめでとうございます！ " +
                     displayName + " の最大レベルに到達しました！");
                 if (configManager.isLevelUpTitleEnabled()) {
@@ -930,7 +951,7 @@ public class JobExperienceManager implements Listener {
     /**
      * プレイヤーがレベルアップ可能かチェック
      */
-    private boolean canPlayerLevelUp(PlayerJob playerJob) {
+    private boolean hasExperienceForNextLevel(PlayerJob playerJob) {
         double currentExp = playerJob.getExperience();
         double requiredExp = experienceManager.calculateRequiredExperience(playerJob.getLevel() + 1);
         return currentExp >= requiredExp;

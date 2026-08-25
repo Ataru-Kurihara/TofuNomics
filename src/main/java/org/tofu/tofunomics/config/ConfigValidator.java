@@ -48,7 +48,10 @@ public class ConfigValidator {
         
         // パフォーマンス設定の検証
         isValid &= validatePerformanceSettings();
-        
+
+        // 取引所の裁定（無限マネー）経路の検証
+        isValid &= validateTradingPostArbitrage();
+
         // エラーレポートの出力
         reportValidationErrors();
         
@@ -316,7 +319,108 @@ public class ConfigValidator {
         
         return isValid;
     }
-    
+
+    /**
+     * 取引所の裁定（無限マネー）経路の検証
+     *
+     * 売却価格には職業倍率がかかるが購入価格にはかからないため、
+     * 「purchase_prices の値 ≦ item_prices の値 × 職業倍率」となるアイテムがあると、
+     * 同一NPCで購入 → 即売却するだけで差額を無限に得られてしまう。
+     *
+     * trading_posts はサーバー固有データでリポジトリのconfig.ymlには含まれないため、
+     * ユニットテストでは検出できない。実際に設定が置かれているサーバー上で、
+     * 起動時に検出して警告するのがこの検証の役割。
+     */
+    private boolean validateTradingPostArbitrage() {
+        List<?> tradingPosts = plugin.getConfig().getList("npc_system.trading_posts");
+        if (tradingPosts == null || tradingPosts.isEmpty()) {
+            return true;
+        }
+
+        org.bukkit.configuration.ConfigurationSection itemPrices =
+            plugin.getConfig().getConfigurationSection("npc_system.item_prices");
+        if (itemPrices == null) {
+            return true;
+        }
+
+        double globalMultiplier = configManager.getTradePriceMultiplier();
+        boolean isValid = true;
+
+        for (Object rawPost : tradingPosts) {
+            if (!(rawPost instanceof java.util.Map)) {
+                continue;
+            }
+            java.util.Map<?, ?> post = (java.util.Map<?, ?>) rawPost;
+
+            Object rawPurchasePrices = post.get("purchase_prices");
+            if (!(rawPurchasePrices instanceof java.util.Map)) {
+                continue;
+            }
+            java.util.Map<?, ?> purchasePrices = (java.util.Map<?, ?>) rawPurchasePrices;
+
+            String postName = String.valueOf(post.get("name"));
+            List<String> acceptedJobs = toStringList(post.get("accepted_jobs"));
+            List<String> sellableItems = toStringList(post.get("items"));
+
+            // accepted_jobs に "all" を含む総合取引所では職業ボーナスが無効化されるため
+            // 倍率は 1.0。それ以外は受け入れ職業のうち最大の倍率が適用されうる。
+            double maxJobMultiplier = 1.0;
+            if (!acceptedJobs.contains("all")) {
+                for (String job : acceptedJobs) {
+                    maxJobMultiplier = Math.max(maxJobMultiplier, configManager.getJobPriceMultiplier(job));
+                }
+            }
+
+            for (java.util.Map.Entry<?, ?> entry : purchasePrices.entrySet()) {
+                String itemName = String.valueOf(entry.getKey());
+
+                // items が空リストの取引所は item_prices 全体が売却対象
+                boolean sellable = sellableItems.isEmpty() || sellableItems.contains(itemName);
+                if (!sellable) {
+                    continue;
+                }
+
+                double basePrice = itemPrices.getDouble(itemName, -1.0);
+                if (basePrice < 0) {
+                    continue;
+                }
+
+                double purchasePrice = toDouble(entry.getValue());
+                double sellRevenue = basePrice * maxJobMultiplier * globalMultiplier;
+
+                if (purchasePrice <= sellRevenue) {
+                    addError(
+                        "npc_system.trading_posts[" + postName + "].purchase_prices." + itemName,
+                        String.format(
+                            "購入価格(%.2f)が売却額(%.2f = 買取%.2f × 職業倍率%.2f × 全体倍率%.2f)以下のため、"
+                                + "購入→即売却で無限に金銭を得られます",
+                            purchasePrice, sellRevenue, basePrice, maxJobMultiplier, globalMultiplier),
+                        String.format("%.0f以上", Math.floor(sellRevenue) + 1)
+                    );
+                    isValid = false;
+                }
+            }
+        }
+
+        return isValid;
+    }
+
+    private List<String> toStringList(Object raw) {
+        List<String> result = new ArrayList<>();
+        if (raw instanceof List) {
+            for (Object item : (List<?>) raw) {
+                if (item != null) {
+                    result.add(String.valueOf(item));
+                }
+            }
+        }
+        return result;
+    }
+
+    private double toDouble(Object raw) {
+        return (raw instanceof Number) ? ((Number) raw).doubleValue() : 0.0;
+    }
+
     /**
      * エラーを追加
      */
