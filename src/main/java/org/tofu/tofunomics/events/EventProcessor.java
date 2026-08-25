@@ -146,6 +146,12 @@ public class EventProcessor {
         if (event instanceof BlockPlaceEvent) {
             return ((BlockPlaceEvent) event).getPlayer();
         }
+
+        // 骨粉による成長。ディスペンサー由来の場合は getPlayer() が null になり、
+        // その場合は処理対象外（プレイヤーの行動ではない）となる。
+        if (event instanceof org.bukkit.event.block.BlockFertilizeEvent) {
+            return ((org.bukkit.event.block.BlockFertilizeEvent) event).getPlayer();
+        }
         
         if (event instanceof InventoryEvent) {
             if (((InventoryEvent) event).getView().getPlayer() instanceof Player) {

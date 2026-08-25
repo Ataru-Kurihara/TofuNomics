@@ -6,6 +6,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.dao.PlayerJobDAO;
+import org.tofu.tofunomics.experience.JobExperienceManager;
 import org.tofu.tofunomics.models.PlayerJob;
 
 import java.sql.SQLException;
@@ -27,6 +28,7 @@ public class AsyncEventUpdater {
     private final JavaPlugin plugin;
     private final PlayerDAO playerDAO;
     private final PlayerJobDAO playerJobDAO;
+    private final JobExperienceManager jobExperienceManager;
     private final Logger logger;
     
     // 非同期処理用のExecutorService
@@ -49,9 +51,15 @@ public class AsyncEventUpdater {
     private static final int MAX_BATCH_SIZE = 50;
     
     public AsyncEventUpdater(JavaPlugin plugin, PlayerDAO playerDAO, PlayerJobDAO playerJobDAO) {
+        this(plugin, playerDAO, playerJobDAO, null);
+    }
+
+    public AsyncEventUpdater(JavaPlugin plugin, PlayerDAO playerDAO, PlayerJobDAO playerJobDAO,
+                             JobExperienceManager jobExperienceManager) {
         this.plugin = plugin;
         this.playerDAO = playerDAO;
         this.playerJobDAO = playerJobDAO;
+        this.jobExperienceManager = jobExperienceManager;
         this.logger = plugin.getLogger();
         
         this.executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
@@ -146,51 +154,40 @@ public class AsyncEventUpdater {
     }
     
     /**
-     * プレイヤーの職業経験値を非同期更新
+     * プレイヤーの職業経験値を付与する。
+     *
+     * 以前はこのクラス独自にDBを更新していたが、
+     *   - 職業名→job_id のマップが実DBと一致していなかった（"builder"/"wizard" 等）
+     *   - 昇格時に経験値を減算していた（メインの PlayerJob は累積型）
+     *   - 必要経験値の式が独自（level^2 * 100）だった
+     * ため、経験値がサイレントに失われるか、多重就業を許可した時点でデータが壊れる
+     * 状態だった。現在は経験値の管理を JobExperienceManager に一本化し、
+     * ここはメインスレッドへの受け渡しだけを行う。
+     *
+     * @param jobType 内部職業名（miner / woodcutter / farmer / fisherman /
+     *                blacksmith / alchemist / enchanter / architect）
      */
     public void updateJobExperience(String playerUUID, String jobType, double experience) {
-        UpdateTask task = new UpdateTask("Update job experience for " + playerUUID) {
-            @Override
-            public void execute() throws SQLException {
-                // JobTypeから職業IDに変換（簡易実装）
-                int jobId = convertJobTypeToId(jobType);
-                if (jobId == -1) {
-                    logger.warning("不明な職業タイプ: " + jobType);
-                    return;
-                }
-                
-                // PlayerJobDAOを使用して職業情報を取得
-                PlayerJob playerJob = playerJobDAO.getPlayerJob(java.util.UUID.fromString(playerUUID), jobId);
-                
-                if (playerJob != null) {
-                    int oldLevel = playerJob.getLevel();
-                    playerJob.setExperience(playerJob.getExperience() + experience);
-                    
-                    // レベルアップチェック
-                    int requiredExp = calculateRequiredExperience(playerJob.getLevel());
-                    while (playerJob.getExperience() >= requiredExp && playerJob.getLevel() < 100) {
-                        playerJob.setExperience(playerJob.getExperience() - requiredExp);
-                        playerJob.setLevel(playerJob.getLevel() + 1);
-                        requiredExp = calculateRequiredExperience(playerJob.getLevel());
-                    }
-                    
-                    playerJobDAO.updatePlayerJob(playerJob);
-                    
-                    // レベルアップ通知（メインスレッドで）
-                    if (playerJob.getLevel() > oldLevel) {
-                        final int newLevel = playerJob.getLevel();
-                        Bukkit.getScheduler().runTask(plugin, () -> {
-                            Player player = Bukkit.getPlayer(java.util.UUID.fromString(playerUUID));
-                            if (player != null && player.isOnline()) {
-                                player.sendMessage("§6レベルアップ！ " + jobType + " がレベル " + newLevel + " になりました！");
-                            }
-                        });
-                    }
-                }
+        if (jobExperienceManager == null) {
+            logger.warning("JobExperienceManager が未設定のため経験値を付与できません: job=" + jobType);
+            return;
+        }
+
+        // 経験値の付与とレベルアップ処理はメインスレッドで行う
+        // （通知・演出・Bukkit API 呼び出しを含むため）
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = Bukkit.getPlayer(java.util.UUID.fromString(playerUUID));
+            if (player == null || !player.isOnline()) {
+                return;
             }
-        };
-        
-        queueUpdate(task);
+            // 付与に失敗した場合は黙って捨てずに記録する。
+            // 職業名の誤りや未就業が原因で経験値が消えていても気づけるようにするため。
+            if (!jobExperienceManager.giveExperienceManual(player, jobType, experience)) {
+                logger.warning("職業経験値を付与できませんでした (player=" + player.getName()
+                    + ", job=" + jobType + ", exp=" + experience
+                    + ")。職業名が正しいか、プレイヤーがその職業に就いているか確認してください。");
+            }
+        });
     }
     
     /**
@@ -225,31 +222,6 @@ public class AsyncEventUpdater {
         // キューが大きくなりすぎた場合は即座に処理
         if (pendingUpdates.get() > MAX_BATCH_SIZE * 2) {
             executorService.submit(this::processBatch);
-        }
-    }
-    
-    /**
-     * 必要経験値を計算
-     */
-    private int calculateRequiredExperience(int level) {
-        return level * level * 100;
-    }
-    
-    /**
-     * 職業タイプから職業IDに変換
-     * 実際の実装では、JobManagerまたは設定ファイルから取得すべき
-     */
-    private int convertJobTypeToId(String jobType) {
-        switch (jobType.toLowerCase()) {
-            case "farmer": return 1;
-            case "miner": return 2;
-            case "builder": return 3;
-            case "hunter": return 4;
-            case "fisher": return 5;
-            case "trader": return 6;
-            case "brewer": return 7;
-            case "enchanter": return 8;
-            default: return -1; // 不明な職業タイプ
         }
     }
     

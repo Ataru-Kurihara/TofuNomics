@@ -4429,6 +4429,16 @@ public class ConfigManager {
     }
 
     /**
+     * 同一クエストを再受注できるようになるまでの時間（分）。
+     *
+     * 0以下でクールダウン無効。無効にすると討伐クエストが上限のない収入源になり、
+     * モブトラップを持つプレイヤーが無制限に金銭を得られる点に注意。
+     */
+    public int getQuestRepeatCooldownMinutes() {
+        return config.getInt("npc_system.quest_npc.repeat_cooldown_minutes", 120);
+    }
+
+    /**
      * クエストNPCの配置リストを取得
      */
     @SuppressWarnings("unchecked")
