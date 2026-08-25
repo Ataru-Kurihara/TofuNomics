@@ -388,11 +388,14 @@ public class ConfigValidator {
                 double purchasePrice = toDouble(entry.getValue());
                 double sellRevenue = basePrice * maxJobMultiplier * globalMultiplier;
 
-                if (purchasePrice <= sellRevenue) {
+                // 「購入価格 == 売却額」は損得ゼロで増殖しないため許容する
+                // （農家の種のように、買って使うことが前提のアイテムがこの水準にある）。
+                // 売却額が購入価格を上回るときだけ無限マネーになる。
+                if (purchasePrice < sellRevenue) {
                     addError(
                         "npc_system.trading_posts[" + postName + "].purchase_prices." + itemName,
                         String.format(
-                            "購入価格(%.2f)が売却額(%.2f = 買取%.2f × 職業倍率%.2f × 全体倍率%.2f)以下のため、"
+                            "購入価格(%.2f)が売却額(%.2f = 買取%.2f × 職業倍率%.2f × 全体倍率%.2f)を下回るため、"
                                 + "購入→即売却で無限に金銭を得られます",
                             purchasePrice, sellRevenue, basePrice, maxJobMultiplier, globalMultiplier),
                         String.format("%.0f以上", Math.floor(sellRevenue) + 1)
