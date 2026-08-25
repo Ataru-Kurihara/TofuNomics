@@ -111,8 +111,11 @@ public class QuestGUI implements Listener {
             int slot = QUEST_SLOTS[slotIndex];
             boolean accepted = questNPCManager.isQuestAccepted(player, def.getQuestId());
             int held = questNPCManager.getHeldAmount(player, def.getTargetMaterial());
+            long cooldownRemaining = accepted
+                ? 0
+                : questNPCManager.getRepeatCooldownRemainingMillis(player, def.getQuestId());
 
-            gui.setItem(slot, createQuestItem(def, accepted, held, acceptedCount, maxQuests));
+            gui.setItem(slot, createQuestItem(def, accepted, held, acceptedCount, maxQuests, cooldownRemaining));
             session.getSlotToQuestId().put(slot, def.getQuestId());
             slotIndex++;
         }
@@ -135,7 +138,8 @@ public class QuestGUI implements Listener {
     /**
      * 1クエスト分の表示アイテムを生成
      */
-    private ItemStack createQuestItem(QuestDefinition def, boolean accepted, int held, int acceptedCount, int maxQuests) {
+    private ItemStack createQuestItem(QuestDefinition def, boolean accepted, int held, int acceptedCount,
+                                      int maxQuests, long cooldownRemaining) {
         List<String> lore = new ArrayList<>();
         lore.add("§7" + def.getDescription());
         lore.add("");
@@ -151,6 +155,8 @@ public class QuestGUI implements Listener {
             } else {
                 lore.add("§e▶ 受注中 - アイテムを集めよう");
             }
+        } else if (cooldownRemaining > 0) {
+            lore.add("§c✖ 再受注まであと " + questNPCManager.formatRemaining(cooldownRemaining));
         } else if (acceptedCount >= maxQuests) {
             lore.add("§c✖ 受注枠が上限です（他のクエストを納品/整理してください）");
         } else {

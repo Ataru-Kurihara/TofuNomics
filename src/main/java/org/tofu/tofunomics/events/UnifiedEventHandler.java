@@ -96,7 +96,9 @@ public class UnifiedEventHandler implements Listener {
         // サブシステムの初期化
         this.eventCache = new EventCache(plugin);
         this.eventProcessor = new EventProcessor(configManager, jobManager);
-        this.asyncUpdater = new AsyncEventUpdater(plugin, playerDAO, playerJobDAO);
+        // 経験値の付与は JobExperienceManager に一本化する
+        // （AsyncEventUpdater 独自のレベル計算は職業IDの誤りと減算モデルで壊れていた）
+        this.asyncUpdater = new AsyncEventUpdater(plugin, playerDAO, playerJobDAO, experienceManager);
         
         // 個別ハンドラの初期化
         this.brewingHandler = new org.tofu.tofunomics.events.handlers.BrewingEventHandler(
@@ -262,6 +264,39 @@ public class UnifiedEventHandler implements Listener {
             return false;
         }
         return configManager.isJobRestrictionEnabledInWorld(player.getWorld().getName());
+    }
+
+    /**
+     * 骨粉による作物成長。JobExperienceManager 側に農家の経験値処理があるため委譲する。
+     * （従来はどこからも呼ばれておらず、骨粉の経験値が入っていなかった）
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockFertilize(org.bukkit.event.block.BlockFertilizeEvent event) {
+        if (!shouldProcessEvent(event)) return;
+
+        experienceManager.onBlockFertilize(event);
+    }
+
+    /**
+     * 右クリック収穫。JobExperienceManager 側に農家の経験値処理があるため委譲する。
+     * （従来はどこからも呼ばれておらず、右クリック収穫の経験値が入っていなかった）
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerInteractHarvest(PlayerInteractEvent event) {
+        if (!shouldProcessEvent(event)) return;
+
+        experienceManager.onPlayerInteractHarvest(event);
+    }
+
+    /**
+     * 鍛冶台での加工。JobExperienceManager 側に鍛冶屋の経験値処理があるため委譲する。
+     * （従来はどこからも呼ばれておらず、鍛冶台の経験値が入っていなかった）
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSmithItem(org.bukkit.event.inventory.SmithItemEvent event) {
+        if (!shouldProcessEvent(event)) return;
+
+        experienceManager.onSmithItem(event);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

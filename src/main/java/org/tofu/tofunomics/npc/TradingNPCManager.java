@@ -11,6 +11,7 @@ import org.tofu.tofunomics.economy.CurrencyConverter;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.trade.TradePriceManager;
 import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.models.PlayerTradeHistory;
 import org.tofu.tofunomics.util.NPCPurchaseMarker;
 
 import java.util.*;
@@ -24,6 +25,9 @@ public class TradingNPCManager {
     private final JobManager jobManager;
     private final TradePriceManager tradePriceManager;
     private final PlayerDAO playerDAO;
+
+    /** 売却履歴の記録先（任意。未設定なら記録をスキップする） */
+    private org.tofu.tofunomics.dao.PlayerTradeHistoryDAO playerTradeHistoryDAO;
     
     private final Map<String, TradingPost> tradingPosts = new HashMap<>();
     
@@ -37,6 +41,14 @@ public class TradingNPCManager {
         this.jobManager = jobManager;
         this.tradePriceManager = tradePriceManager;
         this.playerDAO = playerDAO;
+    }
+
+    /**
+     * 売却履歴の記録先を設定する（任意）。
+     * 未設定でも売却自体は成立するが、バランス調整用のデータが残らない。
+     */
+    public void setPlayerTradeHistoryDAO(org.tofu.tofunomics.dao.PlayerTradeHistoryDAO playerTradeHistoryDAO) {
+        this.playerTradeHistoryDAO = playerTradeHistoryDAO;
     }
     
     public static class TradingPost {
@@ -617,6 +629,9 @@ public class TradingNPCManager {
         }
         
         Map<Material, Integer> soldItems = new HashMap<>();
+        // 売却履歴用に、アイテムごとの売却額と職業ボーナス分を累積する
+        Map<Material, Double> soldEarnings = new HashMap<>();
+        Map<Material, Double> soldJobBonus = new HashMap<>();
         double totalEarnings = 0.0;
         
         for (ItemStack item : items) {
@@ -643,6 +658,8 @@ public class TradingNPCManager {
                 // （安価アイテムが floor で0になり売却不能になるのを防ぐ）
                 totalEarnings += finalPrice * amount;
                 soldItems.put(material, soldItems.getOrDefault(material, 0) + amount);
+                soldEarnings.merge(material, finalPrice * amount, Double::sum);
+                soldJobBonus.merge(material, (finalPrice - basePrice) * amount, Double::sum);
             }
         }
 
@@ -652,12 +669,59 @@ public class TradingNPCManager {
             // 入る分は金塊で受け取り、入りきらない分は口座へ自動入金（満杯でも代金を取りこぼさない）
             int bankedNuggets = currencyConverter.receiveCashWithBankFallback(player, payableNuggets);
 
+            recordSaleHistory(player, playerJob, soldItems, soldEarnings, soldJobBonus);
+
             return new TradeResult(true, "取引が完了しました", payableNuggets, soldItems, bankedNuggets);
         } else if (!soldItems.isEmpty()) {
             // 売却対象はあったが、合計額が安すぎて1コインに満たない
             return new TradeResult(false, "売却額が少なすぎます。もう少しまとめて売却してください", 0.0, new HashMap<>());
         } else {
             return new TradeResult(false, "売却可能なアイテムがありませんでした", 0.0, new HashMap<>());
+        }
+    }
+
+    /**
+     * 売却履歴を記録する。
+     *
+     * 取引所NPCへの売却はプレイヤーの主収入源であり、公開後に職業ごとの稼ぎを
+     * 実データで比較してバランスを調整するための唯一の材料になる。
+     * 記録に失敗しても売却自体は成立させる（収入を巻き戻さない）。
+     */
+    private void recordSaleHistory(Player player, String playerJob,
+                                   Map<Material, Integer> soldItems,
+                                   Map<Material, Double> soldEarnings,
+                                   Map<Material, Double> soldJobBonus) {
+        if (playerTradeHistoryDAO == null || soldItems.isEmpty()) {
+            return;
+        }
+
+        int jobLevel = 1;
+        if (playerJob != null) {
+            org.tofu.tofunomics.models.PlayerJob job = jobManager.getPlayerJob(player, playerJob);
+            if (job != null) {
+                jobLevel = job.getLevel();
+            }
+        }
+
+        for (Map.Entry<Material, Integer> entry : soldItems.entrySet()) {
+            Material material = entry.getKey();
+            PlayerTradeHistory history = new PlayerTradeHistory(
+                player.getUniqueId().toString(),
+                org.tofu.tofunomics.dao.PlayerTradeHistoryDAO.TRADING_NPC_CHEST_ID,
+                material.name(),
+                entry.getValue(),
+                soldEarnings.getOrDefault(material, 0.0),
+                playerJob,
+                jobLevel
+            );
+            history.setJobBonus(soldJobBonus.getOrDefault(material, 0.0));
+
+            try {
+                playerTradeHistoryDAO.insert(history);
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().warning("売却履歴の記録に失敗しました (player=" + player.getName()
+                    + ", item=" + material + "): " + e.getMessage());
+            }
         }
     }
 

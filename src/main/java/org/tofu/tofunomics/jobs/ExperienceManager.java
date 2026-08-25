@@ -15,11 +15,13 @@ public class ExperienceManager {
         this.playerJobDAO = playerJobDAO;
     }
     
+    /**
+     * 指定レベルに到達するための累計経験値。
+     * PlayerJob.calculateExperienceRequired と必ず同じ値を返す必要があるため、
+     * 式は ExperienceCurve に一本化している。
+     */
     public double calculateRequiredExperience(int level) {
-        if (level <= 1) {
-            return 0.0;
-        }
-        return Math.pow(level - 1, 2.2) * 100;
+        return ExperienceCurve.requiredExperience(level);
     }
     
     public double calculateRequiredExperienceForNextLevel(int currentLevel) {

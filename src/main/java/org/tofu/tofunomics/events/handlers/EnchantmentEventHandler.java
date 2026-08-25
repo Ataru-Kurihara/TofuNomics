@@ -61,27 +61,13 @@ public class EnchantmentEventHandler {
      */
     private void processEnchantmentResult(Player player, PlayerJob wizardJob, EnchantItemEvent event) {
         ItemStack item = event.getItem();
-        int expLevelCost = event.getExpLevelCost();
         Map<Enchantment, Integer> enchantments = event.getEnchantsToAdd();
-        
-        // 基本報酬計算
-        double baseExperience = expLevelCost * 2.0; // 消費レベル×2の経験値
-        
-        // エンチャント数によるボーナス
-        double enchantBonus = enchantments.size() * 1.5;
-        
-        // レベルによる倍率
-        double levelMultiplier = 1.0 + (wizardJob.getLevel() * 0.03); // レベル毎に3%ボーナス
-        
-        // 最終報酬計算
-        double totalExperience = (baseExperience + enchantBonus) * levelMultiplier;
-        
-        // 非同期で経験値を付与（収入システムは無効化）
-        String playerUUID = player.getUniqueId().toString();
-        asyncUpdater.updateJobExperience(playerUUID, "wizard", totalExperience);
-        
-        // メッセージ表示
-        displayEnchantmentResult(player, item, enchantments.size(), totalExperience);
+
+        // 経験値の付与はここでは行わない。
+        // エンチャント経験値は UnifiedEventHandler が JobExperienceManager.onEnchantItem に
+        // 委譲しており、ここで付与すると二重取得になる。
+        // （以前は存在しない職業名 "wizard" を渡していたため実際には付与されていなかった）
+        displayEnchantmentResult(player, item, enchantments.size());
     }
     
     /**
@@ -193,15 +179,13 @@ public class EnchantmentEventHandler {
     /**
      * エンチャント結果を表示
      */
-    private void displayEnchantmentResult(Player player, ItemStack item, int enchantCount,
-                                         double experience) {
+    private void displayEnchantmentResult(Player player, ItemStack item, int enchantCount) {
         String itemName = item.getType().name().toLowerCase().replace("_", " ");
         
         player.sendMessage(ChatColor.LIGHT_PURPLE + "═══════════════════════════");
         player.sendMessage(ChatColor.GOLD + "✦ エンチャント成功！");
         player.sendMessage(ChatColor.YELLOW + "アイテム: " + ChatColor.WHITE + itemName);
         player.sendMessage(ChatColor.YELLOW + "付与効果数: " + ChatColor.WHITE + enchantCount);
-        player.sendMessage(ChatColor.GREEN + "獲得経験値: +" + String.format("%.1f", experience));
         player.sendMessage(ChatColor.LIGHT_PURPLE + "═══════════════════════════");
     }
     

@@ -72,7 +72,10 @@ public class ConfigManager {
             lastReloadTime = System.currentTimeMillis();
             
             validateConfig();
-            
+
+            // 必要経験値カーブに設定を反映（リロードでも即座に効かせる）
+            applyExperienceCurve();
+
             Set<String> changedSections = detectChanges(oldValues);
             
             for (String section : changedSections) {
@@ -1205,14 +1208,40 @@ public class ConfigManager {
      * 基本経験値倍率を取得
      */
     public int getExperienceBaseMultiplier() {
-        return config.getInt("leveling.experience.base_multiplier", 100);
+        return config.getInt("leveling.experience.base_multiplier",
+            (int) org.tofu.tofunomics.jobs.ExperienceCurve.DEFAULT_BASE_MULTIPLIER);
     }
     
     /**
      * 経験値計算指数を取得
      */
     public double getExperienceExponent() {
-        return config.getDouble("leveling.experience.exponent", 2.0);
+        return config.getDouble("leveling.experience.exponent",
+            org.tofu.tofunomics.jobs.ExperienceCurve.DEFAULT_EXPONENT);
+    }
+
+    /**
+     * 高レベル時の経験値獲得ペナルティ係数。
+     * 実効倍率 = max(minimum, 1.0 - level * factor)
+     */
+    public double getExperienceLevelPenaltyFactor() {
+        return config.getDouble("leveling.experience.level_penalty.factor", 0.005);
+    }
+
+    /** 経験値獲得ペナルティの下限倍率 */
+    public double getExperienceLevelPenaltyMinimum() {
+        return config.getDouble("leveling.experience.level_penalty.minimum", 0.4);
+    }
+
+    /**
+     * 設定値を必要経験値カーブに反映する。起動時と設定リロード時に呼ぶ。
+     *
+     * これを呼ばないと config/jobs.yml の leveling.experience 設定が
+     * 一切効かず、既定カーブのままになる。
+     */
+    public void applyExperienceCurve() {
+        org.tofu.tofunomics.jobs.ExperienceCurve.configure(
+            getExperienceBaseMultiplier(), getExperienceExponent());
     }
     
     /**
@@ -2217,8 +2246,10 @@ public class ConfigManager {
      * 職業の最大レベルを取得
      */
     public int getMaxJobLevel() {
-        // すべての職業で共通の最大レベル（100）を返す
-        return 100;
+        // 職業別の設定が引けない場合のフォールバック値。
+        // DBシード（DatabaseManager）および jobs.yml の max_level と揃えて75とする。
+        // 職業が判明している場合は getJobMaxLevel(jobName) を使うこと。
+        return 75;
     }
     
     // ========== 銀行・ATM場所制限設定 ==========
@@ -4424,6 +4455,16 @@ public class ConfigManager {
      */
     public int getMaxConcurrentQuests() {
         return config.getInt("npc_system.quest_npc.max_concurrent_quests", 5);
+    }
+
+    /**
+     * 同一クエストを再受注できるようになるまでの時間（分）。
+     *
+     * 0以下でクールダウン無効。無効にすると討伐クエストが上限のない収入源になり、
+     * モブトラップを持つプレイヤーが無制限に金銭を得られる点に注意。
+     */
+    public int getQuestRepeatCooldownMinutes() {
+        return config.getInt("npc_system.quest_npc.repeat_cooldown_minutes", 120);
     }
 
     /**

@@ -356,6 +356,52 @@ public class QuestNPCManager {
     /**
      * クエストを受注する。同時受注上限・重複受注をチェックする。
      */
+    /**
+     * リピート受注クールダウンの残り時間（ミリ秒）を返す。0以下なら受注可能。
+     *
+     * 未納品の行や完了時刻が無い行はクールダウン対象外とする
+     * （旧データや異常系で受注不能になるのを避けるため）。
+     */
+    private long getRepeatCooldownRemaining(Player player, String questId) throws SQLException {
+        long cooldownMillis = configManager.getQuestRepeatCooldownMinutes() * 60_000L;
+        if (cooldownMillis <= 0) {
+            return 0;
+        }
+
+        QuestProgress previous = questProgressDAO.getByPlayerAndQuest(player.getUniqueId(), questId);
+        if (previous == null
+            || !QuestProgress.STATUS_COMPLETED.equals(previous.getStatus())
+            || previous.getCompletedAt() == null) {
+            return 0;
+        }
+
+        long elapsed = System.currentTimeMillis() - previous.getCompletedAt().getTime();
+        return cooldownMillis - elapsed;
+    }
+
+    /**
+     * リピート受注クールダウンの残り時間（ミリ秒）。0以下なら受注可能。
+     * GUI表示用。DBエラー時は「受注可能」として扱い、表示を妨げない。
+     */
+    public long getRepeatCooldownRemainingMillis(Player player, String questId) {
+        try {
+            return Math.max(0, getRepeatCooldownRemaining(player, questId));
+        } catch (SQLException e) {
+            plugin.getLogger().warning("クエストのクールダウン取得に失敗しました: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * クールダウンの残り時間を「1時間30分」形式に整形する。
+     */
+    public String formatRemaining(long millis) {
+        long totalMinutes = (millis + 59_999L) / 60_000L;  // 切り上げ
+        long hours = totalMinutes / 60;
+        long minutes = totalMinutes % 60;
+        return (hours > 0) ? (hours + "時間" + minutes + "分") : (minutes + "分");
+    }
+
     public void acceptQuest(Player player, String questId) {
         QuestDefinition def = questDefinitions.get(questId);
         if (def == null) {
@@ -366,6 +412,16 @@ public class QuestNPCManager {
         try {
             if (questProgressDAO.isAccepted(player.getUniqueId(), questId)) {
                 player.sendMessage("§e既にこのクエストを受注しています。");
+                return;
+            }
+
+            // リピート受注のクールダウン判定。
+            // これが無いとモブトラップを持つプレイヤーが同じクエストを無制限に
+            // 回して金銭を得られる（上限のないfaucetになる）。
+            long remainingMillis = getRepeatCooldownRemaining(player, questId);
+            if (remainingMillis > 0) {
+                player.sendMessage("§cこのクエストは再受注できるまであと "
+                    + formatRemaining(remainingMillis) + " です。");
                 return;
             }
 
@@ -389,7 +445,8 @@ public class QuestNPCManager {
     /**
      * クエストを納品する。
      * 1) 受注中か確認 → 2) 所持数確認 → 3) 完了化を原子的に確定（二重納品防止）
-     * → 4) アイテム消費 → 5) 報酬付与 → 6) 受注行削除（リピート受注を許可）
+     * → 4) アイテム消費 → 5) 報酬付与
+     * 完了行は残し、completed_at をリピート受注クールダウンの起点とする。
      */
     public void deliverQuest(Player player, String questId) {
         QuestDefinition def = questDefinitions.get(questId);
@@ -428,8 +485,8 @@ public class QuestNPCManager {
                 player.sendMessage("§eインベントリに空きがなかったため、報酬を足元にドロップしました。");
             }
 
-            // リピート受注を許可するため受注行を削除
-            questProgressDAO.deleteByPlayerAndQuest(player.getUniqueId(), questId);
+            // 完了行は削除しない。completed_at をリピート受注クールダウンの起点として使う。
+            // （受注時にクールダウン経過を確認してから行を作り直す）
 
             player.sendMessage(configManager.getQuestNPCMessage("quest_completed")
                 .replace("%quest%", def.getDisplayName())

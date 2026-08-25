@@ -179,9 +179,11 @@ public class BuildingEventHandler {
         finalExperience *= projectBonus;
         finalIncome *= projectBonus;
         
-        // 非同期で経験値を付与（収入システムは無効化）
+        // 経験値を付与（収入システムは無効化）
+        // 職業名は実在する内部名を渡すこと。以前は "builder" という存在しない名前を
+        // 渡していたため、建築家の設置経験値がまるごと失われていた。
         String playerUUID = player.getUniqueId().toString();
-        asyncUpdater.updateJobExperience(playerUUID, "builder", finalExperience);
+        asyncUpdater.updateJobExperience(playerUUID, "architect", finalExperience);
         
         // 建築スキル発動チェック
         checkBuildingSkills(player, builderJob, material, location);
