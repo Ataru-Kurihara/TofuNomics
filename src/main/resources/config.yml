@@ -372,62 +372,67 @@ npc_system:
 
       specialty:       # 特殊食品店（基本価格）
         name: "§d特産品店"
-        items: ["mushroom_stew", "rabbit_stew", "suspicious_stew", "golden_apple", "enchanted_golden_apple", "honey_bottle", "chorus_fruit", "beetroot_soup"]
+        items: ["mushroom_stew", "rabbit_stew", "suspicious_stew", "golden_apple", "honey_bottle", "chorus_fruit", "beetroot_soup"]
         price_multiplier: 1
-    
-    # 販売アイテムと価格（基本価格 - NPCタイプ別に倍率適用）
-    food_items:
-      # 基本食料品
-      bread: 3              # パン（通常価格の1.5倍）
-      baked_potato: 2       # ベイクドポテト
-      carrot: 2             # ニンジン  
-      apple: 2              # リンゴ              # リンゴ
-      
-      # 調理済み肉類
-      cooked_beef: 6        # 調理済み牛肉
-      cooked_porkchop: 5        # 調理済み豚肉
-      cooked_chicken: 5     # 調理済み鶏肉
-      cooked_mutton: 5      # 調理済み羊肉      # 調理済み羊肉
-      
-      # 特殊食品
-      mushroom_stew: 4      # キノコシチュー
-      rabbit_stew: 4        # ウサギシチュー        # ウサギシチュー
-      
-      # 緊急食料
-      dried_kelp: 1         # 乾燥昆布
-      sweet_berries: 2      # スイートベリー      # スイートベリー
-      
-      # 魚屋用商品
-      cooked_cod: 6         # 焼いた鱈
-      cooked_salmon: 7      # 焼いた鮭
-      kelp: 1               # 昆布               # 昆布
-      
-      # 八百屋用商品
-      potato: 0.2             # じゃがいも
-      beetroot: 2           # ビートルート
-      melon_slice: 2        # スイカ
-      pumpkin_pie: 4        # パンプキンパイ        # パンプキンパイ
-      
-      # パン屋用商品
-      cookie: 2             # クッキー
-      cake: 8               # ケーキ               # ケーキ
-      
-      # 肉屋用追加商品
-      cooked_rabbit: 4      # 焼いたウサギ肉
-      
-      # 特殊食品店用商品
-      suspicious_stew: 5    # 怪しげなシチュー    # 怪しげなシチュー
 
-      # === 拡充: 高級・特殊食料 ===
-      golden_apple: 50          # 金のリンゴ
-      enchanted_golden_apple: 200  # エンチャントされた金のリンゴ
-      golden_carrot: 4          # 金のニンジン
-      glow_berries: 2           # 光るベリー
-      honey_bottle: 3           # ハチミツ入りの瓶
-      milk_bucket: 4            # 牛乳入りバケツ
-      melon: 4                  # スイカ（ブロック）
-      chorus_fruit: 3           # コーラスフルーツ
-      beetroot_soup: 4          # ビートルートスープ
+    # 販売アイテムと価格（基本価格 - NPCタイプ別に倍率適用）
+    #
+    # 価格設定の基準（アイテム性能ベース）:
+    #   1. 調理済み・加工食品 = 総合食料値（満腹度 + 隠し満腹度）× 0.5
+    #   2. 生の栽培可能作物   = 取引所の買取価格（item_prices）× 1.5〜2
+    #      → NPCで買って植え直すと収穫物が売却可能になり金策ループが成立するため、
+    #        買取価格を必ず上回らせる（生産職の需要保護も兼ねる）
+    #   3. 特殊効果アイテム   = クラフト原価（金塊換算）を下限とする
+    #        例: 金のニンジン = 金塊8個、金のリンゴ = 金インゴット8個（買取10×8）
+    #   ※ 購入価格は ceil(基本価格 × NPCタイプ倍率) で整数に切り上げられる
+    food_items:
+      # 基本食料品（総合値 = 満腹度 + 隠し満腹度）
+      bread: 5              # パン（5 + 6.0 = 11）
+      baked_potato: 6       # ベイクドポテト（5 + 6.0 = 11／生じゃがいも + 精錬コスト）
+      apple: 3              # リンゴ（4 + 2.4 = 6.4／栽培不可）
+
+      # 調理済み肉類
+      cooked_beef: 10       # 調理済み牛肉（8 + 12.8 = 20.8）
+      cooked_porkchop: 10   # 調理済み豚肉（8 + 12.8 = 20.8）
+      cooked_chicken: 6     # 調理済み鶏肉（6 + 7.2 = 13.2）
+      cooked_mutton: 7      # 調理済み羊肉（6 + 9.6 = 15.6）
+      cooked_rabbit: 5      # 焼いたウサギ肉（5 + 6.0 = 11）
+
+      # シチュー類（ボウルが手元に残る）
+      mushroom_stew: 6      # キノコシチュー（6 + 7.2 = 13.2）
+      rabbit_stew: 10       # ウサギシチュー（10 + 12.0 = 22／食料性能最高クラス）
+      beetroot_soup: 6      # ビートルートスープ（6 + 7.2 = 13.2）
+      suspicious_stew: 6    # 怪しげなシチュー（6 + 7.2 = 13.2 + ランダム効果）
+
+      # 緊急食料
+      dried_kelp: 1         # 乾燥昆布（1 + 0.6 = 1.6／早食い）
+      sweet_berries: 2      # スイートベリー（2 + 1.2 = 3.2／栽培可）
+
+      # 魚屋用商品（生魚の買取価格 × 1.5 = 漁師の生産物を保護）
+      cooked_cod: 8         # 焼いた鱈（5 + 6.0 = 11／生鱈 買取5）
+      cooked_salmon: 9      # 焼いた鮭（6 + 9.6 = 15.6／生鮭 買取6）
+      kelp: 1               # 昆布（1 + 0.6 = 1.6）
+
+      # 八百屋用商品（生作物は「食料」ではなく「種」としての価値で価格設定）
+      potato: 5             # じゃがいも（買取4.0 × 1.25）
+      carrot: 5             # ニンジン（買取4.0 × 1.25）
+      beetroot: 6           # ビートルート（買取3.0 × 2）
+      melon: 6              # スイカ（ブロック）（買取4.0 × 1.5）
+      melon_slice: 2        # スイカ（2 + 1.2 = 3.2）
+      glow_berries: 3       # 光るベリー（2 + 1.2 = 3.2 + 光源）
+
+      # パン屋用商品
+      pumpkin_pie: 6        # パンプキンパイ（8 + 4.8 = 12.8）
+      cookie: 1             # クッキー（2 + 0.4 = 2.4／食料性能は最低クラス）
+      cake: 8               # ケーキ（14 + 2.8 = 16.8／設置が必要・7回に分けて食べる）
+
+      # 特殊効果アイテム（クラフト原価が下限）
+      golden_apple: 80          # 金のリンゴ（金インゴット8個 = 買取10 × 8）
+      golden_carrot: 12         # 金のニンジン（6 + 14.4 = 20.4 回復効率1位／金塊8個 + ニンジン）
+      milk_bucket: 10           # 牛乳入りバケツ（効果消去用／バケツは手元に残るため原価下限は適用しない）
+      honey_bottle: 4           # ハチミツ入りの瓶（6 + 1.2 = 7.2 + 毒解除）
+      chorus_fruit: 4           # コーラスフルーツ（4 + 2.4 = 6.4 + ランダムTP）
+      # enchanted_golden_apple: バニラではクラフト不可の探索限定アイテムのため販売停止
     
     # メッセージ設定
     messages:
