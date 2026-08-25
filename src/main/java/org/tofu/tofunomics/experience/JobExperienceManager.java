@@ -934,7 +934,10 @@ public class JobExperienceManager implements Listener {
         if (playerJob == null) return baseExperience;
         
         // レベルが高いほど経験値獲得効率が下がる（現実的な成長曲線）
-        double levelPenalty = Math.max(0.1, 1.0 - (playerJob.getLevel() * 0.01));
+        // 係数・下限は config/jobs.yml の leveling.experience.level_penalty で調整する
+        double levelPenalty = Math.max(
+            configManager.getExperienceLevelPenaltyMinimum(),
+            1.0 - (playerJob.getLevel() * configManager.getExperienceLevelPenaltyFactor()));
         
         // 設定ファイルの経験値倍率を適用
         Job job = jobDAO.getJobByNameSafe(jobName);

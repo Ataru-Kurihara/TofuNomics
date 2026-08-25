@@ -80,9 +80,13 @@ public class PlayerJob {
         }
     }
 
+    /**
+     * 指定レベルに到達するための累計経験値。
+     * 式は ExperienceCurve に一本化されており、config/jobs.yml の
+     * leveling.experience 設定が反映される。
+     */
     public static double calculateExperienceRequired(int level) {
-        if (level <= 1) return 0;
-        return Math.pow(level - 1, 2.2) * 100;
+        return org.tofu.tofunomics.jobs.ExperienceCurve.requiredExperience(level);
     }
 
     /**

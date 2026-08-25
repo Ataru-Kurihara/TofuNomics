@@ -2,6 +2,7 @@ package org.tofu.tofunomics.models;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.tofu.tofunomics.jobs.ExperienceCurve;
 
 import java.sql.Timestamp;
 import java.util.UUID;
@@ -127,13 +128,13 @@ public class PlayerJobTest {
         assertEquals("レベル1の必要経験値は0であるべき", 0.0, 
                      PlayerJob.calculateExperienceRequired(1), DELTA);
         
-        // レベル2の必要経験値をテスト
-        double level2Required = Math.pow(1, 2.2) * 100;
+        // レベル2の必要経験値をテスト（式は ExperienceCurve に一本化されている）
+        double level2Required = Math.pow(1, ExperienceCurve.getExponent()) * ExperienceCurve.getBaseMultiplier();
         assertEquals("レベル2の必要経験値が正しい計算式であるべき", level2Required, 
                      PlayerJob.calculateExperienceRequired(2), DELTA);
         
         // レベル3の必要経験値をテスト
-        double level3Required = Math.pow(2, 2.2) * 100;
+        double level3Required = Math.pow(2, ExperienceCurve.getExponent()) * ExperienceCurve.getBaseMultiplier();
         assertEquals("レベル3の必要経験値が正しい計算式であるべき", level3Required, 
                      PlayerJob.calculateExperienceRequired(3), DELTA);
         

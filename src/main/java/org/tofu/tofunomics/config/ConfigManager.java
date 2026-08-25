@@ -72,7 +72,10 @@ public class ConfigManager {
             lastReloadTime = System.currentTimeMillis();
             
             validateConfig();
-            
+
+            // 必要経験値カーブに設定を反映（リロードでも即座に効かせる）
+            applyExperienceCurve();
+
             Set<String> changedSections = detectChanges(oldValues);
             
             for (String section : changedSections) {
@@ -1205,14 +1208,40 @@ public class ConfigManager {
      * 基本経験値倍率を取得
      */
     public int getExperienceBaseMultiplier() {
-        return config.getInt("leveling.experience.base_multiplier", 100);
+        return config.getInt("leveling.experience.base_multiplier",
+            (int) org.tofu.tofunomics.jobs.ExperienceCurve.DEFAULT_BASE_MULTIPLIER);
     }
     
     /**
      * 経験値計算指数を取得
      */
     public double getExperienceExponent() {
-        return config.getDouble("leveling.experience.exponent", 2.0);
+        return config.getDouble("leveling.experience.exponent",
+            org.tofu.tofunomics.jobs.ExperienceCurve.DEFAULT_EXPONENT);
+    }
+
+    /**
+     * 高レベル時の経験値獲得ペナルティ係数。
+     * 実効倍率 = max(minimum, 1.0 - level * factor)
+     */
+    public double getExperienceLevelPenaltyFactor() {
+        return config.getDouble("leveling.experience.level_penalty.factor", 0.005);
+    }
+
+    /** 経験値獲得ペナルティの下限倍率 */
+    public double getExperienceLevelPenaltyMinimum() {
+        return config.getDouble("leveling.experience.level_penalty.minimum", 0.4);
+    }
+
+    /**
+     * 設定値を必要経験値カーブに反映する。起動時と設定リロード時に呼ぶ。
+     *
+     * これを呼ばないと config/jobs.yml の leveling.experience 設定が
+     * 一切効かず、既定カーブのままになる。
+     */
+    public void applyExperienceCurve() {
+        org.tofu.tofunomics.jobs.ExperienceCurve.configure(
+            getExperienceBaseMultiplier(), getExperienceExponent());
     }
     
     /**
