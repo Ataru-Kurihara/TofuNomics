@@ -70,8 +70,10 @@ public class CraftRestrictionEventHandler implements Listener {
      */
     private boolean isCraftRestrictionEnabledWorld(Player player) {
         if (plugin.getConfigManager() == null) {
-            // 設定が取得できない場合は安全側（制限なし）に倒す
-            return true;
+            // 設定が取得できない場合は制限なし側に倒す。
+            // 他ワールド（ロビー・ミニゲーム等）を巻き込んで壊さないことを優先する。
+            // UnifiedEventHandler.isJobRestrictionWorld と同じ方向に揃えている。
+            return false;
         }
 
         return plugin.getConfigManager().isJobRestrictionEnabledInWorld(player.getWorld().getName());

@@ -746,11 +746,11 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(unifiedEventHandler, this);
                 getLogger().info("Phase 5 統合イベントハンドラーを登録しました");
             } else {
-                // フォールバック：既存の個別リスナーを登録（収入システムは無効化）
-                getServer().getPluginManager().registerEvents(jobExperienceManager, this);
-                // getServer().getPluginManager().registerEvents(jobIncomeManager, this);  // 収入システムは無効化
-                getServer().getPluginManager().registerEvents(jobQuestManager, this);
-                getLogger().info("既存の個別イベントリスナーを登録しました");
+                // フォールバック登録は行わない。
+                // jobExperienceManager / jobQuestManager は単体ではワールド判定を持たず、
+                // ロビーやミニゲームワールドでも職業経験値・クエストが動いてしまうため、
+                // 統合ハンドラが無い状態で中途半端に動かすより無効化する方が安全。
+                getLogger().severe("統合イベントハンドラーの初期化に失敗したため、職業イベント処理を無効化しました");
             }
 
             // 食事による職業経験値ブーストバフリスナーの登録

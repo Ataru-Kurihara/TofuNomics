@@ -429,22 +429,41 @@ public class UnifiedEventHandler implements Listener {
         Player player = event.getPlayer();
         org.bukkit.entity.Entity target = event.getEntity();
 
-        // 羊・キノコ牛以外（雪ゴーレム等）は制限対象外
-        if (!(target instanceof org.bukkit.entity.Sheep)
-                && !(target instanceof org.bukkit.entity.MushroomCow)) {
-            return;
-        }
-
         // 管理者はバイパス（既存の採掘制限と同じ流儀）
-        if (player.hasPermission("tofunomics.admin.shear")) {
+        boolean admin = player.hasPermission("tofunomics.admin.shear");
+
+        // 職業判定は毎イベント走らせたくないため、拒否判定側で遅延評価する
+        if (!shouldDenyShear(isJobRestrictionWorld(player), isShearableLivestock(target), admin,
+                () -> jobManager.hasJob(player, "farmer"))) {
             return;
         }
 
-        // 農家でなければ毛刈りを拒否
-        if (!jobManager.hasJob(player, "farmer")) {
-            event.setCancelled(true);
-            player.sendMessage("§c毛刈りができるのは農家のみです。");
-        }
+        event.setCancelled(true);
+        player.sendMessage("§c毛刈りができるのは農家のみです。");
+    }
+
+    /**
+     * 毛刈り（シアー）を制限対象とするエンティティかどうか。
+     * 雪ゴーレム等は羊毛経済と無関係のため対象外。
+     */
+    static boolean isShearableLivestock(org.bukkit.entity.Entity target) {
+        return target instanceof org.bukkit.entity.Sheep
+                || target instanceof org.bukkit.entity.MushroomCow;
+    }
+
+    /**
+     * 毛刈りを拒否すべきかどうかの純粋判定（テスト容易性のため副作用を分離）。
+     *
+     * TofuNomics 対象ワールド以外では拒否しない。ロビーやミニゲームワールドでも
+     * 「毛刈りができるのは農家のみです。」が出て刈れなくなる不具合の再発防止であり、
+     * onBlockBreak / onPlayerInteractPlanting のワールド判定と同じ基準を用いる。
+     */
+    static boolean shouldDenyShear(boolean inJobRestrictionWorld, boolean shearableLivestock,
+                                   boolean admin, java.util.function.BooleanSupplier isFarmer) {
+        if (!inJobRestrictionWorld) return false;
+        if (!shearableLivestock) return false;
+        if (admin) return false;
+        return !isFarmer.getAsBoolean();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

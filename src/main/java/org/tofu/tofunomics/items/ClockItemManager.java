@@ -221,6 +221,12 @@ public class ClockItemManager implements Listener {
         }
         
         Player player = event.getPlayer();
+        
+        // TofuNomics 対象ワールド以外では時計本来の挙動を奪わない（定期タスク側と同じ基準）
+        if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
+            return;
+        }
+        
         ItemStack item = event.getItem();
         
         // 右クリックかつ時計アイテムの場合
