@@ -83,12 +83,13 @@ public class NPCListener implements Listener {
             return;
         }
 
-        event.setCancelled(true); // デフォルトの村人取引を無効化
-
         // ワールド制限チェック（経済機能が無効なワールドではNPC機能を提供しない）
+        // キャンセルより前に判定する。対象外ワールドでは村人本来の取引に一切干渉しない。
         if (!configManager.isEconomyEnabledInWorld(player.getWorld().getName())) {
             return;
         }
+
+        event.setCancelled(true); // デフォルトの村人取引を無効化
 
         try {
             NPCManager.NPCData npcData = npcManager.getNPCData(npcId);
