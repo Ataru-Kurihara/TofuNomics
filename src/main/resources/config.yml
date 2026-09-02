@@ -33,13 +33,14 @@ economy:
     decimal_places: 0
     
     # 豆腐コイン価値設定
-    coin_value: 1          # 1コインの価値（デフォルト: $10）
+    coin_value: 1.0        # 1コインの価値
     dynamic_value: true       # 価値変更の可否
-    min_value: 1           # 最小価値制限
-    max_value: 1000        # 最大価値制限
+    min_value: 1.0         # 最小価値制限
+    max_value: 1000.0      # 最大価値制限
   
   # 初期残高（新規プレイヤーの開始残高）
-  starting_balance: 100
+  # 0 = 配布しない。職業に就いて働くところから始める運用。
+  starting_balance: 0.0
 
   # 経済機能を有効にするワールド（ホワイトリスト方式）
   # ここに記載したワールドでのみ、経験値・報酬・コマンド・NPC等のTofuNomics機能が動作する
