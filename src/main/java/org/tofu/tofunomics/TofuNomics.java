@@ -450,6 +450,16 @@ public final class TofuNomics extends JavaPlugin {
             // チャット入力基盤を生成・登録し、全操作の入口となるハブGUIを生成して配線する
             chatInputManager = new org.tofu.tofunomics.gui.ChatInputManager(this, configManager);
             getServer().getPluginManager().registerEvents(chatInputManager, this);
+
+            // ワールド単位のチャット分離
+            // ChatInputManager が LOWEST でキャンセルするGUI入力は対象外にするため、
+            // こちらは HIGH + ignoreCancelled で受ける（登録順ではなく優先度で決まる）。
+            getServer().getPluginManager().registerEvents(
+                new org.tofu.tofunomics.chat.WorldChatIsolationListener(configManager, getLogger()), this);
+            if (configManager.isChatWorldIsolationEnabled()) {
+                getLogger().info("チャットのワールド分離を有効化しました: "
+                    + configManager.getChatIsolatedWorlds());
+            }
             marketHubGUI = new org.tofu.tofunomics.market.gui.MarketHubGUI(
                 this, configManager, marketManager, chatInputManager, marketGUIListener);
             marketHubGUI.setGUIs(marketBrowseGUI, myListingsGUI, buyOrderBrowseGUI,
