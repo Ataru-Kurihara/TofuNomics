@@ -3868,8 +3868,11 @@ public class ConfigManager {
      * 数値範囲チェック
      */
     private void checkNumericRanges(FileConfiguration config, ConfigValidationResult result) {
+        // 0以上であるべき項目
+        // 初期残高は「配布しない」運用があるため0を許容する
+        checkNonNegativeNumber(config, "economy.starting_balance", result);
+
         // 正の数であるべき項目
-        checkPositiveNumber(config, "economy.starting_balance", result);
         checkPositiveNumber(config, "database.connection_pool.max_connections", result);
         checkPositiveNumber(config, "jobs.general.max_jobs_per_player", result);
         
@@ -3930,6 +3933,18 @@ public class ConfigManager {
     /**
      * 正の数チェック
      */
+    /**
+     * 0以上チェック（0を許容する値に使う）
+     */
+    private void checkNonNegativeNumber(FileConfiguration config, String path, ConfigValidationResult result) {
+        if (config.contains(path)) {
+            double value = config.getDouble(path);
+            if (value < 0) {
+                result.addError(path + " は0以上である必要があります。現在値: " + value);
+            }
+        }
+    }
+
     private void checkPositiveNumber(FileConfiguration config, String path, ConfigValidationResult result) {
         if (config.contains(path)) {
             double value = config.getDouble(path);

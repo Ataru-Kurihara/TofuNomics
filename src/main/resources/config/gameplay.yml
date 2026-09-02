@@ -416,7 +416,6 @@ player_join:
     - "&6▬▬▬▬▬▬▬▬ ようこそ TofuNomicsワールドへ! ▬▬▬▬▬▬▬▬"
     - "&e%player%さん、TofuNomicsワールドにようこそ！"
     - "&fこのワールドでは職業に就いて経済活動を楽しむことができます。"
-    - "&a初期残高として &f%starting_balance%%currency% &aを受け取りました。"
     - "&b職業システムを活用して、豊かな経済生活を送りましょう！"
     - "&6▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
   
@@ -426,7 +425,10 @@ player_join:
   
   # 新規プレイヤー特典設定
   new_player_bonus:
-    enabled: true
+    # 資金は配布しない方針のため無効。
+    # 有効に戻す場合、welcome_messages の文言と食い違わないよう注意すること
+    # （welcome_messages は参加のたびに表示されるが、付与は初回のみ）。
+    enabled: false
     amount: 100.0
     messages:
       - "&a初めてのご参加ありがとうございます！"
