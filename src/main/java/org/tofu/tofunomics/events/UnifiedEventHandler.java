@@ -301,8 +301,10 @@ public class UnifiedEventHandler implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockGrow(BlockGrowEvent event) {
-        if (!shouldProcessEvent(event)) return;
-        
+        // BlockGrowEvent もプレイヤーを持たない（作物の自然成長）。onBrew と同じ理由で
+        // ワールドのみ確認し、対象プレイヤーの特定は GrowthEventHandler に任せる。
+        if (!shouldProcessPlayerlessEvent(event.getBlock().getWorld())) return;
+
         // 農家の作物成長処理
         growthHandler.handleBlockGrow(event);
     }
@@ -335,8 +337,12 @@ public class UnifiedEventHandler implements Listener {
     
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBrew(BrewEvent event) {
-        if (!shouldProcessEvent(event)) return;
-        
+        // BrewEvent はプレイヤーを持たない（醸造台の完了イベント）。
+        // shouldProcessEvent はプレイヤーを特定できないと必ず false を返すため、
+        // ここで使うとハンドラが一度も呼ばれない。ワールドだけ確認し、
+        // 対象プレイヤーの特定は BrewingEventHandler（近くの錬金術師）に任せる。
+        if (!shouldProcessPlayerlessEvent(event.getBlock().getWorld())) return;
+
         // 調合師専用処理
         brewingHandler.handleBrew(event);
     }
@@ -594,6 +600,17 @@ public class UnifiedEventHandler implements Listener {
     /**
      * イベント処理を行うべきかチェック
      */
+    /**
+     * 行為者のプレイヤーが存在しないイベント向けの判定。
+     * ワールドのスコープだけを見る（対象プレイヤーの特定は各ハンドラの責務）。
+     */
+    private boolean shouldProcessPlayerlessEvent(org.bukkit.World world) {
+        if (!configManager.isEventSystemEnabled()) {
+            return false;
+        }
+        return eventProcessor.shouldProcessInWorld(world);
+    }
+
     private boolean shouldProcessEvent(Event event) {
         // 設定でイベントシステムが無効化されている場合
         if (!configManager.isEventSystemEnabled()) {

@@ -134,6 +134,16 @@ public class EventProcessor {
     /**
      * イベントからプレイヤーを抽出
      */
+    /**
+     * 行為者のプレイヤーが存在しないイベント（作物の自然成長・醸造の完了など）向けの判定。
+     *
+     * これらは shouldProcessEvent を通せない（プレイヤーを特定できないため必ず false になる）。
+     * ワールドのスコープだけをここで確認し、対象プレイヤーの特定は各ハンドラに任せる。
+     */
+    public boolean shouldProcessInWorld(World world) {
+        return isValidWorld(world);
+    }
+
     private Player extractPlayer(Event event) {
         if (event instanceof PlayerEvent) {
             return ((PlayerEvent) event).getPlayer();
@@ -159,6 +169,19 @@ public class EventProcessor {
             }
         }
         
+        // モブ討伐。EntityEvent の getEntity() は倒された側なので、
+        // 行為者である killer を見る必要がある。
+        if (event instanceof org.bukkit.event.entity.EntityDeathEvent) {
+            return ((org.bukkit.event.entity.EntityDeathEvent) event).getEntity().getKiller();
+        }
+
+        // 繁殖。getEntity() は生まれた子なので、breeder を見る。
+        if (event instanceof org.bukkit.event.entity.EntityBreedEvent) {
+            org.bukkit.entity.LivingEntity breeder =
+                ((org.bukkit.event.entity.EntityBreedEvent) event).getBreeder();
+            return (breeder instanceof Player) ? (Player) breeder : null;
+        }
+
         if (event instanceof EntityEvent) {
             if (((EntityEvent) event).getEntity() instanceof Player) {
                 return (Player) ((EntityEvent) event).getEntity();

@@ -19,12 +19,15 @@ import java.util.stream.Stream;
 import static org.junit.Assert.*;
 
 /**
- * イベントハンドラが渡す職業名の妥当性テスト
+ * 職業名リテラルの妥当性テスト
  *
- * updateJobExperience に渡す職業名は内部職業名（DBの jobs.name）でなければならない。
- * 実際に "builder" / "wizard" という存在しない名前が渡されており、建築家の設置経験値と
- * エンチャント経験値がまるごと失われていた。職業名は文字列リテラルで渡されるため
- * コンパイラでは検出できず、ソースを走査して固定する。
+ * 職業名は内部職業名（DBの jobs.name）でなければならない。実際に "builder" / "wizard"
+ * という存在しない名前が使われており、建築家の設置経験値とエンチャンター特典が
+ * まるごと失われていた。文字列リテラルなのでコンパイラでは検出できず、ソースを走査して固定する。
+ *
+ * 経験値付与の呼び出し（updateJobExperience）だけでなく、その手前の職業判定
+ * （getPlayerJob / hasJob）も対象にする。判定側が誤っているとハンドラが早期 return し、
+ * 付与処理にそもそも到達しないため。
  */
 public class JobNameLiteralTest {
 
@@ -34,21 +37,30 @@ public class JobNameLiteralTest {
         "blacksmith", "alchemist", "enchanter", "architect"
     ));
 
-    /** 呼び出し1行の中の文字列リテラル引数のみを拾う（メソッド定義側は対象外） */
-    private static final Pattern CALL_PATTERN =
-        Pattern.compile("updateJobExperience\\s*\\([^)]*?\"([^\"]+)\"");
+    /**
+     * 呼び出し1行の中の文字列リテラル引数のみを拾う（メソッド定義側は対象外）。
+     * 職業名を受け取るメソッドを列挙する。
+     */
+    /** 職業名を受け取るメソッドを定義している側。引数名やログ文言を拾うため対象外にする */
+    private static final Set<String> DEFINITION_FILES = new HashSet<>(Arrays.asList(
+        "AsyncEventUpdater.java", "JobManager.java", "JobExperienceManager.java"
+    ));
+
+    private static final Pattern CALL_PATTERN = Pattern.compile(
+        "(?:updateJobExperience|getPlayerJob|hasJob|giveExperienceManual)\\s*\\([^)]*?\"([^\"]+)\"");
 
     @Test
-    public void 経験値付与に渡す職業名がすべて実在する() throws IOException {
-        Path handlersDir = new File("src/main/java/org/tofu/tofunomics/events").toPath();
-        assertTrue("イベントハンドラのディレクトリが存在すること", Files.isDirectory(handlersDir));
+    public void 職業名リテラルがすべて実在する職業を指している() throws IOException {
+        // イベント経路に限らず、職業名を渡している箇所すべてを対象にする
+        Path sourceDir = new File("src/main/java/org/tofu/tofunomics").toPath();
+        assertTrue("ソースディレクトリが存在すること", Files.isDirectory(sourceDir));
 
         List<String> violations = new ArrayList<>();
 
-        try (Stream<Path> files = Files.walk(handlersDir)) {
+        try (Stream<Path> files = Files.walk(sourceDir)) {
             for (Path file : (Iterable<Path>) files.filter(p -> p.toString().endsWith(".java"))::iterator) {
                 // メソッドを定義している側は検査対象外（引数名やログ文言を拾ってしまうため）
-                if (file.getFileName().toString().equals("AsyncEventUpdater.java")) {
+                if (DEFINITION_FILES.contains(file.getFileName().toString())) {
                     continue;
                 }
 
@@ -65,7 +77,7 @@ public class JobNameLiteralTest {
         }
 
         assertTrue(
-            "存在しない職業名が経験値付与に渡されています（経験値が黙って失われます）: " + violations,
+            "存在しない職業名が使われています（判定が常に失敗し、処理が黙ってスキップされます）: " + violations,
             violations.isEmpty());
     }
 }

@@ -42,8 +42,11 @@ public class EnchantmentEventHandler {
     public void handleEnchantment(EnchantItemEvent event) {
         Player player = event.getEnchanter();
         
-        // 魔術師の職業チェック
-        PlayerJob wizardJob = jobManager.getPlayerJob(player, "wizard");
+        // エンチャンターの職業チェック
+        // 職業名は実在する内部名（DBの jobs.name）でなければならない。
+        // "wizard" は存在しないため常に null になり、経験値コスト削減などの
+        // エンチャンター特典が一度も適用されていなかった。
+        PlayerJob wizardJob = jobManager.getPlayerJob(player, "enchanter");
         if (wizardJob == null || !wizardJob.isActive()) {
             // 魔術師でない場合は通常のエンチャント処理
             return;

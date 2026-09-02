@@ -134,7 +134,10 @@ public class BuildingEventHandler {
         Material material = block.getType();
         
         // 建築家の職業チェック
-        PlayerJob builderJob = jobManager.getPlayerJob(player, "builder");
+        // 職業名は実在する内部名（DBの jobs.name）でなければならない。
+        // "builder" は存在しないため常に null になり、以降の建築報酬処理に
+        // 到達せず、建築家の設置経験値がまるごと失われていた。
+        PlayerJob builderJob = jobManager.getPlayerJob(player, "architect");
         if (builderJob == null || !builderJob.isActive()) {
             // 建築家でない場合は装飾ブロック制限をチェック
             if (decorativeBlocks.contains(material) && !hasDecorativePermission(player, material)) {
