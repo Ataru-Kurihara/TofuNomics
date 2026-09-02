@@ -388,6 +388,26 @@ public class ConfigManager {
     private Object getCachedValue(String path, Object defaultValue) {
         return configCache.computeIfAbsent(path, k -> config.get(path, defaultValue));
     }
+
+    /**
+     * 数値設定を double として取得する。
+     *
+     * YAML は 0 を Integer、0.0 を Double として読むため、(Double) の直接キャストだと
+     * 設定を手で編集した際に ClassCastException でリロードごと失敗する。
+     * 実際に starting_balance を 0 にしただけで本番のリロードが落ちた。
+     */
+    private double getCachedDouble(String path, double defaultValue) {
+        Object value = getCachedValue(path, defaultValue);
+        return (value instanceof Number) ? ((Number) value).doubleValue() : defaultValue;
+    }
+
+    /**
+     * 数値設定を int として取得する。getCachedDouble と同じ理由で型を限定しない。
+     */
+    private int getCachedInt(String path, int defaultValue) {
+        Object value = getCachedValue(path, defaultValue);
+        return (value instanceof Number) ? ((Number) value).intValue() : defaultValue;
+    }
     
     // データベース設定
     public String getDatabaseFilename() {
@@ -395,11 +415,11 @@ public class ConfigManager {
     }
     
     public int getDatabaseMaxConnections() {
-        return (Integer) getCachedValue("database.connection_pool.max_connections", 10);
+        return getCachedInt("database.connection_pool.max_connections", 10);
     }
     
     public int getDatabaseTimeout() {
-        return (Integer) getCachedValue("database.connection_pool.timeout", 30000);
+        return getCachedInt("database.connection_pool.timeout", 30000);
     }
     
     // 通貨設定
@@ -412,12 +432,12 @@ public class ConfigManager {
     }
     
     public int getCurrencyDecimalPlaces() {
-        return (Integer) getCachedValue("economy.currency.decimal_places", 2);
+        return getCachedInt("economy.currency.decimal_places", 2);
     }
 
     
     public double getCoinValue() {
-        return (Double) getCachedValue("economy.currency.coin_value", 10.0);
+        return getCachedDouble("economy.currency.coin_value", 10.0);
     }
     
     public boolean isDynamicValueEnabled() {
@@ -425,11 +445,11 @@ public class ConfigManager {
     }
     
     public double getMinCoinValue() {
-        return (Double) getCachedValue("economy.currency.min_value", 0.1);
+        return getCachedDouble("economy.currency.min_value", 0.1);
     }
     
     public double getMaxCoinValue() {
-        return (Double) getCachedValue("economy.currency.max_value", 1000.0);
+        return getCachedDouble("economy.currency.max_value", 1000.0);
     }
     
     public void setCoinValue(double value) {
@@ -440,7 +460,7 @@ public class ConfigManager {
     }
     
     public double getStartingBalance() {
-        return (Double) getCachedValue("economy.starting_balance", 100.0);
+        return getCachedDouble("economy.starting_balance", 100.0);
     }
     
     // 送金設定
@@ -1861,7 +1881,7 @@ public class ConfigManager {
      * スコアボード更新間隔を取得（秒）
      */
     public int getScoreboardUpdateInterval() {
-        return (Integer) getCachedValue("scoreboard.update_interval", 1);
+        return getCachedInt("scoreboard.update_interval", 1);
     }
 
     /**
@@ -2018,7 +2038,7 @@ public class ConfigManager {
      * 時刻放送の間隔（Minecraft分単位）
      */
     public int getTimeAnnouncementInterval() {
-        return (Integer) getCachedValue("time_announcement.interval_minutes", 60);
+        return getCachedInt("time_announcement.interval_minutes", 60);
     }
     
     /**
@@ -2111,7 +2131,7 @@ public class ConfigManager {
      * アクションバー更新間隔（tick）
      */
     public int getClockItemActionBarUpdateInterval() {
-        return (Integer) getCachedValue("clock_item.action_bar.update_interval", 20);
+        return getCachedInt("clock_item.action_bar.update_interval", 20);
     }
     
     /**
