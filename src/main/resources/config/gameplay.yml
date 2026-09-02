@@ -578,3 +578,17 @@ ux_enhancements:
   trading_bossbar: true
   # GUIの枠装飾（カラーガラスペイン）
   gui_decoration: true
+
+# チャットのワールド分離
+# 1つのサーバーにロビー・ミニゲーム・経済ワールドが同居しているため、
+# 既定では全ワールドの発言が混ざる。
+chat:
+  world_isolation:
+    # true にすると、下記ワールドの発言はそのワールド内にだけ配信され、
+    # 他ワールドの発言もそのワールドには届かなくなる（双方向に分離）。
+    # 管理者も特別扱いしない。コンソールのログには全発言が残る。
+    enabled: true
+    # 分離するワールド。空にすると economy.enabled_worlds を使う。
+    # 分離ワールドはそれぞれ独立し、対象外のワールドは従来どおり共有する。
+    worlds:
+      - "tofuNomics"

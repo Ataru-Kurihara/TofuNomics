@@ -40,6 +40,7 @@ public class ConfigManager {
         "job_skills", "leveling", "messages", "event_rewards", "events", "time_announcement",
         "rules", "tutorial", "scoreboard", "trade_system", "clock_item", "player_join",
         "market", "food_buff", "first_acquisition_bonus", "guide_book_settings", "ux_enhancements",
+        "chat",
         "performance", "api", "land_protection", "debug"
     ));
     
@@ -725,6 +726,27 @@ public class ConfigManager {
         return config.getBoolean("events.enabled", true);
     }
     
+    // ========== チャットのワールド分離 ==========
+
+    public boolean isChatWorldIsolationEnabled() {
+        return config.getBoolean("chat.world_isolation.enabled", false);
+    }
+
+    /**
+     * チャットを分離するワールド名。
+     *
+     * 未設定の場合は経済機能を有効にしているワールド（economy.enabled_worlds）を使う。
+     * 「経済ワールドの会話を独立させたい」が主な動機なので、既定はそこに揃える。
+     */
+    public java.util.Set<String> getChatIsolatedWorlds() {
+        java.util.List<String> worlds = config.getStringList("chat.world_isolation.worlds");
+        if (worlds == null || worlds.isEmpty()) {
+            worlds = getEconomyEnabledWorlds();
+        }
+        return (worlds == null) ? java.util.Collections.emptySet()
+                                : new java.util.HashSet<>(worlds);
+    }
+
     public java.util.List<String> getExcludedWorlds() {
         return config.getStringList("events.excluded_worlds");
     }
