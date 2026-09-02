@@ -425,11 +425,13 @@ player_join:
   
   # 新規プレイヤー特典設定
   new_player_bonus:
-    # 資金は配布しない方針のため無効。
-    # 有効に戻す場合、welcome_messages の文言と食い違わないよう注意すること
-    # （welcome_messages は参加のたびに表示されるが、付与は初回のみ）。
-    enabled: false
-    amount: 100.0
+    # enabled は「初回参加メッセージを出すか」のスイッチも兼ねている
+    # （false にすると scheduleNewPlayerMessages が即 return し、
+    #   職業の案内ごと消える）。案内は残したいので true のままにする。
+    enabled: true
+    # 資金は配布しない方針。付与は amount > 0 のときだけ実行されるため、
+    # 0 にすればメッセージだけが表示される。
+    amount: 0
     messages:
       - "&a初めてのご参加ありがとうございます！"
       - "&f職業に就くことで収入を得ることができます。"
