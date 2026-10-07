@@ -81,13 +81,13 @@ public class HousingDetailGUI {
                 )));
 
         gui.setItem(SLOT_RENT_DAILY, GuiUtil.createButton(Material.LIME_CONCRETE, "§a§l日で借りる",
-                Arrays.asList("§7日額: §a" + GuiUtil.formatPrice(property.getDailyRent()) + configManager.getCurrencySymbol(),
+                Arrays.asList("§7日額: §a" + GuiUtil.formatPrice(property.getDailyRent()) + " " + configManager.getCurrencySymbol(),
                         "§7クリック後、日数をチャット入力")));
         gui.setItem(SLOT_RENT_WEEKLY, GuiUtil.createButton(Material.LIME_CONCRETE, "§a§l週で借りる",
-                Arrays.asList("§7週額: §a" + GuiUtil.formatPrice(property.getWeeklyRent()) + configManager.getCurrencySymbol(),
+                Arrays.asList("§7週額: §a" + GuiUtil.formatPrice(property.getWeeklyRent()) + " " + configManager.getCurrencySymbol(),
                         "§7クリック後、週数をチャット入力")));
         gui.setItem(SLOT_RENT_MONTHLY, GuiUtil.createButton(Material.LIME_CONCRETE, "§a§l月で借りる",
-                Arrays.asList("§7月額: §a" + GuiUtil.formatPrice(property.getMonthlyRent()) + configManager.getCurrencySymbol(),
+                Arrays.asList("§7月額: §a" + GuiUtil.formatPrice(property.getMonthlyRent()) + " " + configManager.getCurrencySymbol(),
                         "§7クリック後、月数をチャット入力")));
 
         gui.setItem(SLOT_BACK, GuiUtil.createButton(Material.BARRIER, "§e戻る",

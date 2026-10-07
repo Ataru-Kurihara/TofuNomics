@@ -22,7 +22,10 @@ import java.util.logging.Logger;
  * メモリを書き換えるだけにして、たまった分を {@link #flush()} でまとめて書く
  * （数秒ごとと、プラグインの停止時に呼ぶ）。
  *
- * メインスレッドからだけ使う（DB の接続をほかの処理と共有しているため）。
+ * メモリ上の記録はメインスレッドからだけ使う。
+ * DB の接続はほかの処理（別スレッドで動くものを含む）と共有しているので、DB に触る所は
+ * マーケットなどと同じく {@code synchronized (connection)} で囲む。囲まないと、まとめ書きの
+ * 取引の途中に別の処理の書き込みが割り込み、取り消しのときに一緒に消える恐れがある。
  */
 public class PlacedBlockStore {
 
@@ -51,9 +54,11 @@ public class PlacedBlockStore {
         this.maxRows = maxRows;
         if (connection != null) {
             try {
-                createTable();
-                trimToLimit();
-                load();
+                synchronized (connection) {
+                    createTable();
+                    trimToLimit();
+                    load();
+                }
             } catch (Exception e) {
                 // 読み込みに失敗しても、プラグインの起動は止めない。途中まで読めた分は捨てて空で始める
                 placed.clear();
@@ -163,6 +168,13 @@ public class PlacedBlockStore {
         if (connection == null || pending.isEmpty()) {
             return;
         }
+        // 取引の始めから終わりまで、ほかの処理に同じ接続を使わせない
+        synchronized (connection) {
+            flushLocked();
+        }
+    }
+
+    private void flushLocked() {
         boolean previousAutoCommit = true;
         try {
             previousAutoCommit = connection.getAutoCommit();

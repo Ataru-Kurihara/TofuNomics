@@ -87,7 +87,7 @@ public class ClockCommand implements CommandExecutor, TabCompleter {
             // 支払いは、プレイヤーが実際に使えるお金（銀行残高）から行う。
             // 残高が足りなければ subtractBalance が false を返し、何も引かれない。
             org.tofu.tofunomics.economy.CurrencyConverter currencyConverter = plugin.getCurrencyConverter();
-            String priceText = currencyConverter.formatCurrency(price) + configManager.getCurrencySymbol();
+            String priceText = currencyConverter.formatCurrency(price) + " " + configManager.getCurrencySymbol();
             if (!currencyConverter.subtractBalance(player.getUniqueId(), price)) {
                 player.sendMessage(configManager.getClockItemInsufficientFundsMessage(price));
                 player.sendMessage("§7時計は銀行口座の残高（" + priceText + "）で支払います。先に銀行へ預けてください。");
@@ -116,7 +116,7 @@ public class ClockCommand implements CommandExecutor, TabCompleter {
         
         player.sendMessage("§6§l=== TofuNomics時計情報 ===");
         player.sendMessage("§e購入価格: §f" + plugin.getCurrencyConverter().formatCurrency(price)
-                + configManager.getCurrencySymbol() + " §7（銀行口座から支払い）");
+                + " " + configManager.getCurrencySymbol() + " §7（銀行口座から支払い）");
         player.sendMessage("§e所持状態: " + (hasClockItem ? "§a所持している" : "§c未所持"));
         player.sendMessage("");
         player.sendMessage("§e機能:");

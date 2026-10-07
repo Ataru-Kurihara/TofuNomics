@@ -243,8 +243,8 @@ public class ScoreboardManager implements Listener {
             double bankBalance = status.bankBalance;
             String currencySymbol = configManager.getCurrencySymbol();
             
-            String cashText = currencyConverter.formatCurrency(cashBalance) + currencySymbol;
-            String bankText = currencyConverter.formatCurrency(bankBalance) + currencySymbol;
+            String cashText = currencyConverter.formatCurrency(cashBalance) + " " + currencySymbol;
+            String bankText = currencyConverter.formatCurrency(bankBalance) + " " + currencySymbol;
             
             // オンライン時間（分単位で計算）
             long onlineTime = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) / 20 / 60; // tick -> minutes

@@ -103,9 +103,9 @@ public class HousingBrowseGUI {
                         "§7場所: §f" + org.tofu.tofunomics.housing.HousingLocationFormatter.format(property),
                         property.getDescription() != null ? "§7説明: §f" + property.getDescription() : "§7説明: §8なし",
                         "",
-                        "§7日額: §a" + GuiUtil.formatPrice(property.getDailyRent()) + configManager.getCurrencySymbol(),
-                        "§7週額: §a" + GuiUtil.formatPrice(property.getWeeklyRent()) + configManager.getCurrencySymbol(),
-                        "§7月額: §a" + GuiUtil.formatPrice(property.getMonthlyRent()) + configManager.getCurrencySymbol(),
+                        "§7日額: §a" + GuiUtil.formatPrice(property.getDailyRent()) + " " + configManager.getCurrencySymbol(),
+                        "§7週額: §a" + GuiUtil.formatPrice(property.getWeeklyRent()) + " " + configManager.getCurrencySymbol(),
+                        "§7月額: §a" + GuiUtil.formatPrice(property.getMonthlyRent()) + " " + configManager.getCurrencySymbol(),
                         "",
                         "§eクリックで詳細・契約"
                 ));
