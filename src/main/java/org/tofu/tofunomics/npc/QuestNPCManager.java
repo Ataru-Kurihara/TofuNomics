@@ -476,13 +476,15 @@ public class QuestNPCManager {
             }
 
             // 納品アイテムを消費
-            player.getInventory().removeItem(new ItemStack(def.getTargetMaterial(), def.getRequiredAmount()));
+            // 所持数（getHeldAmount）と同じく「収納枠にある、その種類の品」を消す。
+            // removeItem は名前などが付いていない品しか消さないので、改名した品だと
+            // 「数には入るのに消えない」＝納品物を残したまま報酬だけ受け取れてしまう。
+            removeHeldItems(player, def.getTargetMaterial(), def.getRequiredAmount());
 
-            // 報酬付与（金塊1:1）。インベントリ満杯時は足元にドロップ
-            boolean given = currencyConverter.receiveCash(player, def.getRewardNuggets());
-            if (!given) {
-                player.getWorld().dropItem(player.getLocation(), new ItemStack(Material.GOLD_NUGGET, def.getRewardNuggets()));
-                player.sendMessage("§eインベントリに空きがなかったため、報酬を足元にドロップしました。");
+            // 報酬付与（TofuCoin 1:1）。入りきらない分は口座へ入金する
+            int banked = currencyConverter.receiveCashWithBankFallback(player, def.getRewardNuggets());
+            if (banked > 0) {
+                player.sendMessage("§eインベントリに空きがなかったため、報酬のうち" + banked + "コインを口座に入金しました。");
             }
 
             // 完了行は削除しない。completed_at をリピート受注クールダウンの起点として使う。
@@ -495,6 +497,26 @@ public class QuestNPCManager {
         } catch (SQLException e) {
             plugin.getLogger().severe("クエスト納品処理に失敗しました: " + e.getMessage());
             player.sendMessage("§cクエストの納品に失敗しました。");
+        }
+    }
+
+    /**
+     * 収納枠から、指定した種類の品を amount 個取り除く。
+     */
+    private void removeHeldItems(Player player, Material material, int amount) {
+        org.bukkit.inventory.PlayerInventory inventory = player.getInventory();
+        ItemStack[] storage = inventory.getStorageContents();
+        Map<Integer, Integer> selected = org.tofu.tofunomics.npc.gui.GuiSafety.selectSellSlots(
+            storage, item -> item.getType() == material, amount);
+        for (Map.Entry<Integer, Integer> entry : selected.entrySet()) {
+            ItemStack item = storage[entry.getKey()];
+            int left = item.getAmount() - entry.getValue();
+            if (left <= 0) {
+                inventory.setItem(entry.getKey(), null);
+            } else {
+                item.setAmount(left);
+                inventory.setItem(entry.getKey(), item);
+            }
         }
     }
 

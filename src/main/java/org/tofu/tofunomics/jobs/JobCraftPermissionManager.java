@@ -185,7 +185,7 @@ public class JobCraftPermissionManager {
     /**
      * 指定アイテムがいずれかの職業の専売品かどうか
      */
-    private boolean isJobRestrictedItem(Material material) {
+    public boolean isJobRestrictedItem(Material material) {
         if (jobCraftableItems == null) {
             return false;
         }
@@ -231,8 +231,15 @@ public class JobCraftPermissionManager {
         return jobItems != null && jobItems.contains(material);
     }
 
+    /** 拒否文の中でアイテム名が入る位置を示す目印（呼び出し側が翻訳名に置き換える） */
+    public static final String ITEM_PLACEHOLDER = "{item}";
+
     /**
      * クラフト制限時のメッセージを取得（専売品をクラフトできなかった場合のみ呼ばれる）
+     *
+     * アイテム名の位置には {@link #ITEM_PLACEHOLDER} を残して返す。
+     * 内部名（oak_planks 等）を見せないよう、呼び出し側が
+     * {@link org.tofu.tofunomics.economy.ItemNameText#send} でクライアントの翻訳名に置き換えて送る。
      */
     public String getCraftDeniedMessage(Player player, Material material) {
         // null チェック
@@ -254,7 +261,7 @@ public class JobCraftPermissionManager {
         String playerJob = jobManager.getPlayerJob(player.getUniqueId());
 
         if (playerJob == null) {
-            String message = configManager.getMessage("messages.craft.no_job_required");
+            String message = configManager.getMessage("craft.no_job_required");
 
             // フォールバック処理
             if (message.startsWith("メッセージが見つかりません:")) {
@@ -273,21 +280,20 @@ public class JobCraftPermissionManager {
         }
 
         if (requiredJob != null) {
-            String message = configManager.getMessage("messages.craft.wrong_job_required")
-                .replace("{item}", material.name().toLowerCase())
+            String message = configManager.getMessage("craft.wrong_job_required")
                 .replace("{required_job}", configManager.getJobDisplayName(requiredJob))
                 .replace("{current_job}", configManager.getJobDisplayName(playerJob));
 
             // フォールバック処理
             if (message.startsWith("メッセージが見つかりません:")) {
-                return "§c" + material.name().toLowerCase() + "をクラフトするには" +
+                return "§c" + ITEM_PLACEHOLDER + "をクラフトするには" +
                     configManager.getJobDisplayName(requiredJob) + "である必要があります。（現在: " +
                     configManager.getJobDisplayName(playerJob) + "）";
             }
             return message;
         }
 
-        String message = configManager.getMessage("messages.craft.item_not_craftable");
+        String message = configManager.getMessage("craft.item_not_craftable");
 
         // フォールバック処理
         if (message.startsWith("メッセージが見つかりません:")) {

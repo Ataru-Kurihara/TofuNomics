@@ -433,12 +433,7 @@ public class FoodNPCManager {
             return new PurchaseResult(false, "所持金が不足しています（必要: " + currencyConverter.formatCurrency(totalPrice) + "）", 0.0);
         }
         
-        // 購入処理実行（所持金から支払い）
-        if (!currencyConverter.payWithCash(player, totalPrice)) {
-            return new PurchaseResult(false, "支払い処理に失敗しました", 0.0);
-        }
-        
-        // アイテム付与
+        // 渡す品を先に作る
         // 取引所で売却可能なアイテム（item_pricesに価格があるもの）のみNPC購入マーカーを付与し、
         // 食料NPC購入価格 < 取引所売却価格 を悪用した転売（アービトラージ）を防止する。
         // 非売却品（bread等）はマークせず、通常の手持ちアイテムと同一スタックになるようにする。
@@ -446,7 +441,23 @@ public class FoodNPCManager {
         if (configManager.getItemBasePrice(itemType.name()) > 0) {
             item = NPCPurchaseMarker.mark(plugin, item);
         }
-        player.getInventory().addItem(item);
+        
+        // インベントリ空きチェック（入りきらないなら代金を受け取る前に断る）
+        int capacity = org.tofu.tofunomics.npc.gui.GuiSafety.freeCapacityFor(
+            player.getInventory().getStorageContents(), item, itemType.getMaxStackSize());
+        if (capacity < amount) {
+            return new PurchaseResult(false, "インベントリに空きがありません", 0.0);
+        }
+        
+        // 購入処理実行（所持金から支払い）
+        if (!currencyConverter.payWithCash(player, totalPrice)) {
+            return new PurchaseResult(false, "支払い処理に失敗しました", 0.0);
+        }
+        
+        // アイテム付与（空きは確認済みだが、念のため入らなかった分は足元へ落とす）
+        for (ItemStack notAdded : player.getInventory().addItem(item).values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), notAdded);
+        }
         
         // 在庫減少
         storeInventory.put(itemType, currentStock - amount);

@@ -50,11 +50,13 @@ public class CurrencyConverter {
             return false;
         }
         
-        if (!itemManager.removeGoldNuggetsFromInventory(player, nuggetAmount)) {
+        int unplacedChange = itemManager.removeGoldNuggetsReturningUnplacedChange(player, nuggetAmount);
+        if (unplacedChange < 0) {
             return false;
         }
         
-        double bankAmount = convertNuggetsToBalance(nuggetAmount);
+        // TofuGold を崩したお釣りが手持ちに入りきらなかった分は、一緒に預け入れる
+        double bankAmount = convertNuggetsToBalance(nuggetAmount + unplacedChange);
         
         org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());
         if (tofuPlayer == null) {
@@ -255,7 +257,28 @@ public class CurrencyConverter {
         }
         
         // 金塊をインベントリから削除
-        return itemManager.removeGoldNuggetsFromInventory(player, requiredNuggets);
+        int unplacedChange = itemManager.removeGoldNuggetsReturningUnplacedChange(player, requiredNuggets);
+        if (unplacedChange < 0) {
+            return false;
+        }
+        // TofuGold を崩したお釣りが手持ちに入りきらなかった分は口座へ入金する
+        bankUnplacedNuggets(player, unplacedChange);
+        return true;
+    }
+
+    /**
+     * 手持ちに入りきらなかったコインを口座へ入金する。口座に入れられなければ足元へ落とす。
+     */
+    public void bankUnplacedNuggets(Player player, int nuggets) {
+        if (nuggets <= 0) {
+            return;
+        }
+        if (!addBalance(player.getUniqueId(), convertNuggetsToBalance(nuggets))) {
+            java.util.logging.Logger.getLogger(CurrencyConverter.class.getName()).warning(
+                "[CurrencyConverter] 口座へ入金できなかったため足元に落としました: "
+                + player.getName() + " 金塊" + nuggets + "枚");
+            itemManager.dropGoldNuggetsAtLocation(player, nuggets);
+        }
     }
     
     // 所持金での受取り処理（金塊をインベントリに追加）
@@ -323,6 +346,15 @@ public class CurrencyConverter {
         }
 
         return leftover;
+    }
+
+    /**
+     * 返金・報酬など「必ず渡しきる」支払い。入る分は金塊で渡し、入りきらない分は口座へ入金する。
+     *
+     * @return 口座へ回した枚数
+     */
+    public int receiveCashWithBankFallback(Player player, double amount) {
+        return receiveCashWithBankFallback(player, convertBalanceToNuggets(amount));
     }
 
     // 所持金で支払い可能かチェック

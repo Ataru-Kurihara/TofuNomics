@@ -8,6 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -322,8 +323,13 @@ public class FoodGUI implements Listener {
         }
         
         event.setCancelled(true);
-        
-        int slot = event.getSlot();
+
+        // 手持ち側のクリックではボタンを反応させない
+        if (!GuiSafety.isTopSlot(event.getRawSlot(), session.getInventory().getSize())) {
+            return;
+        }
+
+        int slot = event.getRawSlot();
         ClickType clickType = event.getClick();
         
         if (slot == 49) { // 閉じるボタン
@@ -400,6 +406,19 @@ public class FoodGUI implements Listener {
         }
     }
     
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        FoodGUISession session = activeSessions.get(event.getWhoClicked().getUniqueId());
+        if (session == null || !session.getInventory().equals(event.getInventory())) {
+            return;
+        }
+        // 手持ちの品を GUI のマスへ置けないようにする
+        if (GuiSafety.dragTouchesTop(event.getRawSlots(), session.getInventory().getSize())) {
+            event.setCancelled(true);
+        }
+    }
+
     /**
      * 全GUIを閉じる
      */

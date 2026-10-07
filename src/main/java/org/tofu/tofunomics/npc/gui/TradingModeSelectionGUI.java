@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -186,12 +187,17 @@ public class TradingModeSelectionGUI implements Listener {
         // クリックをキャンセル（アイテム移動を防止）
         event.setCancelled(true);
 
+        // 手持ち側のクリックではボタンを反応させない
+        if (!GuiSafety.isTopSlot(event.getRawSlot(), session.getInventory().getSize())) {
+            return;
+        }
+
         ItemStack clickedItem = event.getCurrentItem();
         if (clickedItem == null || clickedItem.getType() == Material.AIR) {
             return;
         }
 
-        int slot = event.getSlot();
+        int slot = event.getRawSlot();
 
         try {
             handleModeSelection(player, session, slot, clickedItem.getType());
@@ -248,8 +254,24 @@ public class TradingModeSelectionGUI implements Listener {
         Player player = (Player) event.getPlayer();
         UUID playerId = player.getUniqueId();
 
-        // セッションを削除
-        activeSessions.remove(playerId);
+        // 閉じられたのがこのセッションの GUI のときだけ消す（理由は GuiSafety を参照）
+        ModeSelectionSession session = activeSessions.get(playerId);
+        if (session != null && GuiSafety.isSessionInventory(session.getInventory(), event.getInventory())) {
+            activeSessions.remove(playerId);
+        }
+    }
+
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        ModeSelectionSession session = activeSessions.get(event.getWhoClicked().getUniqueId());
+        if (session == null || !session.getInventory().equals(event.getInventory())) {
+            return;
+        }
+        // 手持ちの品を GUI のマスへ置けないようにする
+        if (GuiSafety.dragTouchesTop(event.getRawSlots(), session.getInventory().getSize())) {
+            event.setCancelled(true);
+        }
     }
 
     /**
