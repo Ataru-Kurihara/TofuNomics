@@ -148,4 +148,20 @@ public class CurrencyConverterSafetyTest {
 
         assertTrue(converter.payWithCash(player, 5));
     }
+
+    @Test
+    public void 現金が動くと残高の表示側にも知らせる() {
+        java.util.List<UUID> notified = new java.util.ArrayList<>();
+        BalanceDisplayRefresher.install(notified::add);
+        try {
+            when(itemManager.countGoldNuggetsInInventory(player)).thenReturn(9);
+            when(itemManager.removeGoldNuggetsReturningUnplacedChange(player, 5)).thenReturn(0);
+
+            assertTrue(converter.payWithCash(player, 5));
+
+            assertTrue(notified.contains(uuid));
+        } finally {
+            BalanceDisplayRefresher.install(null);
+        }
+    }
 }

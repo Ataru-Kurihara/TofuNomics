@@ -46,6 +46,10 @@ public class TransactionRecorder {
      * 預金（銀行残高）の増減を、いま宣言されている理由で記録する。
      */
     public static void recordBankChange(UUID playerUuid, double amount, double balanceAfter) {
+        if (isRecordable(amount)) {
+            // 預金が動いたので、残高の表示（スコアボード）にも知らせる。送金の受け取り側もここを通る
+            BalanceDisplayRefresher.notifyChanged(playerUuid);
+        }
         TransactionRecorder recorder = global;
         if (recorder != null) {
             recorder.record(playerUuid, TransactionLogDAO.ACCOUNT_BANK, amount, balanceAfter);

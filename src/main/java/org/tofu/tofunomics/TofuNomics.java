@@ -698,6 +698,9 @@ public final class TofuNomics extends JavaPlugin {
             // 現金が動いた人の手持ちを、次の tick にまとめて保存する（残高との食い違いを防ぐ）
             currencyConverter.setCashChangeListener(
                 new org.tofu.tofunomics.economy.CashSaveScheduler(this, inventoryManager));
+            // 現金・預金が動いたら、スコアボードの残高の写しを捨てる
+            org.tofu.tofunomics.economy.BalanceDisplayRefresher.install(
+                org.tofu.tofunomics.economy.BalanceDisplayRefresher.forScoreboard(this));
 
             // PlayerJoinHandlerの初期化
             playerJoinHandler = new org.tofu.tofunomics.players.PlayerJoinHandler(

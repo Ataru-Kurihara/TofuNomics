@@ -47,7 +47,12 @@ public class CurrencyConverter {
      * この入口を通らずに手持ちの通貨を動かした所（銀行 GUI の換金など）からも呼ぶ。
      */
     public void notifyCashChanged(Player player) {
-        if (cashChangeListener == null || player == null) {
+        if (player == null) {
+            return;
+        }
+        // 残高の表示（スコアボード）にも知らせる
+        BalanceDisplayRefresher.notifyChanged(player.getUniqueId());
+        if (cashChangeListener == null) {
             return;
         }
         try {

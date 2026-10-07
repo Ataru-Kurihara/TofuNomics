@@ -266,7 +266,7 @@ public class ProcessingGUI implements Listener {
             buttonMaterial = Material.RED_DYE;
             buttonName = "§c残高不足";
             buttonLore.add("§f加工する原木: §e" + totalLogs + "個");
-            buttonLore.add("§f必要金額: §c" + String.format("%.0f", totalFee) + "G");
+            buttonLore.add("§f必要金額: §c" + String.format("%.0f", totalFee) + " " + configManager.getCurrencySymbol());
             buttonLore.add("§f現在残高: §7" + currencyConverter.formatCurrency(balance));
         } else {
             buttonMaterial = Material.LIME_DYE;
@@ -274,7 +274,7 @@ public class ProcessingGUI implements Listener {
             buttonLore.add("§f加工する原木: §e" + totalLogs + "個");
             buttonLore.add("§f受け取る板材: §a" + (totalLogs * processingNPCManager.getPlanksPerLog()) + "個");
             if (totalFee > 0) {
-                buttonLore.add("§f加工料金: §e" + String.format("%.0f", totalFee) + "G");
+                buttonLore.add("§f加工料金: §e" + String.format("%.0f", totalFee) + " " + configManager.getCurrencySymbol());
             } else {
                 buttonLore.add("§a加工料金: 無料（木こり特典）");
             }
@@ -321,7 +321,7 @@ public class ProcessingGUI implements Listener {
         double totalFee = feePerLog * amount;
         
         if (totalFee > 0) {
-            lore.add("§f加工料金: §e" + String.format("%.0f", totalFee) + "G");
+            lore.add("§f加工料金: §e" + String.format("%.0f", totalFee) + " " + configManager.getCurrencySymbol());
         } else {
             lore.add("§a加工料金: 無料");
         }
