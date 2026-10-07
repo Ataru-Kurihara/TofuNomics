@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -165,5 +166,101 @@ public class ItemManagerSafetyTest {
         ItemMeta meta = mock(ItemMeta.class);
         assertFalse(itemManager.isCurrencyItem(goldIngot(meta)));
         assertFalse(itemManager.isCurrencyItem(null));
+    }
+
+    // ===== 銀行が発行した通貨は新旧とも通る =====
+
+    /** 現行の発行処理（createGoldNugget / createCurrencyGoldIngot）と同じ内容のメタ情報 */
+    private ItemMeta issuedMeta(String displayName, List<String> lore, int customModelData) {
+        ItemMeta meta = mock(ItemMeta.class);
+        when(meta.hasDisplayName()).thenReturn(true);
+        when(meta.getDisplayName()).thenReturn(displayName);
+        when(meta.hasLore()).thenReturn(true);
+        when(meta.getLore()).thenReturn(lore);
+        when(meta.hasCustomModelData()).thenReturn(true);
+        when(meta.getCustomModelData()).thenReturn(customModelData);
+        return meta;
+    }
+
+    private ItemStack item(Material type, ItemMeta meta) {
+        ItemStack item = mock(ItemStack.class);
+        when(item.getType()).thenReturn(type);
+        when(item.getItemMeta()).thenReturn(meta);
+        return item;
+    }
+
+    @Test
+    public void 発行済み_現行形式のTofuGoldは締めたあとの判定でも通る() {
+        // 現行の厳密な判定（isValidCurrencyGoldIngot）は今回変えていない。エンチャントの確認に
+        // サーバーが要るためここでは呼べないので、今回締めた側の判定（表示名だけでは通さない）でも
+        // 発行済みの TofuGold が説明文と CustomModelData の両方で通ることを確かめる。
+        ItemMeta meta = issuedMeta(ChatColor.GOLD + "" + ChatColor.BOLD + "TofuGold", Arrays.asList(
+            ChatColor.YELLOW + "TofuNomics公式上位通貨",
+            ChatColor.GREEN + "豆腐銀行発行 v2.0",
+            ChatColor.AQUA + "1金貨 = 9コイン",
+            ChatColor.GRAY + "採掘不可・偽造防止機能付き",
+            ChatColor.BLUE + "銀行で金塊通貨と交換可能"), 1002);
+
+        assertTrue(itemManager.isLegacyGoldIngot(item(Material.GOLD_INGOT, meta)));
+    }
+
+    @Test
+    public void 発行済み_旧形式のコイン_金塊という名前と2行の説明文_は通貨() {
+        ItemMeta meta = mock(ItemMeta.class);
+        when(meta.hasDisplayName()).thenReturn(true);
+        when(meta.getDisplayName()).thenReturn(ChatColor.GOLD + "金塊");
+        when(meta.hasLore()).thenReturn(true);
+        when(meta.getLore()).thenReturn(Arrays.asList(
+            ChatColor.YELLOW + "TofuNomicsの通貨アイテム",
+            ChatColor.GRAY + "銀行で預け入れできます"));
+
+        assertTrue(itemManager.isCurrencyItem(item(Material.GOLD_NUGGET, meta)));
+    }
+
+    @Test
+    public void 発行済み_説明文が現行と違う古いTofuGoldも通貨() {
+        // 説明文の行数や文面が現行と違っても、銀行の説明文が付いていれば通貨として扱う
+        ItemMeta meta = mock(ItemMeta.class);
+        when(meta.hasDisplayName()).thenReturn(true);
+        when(meta.getDisplayName()).thenReturn(ChatColor.GOLD + "TofuGold");
+        when(meta.hasLore()).thenReturn(true);
+        when(meta.getLore()).thenReturn(Arrays.asList(
+            ChatColor.YELLOW + "TofuNomics公式上位通貨", ChatColor.AQUA + "1金貨 = 9コイン"));
+
+        assertTrue(itemManager.isCurrencyItem(item(Material.GOLD_INGOT, meta)));
+    }
+
+    // ===== 普通の金塊・金インゴットを巻き込まない（通貨クラフトの禁止は全ワールドで働く） =====
+
+    @Test
+    public void 普通の金塊と金インゴットは通貨ではない() {
+        ItemMeta empty = mock(ItemMeta.class);
+
+        assertFalse(itemManager.isCurrencyItem(item(Material.GOLD_NUGGET, empty)));
+        assertFalse(itemManager.isCurrencyItem(item(Material.GOLD_INGOT, empty)));
+        assertFalse(itemManager.isCurrencyItem(item(Material.GOLD_NUGGET, null)));
+        assertFalse(itemManager.isCurrencyItem(item(Material.GOLD_INGOT, null)));
+    }
+
+    @Test
+    public void 名前を付けただけの金塊と金インゴットは通貨ではない() {
+        for (String name : new String[] {"TofuCoin", "TofuGold", "金貨", "金塊", "金インゴット", "おこづかい"}) {
+            ItemMeta meta = mock(ItemMeta.class);
+            when(meta.hasDisplayName()).thenReturn(true);
+            when(meta.getDisplayName()).thenReturn(name);
+
+            assertFalse(name, itemManager.isCurrencyItem(item(Material.GOLD_NUGGET, meta)));
+            assertFalse(name, itemManager.isCurrencyItem(item(Material.GOLD_INGOT, meta)));
+        }
+    }
+
+    @Test
+    public void 普通の金塊9個のクラフトは止めない() {
+        ItemStack plainNugget = item(Material.GOLD_NUGGET, mock(ItemMeta.class));
+        ItemStack[] matrix = new ItemStack[9];
+        Arrays.fill(matrix, plainNugget);
+
+        assertFalse(org.tofu.tofunomics.events.CraftRestrictionEventHandler
+            .containsCurrency(matrix, itemManager::isCurrencyItem));
     }
 }

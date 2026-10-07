@@ -39,4 +39,14 @@ public class MarketPlainItemTest {
         assertFalse(MarketManager.isPlainItem(stack(Material.IRON_PICKAXE, false), Material.DIAMOND_PICKAXE));
         assertFalse(MarketManager.isPlainItem(null, Material.DIAMOND_PICKAXE));
     }
+
+    @Test
+    public void 品はあるのに素の品が足りないときだけ理由を伝える() {
+        // 使いかけのツルハシ 1 本だけ持っている（素の品 0、種類では 1）
+        assertTrue(MarketManager.hasOnlyNonPlainItems(0, 1, 1));
+        // そもそも持っていない → 既存の「所持していません」だけでよい
+        assertFalse(MarketManager.hasOnlyNonPlainItems(0, 0, 1));
+        // 素の品で足りている
+        assertFalse(MarketManager.hasOnlyNonPlainItems(1, 2, 1));
+    }
 }

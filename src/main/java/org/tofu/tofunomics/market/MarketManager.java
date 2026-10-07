@@ -863,6 +863,10 @@ public class MarketManager {
         // 種類だけで数えると、耐久の減った道具が新品に化け、通貨（TofuCoin は種類としては金塊）や
         // NPC 購入マーカー付きの品もただの品に変わってしまう。
         if (countPlainMaterial(supplier, material) < amount) {
+            if (hasOnlyNonPlainItems(countPlainMaterial(supplier, material), countMaterial(supplier, material), amount)) {
+                // 品は持っているのに出せない場合は、理由が分かるように伝える
+                supplier.sendMessage("§e名前・エンチャント付きの品、使用済みの道具、通貨、NPC から買った品は募集に出せません。");
+            }
             return MarketResult.NO_MATCHING_ITEM;
         }
 
@@ -1282,6 +1286,14 @@ public class MarketManager {
      */
     static boolean isPlainItem(ItemStack stack, Material material) {
         return stack != null && stack.getType() == material && !stack.hasItemMeta();
+    }
+
+    /**
+     * 「種類としては足りているのに、素の品だけでは足りない」かどうか。
+     * 断る理由（加工済み・使用済みの品は出せない）を本人に伝えるかの判定に使う。
+     */
+    static boolean hasOnlyNonPlainItems(int plainCount, int totalCount, int required) {
+        return plainCount < required && totalCount >= required;
     }
 
     /**
