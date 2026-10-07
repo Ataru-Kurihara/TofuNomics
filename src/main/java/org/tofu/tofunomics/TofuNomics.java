@@ -1039,6 +1039,10 @@ public final class TofuNomics extends JavaPlugin {
     public org.tofu.tofunomics.farming.FarmPlotManager getFarmPlotManager() {
         return farmPlotManager;
     }
+
+    public org.tofu.tofunomics.dao.FirstAcquisitionDAO getFirstAcquisitionDAO() {
+        return firstAcquisitionDAO;
+    }
     
     public org.tofu.tofunomics.scoreboard.ScoreboardManager getScoreboardManager() {
         return scoreboardManager;
