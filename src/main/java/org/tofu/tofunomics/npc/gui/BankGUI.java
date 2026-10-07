@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -162,17 +163,6 @@ public class BankGUI implements Listener {
         );
         gui.setItem(21, goldToCoinItem);
         
-        // 取引履歴ボタン
-        ItemStack historyItem = createGUIItem(
-            Material.BOOK,
-            "§b取引履歴",
-            Arrays.asList(
-                "§7最近の取引履歴を表示",
-                "§8※ 実装予定機能"
-            )
-        );
-        gui.setItem(22, historyItem);
-        
         // 閉じるボタン
         ItemStack closeItem = createGUIItem(
             Material.BARRIER,
@@ -184,7 +174,7 @@ public class BankGUI implements Listener {
         // 装飾アイテム（銀行テーマ: 水色ガラス。無効時は装飾なし）
         if (configManager.isGuiDecorationEnabled()) {
             ItemStack glassPane = createGUIItem(Material.LIGHT_BLUE_STAINED_GLASS_PANE, "§r", Collections.emptyList());
-            int[] decorationSlots = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 14, 16, 17, 18, 20, 23, 24, 25};
+            int[] decorationSlots = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 14, 16, 17, 18, 20, 22, 23, 24, 25};
             for (int slot : decorationSlots) {
                 gui.setItem(slot, glassPane);
             }
@@ -220,13 +210,18 @@ public class BankGUI implements Listener {
         
         event.setCancelled(true);
         
+        // 手持ち側のクリックではボタンを反応させない
+        if (!GuiSafety.isTopSlot(event.getRawSlot(), session.getInventory().getSize())) {
+            return;
+        }
+        
         ItemStack clickedItem = event.getCurrentItem();
         if (clickedItem == null || clickedItem.getType() == Material.AIR) {
             return;
         }
         
         try {
-            handleBankGUIClick(player, session, event.getSlot(), event.getClick());
+            handleBankGUIClick(player, session, event.getRawSlot(), event.getClick());
         } catch (Exception e) {
             plugin.getLogger().severe("銀行GUIクリック処理中にエラーが発生しました: " + e.getMessage());
             player.sendMessage(configManager.getMessage("npc.bank.action_error"));
@@ -258,10 +253,6 @@ public class BankGUI implements Listener {
                 
             case 21: // TofuGold → TofuCoin 換金
                 handleGoldToCoinConversion(player);
-                break;
-                
-            case 22: // 取引履歴
-                handleTransactionHistory(player);
                 break;
                 
             case 26: // 閉じる
@@ -312,11 +303,6 @@ public class BankGUI implements Listener {
         
         double balance = currencyConverter.getBalance(player.getUniqueId());
         
-        if (balance <= 0) {
-            player.sendMessage(configManager.getMessage("insufficient_balance"));
-            return;
-        }
-        
         // 全額引き出しまたは残高が引き出し額より少ない場合は残高分を引き出し
         double amount;
         if (withdrawAll || balance < requestedAmount) {
@@ -325,29 +311,61 @@ public class BankGUI implements Listener {
             amount = requestedAmount;
         }
         
+        // コインは整数枚でしか渡せない。端数は残高に残し、渡す枚数の分だけ引き落とす
+        int nuggets = wholeNuggets(amount);
+        if (nuggets < 1) {
+            player.sendMessage(configManager.getMessage("insufficient_balance"));
+            return;
+        }
+        
         double maxWithdraw = configManager.getMaxWithdrawAmount();
-        if (amount > maxWithdraw) {
+        if (nuggets > maxWithdraw) {
             player.sendMessage(configManager.getMessage("economy.exceed_max_withdraw", 
                 "max_amount", currencyConverter.formatCurrency(maxWithdraw)));
             return;
         }
         
         // 引き出し処理
-        if (currencyConverter.subtractBalance(player.getUniqueId(), amount)) {
-            // 金インゴットではなく豆腐コイン（カスタム金塊）を作成
-            ItemStack tofuCoins = itemManager.createGoldNugget((int) amount);
-            player.getInventory().addItem(tofuCoins);
-            
-            String amountText = currencyConverter.formatCurrency(amount);
-            player.sendMessage(configManager.getMessage("economy.withdraw_success", 
-                "amount", amountText, 
-                "currency", configManager.getCurrencyName()));
-            
-            // GUIを更新
-            setupBankGUIItems(session.getInventory(), player);
-        } else {
+        if (!currencyConverter.subtractBalance(player.getUniqueId(), nuggets)) {
             player.sendMessage(configManager.getMessage("npc.bank.withdraw_failed"));
+            return;
         }
+        
+        // 手持ちに入った分だけを出金とし、入りきらなかった分は残高に戻す
+        int notAdded = itemManager.addGoldNuggetsWithLeftover(player, nuggets);
+        if (notAdded > 0) {
+            currencyConverter.bankUnplacedNuggets(player, notAdded);
+        }
+        int withdrawn = withdrawnNuggets(nuggets, notAdded);
+        
+        if (withdrawn > 0) {
+            player.sendMessage(configManager.getMessage("economy.withdraw_success", 
+                "amount", currencyConverter.formatCurrency(withdrawn), 
+                "currency", configManager.getCurrencyName()));
+        }
+        if (notAdded > 0) {
+            player.sendMessage("§eインベントリに空きがないため、" + notAdded + "コインは口座に残しました。");
+        }
+        
+        // GUIを更新
+        setupBankGUIItems(session.getInventory(), player);
+    }
+    
+    /**
+     * 残高から、コインとして渡せる整数枚数を求める（端数は切り捨てて残高に残す）。
+     */
+    static int wholeNuggets(double amount) {
+        if (Double.isNaN(amount) || amount < 1) {
+            return 0;
+        }
+        return (int) Math.min(Integer.MAX_VALUE, Math.floor(amount));
+    }
+    
+    /**
+     * 実際に手持ちへ入った枚数（＝出金として扱う枚数）。
+     */
+    static int withdrawnNuggets(int requested, int notAdded) {
+        return Math.max(0, requested - Math.max(0, notAdded));
     }
     
     private void handleDeposit(Player player, BankGUISession session,
@@ -386,10 +404,13 @@ public class BankGUI implements Listener {
         }
 
         // ItemManagerのメソッドを使用してTofuCoin/TofuGoldを削除（自動的に両方対応）
-        if (!itemManager.removeGoldNuggetsFromInventory(player, depositAmount)) {
+        int unplacedChange = itemManager.removeGoldNuggetsReturningUnplacedChange(player, depositAmount);
+        if (unplacedChange < 0) {
             player.sendMessage("§c入金処理中にエラーが発生しました。");
             return;
         }
+        // TofuGold を崩したお釣りが手持ちに入りきらなかった分は、一緒に預け入れる
+        depositAmount += unplacedChange;
 
         // 残高に追加
         double depositBalance = currencyConverter.convertNuggetsToBalance(depositAmount);
@@ -414,12 +435,6 @@ public class BankGUI implements Listener {
         player.closeInventory();
     }
     
-    private void handleTransactionHistory(Player player) {
-        player.sendMessage("§6=== 取引履歴 ===");
-        player.sendMessage("§c※ この機能は実装予定です");
-        player.sendMessage("§7将来的に取引履歴を確認できるようになります");
-    }
-
     /**
      * TofuCoin → TofuGold 換金処理
      */
@@ -455,9 +470,14 @@ public class BankGUI implements Listener {
             }
         }
         
-        // 金インゴットを追加
+        // 金インゴットを追加。入らなければ、取り除いたコインを戻して換金を取りやめる
         ItemStack goldIngot = itemManager.createCurrencyGoldIngot(1);
-        player.getInventory().addItem(goldIngot);
+        if (!player.getInventory().addItem(goldIngot).isEmpty()) {
+            int notReturned = itemManager.addGoldNuggetsWithLeftover(player, nuggetsPerIngot);
+            currencyConverter.bankUnplacedNuggets(player, notReturned);
+            player.sendMessage("§cインベントリに空きがないため換金できません。");
+            return;
+        }
         
         player.sendMessage("§a" + nuggetsPerIngot + "枚のTofuCoinを1枚のTofuGoldに換金しました！");
     }
@@ -495,11 +515,13 @@ public class BankGUI implements Listener {
             }
         }
         
-        // 金塊を追加
-        ItemStack goldNuggets = itemManager.createGoldNugget(nuggetsPerIngot);
-        player.getInventory().addItem(goldNuggets);
+        // 金塊を追加。入りきらない分は口座へ入金する
+        int banked = currencyConverter.receiveCashWithBankFallback(player, nuggetsPerIngot);
         
         player.sendMessage("§a1枚のTofuGoldを" + nuggetsPerIngot + "枚のTofuCoinに換金しました！");
+        if (banked > 0) {
+            player.sendMessage("§eインベントリに空きがないため、" + banked + "コインは口座に入金しました。");
+        }
     }
     
     @EventHandler
@@ -511,7 +533,23 @@ public class BankGUI implements Listener {
         Player player = (Player) event.getPlayer();
         UUID playerId = player.getUniqueId();
         
-        activeSessions.remove(playerId);
+        // 閉じられたのがこのセッションの GUI のときだけ消す（理由は GuiSafety を参照）
+        BankGUISession session = activeSessions.get(playerId);
+        if (session != null && GuiSafety.isSessionInventory(session.getInventory(), event.getInventory())) {
+            activeSessions.remove(playerId);
+        }
+    }
+    
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        BankGUISession session = activeSessions.get(event.getWhoClicked().getUniqueId());
+        if (session == null || !session.getInventory().equals(event.getInventory())) {
+            return;
+        }
+        // 手持ちの品を GUI のマスへ置けないようにする
+        if (GuiSafety.dragTouchesTop(event.getRawSlots(), session.getInventory().getSize())) {
+            event.setCancelled(true);
+        }
     }
     
     public void closeAllGUIs() {

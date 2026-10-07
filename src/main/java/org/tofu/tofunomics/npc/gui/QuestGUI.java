@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -194,12 +195,17 @@ public class QuestGUI implements Listener {
 
         event.setCancelled(true);
 
+        // 手持ち側のクリックではボタンを反応させない
+        if (!GuiSafety.isTopSlot(event.getRawSlot(), session.getInventory().getSize())) {
+            return;
+        }
+
         ItemStack clickedItem = event.getCurrentItem();
         if (clickedItem == null || clickedItem.getType() == Material.AIR) {
             return;
         }
 
-        int slot = event.getSlot();
+        int slot = event.getRawSlot();
 
         if (slot == CLOSE_SLOT) {
             player.closeInventory();
@@ -233,7 +239,24 @@ public class QuestGUI implements Listener {
             return;
         }
         Player player = (Player) event.getPlayer();
-        activeSessions.remove(player.getUniqueId());
+        // 閉じられたのがこのセッションの GUI のときだけ消す（理由は GuiSafety を参照）
+        QuestGUISession session = activeSessions.get(player.getUniqueId());
+        if (session != null && GuiSafety.isSessionInventory(session.getInventory(), event.getInventory())) {
+            activeSessions.remove(player.getUniqueId());
+        }
+    }
+
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        QuestGUISession session = activeSessions.get(event.getWhoClicked().getUniqueId());
+        if (session == null || !session.getInventory().equals(event.getInventory())) {
+            return;
+        }
+        // 手持ちの品を GUI のマスへ置けないようにする
+        if (GuiSafety.dragTouchesTop(event.getRawSlots(), session.getInventory().getSize())) {
+            event.setCancelled(true);
+        }
     }
 
     public void closeAllGUIs() {

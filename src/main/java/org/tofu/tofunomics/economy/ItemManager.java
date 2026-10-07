@@ -34,6 +34,7 @@ public class ItemManager {
     private static final String SECURITY_HASH = "TOFU2024"; // 簡易セキュリティハッシュ
     private static final String GOLD_INGOT_DISPLAY_NAME = ChatColor.GOLD + "" + ChatColor.BOLD + "TofuGold";
     private static final int NUGGETS_PER_INGOT = 9; // 9金塊 = 1金インゴット（Minecraftバニラ準拠）
+    private static final int NUGGET_MAX_STACK_SIZE = 64; // 金塊 1 マスの最大数（バニラ準拠）
     
     private List<String> createGoldIngotLore() {
         return Arrays.asList(
@@ -215,13 +216,10 @@ public class ItemManager {
             return false;
         }
 
-        // 表示名チェック（TofuGoldまたは金貨が含まれていればOK）
-        if (meta.hasDisplayName()) {
-            String displayName = ChatColor.stripColor(meta.getDisplayName());
-            if (displayName.contains("TofuGold") || displayName.contains("金貨") || displayName.contains("金インゴット")) {
-                return true;
-            }
-        }
+        // 表示名だけでは通貨と認めない。表示名は金床で誰でも付けられるため、
+        // 「TofuGold」と名付けただけの金インゴットが 9 コインの通貨として通ってしまう。
+        // Lore と CustomModelData はサバイバルでは付けられず、銀行が発行した TofuGold は
+        // 新旧どちらの形式でも必ず持っているので、既存の手持ちは通貨のまま扱える。
 
         // Loreチェック（TofuNomicsまたは豆腐銀行が含まれていればOK）
         if (meta.hasLore()) {
@@ -303,6 +301,14 @@ public class ItemManager {
         return isValidGoldNugget(item) || isLegacyGoldNugget(item);
     }
     
+    /**
+     * 通貨（TofuCoin / TofuGold。旧形式を含む）かどうかを判定する。
+     * クラフト・売却・買い注文への供給など「通貨を別の物として扱ってはいけない」場面で使う。
+     */
+    public boolean isCurrencyItem(ItemStack item) {
+        return isAnyValidGoldNugget(item) || isAnyValidGoldIngot(item);
+    }
+
     public int countGoldNuggetsInInventory(Player player) {
         PlayerInventory inventory = player.getInventory();
         int totalAmount = 0;
@@ -322,15 +328,35 @@ public class ItemManager {
     }
     
     public boolean removeGoldNuggetsFromInventory(Player player, int amount) {
-        if (amount <= 0) {
+        int unplacedChange = removeGoldNuggetsReturningUnplacedChange(player, amount);
+        if (unplacedChange < 0) {
             return false;
         }
+        if (unplacedChange > 0) {
+            // 口座へ回せない呼び出し元向けの最後の受け皿。消さずに通貨として足元へ落とす
+            dropGoldNuggetsAtLocation(player, unplacedChange);
+        }
+        return true;
+    }
+
+    /**
+     * 通貨を amount コイン分だけ手持ちから引き落とす。
+     * TofuGold を崩したお釣りが手持ちに入りきらなかった場合、その枚数を返す
+     * （呼び出し元が口座へ入金するなどして、お釣りを消さないようにする）。
+     *
+     * @return 入りきらなかったお釣りの枚数（0 以上）。引き落とせなかった場合は -1
+     */
+    public int removeGoldNuggetsReturningUnplacedChange(Player player, int amount) {
+        if (amount <= 0) {
+            return -1;
+        }
+        int unplacedChange = 0;
         
         PlayerInventory inventory = player.getInventory();
         int totalAvailable = countGoldNuggetsInInventory(player);
         
         if (totalAvailable < amount) {
-            return false;
+            return -1;
         }
         
         int remaining = amount;
@@ -387,9 +413,9 @@ public class ItemManager {
                             }
                         }
 
-                        // お釣りの金塊を追加
+                        // お釣りの金塊を追加（入りきらない分は呼び出し元へ返す）
                         if (changeNuggets > 0) {
-                            addGoldNuggetsToInventory(player, changeNuggets);
+                            unplacedChange += addGoldNuggetsWithLeftover(player, changeNuggets);
                         }
 
                         remaining = 0;
@@ -398,54 +424,42 @@ public class ItemManager {
             }
         }
         
-        return remaining == 0;
+        return remaining == 0 ? unplacedChange : -1;
     }
     
     public boolean addGoldNuggetsToInventory(Player player, int amount) {
         if (amount <= 0) {
             return false;
         }
-        
+
         // 事前にスペースをチェック（既存の金塊スタックの空きも考慮）
         if (!hasInventorySpace(player, amount)) {
             return false;
         }
-        
-        PlayerInventory inventory = player.getInventory();
-        int remaining = amount;
-        List<ItemStack> addedItems = new ArrayList<>();
-        
-        try {
-            while (remaining > 0) {
-                int stackSize = Math.min(remaining, Material.GOLD_NUGGET.getMaxStackSize());
-                ItemStack goldNugget = createGoldNugget(stackSize);
-                
-                // addItemの戻り値をチェック（追加できなかったアイテムがある場合はロールバック）
-                HashMap<Integer, ItemStack> leftover = inventory.addItem(goldNugget);
-                
-                if (!leftover.isEmpty()) {
-                    // 追加失敗 - これまでに追加したアイテムをロールバック
-                    for (ItemStack added : addedItems) {
-                        inventory.removeItem(added);
-                    }
-                    return false;
-                }
-                
-                addedItems.add(goldNugget);
-                remaining -= stackSize;
-            }
-            
-            return true;
-        } catch (Exception e) {
-            // 例外発生時もロールバック
-            for (ItemStack added : addedItems) {
-                inventory.removeItem(added);
-            }
-            org.bukkit.Bukkit.getLogger().warning("[ItemManager] addGoldNuggetsToInventory failed with exception: " + e.getMessage());
+
+        // 全部入るか、まったく入らないかのどちらかにする。
+        // 途中まで入った分（既存スタックに入った端数を含む）を残すと、
+        // 呼び出し元の返金と合わせてコインが増えてしまう。
+        int leftover = addGoldNuggetsWithLeftover(player, amount);
+        if (leftover > 0) {
+            removeExactGoldNuggets(player, amount - leftover);
             return false;
         }
+        return true;
     }
-    
+
+    /**
+     * addGoldNuggetsWithLeftover で入れた新形式コインを、入れた枚数だけ取り除く（巻き戻し用）。
+     */
+    private void removeExactGoldNuggets(Player player, int amount) {
+        int remaining = amount;
+        while (remaining > 0) {
+            int stackSize = Math.min(remaining, NUGGET_MAX_STACK_SIZE);
+            player.getInventory().removeItem(createGoldNugget(stackSize));
+            remaining -= stackSize;
+        }
+    }
+
     // インベントリに入る分だけ金塊を追加し、入りきらなかった枚数を返す（ロールバックしない）
     public int addGoldNuggetsWithLeftover(Player player, int amount) {
         if (amount <= 0) {
@@ -490,21 +504,32 @@ public class ItemManager {
     public boolean hasInventorySpace(Player player, int amount) {
         PlayerInventory inventory = player.getInventory();
         int emptySlots = 0;
-        int maxStackSize = Material.GOLD_NUGGET.getMaxStackSize();
-        
-        for (ItemStack item : inventory.getContents()) {
-            if (item == null) {
+        int partialSpace = 0;
+        int maxStackSize = NUGGET_MAX_STACK_SIZE;
+
+        // addItem が入れるのは収納 36 枠だけ。防具・オフハンドの枠は空きに数えない
+        for (ItemStack item : inventory.getStorageContents()) {
+            if (item == null || item.getType() == Material.AIR) {
                 emptySlots++;
             } else if (isValidGoldNugget(item)) {
-                int availableSpace = maxStackSize - item.getAmount();
-                amount -= availableSpace;
+                partialSpace += Math.max(0, maxStackSize - item.getAmount());
             }
         }
-        
-        int requiredSlots = (int) Math.ceil((double) amount / maxStackSize);
-        return emptySlots >= requiredSlots;
+
+        return fitsInStorage(amount, emptySlots, partialSpace, maxStackSize);
     }
-    
+
+    /**
+     * 空き枠の数と、同じ品の既存スタックの空きから、amount 個が入りきるかを判定する。
+     */
+    public static boolean fitsInStorage(int amount, int emptySlots, int partialSpace, int maxStackSize) {
+        if (amount <= 0) {
+            return true;
+        }
+        long capacity = (long) emptySlots * maxStackSize + partialSpace;
+        return capacity >= amount;
+    }
+
     public void dropGoldNuggetsAtLocation(Player player, int amount) {
         if (amount <= 0) {
             return;

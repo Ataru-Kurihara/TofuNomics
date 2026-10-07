@@ -717,8 +717,8 @@ public class MarketManager {
                 buyer.getUniqueId(), listingId, System.currentTimeMillis());
 
         if (!outcome.isSuccess()) {
-            // 売却失敗 → 回収した現金を返金（スペースチェックは不要＝直前に同額を取り除いている）
-            currencyConverter.receiveCash(buyer, price, true);
+            // 売却失敗 → 回収した現金を返金（入りきらない分は口座へ入金する）
+            refundCash(buyer, price);
             return outcome.getResult();
         }
 
@@ -820,8 +820,8 @@ public class MarketManager {
                 price, System.currentTimeMillis());
 
         if (result != MarketResult.REQUESTED) {
-            // 登録失敗 → 回収した前払いを返金（スペースチェックは不要＝直前に同額を取り除いている）
-            currencyConverter.receiveCash(requester, price, true);
+            // 登録失敗 → 回収した前払いを返金（入りきらない分は口座へ入金する）
+            refundCash(requester, price);
         }
         return result;
     }
@@ -858,13 +858,20 @@ public class MarketManager {
         }
         int amount = order.getAmount();
 
-        // 手持ちに供給可能な個数があるか
-        if (countMaterial(supplier, material) < amount) {
+        // 手持ちに供給可能な個数があるか。
+        // 募集者には新品（new ItemStack）を渡すので、供給できるのは「素の品」だけにする。
+        // 種類だけで数えると、耐久の減った道具が新品に化け、通貨（TofuCoin は種類としては金塊）や
+        // NPC 購入マーカー付きの品もただの品に変わってしまう。
+        if (countPlainMaterial(supplier, material) < amount) {
+            if (hasOnlyNonPlainItems(countPlainMaterial(supplier, material), countMaterial(supplier, material), amount)) {
+                // 品は持っているのに出せない場合は、理由が分かるように伝える
+                supplier.sendMessage("§e名前・エンチャント付きの品、使用済みの道具、通貨、NPC から買った品は募集に出せません。");
+            }
             return MarketResult.NO_MATCHING_ITEM;
         }
 
         // 手持ちから除去し、供給アイテムをシリアライズ（除去 → serialize → DB の安全順序）
-        removeMaterial(supplier, material, amount);
+        removePlainMaterial(supplier, material, amount);
         ItemStack supplied = new ItemStack(material, amount);
         String itemData = MarketItemSerializer.serialize(supplied);
         if (itemData == null) {
@@ -929,7 +936,7 @@ public class MarketManager {
 
         if (result == MarketResult.ORDER_CANCELLED) {
             // 状態遷移成功後に前払いを返金（本人操作＝オンライン前提）
-            currencyConverter.receiveCash(requester, order.getPrice(), true);
+            refundCash(requester, order.getPrice());
         }
         return result;
     }
@@ -1046,7 +1053,7 @@ public class MarketManager {
             requester.getInventory().setItemInMainHand(null);
         } else {
             // 登録失敗 → 回収した前払いを返金
-            currencyConverter.receiveCash(requester, price, true);
+            refundCash(requester, price);
         }
         return result;
     }
@@ -1160,7 +1167,7 @@ public class MarketManager {
         if (result == MarketResult.SERVICE_CANCELLED) {
             // 状態遷移成功後に道具を返却し、前払いを返金
             giveItem(requester, req.getItemData());
-            currencyConverter.receiveCash(requester, req.getPrice(), true);
+            refundCash(requester, req.getPrice());
         }
         return result;
     }
@@ -1258,6 +1265,69 @@ public class MarketManager {
             Location loc = player.getLocation();
             for (ItemStack drop : leftover.values()) {
                 player.getWorld().dropItem(loc, drop);
+            }
+        }
+    }
+
+    /**
+     * 返金する。入る分は金塊で渡し、入りきらない分は口座へ入金する。
+     * 「空きが無ければ何も渡さない」受け取り方だと、満杯のときに返金が丸ごと消えるため使わない。
+     */
+    private void refundCash(Player player, double amount) {
+        int banked = currencyConverter.receiveCashWithBankFallback(player, amount);
+        if (banked > 0) {
+            player.sendMessage("§eインベントリに空きがないため、返金のうち" + banked + "コインを口座に入金しました。");
+        }
+    }
+
+    /**
+     * 買い注文に供給できる「素の品」かどうか。
+     * 名前・耐久の減り・エンチャント・各種の印（通貨、NPC 購入マーカー）が何も付いていない品だけを認める。
+     */
+    static boolean isPlainItem(ItemStack stack, Material material) {
+        return stack != null && stack.getType() == material && !stack.hasItemMeta();
+    }
+
+    /**
+     * 「種類としては足りているのに、素の品だけでは足りない」かどうか。
+     * 断る理由（加工済み・使用済みの品は出せない）を本人に伝えるかの判定に使う。
+     */
+    static boolean hasOnlyNonPlainItems(int plainCount, int totalCount, int required) {
+        return plainCount < required && totalCount >= required;
+    }
+
+    /**
+     * 収納枠にある「素の品」の合計個数を数える（装備中・オフハンドは含めない）。
+     */
+    private int countPlainMaterial(Player player, Material material) {
+        int total = 0;
+        for (ItemStack stack : player.getInventory().getStorageContents()) {
+            if (isPlainItem(stack, material)) {
+                total += stack.getAmount();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * 収納枠から「素の品」を合計 amount 個だけ除去する。
+     * 呼び出し前に {@link #countPlainMaterial} で所持数を確認していることを前提とする。
+     */
+    private void removePlainMaterial(Player player, Material material, int amount) {
+        int remaining = amount;
+        ItemStack[] storage = player.getInventory().getStorageContents();
+        for (int i = 0; i < storage.length && remaining > 0; i++) {
+            ItemStack stack = storage[i];
+            if (!isPlainItem(stack, material)) {
+                continue;
+            }
+            int take = Math.min(remaining, stack.getAmount());
+            remaining -= take;
+            if (stack.getAmount() - take <= 0) {
+                player.getInventory().setItem(i, null);
+            } else {
+                stack.setAmount(stack.getAmount() - take);
+                player.getInventory().setItem(i, stack);
             }
         }
     }

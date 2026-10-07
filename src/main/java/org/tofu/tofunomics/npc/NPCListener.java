@@ -33,6 +33,11 @@ public class NPCListener implements Listener {
     
     // プレイヤーの取引状態を管理
     private final Map<UUID, TradingSession> activeTradingSessions = new ConcurrentHashMap<>();
+
+    // GUI の表示待ち（NPC をクリックしてから GUI が開くまで）のプレイヤー。
+    // 待っているあいだの再クリックを受け付けると GUI が二重に予約され、
+    // 1 枚目を開いたまま 2 枚目が開いてしまう。
+    private final Set<UUID> pendingGuiOpen = ConcurrentHashMap.newKeySet();
     
     public NPCListener(TofuNomics plugin, ConfigManager configManager, NPCManager npcManager,
                      BankNPCManager bankNPCManager, TradingNPCManager tradingNPCManager,
@@ -90,6 +95,11 @@ public class NPCListener implements Listener {
         }
 
         event.setCancelled(true); // デフォルトの村人取引を無効化
+
+        // GUI の表示待ち中の再クリックは受け付けない（NPC の種類を問わない）
+        if (isGuiOpenPending(pendingGuiOpen, player.getUniqueId())) {
+            return;
+        }
 
         try {
             NPCManager.NPCData npcData = npcManager.getNPCData(npcId);
@@ -153,6 +163,7 @@ public class NPCListener implements Listener {
         if (handled) {
             // 取引セッションを記録
             activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "banker"));
+            markGuiOpenPending(player);
         }
     }
     
@@ -170,6 +181,7 @@ public class NPCListener implements Listener {
         if (handled) {
             // クールダウン管理用にセッションを記録
             activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "trader"));
+            markGuiOpenPending(player);
         }
     }
     
@@ -188,6 +200,7 @@ public class NPCListener implements Listener {
                 boolean handled = questNPCManager.handleQuestNPCInteraction(player, npcId);
                 if (handled) {
                     activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "quest"));
+                    markGuiOpenPending(player);
                 } else {
                     plugin.getLogger().warning("クエスト受注NPC相互作用の処理に失敗: " + npcId);
                     player.sendMessage("§cクエスト受注NPCとの処理中にエラーが発生しました。");
@@ -218,6 +231,7 @@ public class NPCListener implements Listener {
                 if (handled) {
                     // 取引セッションを記録
                     activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "processing"));
+                    markGuiOpenPending(player);
                 } else {
                     plugin.getLogger().warning("加工NPC相互作用の処理に失敗: " + npcId);
                     player.sendMessage("§c加工NPCとの処理中にエラーが発生しました。");
@@ -249,6 +263,7 @@ public class NPCListener implements Listener {
                 if (handled) {
                     // 取引セッションを記録
                     activeTradingSessions.put(player.getUniqueId(), new TradingSession(npcId, "food_merchant"));
+                    markGuiOpenPending(player);
                 } else {
                     plugin.getLogger().warning("食料NPC相互作用の処理に失敗: " + npcId);
                     plugin.getLogger().warning("NPCがFoodNPCManagerに登録されていない可能性があります");
@@ -286,6 +301,25 @@ public class NPCListener implements Listener {
         }
     }
     
+    /**
+     * 表示待ち中かどうか。
+     */
+    static boolean isGuiOpenPending(Set<UUID> pending, UUID playerId) {
+        return pending.contains(playerId);
+    }
+
+    /**
+     * GUI の表示を予約したプレイヤーを「表示待ち」にし、GUI が開いた次の tick で解除する。
+     * 実時間ではなく tick で数えるので、サーバーが重くても GUI が開く前に解除されない。
+     */
+    private void markGuiOpenPending(Player player) {
+        UUID playerId = player.getUniqueId();
+        pendingGuiOpen.add(playerId);
+        long releaseDelay = Math.max(0, configManager.getNPCGUIDelayTicks()) + 1L;
+        plugin.getServer().getScheduler().runTaskLater(plugin,
+            () -> pendingGuiOpen.remove(playerId), releaseDelay);
+    }
+
     private boolean hasRecentInteraction(UUID playerId, String npcType) {
         TradingSession session = activeTradingSessions.get(playerId);
         if (session == null) {
@@ -363,6 +397,7 @@ public class NPCListener implements Listener {
         // プレイヤーがログアウトしたら取引セッションを削除
         UUID playerId = event.getPlayer().getUniqueId();
         activeTradingSessions.remove(playerId);
+        pendingGuiOpen.remove(playerId);
     }
     
     /**

@@ -7,12 +7,14 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.economy.ItemNameText;
 import org.tofu.tofunomics.jobs.JobManager;
 import org.tofu.tofunomics.npc.TradingNPCManager;
 import org.tofu.tofunomics.trade.TradePriceManager;
@@ -135,10 +137,10 @@ public class TradingGUI implements Listener {
                 // 職業がある場合、職業対応チェック
                 if (!tradingPost.acceptsJob(playerJob)) {
                     String npcType = getNPCTypeFromTradingPostId(tradingPost.getId());
-                    String acceptedJobsStr = String.join(", ", tradingPost.getAcceptedJobTypes());
+                    String acceptedJobsStr = jobDisplayNames(tradingPost.getAcceptedJobTypes());
                     configManager.sendNPCSpecificMessageList(player, npcType, "job_not_accepted", 
                         "player", player.getName(), 
-                        "job", playerJob, 
+                        "job", configManager.getJobDisplayName(playerJob), 
                         "accepted_jobs", acceptedJobsStr);
                     return;
                 }
@@ -225,7 +227,7 @@ public class TradingGUI implements Listener {
      */
     private void sendJobMismatchMessage(Player player, TradingNPCManager.TradingPost tradingPost,
                                         String playerJob, TradingMode mode) {
-        String acceptedJobsStr = String.join("、", tradingPost.getAcceptedJobTypes());
+        String acceptedJobsStr = jobDisplayNames(tradingPost.getAcceptedJobTypes());
         String action = (mode == TradingMode.BUY) ? "購入" : "売却";
 
         player.sendMessage("§c" + action + "はこの取引所の対応職業のみ可能です");
@@ -233,8 +235,20 @@ public class TradingGUI implements Listener {
             player.sendMessage("§e対応職業: §f" + acceptedJobsStr);
             player.sendMessage("§7コマンド: §f/jobs join <職業名>");
         } else {
-            player.sendMessage("§eお客様の職業: §f" + playerJob + "§e、対応職業: §f" + acceptedJobsStr);
+            player.sendMessage("§eお客様の職業: §f" + configManager.getJobDisplayName(playerJob)
+                + "§e、対応職業: §f" + acceptedJobsStr);
         }
+    }
+
+    /**
+     * 職業の内部名（miner 等）の一覧を、表示名（鉱夫 等）を「、」でつないだ文字列にする。
+     */
+    private String jobDisplayNames(Collection<String> jobTypes) {
+        List<String> names = new ArrayList<>();
+        for (String jobType : jobTypes) {
+            names.add(configManager.getJobDisplayName(jobType));
+        }
+        return String.join("、", names);
     }
 
     private void setupTradingGUIItems(Inventory gui, Player player, TradingNPCManager.TradingPost tradingPost, TradingGUISession session) {
@@ -310,7 +324,7 @@ public class TradingGUI implements Listener {
             "§6取引情報",
             Arrays.asList(
                 "§f現在の残高: §a" + currencyConverter.formatCurrency(balance),
-                "§f職業: §e" + (playerJob != null ? playerJob : "無職"),
+                "§f職業: §e" + (playerJob != null ? configManager.getJobDisplayName(playerJob) : "無職"),
                 "§f職業ボーナス: §a" + ((playerJob != null && !tradingPost.isGeneralStore()) ? String.format("%.0f%%", (configManager.getJobPriceMultiplier(playerJob) - 1.0) * 100) : "なし"),
                 "",
                 "§7アイテムをクリックして売却"
@@ -381,13 +395,14 @@ public class TradingGUI implements Listener {
         
         if (meta != null) {
             // 色違いブロックの代表色は「色不問」であることを名称・説明で明示する
+            // 表示名は付けない。付けなければクライアントが自分の言語の名前で表示する
+            //（内部名を整形した "Wooden Pickaxe" のような英語表示を避ける）
             boolean isColorBase = org.tofu.tofunomics.util.BlockNormalizer.isColorVariantBase(material);
-            meta.setDisplayName("§f" + getDisplayName(material) + (isColorBase ? " §7(色不問)" : ""));
 
             List<String> lore = new ArrayList<>();
 
             if (isColorBase) {
-                lore.add("§b※ 色違い(全16色)も同価格で売却できます");
+                lore.add("§b※ 色不問: 色違い(全16色)も同価格で売却できます");
                 lore.add("");
             }
 
@@ -438,8 +453,7 @@ public class TradingGUI implements Listener {
         ItemMeta meta = item.getItemMeta();
 
         if (meta != null) {
-            meta.setDisplayName("§f" + getDisplayName(material));
-
+            // 表示名は付けない（クライアントの翻訳名で表示される）
             List<String> lore = new ArrayList<>();
             lore.add("§f購入価格: §e" + currencyConverter.formatCurrency(price));
             lore.add("");
@@ -469,9 +483,9 @@ public class TradingGUI implements Listener {
     
     private int countPlayerItems(Player player, Material material) {
         int count = 0;
-        for (ItemStack item : player.getInventory().getContents()) {
+        for (ItemStack item : player.getInventory().getStorageContents()) {
             if (item != null && matchesSellable(item.getType(), material)
-                    && !NPCPurchaseMarker.isMarked(plugin, item)) {
+                    && isSellableStack(item)) {
                 count += item.getAmount();
             }
         }
@@ -611,8 +625,7 @@ public class TradingGUI implements Listener {
         if (item == null) {
             return false;
         }
-        return currencyConverter.getItemManager().isValidGoldNugget(item) 
-            || currencyConverter.getItemManager().isValidCurrencyGoldIngot(item);
+        return currencyConverter.getItemManager().isCurrencyItem(item);
     }
     
     /**
@@ -736,13 +749,18 @@ public class TradingGUI implements Listener {
         
         event.setCancelled(true);
         
+        // 手持ち側のクリックではボタンを反応させない
+        if (!GuiSafety.isTopSlot(event.getRawSlot(), session.getInventory().getSize())) {
+            return;
+        }
+        
         ItemStack clickedItem = event.getCurrentItem();
         if (clickedItem == null || clickedItem.getType() == Material.AIR) {
             return;
         }
         
         try {
-            handleTradingGUIClick(player, session, event.getSlot(), event.getClick(), clickedItem);
+            handleTradingGUIClick(player, session, event.getRawSlot(), event.getClick(), clickedItem);
         } catch (Exception e) {
             plugin.getLogger().severe("取引GUIクリック処理中にエラーが発生しました: " + e.getMessage());
             player.sendMessage(configManager.getMessage("npc.trading.action_error"));
@@ -866,82 +884,86 @@ public class TradingGUI implements Listener {
                 return;
         }
         
-        // プレイヤーのアイテムから売却処理
-        List<ItemStack> itemsToSell = new ArrayList<>();
-        int remaining = sellAmount;
-        
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && matchesSellable(item.getType(), material) && !isCurrencyItem(item)
-                    && !NPCPurchaseMarker.isMarked(plugin, item) && remaining > 0) {
-                int available = item.getAmount();
-                int takeAmount = Math.min(available, remaining);
-                
-                if (takeAmount > 0) {
-                    ItemStack sellItem = item.clone();
-                    sellItem.setAmount(takeAmount);
-                    itemsToSell.add(sellItem);
-                    remaining -= takeAmount;
-                }
-            }
-        }
-        
-        if (itemsToSell.isEmpty()) {
-            player.sendMessage(configManager.getMessage("npc.trading.no_items_to_sell"));
+        // 売却時の職業チェック
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        if (!tradingPost.acceptsJobForSale(playerJob)) {
+            sendJobMismatchMessage(player, tradingPost, playerJob, TradingMode.SELL);
             return;
         }
 
-        // 売却時の職業チェック（購入と異なり、売却は職業制限あり）
-        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
-        if (!tradingPost.acceptsJobForSale(playerJob)) {
-            player.sendMessage("§c売却はこの取引所の対応職業のみ可能です");
-            String acceptedJobsStr = String.join("、", tradingPost.getAcceptedJobTypes());
-            if (playerJob == null) {
-                player.sendMessage("§e対応職業: §f" + acceptedJobsStr);
-                player.sendMessage("§7コマンド: §f/jobs join <職業名>");
-            } else {
-                player.sendMessage("§eお客様の職業: §f" + playerJob + "§e、対応職業: §f" + acceptedJobsStr);
-            }
+        sellSelectedSlots(player, tradingPost,
+            item -> matchesSellable(item.getType(), material) && isSellableStack(item),
+            sellAmount, false);
+    }
+
+    /**
+     * 取引所で売ってよいスタックかどうか（通貨と NPC 購入品は売れない）。
+     */
+    private boolean isSellableStack(ItemStack item) {
+        return item != null && !isCurrencyItem(item) && !NPCPurchaseMarker.isMarked(plugin, item);
+    }
+
+    /**
+     * 収納 36 枠から条件に合う品を選んで売却する（個別売却・全売却の共通処理）。
+     *
+     * 売る品は「どのマスから何個」という形で決め、同じマスから消す。
+     * 装備中・オフハンドの品は対象にしない。
+     */
+    private void sellSelectedSlots(Player player, TradingNPCManager.TradingPost tradingPost,
+                                   java.util.function.Predicate<ItemStack> sellable, int limit, boolean sellAll) {
+        org.bukkit.inventory.PlayerInventory inventory = player.getInventory();
+        Map<Integer, Integer> selected = GuiSafety.selectSellSlots(inventory.getStorageContents(), sellable, limit);
+
+        if (selected.isEmpty()) {
+            player.sendMessage(configManager.getMessage(
+                sellAll ? "npc.trading.no_sellable_items" : "npc.trading.no_items_to_sell"));
             return;
         }
 
         // 先にインベントリからアイテムを削除（ロールバック用に記録）
         // 金塊が入りきらない場合は口座へ自動入金されるため、事前のスペースチェックは行わない
+        List<ItemStack> itemsToSell = new ArrayList<>();
         Map<Integer, ItemStack> removedItems = new HashMap<>();
-        for (ItemStack sellItem : itemsToSell) {
-            int remainingToRemove = sellItem.getAmount();
-            Material sellMaterial = sellItem.getType();
-            
-            for (int i = 0; i < player.getInventory().getSize(); i++) {
-                ItemStack item = player.getInventory().getItem(i);
-                if (item != null && item.getType() == sellMaterial && remainingToRemove > 0
-                        && !NPCPurchaseMarker.isMarked(plugin, item)) {
-                    int removeAmount = Math.min(item.getAmount(), remainingToRemove);
-                    
-                    // バックアップ
-                    removedItems.put(i, item.clone());
-                    
-                    // 削除（0個になる場合はスロットをnullに設定）
-                    if (item.getAmount() <= removeAmount) {
-                        player.getInventory().setItem(i, null);
-                    } else {
-                        item.setAmount(item.getAmount() - removeAmount);
-                        player.getInventory().setItem(i, item);
-                    }
-                    remainingToRemove -= removeAmount;
-                }
+        for (Map.Entry<Integer, Integer> entry : selected.entrySet()) {
+            int slot = entry.getKey();
+            int takeAmount = entry.getValue();
+            ItemStack item = inventory.getItem(slot);
+            if (item == null) {
+                continue;
+            }
+
+            // バックアップ
+            removedItems.put(slot, item.clone());
+
+            ItemStack sellItem = item.clone();
+            sellItem.setAmount(takeAmount);
+            itemsToSell.add(sellItem);
+
+            // 削除（0個になる場合はスロットをnullに設定）
+            if (item.getAmount() <= takeAmount) {
+                inventory.setItem(slot, null);
+            } else {
+                item.setAmount(item.getAmount() - takeAmount);
+                inventory.setItem(slot, item);
             }
         }
-        
+
         // 売却処理を実行（満杯分は口座へフォールバックするためスペースチェックは行わない）
         TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(
             player,
             tradingPost.getNpcId(),
             itemsToSell);
-        
+
         if (result.isSuccess()) {
             // 成功 - アイテムは既に削除済み
             String earnings = currencyConverter.formatCurrency(result.getTotalEarnings());
-            player.sendMessage(configManager.getMessage("npc.trading.sale_success", "total", earnings));
+            if (sellAll) {
+                player.sendMessage(configManager.getMessage("npc.trading.sell_all_success",
+                    "total", earnings,
+                    "count", String.valueOf(result.getSoldItems().values().stream().mapToInt(Integer::intValue).sum())));
+            } else {
+                player.sendMessage(configManager.getMessage("npc.trading.sale_success", "total", earnings));
+            }
             // 所持枠が満杯で金塊が入りきらなかった分は口座へ入金済みであることを通知
             if (result.getBankedNuggets() > 0) {
                 player.sendMessage(configManager.getMessage("npc.trading.banked_overflow",
@@ -950,7 +972,7 @@ public class TradingGUI implements Listener {
         } else {
             // 失敗 - アイテムをロールバック
             for (Map.Entry<Integer, ItemStack> entry : removedItems.entrySet()) {
-                player.getInventory().setItem(entry.getKey(), entry.getValue());
+                inventory.setItem(entry.getKey(), entry.getValue());
             }
             player.sendMessage(result.getMessage());
         }
@@ -1001,17 +1023,12 @@ public class TradingGUI implements Listener {
         }
         
         // インベントリ空きチェック
-        int emptySlots = 0;
-        for (ItemStack item : player.getInventory().getStorageContents()) {
-            if (item == null || item.getType() == Material.AIR) {
-                emptySlots++;
-            } else if (item.getType() == material && item.getAmount() < item.getMaxStackSize()) {
-                emptySlots++; // スタック可能なスロットもカウント
-            }
-        }
-        
-        int requiredSlots = (purchaseAmount + material.getMaxStackSize() - 1) / material.getMaxStackSize();
-        if (emptySlots < requiredSlots) {
+        // 購入品には NPC 購入マーカーが付くので、手持ちの同じ種類の品（マーカー無し）には重ならない。
+        // 実際に渡す品と同じ物で空きを数え、入りきらないなら代金を受け取る前に断る。
+        ItemStack purchasedItem = NPCPurchaseMarker.mark(plugin, new ItemStack(material, purchaseAmount));
+        int capacity = GuiSafety.freeCapacityFor(
+            player.getInventory().getStorageContents(), purchasedItem, material.getMaxStackSize());
+        if (capacity < purchaseAmount) {
             player.sendMessage("§cインベントリに空きがありません");
             return;
         }
@@ -1024,85 +1041,32 @@ public class TradingGUI implements Listener {
         }
         
         // アイテムを付与
-        // NPC購入マーカーを付与し、購入したアイテムの取引所での再売却を防止する。
+        // NPC購入マーカー付きで渡し、購入したアイテムの取引所での再売却を防止する。
         // 売却価格には職業倍率がかかるが購入価格にはかからないため、マーカーが無いと
         // 「同一NPCで購入 → 即売却」で差額を無限に得られてしまう。
-        ItemStack purchasedItem = NPCPurchaseMarker.mark(plugin, new ItemStack(material, purchaseAmount));
-        player.getInventory().addItem(purchasedItem);
+        // 支払いで金塊のマスが空くことはあっても埋まることは無いが、念のため入らなかった分は足元へ落とす
+        for (ItemStack notAdded : player.getInventory().addItem(purchasedItem).values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), notAdded);
+        }
 
-        // メッセージ
-        String message = "§a" + material.name() + " を " + purchaseAmount + "個購入しました（" +
+        // メッセージ（アイテム名はクライアントの翻訳名で表示する）
+        String message = "§a{item} を " + purchaseAmount + "個購入しました（" +
                           currencyConverter.formatCurrency(totalPrice) + "）";
-        player.sendMessage(message);
+        ItemNameText.send(player, message, "{item}", material);
     }
     
     private void handleSellAll(Player player, TradingNPCManager.TradingPost tradingPost) {
-        List<ItemStack> allItems = new ArrayList<>();
-        
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getAmount() > 0 && tradingPost.getItemPrice(item.getType()) > 0
-                    && !NPCPurchaseMarker.isMarked(plugin, item)) {
-                allItems.add(item.clone());
-            }
-        }
-        
-        if (allItems.isEmpty()) {
-            player.sendMessage(configManager.getMessage("npc.trading.no_sellable_items"));
+        // 売却時の職業チェック（個別売却と同じ条件）
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        if (!tradingPost.acceptsJobForSale(playerJob)) {
+            sendJobMismatchMessage(player, tradingPost, playerJob, TradingMode.SELL);
             return;
         }
 
-        // 先にインベントリからアイテムを削除（ロールバック用に記録）
-        // 金塊が入りきらない場合は口座へ自動入金されるため、事前のスペースチェックは行わない
-        Map<Integer, ItemStack> removedItems = new HashMap<>();
-        for (ItemStack sellItem : allItems) {
-            int remainingToRemove = sellItem.getAmount();
-            Material sellMaterial = sellItem.getType();
-            
-            for (int i = 0; i < player.getInventory().getSize(); i++) {
-                ItemStack item = player.getInventory().getItem(i);
-                if (item != null && item.getType() == sellMaterial && remainingToRemove > 0
-                        && !NPCPurchaseMarker.isMarked(plugin, item)) {
-                    int removeAmount = Math.min(item.getAmount(), remainingToRemove);
-                    
-                    // バックアップ
-                    removedItems.put(i, item.clone());
-                    
-                    // 削除（0個になる場合はスロットをnullに設定）
-                    if (item.getAmount() <= removeAmount) {
-                        player.getInventory().setItem(i, null);
-                    } else {
-                        item.setAmount(item.getAmount() - removeAmount);
-                        player.getInventory().setItem(i, item);
-                    }
-                    remainingToRemove -= removeAmount;
-                }
-            }
-        }
-        
-        // 売却処理を実行（満杯分は口座へフォールバックするためスペースチェックは行わない）
-        TradingNPCManager.TradeResult result = tradingNPCManager.processItemSale(
-            player,
-            tradingPost.getNpcId(),
-            allItems);
-        
-        if (result.isSuccess()) {
-            // 成功 - アイテムは既に削除済み
-            String earnings = currencyConverter.formatCurrency(result.getTotalEarnings());
-            player.sendMessage(configManager.getMessage("npc.trading.sell_all_success",
-                "total", earnings,
-                "count", String.valueOf(result.getSoldItems().values().stream().mapToInt(Integer::intValue).sum())));
-            // 所持枠が満杯で金塊が入りきらなかった分は口座へ入金済みであることを通知
-            if (result.getBankedNuggets() > 0) {
-                player.sendMessage(configManager.getMessage("npc.trading.banked_overflow",
-                    "amount", result.getBankedNuggets()));
-            }
-        } else {
-            // 失敗 - アイテムをロールバック
-            for (Map.Entry<Integer, ItemStack> entry : removedItems.entrySet()) {
-                player.getInventory().setItem(entry.getKey(), entry.getValue());
-            }
-            player.sendMessage(result.getMessage());
-        }
+        // 通貨（TofuGold は種類としては金インゴット）と NPC 購入品は売らない。装備中・オフハンドも対象外
+        sellSelectedSlots(player, tradingPost,
+            item -> tradingPost.getItemPrice(item.getType()) > 0 && isSellableStack(item),
+            Integer.MAX_VALUE, true);
     }
     
     @EventHandler
@@ -1114,7 +1078,23 @@ public class TradingGUI implements Listener {
         Player player = (Player) event.getPlayer();
         UUID playerId = player.getUniqueId();
         
-        activeSessions.remove(playerId);
+        // 閉じられたのがこのセッションの GUI のときだけ消す（理由は GuiSafety を参照）
+        TradingGUISession session = activeSessions.get(playerId);
+        if (session != null && GuiSafety.isSessionInventory(session.getInventory(), event.getInventory())) {
+            activeSessions.remove(playerId);
+        }
+    }
+    
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        TradingGUISession session = activeSessions.get(event.getWhoClicked().getUniqueId());
+        if (session == null || !session.getInventory().equals(event.getInventory())) {
+            return;
+        }
+        // 手持ちの品を GUI のマスへ置けないようにする
+        if (GuiSafety.dragTouchesTop(event.getRawSlots(), session.getInventory().getSize())) {
+            event.setCancelled(true);
+        }
     }
     
     public void closeAllGUIs() {

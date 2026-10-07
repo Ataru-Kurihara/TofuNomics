@@ -136,4 +136,36 @@ public class JobCraftPermissionManagerTest {
         assertTrue(permissionManager.canPlayerCraftItem(player, Material.COOKED_BEEF));
         assertTrue(permissionManager.canPlayerCraftItem(player, Material.BAKED_POTATO));
     }
+
+    // ===== 拒否文（メッセージのキーとアイテム名の扱い） =====
+
+    @Test
+    public void 拒否文_設定のキーはmessagesを二重に付けずに引く() {
+        setPlayerJob(null);
+        when(configManager.getMessage("craft.no_job_required")).thenReturn("§c就職してください");
+
+        assertEquals("§c就職してください", permissionManager.getCraftDeniedMessage(player, Material.OAK_PLANKS));
+        verify(configManager, never()).getMessage("messages.craft.no_job_required");
+    }
+
+    @Test
+    public void 拒否文_アイテム名は内部名にせず目印のまま返す() {
+        setPlayerJob("miner");
+        when(configManager.getMessage("craft.wrong_job_required"))
+            .thenReturn("§c{item}をクラフトするには{required_job}である必要があります。（現在: {current_job}）");
+        when(configManager.getJobDisplayName("woodcutter")).thenReturn("木こり");
+        when(configManager.getJobDisplayName("miner")).thenReturn("鉱夫");
+
+        String message = permissionManager.getCraftDeniedMessage(player, Material.OAK_PLANKS);
+
+        assertEquals("§c{item}をクラフトするには木こりである必要があります。（現在: 鉱夫）", message);
+        assertFalse("内部名を見せない", message.contains("oak_planks"));
+    }
+
+    @Test
+    public void 専売品の判定_自動クラフター用に公開している() {
+        assertTrue(permissionManager.isJobRestrictedItem(Material.OAK_PLANKS));
+        assertTrue(permissionManager.isJobRestrictedItem(Material.IRON_PICKAXE));
+        assertFalse(permissionManager.isJobRestrictedItem(Material.CRAFTING_TABLE));
+    }
 }

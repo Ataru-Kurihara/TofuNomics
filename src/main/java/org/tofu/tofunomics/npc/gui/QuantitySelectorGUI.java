@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -284,7 +285,12 @@ public class QuantitySelectorGUI implements Listener {
 
         event.setCancelled(true);
 
-        int slot = event.getSlot();
+        // 手持ち側のクリックではボタンを反応させない
+        if (!GuiSafety.isTopSlot(event.getRawSlot(), session.getInventory().getSize())) {
+            return;
+        }
+
+        int slot = event.getRawSlot();
 
         switch (slot) {
             case 10: // -10
@@ -351,6 +357,19 @@ public class QuantitySelectorGUI implements Listener {
 
         if (session != null && event.getInventory().equals(session.getInventory())) {
             activeSessions.remove(player.getUniqueId());
+        }
+    }
+
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        QuantitySelectorSession session = activeSessions.get(event.getWhoClicked().getUniqueId());
+        if (session == null || !session.getInventory().equals(event.getInventory())) {
+            return;
+        }
+        // 手持ちの品を GUI のマスへ置けないようにする
+        if (GuiSafety.dragTouchesTop(event.getRawSlots(), session.getInventory().getSize())) {
+            event.setCancelled(true);
         }
     }
 
