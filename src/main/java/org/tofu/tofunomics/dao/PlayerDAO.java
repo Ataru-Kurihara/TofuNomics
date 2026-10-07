@@ -171,7 +171,10 @@ public class PlayerDAO {
     }
 
     public List<Player> getTopPlayers(int limit) throws SQLException {
-        String query = "SELECT * FROM players ORDER BY (balance + bank_balance) DESC LIMIT ?";
+        // 銀行残高（bank_balance）の多い順に並べる。
+        // balance 列は今は使われておらず、昔の値が残っている人がいる。足して並べると、
+        // その人が残高ランキングの上位の枠を取ってしまう（表示も銀行残高なので順位と食い違う）。
+        String query = "SELECT * FROM players ORDER BY bank_balance DESC LIMIT ?";
         List<Player> players = new ArrayList<>();
         
         try (PreparedStatement statement = connection.prepareStatement(query)) {
