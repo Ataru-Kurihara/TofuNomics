@@ -6,6 +6,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.tofu.tofunomics.TofuNomics;
+import org.tofu.tofunomics.housing.HousingBulkImportPlanner;
 import org.tofu.tofunomics.housing.HousingRentalManager;
 import org.tofu.tofunomics.housing.SelectionManager;
 import org.tofu.tofunomics.housing.gui.HousingHubGUI;
@@ -351,6 +352,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             case "quickregister":
             case "qr":
                 return handleAdminQuickRegister(sender, args);
+            case "import":
+                return handleAdminImport(sender, args);
             case "registergui":
             case "gui":
                 return handleAdminRegisterGui(sender);
@@ -565,6 +568,124 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             player.sendMessage("§c" + result.getMessage());
         }
 
+        return true;
+    }
+
+    /**
+     * 管理者: ファイルに書いた座標から物件をまとめて登録する。
+     * 1 件ごとの処理は quickregister と同じ（WG領域の自動作成・親リージョン・フラグ設定を含む）。
+     * --confirm を付けないときは、登録する件数と飛ばす行を表示するだけで何も変えない。
+     * コンソールからも実行できる。
+     * 使用法: /housing admin import <ファイル名.yml> [--confirm]
+     */
+    private boolean handleAdminImport(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("§c使用法: /housing admin import <ファイル名.yml> [--confirm]");
+            sender.sendMessage("§7plugins/TofuNomics/ に置いたファイルを読みます。--confirm 無しは確認だけです");
+            return true;
+        }
+
+        // データフォルダ直下の .yml だけを読む（パスの指定は受け付けない）
+        String fileName = args[1];
+        if (!fileName.matches("[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.yml")) {
+            sender.sendMessage("§cファイル名は英数字と - _ . だけの .yml にしてください");
+            return true;
+        }
+        java.io.File file = new java.io.File(plugin.getDataFolder(), fileName);
+        if (!file.isFile()) {
+            sender.sendMessage("§cファイルが見つかりません: plugins/TofuNomics/" + fileName);
+            return true;
+        }
+
+        org.bukkit.configuration.file.YamlConfiguration yaml = new org.bukkit.configuration.file.YamlConfiguration();
+        try {
+            yaml.load(file);
+        } catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException e) {
+            sender.sendMessage("§cファイルを読めませんでした: " + e.getMessage());
+            return true;
+        }
+
+        String worldName = yaml.getString("world",
+            plugin.getConfig().getString("housing_rental.world_name", "tofuNomics"));
+        org.bukkit.World world = plugin.getServer().getWorld(worldName);
+        if (world == null) {
+            sender.sendMessage("§cワールドが見つかりません: " + worldName);
+            return true;
+        }
+
+        double defaultRent = yaml.contains("daily_rent")
+            ? yaml.getDouble("daily_rent") : configManager.getHousingDefaultDailyRent();
+
+        HousingBulkImportPlanner.Plan plan = HousingBulkImportPlanner.plan(
+            yaml.getMapList("properties"), worldName, defaultRent, rentalManager.getAllProperties());
+
+        sender.sendMessage("§6===== 物件の一括登録: " + fileName + " =====");
+        sender.sendMessage("§f登録する: §a" + plan.toRegister.size() + "件 §f/ 飛ばす: §e" + plan.skipped.size() + "件");
+        int shown = 0;
+        for (String reason : plan.skipped) {
+            if (shown++ >= 10) {
+                sender.sendMessage("§7  ほか " + (plan.skipped.size() - 10) + " 件（全件はサーバーログ）");
+                break;
+            }
+            sender.sendMessage("§7  " + reason);
+        }
+        for (String reason : plan.skipped) {
+            plugin.getLogger().info("物件の一括登録で飛ばす行: " + reason);
+        }
+
+        boolean confirm = false;
+        for (int i = 2; i < args.length; i++) {
+            if (args[i].equalsIgnoreCase("--confirm")) {
+                confirm = true;
+            }
+        }
+        if (!confirm) {
+            sender.sendMessage("§7確認だけです。登録するには最後に §f--confirm §7を付けて実行してください");
+            return true;
+        }
+        if (plan.toRegister.isEmpty()) {
+            sender.sendMessage("§e登録する物件がありません");
+            return true;
+        }
+
+        boolean createWg = configManager.isHousingAutoCreateWgRegion();
+        int registered = 0;
+        List<String> failed = new ArrayList<>();
+        for (HousingBulkImportPlanner.Entry entry : plan.toRegister) {
+            HousingRentalManager.RentalResult result = rentalManager.registerPropertyFromSelection(
+                entry.name, world,
+                new org.bukkit.Location(world, entry.x1, entry.y1, entry.z1),
+                new org.bukkit.Location(world, entry.x2, entry.y2, entry.z2),
+                entry.dailyRent, createWg
+            );
+            if (result.isSuccess()) {
+                registered++;
+            } else {
+                failed.add(entry.name + "（" + result.getMessage() + "）");
+            }
+        }
+
+        sender.sendMessage("§a" + registered + "件を登録しました");
+        if (!failed.isEmpty()) {
+            sender.sendMessage("§c登録できなかった物件: " + String.join(", ", failed));
+        }
+
+        // WG領域の作成に失敗した物件は座標だけで登録されるので、分かるように知らせる
+        if (createWg) {
+            java.util.Set<String> importedNames = new java.util.HashSet<>();
+            for (HousingBulkImportPlanner.Entry entry : plan.toRegister) {
+                importedNames.add(entry.name);
+            }
+            List<String> withoutRegion = new ArrayList<>();
+            for (HousingProperty property : rentalManager.getAllProperties()) {
+                if (importedNames.contains(property.getPropertyName()) && !property.hasWorldGuardRegion()) {
+                    withoutRegion.add(property.getPropertyName());
+                }
+            }
+            if (!withoutRegion.isEmpty()) {
+                sender.sendMessage("§eWG領域を作れず、座標だけで登録された物件: " + String.join(", ", withoutRegion));
+            }
+        }
         return true;
     }
 
@@ -1004,6 +1125,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/housing admin wand §7- 範囲選択ツール(木の斧)を配布");
         sender.sendMessage("§e/housing admin register <名前> <日額> [--wg <領域名>] §7- 物件登録");
         sender.sendMessage("§e/housing admin quickregister [--name <名>] [--rent <日額>] §7- クイック登録(連番自動命名)");
+        sender.sendMessage("§e/housing admin import <ファイル名.yml> [--confirm] §7- ファイルから一括登録");
         sender.sendMessage("§e/housing admin gui §7- 物件登録GUIを開く");
         sender.sendMessage("§e/housing admin manage §7- 物件管理GUI(一覧→編集)を開く");
         sender.sendMessage("§e/housing admin checkregion [領域名] §7- WGリージョンの確認");
@@ -1033,7 +1155,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                 completions.add("admin");
             }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
-            completions.addAll(Arrays.asList("wand", "register", "quickregister", "gui", "manage", "checkregion", "list", "setrent", "remove"));
+            completions.addAll(Arrays.asList("wand", "register", "quickregister", "import", "gui", "manage", "checkregion", "list", "setrent", "remove"));
         }
 
         return completions;
