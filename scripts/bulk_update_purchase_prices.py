@@ -23,9 +23,9 @@ trading_posts の purchase_prices を職業別に一括刷新するスクリプ�
 
 【使い方】
   1. ./scripts/download_config.sh でサーバーのconfig.ymlを取得
-  2. python3 scripts/bulk_update_purchase_prices.py src/main/resources/server_config.yml --dry-run
-  3. python3 scripts/bulk_update_purchase_prices.py src/main/resources/server_config.yml
-  4. yamllint src/main/resources/server_config.yml
+  2. python3 scripts/bulk_update_purchase_prices.py server-config/server_config.yml --dry-run
+  3. python3 scripts/bulk_update_purchase_prices.py server-config/server_config.yml
+  4. yamllint server-config/server_config.yml
   5. ./scripts/upload_config.sh でアップロード
   6. /tofunomics reload
 

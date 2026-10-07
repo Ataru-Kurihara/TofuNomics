@@ -129,6 +129,28 @@ public class PlayerJoinHandler implements Listener {
     }
 
     /**
+     * ナビゲーションアイテムの置き場にあった私物を、空いているスロットへ移す。
+     * 空きが無い分は足元に落とし、本人に知らせる。
+     */
+    private void relocatePersonalItems(Player player, List<ItemStack> personalItems) {
+        if (personalItems.isEmpty()) {
+            return;
+        }
+        java.util.Map<Integer, ItemStack> leftovers =
+                player.getInventory().addItem(personalItems.toArray(new ItemStack[0]));
+        for (ItemStack leftover : leftovers.values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
+        if (leftovers.isEmpty()) {
+            player.sendMessage(ChatColor.YELLOW + "ロビーのアイテムを置く場所にあった持ち物を、空いているスロットへ移しました。");
+        } else {
+            player.sendMessage(ChatColor.RED + "手持ちに空きが無いため、持ち物の一部を足元に落としました。拾ってください。");
+        }
+        logger.info("ナビゲーションスロットの私物を移しました: " + player.getName()
+                + "（" + personalItems.size() + "件、うち足元に落とした分 " + leftovers.size() + "件）");
+    }
+
+    /**
      * 保存済みの手持ちを復元する。
      * TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）は復元後に置き直す。
      * 読み込みに失敗したときは復元済みの印が付かないので、以後この回は保存されない
@@ -141,9 +163,11 @@ public class PlayerJoinHandler implements Listener {
         }
 
         // TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）を一時保存
-        ItemStack slot9 = player.getInventory().getItem(9);
-        ItemStack slot10 = player.getInventory().getItem(10);
-        ItemStack slot11 = player.getInventory().getItem(11);
+        int[] navigationSlots = NavigationSlotPolicy.NAVIGATION_SLOTS;
+        ItemStack[] navigationItems = new ItemStack[navigationSlots.length];
+        for (int i = 0; i < navigationSlots.length; i++) {
+            navigationItems[i] = player.getInventory().getItem(navigationSlots[i]);
+        }
 
         // インベントリを復元
         InventoryRestoreTracker.LoadResult result = inventoryManager.loadInventory(player);
@@ -154,16 +178,21 @@ public class PlayerJoinHandler implements Listener {
             return;
         }
 
-        // ナビゲーションアイテムを復元（TofuHomePluginのアイテムを優先）
-        if (slot9 != null) {
-            player.getInventory().setItem(9, slot9);
+        // ナビゲーションアイテムを置き直す（TofuHomePluginのアイテムを優先）。
+        // 同じスロットに私物が保存されていた場合は、消さずに別の場所へ移す。
+        List<ItemStack> personalItems = new ArrayList<>();
+        for (int i = 0; i < navigationSlots.length; i++) {
+            ItemStack savedItem = player.getInventory().getItem(navigationSlots[i]);
+            NavigationSlotPolicy.Action action = NavigationSlotPolicy.decide(navigationItems[i], savedItem);
+            if (action == NavigationSlotPolicy.Action.KEEP_SAVED) {
+                continue;
+            }
+            if (action == NavigationSlotPolicy.Action.PLACE_NAVIGATION_AND_RELOCATE_SAVED) {
+                personalItems.add(savedItem);
+            }
+            player.getInventory().setItem(navigationSlots[i], navigationItems[i]);
         }
-        if (slot10 != null) {
-            player.getInventory().setItem(10, slot10);
-        }
-        if (slot11 != null) {
-            player.getInventory().setItem(11, slot11);
-        }
+        relocatePersonalItems(player, personalItems);
 
         logger.info("インベントリ復元完了（ナビゲーションアイテム保護済み）: " + player.getName());
     }

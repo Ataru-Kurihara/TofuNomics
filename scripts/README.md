@@ -1,5 +1,11 @@
 # サーバーConfig管理スクリプト
 
+> **注意**: `download_config.sh` / `upload_config.sh` / `deploy_plugin.sh` と `.server-config.env` は、
+> 旧サーバー（1.16.5、廃止済み）向けに作られたものです。現行サーバーは `ssh lobby` で入り、
+> サーバー上の設定ファイルを直接編集します。
+> 本番設定の写しは `server-config/`（.gitignore 済み）に置きます。`src/main/resources/` に置くと
+> jar に同梱され、公開リポジトリにも入りかねないため、スクリプトはその置き場所を拒否します。
+
 サーバー上の `config.yml` をローカルで編集しやすくするためのスクリプト集です。
 
 ## 初期セットアップ
@@ -32,7 +38,7 @@ SSH_KEY_PATH=~/.ssh/id_rsa
 SERVER_CONFIG_PATH=~/mc/plugins/TofuNomics/config.yml
 
 # ローカルの保存先パス
-LOCAL_CONFIG_PATH=src/main/resources/server_config.yml
+LOCAL_CONFIG_PATH=server-config/server_config.yml
 ```
 
 ### 3. スクリプトに実行権限を付与
@@ -46,7 +52,7 @@ chmod +x scripts/upload_config.sh
 
 ### config.yml のダウンロード
 
-サーバーから `config.yml` をダウンロードして、`src/main/resources/server_config.yml` として保存します。
+サーバーから `config.yml` をダウンロードして、`server-config/server_config.yml` として保存します。
 
 ```bash
 ./scripts/download_config.sh
@@ -82,7 +88,7 @@ chmod +x scripts/upload_config.sh
 2. **ローカルで編集**
    ```bash
    # お好みのエディタで編集
-   vim src/main/resources/server_config.yml
+   vim server-config/server_config.yml
    ```
 
 3. **サーバーにアップロード**
