@@ -101,6 +101,7 @@ download_config.shとupload_config.shを使用する安全な修正方法です�
 - ✅ 誤操作防止（確認プロンプト付き）
 
 **使用するスクリプト：**
+（注: これらのスクリプトと `.server-config.env` は旧サーバー（1.16.5、廃止済み）向けに作られたもの。現行サーバーは `ssh lobby` で入り、サーバー上の config.yml を直接編集する。写しの置き場所 `server-config/` は .gitignore 済みで、jar にも入らない）
 - `scripts/download_config.sh` - サーバーからconfig.ymlをダウンロード
 - `scripts/upload_config.sh` - 編集したconfig.ymlをサーバーにアップロード
 
@@ -110,7 +111,7 @@ download_config.shとupload_config.shを使用する安全な修正方法です�
    ```bash
    ./scripts/download_config.sh
    ```
-   → `src/main/resources/server_config.yml`に保存される（既存ファイルは自動バックアップ）
+   → `server-config/server_config.yml`に保存される（既存ファイルは自動バックアップ）
 
 2. **server_config.ymlを編集**
    - エディタで該当箇所のみを修正・追加
@@ -118,7 +119,7 @@ download_config.shとupload_config.shを使用する安全な修正方法です�
 
 3. **YAML構文チェック**
    ```bash
-   yamllint src/main/resources/server_config.yml
+   yamllint server-config/server_config.yml
    # またはオンラインバリデーター: https://www.yamllint.com/
    ```
 
@@ -138,7 +139,7 @@ download_config.shとupload_config.shを使用する安全な修正方法です�
    /reload confirm
 
    # 方法3: SSH経由でコマンド実行
-   ssh ubuntu@116.80.66.104 -i ~/.ssh/tofu_home_key/private_key2.txt
+   ssh lobby
    # サーバーコンソールで /tofunomics reload を実行
    ```
 

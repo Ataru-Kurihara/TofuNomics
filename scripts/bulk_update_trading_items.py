@@ -15,9 +15,9 @@ trading_posts の items リストを職業別に一括拡充するスクリプ�
 
 【使い方】
   1. ./scripts/download_config.sh でサーバーのconfig.ymlを取得
-  2. python3 scripts/bulk_update_trading_items.py src/main/resources/server_config.yml
+  2. python3 scripts/bulk_update_trading_items.py server-config/server_config.yml
   3. yamllint で構文チェック
-  4. git diff src/main/resources/server_config.yml で座標行にゼロ差分を確認
+  4. git diff server-config/server_config.yml で座標行にゼロ差分を確認
   5. ./scripts/upload_config.sh でアップロード
   6. /tofunomics reload
 

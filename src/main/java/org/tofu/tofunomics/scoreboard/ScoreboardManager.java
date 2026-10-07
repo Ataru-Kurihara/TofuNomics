@@ -187,6 +187,8 @@ public class ScoreboardManager implements Listener {
             // 職業情報を取得
             PlayerJob currentJob = jobManager.getCurrentJob(player.getUniqueId());
             String jobInfo = "なし";
+            // 画面に出す職業名（内部名 miner ではなく表示名 鉱夫）
+            String jobDisplayName = "なし";
             String levelInfo = "";
             String experienceInfo = "";
         
@@ -195,6 +197,8 @@ public class ScoreboardManager implements Listener {
                 if (jobData != null) {
                     String jobTitle = jobManager.getJobTitle(currentJob.getJobId(), currentJob.getLevel());
                     jobInfo = jobData.getName();
+                    jobDisplayName = ChatColor.stripColor(
+                            ChatColor.translateAlternateColorCodes('&', jobManager.getJobDisplayName(jobInfo)));
                     levelInfo = "Lv." + currentJob.getLevel() + " " + jobTitle;
                     
                     // 次レベルまでの経験値計算
@@ -291,7 +295,7 @@ public class ScoreboardManager implements Listener {
             
             // 職業名
             if (configManager.isScoreboardShowJob()) {
-                objective.getScore(ChatColor.AQUA + "職業: " + ChatColor.WHITE + jobInfo).setScore(score--);
+                objective.getScore(ChatColor.AQUA + "職業: " + ChatColor.WHITE + jobDisplayName).setScore(score--);
             }
             
             // 預金残高

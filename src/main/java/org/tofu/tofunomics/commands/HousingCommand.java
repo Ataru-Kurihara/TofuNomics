@@ -47,6 +47,9 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             // 無引数はGUIハブを開く（全操作の入口）。GUI未初期化時やコンソールは従来の使用法表示。
+            if (EconomyWorldGuard.blockIfOutside(sender, configManager)) {
+                return true;
+            }
             if (sender instanceof Player && housingHubGUI != null) {
                 housingHubGUI.open((Player) sender);
             } else {
@@ -76,6 +79,11 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         // プレイヤーコマンド
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます");
+            return true;
+        }
+
+        // 経済ワールドの外（ロビーなど）では使えない（管理用の /housing admin は上で処理済み）
+        if (EconomyWorldGuard.blockIfOutside(sender, configManager)) {
             return true;
         }
 

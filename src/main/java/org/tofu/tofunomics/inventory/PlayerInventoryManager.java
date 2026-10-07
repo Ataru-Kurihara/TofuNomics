@@ -28,6 +28,7 @@ public class PlayerInventoryManager {
     private final Connection connection;
     private final Logger logger;
     private BukkitTask autoSaveTask;
+    private final InventoryRestoreTracker restoreTracker = new InventoryRestoreTracker();
 
     public PlayerInventoryManager(JavaPlugin plugin, Connection connection) {
         this.plugin = plugin;
@@ -39,9 +40,23 @@ public class PlayerInventoryManager {
     }
 
     /**
+     * 復元済みの印を管理するトラッカーを返す
+     */
+    public InventoryRestoreTracker getRestoreTracker() {
+        return restoreTracker;
+    }
+
+    /**
      * プレイヤーのインベントリを保存
+     * 復元が済んでいないプレイヤーは保存しない（空の手持ちで保存データを上書きしないため）。
+     *
+     * @return 保存したら true。復元前で見送った場合と、失敗した場合は false
      */
     public boolean saveInventory(Player player) {
+        if (!restoreTracker.canSave(player.getUniqueId())) {
+            logger.info("プレイヤー " + player.getName() + " は手持ちの復元前のため、保存を見送りました");
+            return false;
+        }
         try {
             UUID playerUuid = player.getUniqueId();
 
@@ -77,8 +92,16 @@ public class PlayerInventoryManager {
 
     /**
      * プレイヤーのインベントリを復元
+     * 保存データをすべて読み終えてから手持ちに反映する（途中で失敗して半分だけ復元されるのを防ぐ）。
+     * 結果に応じて復元済みの印を付ける。失敗のときは印を付けず、手持ちも変えない。
      */
-    public boolean loadInventory(Player player) {
+    public InventoryRestoreTracker.LoadResult loadInventory(Player player) {
+        InventoryRestoreTracker.LoadResult result = loadInventoryInternal(player);
+        restoreTracker.onLoadFinished(player.getUniqueId(), result);
+        return result;
+    }
+
+    private InventoryRestoreTracker.LoadResult loadInventoryInternal(Player player) {
         try {
             UUID playerUuid = player.getUniqueId();
 
@@ -89,40 +112,41 @@ public class PlayerInventoryManager {
                 stmt.setString(1, playerUuid.toString());
                 ResultSet rs = stmt.executeQuery();
 
-                if (rs.next()) {
-                    String inventoryData = rs.getString("inventory_data");
-                    String armorData = rs.getString("armor_data");
-                    String offhandData = rs.getString("offhand_data");
-
-                    // Base64デコードしてインベントリに設定
-                    if (inventoryData != null && !inventoryData.isEmpty()) {
-                        ItemStack[] inventory = itemStackArrayFromBase64(inventoryData);
-                        player.getInventory().setContents(inventory);
-                    }
-
-                    if (armorData != null && !armorData.isEmpty()) {
-                        ItemStack[] armor = itemStackArrayFromBase64(armorData);
-                        player.getInventory().setArmorContents(armor);
-                    }
-
-                    if (offhandData != null && !offhandData.isEmpty()) {
-                        ItemStack offhand = itemStackFromBase64(offhandData);
-                        if (offhand != null) {
-                            player.getInventory().setItemInOffHand(offhand);
-                        }
-                    }
-
-                    logger.info("プレイヤー " + player.getName() + " のインベントリを復元しました");
-                    return true;
-                } else {
+                if (!rs.next()) {
                     logger.info("プレイヤー " + player.getName() + " の保存されたインベントリが見つかりません（初回参加の可能性）");
-                    return false;
+                    return InventoryRestoreTracker.LoadResult.NO_SAVED_DATA;
                 }
+
+                String inventoryData = rs.getString("inventory_data");
+                String armorData = rs.getString("armor_data");
+                String offhandData = rs.getString("offhand_data");
+
+                // 先にすべてデコードする（ここで失敗したら手持ちには触らない）
+                ItemStack[] inventory = (inventoryData != null && !inventoryData.isEmpty())
+                        ? itemStackArrayFromBase64(inventoryData) : null;
+                ItemStack[] armor = (armorData != null && !armorData.isEmpty())
+                        ? itemStackArrayFromBase64(armorData) : null;
+                ItemStack offhand = (offhandData != null && !offhandData.isEmpty())
+                        ? itemStackFromBase64(offhandData) : null;
+
+                if (inventory != null) {
+                    player.getInventory().setContents(inventory);
+                }
+                if (armor != null) {
+                    player.getInventory().setArmorContents(armor);
+                }
+                if (offhand != null) {
+                    player.getInventory().setItemInOffHand(offhand);
+                }
+
+                logger.info("プレイヤー " + player.getName() + " のインベントリを復元しました");
+                return InventoryRestoreTracker.LoadResult.RESTORED;
             }
 
         } catch (Exception e) {
-            logger.severe("インベントリ復元中にエラーが発生しました: " + e.getMessage());
-            return false;
+            logger.severe("インベントリ復元中にエラーが発生しました（保存データは上書きしません）: "
+                    + player.getName() + " - " + e.getMessage());
+            return InventoryRestoreTracker.LoadResult.FAILED;
         }
     }
 
@@ -152,16 +176,13 @@ public class PlayerInventoryManager {
      */
     private void startAutoSaveTask() {
         // 5分ごとにオンラインのプレイヤーのインベントリを保存
-        autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+        // （プレイヤーの手持ちに触るのでメインスレッドで実行する。復元前の人は saveInventory が見送る）
+        autoSaveTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             try {
                 int savedCount = 0;
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    if (player.getWorld().getName().equals("tofuNomics")) {
-                        // 同期タスクで保存（メインスレッドで実行）
-                        Bukkit.getScheduler().runTask(plugin, () -> {
-                            saveInventory(player);
-                        });
+                    if (player.getWorld().getName().equals("tofuNomics") && saveInventory(player)) {
                         savedCount++;
                     }
                 }

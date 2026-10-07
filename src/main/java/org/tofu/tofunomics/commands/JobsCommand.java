@@ -4,6 +4,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.jobs.JobManager;
@@ -14,7 +15,22 @@ import org.tofu.tofunomics.models.PlayerJob;
 import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.stats.JobStatsManager;
 
-public class JobsCommand implements CommandExecutor {
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+public class JobsCommand implements CommandExecutor, TabCompleter {
+
+    /** 誰でも使えるサブコマンド（Tab 補完に出す順） */
+    private static final List<String> PLAYER_SUB_COMMANDS =
+            Arrays.asList("list", "join", "leave", "stats", "info", "guide", "help");
+    /** 管理者だけに見せるサブコマンド */
+    private static final List<String> ADMIN_SUB_COMMANDS = Arrays.asList("admin", "debug");
+    private static final String ADMIN_PERMISSION = "tofunomics.jobs.admin";
 
     private final ConfigManager configManager;
     private final JobManager jobManager;
@@ -42,7 +58,13 @@ public class JobsCommand implements CommandExecutor {
         }
         
         Player player = (Player) sender;
-        
+
+        // 経済ワールドの外（ロビーなど）では使えない。管理用の /jobs admin だけは場所を問わない
+        boolean adminSubCommand = args.length > 0 && args[0].equalsIgnoreCase("admin");
+        if (!adminSubCommand && EconomyWorldGuard.blockIfOutside(player, configManager)) {
+            return true;
+        }
+
         if (args.length == 0) {
             // 引数なしは GUI を開く。GUI 初期化失敗時は従来のヘルプにフォールバック。
             if (jobsHubGUI != null) {
@@ -162,8 +184,38 @@ public class JobsCommand implements CommandExecutor {
             }
         }
 
-        player.sendMessage(ChatColor.GOLD + "職業に就くには: " + ChatColor.WHITE + "/jobs join <職業名>");
+        player.sendMessage(ChatColor.GOLD + "職業に就くには: " + ChatColor.WHITE + "/jobs"
+                + ChatColor.GRAY + "（画面から選ぶ）または " + ChatColor.WHITE + "/jobs join <職業名>");
+        player.sendMessage(ChatColor.RED + "※職業は Lv50 になるまで選び直せません。");
         return true;
+    }
+
+    /** 内部名 → 表示名（登録順） */
+    private Map<String, String> jobDisplayNames() {
+        Map<String, String> names = new LinkedHashMap<>();
+        for (Job job : jobManager.getAllJobs()) {
+            names.put(job.getName(), job.getDisplayName());
+        }
+        return names;
+    }
+
+    /**
+     * プレイヤーが打った職業名（内部名 miner でも表示名 鉱夫 でもよい）を内部名に直す。
+     * 該当が無ければ、打たれた文字を小文字にして返す（後段の「存在しない職業」判定に任せる）。
+     */
+    private String resolveJobName(String input) {
+        String resolved = JobNameResolver.resolve(input, jobDisplayNames());
+        return resolved != null ? resolved : input.toLowerCase(Locale.ROOT);
+    }
+
+    private void sendUnknownJob(Player player, String typed) {
+        player.sendMessage(ChatColor.RED + "存在しない職業です: " + typed);
+        List<String> displayNames = new ArrayList<>();
+        for (String displayName : jobDisplayNames().values()) {
+            displayNames.add(JobNameResolver.plain(displayName));
+        }
+        player.sendMessage(ChatColor.YELLOW + "利用可能な職業: " + String.join(", ", displayNames));
+        player.sendMessage(ChatColor.YELLOW + "/jobs" + ChatColor.GRAY + " と入力すると、画面から選べます。");
     }
 
     private boolean handleJobJoin(Player player, String[] args) {
@@ -172,11 +224,10 @@ public class JobsCommand implements CommandExecutor {
             return true;
         }
         
-        String jobName = args[1].toLowerCase();
+        String jobName = resolveJobName(args[1]);
         
         if (!jobManager.isValidJobName(jobName)) {
-            player.sendMessage(ChatColor.RED + "存在しない職業です: " + jobName);
-            player.sendMessage(ChatColor.YELLOW + "利用可能な職業: " + String.join(", ", jobManager.getJobNames()));
+            sendUnknownJob(player, args[1]);
             return true;
         }
         
@@ -234,10 +285,10 @@ public class JobsCommand implements CommandExecutor {
             return true;
         }
         
-        String jobName = args[1].toLowerCase();
+        String jobName = resolveJobName(args[1]);
         
         if (!jobManager.hasJob(player, jobName)) {
-            player.sendMessage(ChatColor.RED + "その職業には就いていません: " + jobName);
+            player.sendMessage(ChatColor.RED + "その職業には就いていません: " + args[1]);
             return true;
         }
         
@@ -287,9 +338,9 @@ public class JobsCommand implements CommandExecutor {
         if (args.length == 1) {
             jobStatsManager.showAllJobStats(player);
         } else if (args.length == 3 && args[1].equalsIgnoreCase("top")) {
-            jobStatsManager.showJobTopRanking(player, args[2].toLowerCase(), 10);
+            jobStatsManager.showJobTopRanking(player, resolveJobName(args[2]), 10);
         } else if (args.length == 2 && !args[1].equalsIgnoreCase("top")) {
-            jobStatsManager.showJobStats(player, args[1].toLowerCase());
+            jobStatsManager.showJobStats(player, resolveJobName(args[1]));
         } else {
             player.sendMessage(ChatColor.RED + "使用法: /jobs stats [職業名|top <職業名>]");
         }
@@ -302,10 +353,10 @@ public class JobsCommand implements CommandExecutor {
             return true;
         }
         
-        String jobName = args[1].toLowerCase();
+        String jobName = resolveJobName(args[1]);
         
         if (!jobManager.isValidJobName(jobName)) {
-            player.sendMessage(ChatColor.RED + "存在しない職業です: " + jobName);
+            sendUnknownJob(player, args[1]);
             return true;
         }
         
@@ -366,18 +417,18 @@ public class JobsCommand implements CommandExecutor {
 
         // /jobs guide <職業名>
         if (args.length == 2) {
-            String jobName = args[1].toLowerCase();
+            String jobName = resolveJobName(args[1]);
 
             if (!jobManager.isValidJobName(jobName)) {
-                player.sendMessage(ChatColor.RED + "存在しない職業です: " + jobName);
-                player.sendMessage(ChatColor.YELLOW + "利用可能な職業: " + String.join(", ", jobManager.getJobNames()));
+                sendUnknownJob(player, args[1]);
                 return true;
             }
 
             if (!jobManager.hasJob(player, jobName)) {
                 player.sendMessage(ChatColor.RED + "「" + jobManager.getJobDisplayName(jobName)
                         + "」に就職していません。ガイドブックは就職後に入手できます。");
-                player.sendMessage(ChatColor.YELLOW + "就職するには: " + ChatColor.WHITE + "/jobs join " + jobName);
+                player.sendMessage(ChatColor.YELLOW + "就職するには: " + ChatColor.WHITE + "/jobs"
+                        + ChatColor.GRAY + "（画面から選ぶ）");
                 return true;
             }
 
@@ -390,6 +441,11 @@ public class JobsCommand implements CommandExecutor {
     }
 
     private boolean handleJobDebug(Player player) {
+        // 内部のIDなどを出すので管理者限定
+        if (!player.hasPermission(ADMIN_PERMISSION)) {
+            player.sendMessage(ChatColor.RED + "このコマンドを実行する権限がありません。");
+            return true;
+        }
         player.sendMessage(ChatColor.GOLD + "=== 職業デバッグ情報 ===");
         
         // プレイヤーUUID表示
@@ -454,7 +510,7 @@ public class JobsCommand implements CommandExecutor {
         }
         
         String playerName = args[2];
-        String jobName = args[3].toLowerCase();
+        String jobName = resolveJobName(args[3]);
         
         Player targetPlayer = sender.getServer().getPlayer(playerName);
         if (targetPlayer == null) {
@@ -513,12 +569,107 @@ public class JobsCommand implements CommandExecutor {
 
     private void sendHelpMessage(Player player) {
         player.sendMessage(ChatColor.GOLD + "=== Jobs コマンドヘルプ ===");
+        player.sendMessage(ChatColor.YELLOW + "/jobs " + ChatColor.WHITE + "- 職業メニューを開く（ここから職業を選べます）");
         player.sendMessage(ChatColor.YELLOW + "/jobs list " + ChatColor.WHITE + "- 利用可能な職業一覧を表示");
         player.sendMessage(ChatColor.YELLOW + "/jobs join <職業名> " + ChatColor.WHITE + "- 指定した職業に就く");
-        player.sendMessage(ChatColor.YELLOW + "/jobs leave <職業名> " + ChatColor.WHITE + "- 指定した職業を辞める");
+        player.sendMessage(ChatColor.YELLOW + "/jobs leave <職業名> " + ChatColor.WHITE + "- 指定した職業を辞める（Lv50 以上）");
         player.sendMessage(ChatColor.YELLOW + "/jobs stats [職業名|top <職業名>] " + ChatColor.WHITE + "- 職業の統計を表示（/jobstats と同じ）");
         player.sendMessage(ChatColor.YELLOW + "/jobs info <職業名> " + ChatColor.WHITE + "- 職業の詳細情報を表示");
         player.sendMessage(ChatColor.YELLOW + "/jobs guide [職業名] " + ChatColor.WHITE + "- 職業のガイドブックを入手（就職中のみ）");
-        player.sendMessage(ChatColor.YELLOW + "/jobs debug " + ChatColor.WHITE + "- 職業の詳細デバッグ情報を表示");
+        player.sendMessage(ChatColor.RED + "※職業は Lv50 になるまで選び直せません。");
+        if (player.hasPermission(ADMIN_PERMISSION)) {
+            player.sendMessage(ChatColor.GRAY + "/jobs debug - 職業のデバッグ情報（管理者）");
+            player.sendMessage(ChatColor.GRAY + "/jobs admin <forceleave|reset> - 管理用（管理者）");
+        }
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!(sender instanceof Player)) {
+            return Collections.emptyList();
+        }
+        Player player = (Player) sender;
+        boolean admin = player.hasPermission(ADMIN_PERMISSION);
+
+        if (args.length == 1) {
+            return filterByPrefix(subCommandsFor(admin), args[0]);
+        }
+
+        String subCommand = args[0].toLowerCase(Locale.ROOT);
+        if (args.length == 2) {
+            switch (subCommand) {
+                case "join":
+                    return JobNameResolver.suggest(args[1], joinableJobDisplayNames(player));
+                case "info":
+                    return JobNameResolver.suggest(args[1], jobDisplayNames());
+                case "leave":
+                case "guide":
+                    return JobNameResolver.suggest(args[1], currentJobDisplayNames(player));
+                case "stats":
+                    List<String> candidates = filterByPrefix(Collections.singletonList("top"), args[1]);
+                    candidates.addAll(JobNameResolver.suggest(args[1], jobDisplayNames()));
+                    return candidates;
+                case "admin":
+                    return admin ? filterByPrefix(Arrays.asList("forceleave", "reset"), args[1])
+                            : Collections.emptyList();
+                default:
+                    return Collections.emptyList();
+            }
+        }
+        if (args.length == 3 && subCommand.equals("stats") && args[1].equalsIgnoreCase("top")) {
+            return JobNameResolver.suggest(args[2], jobDisplayNames());
+        }
+        if (admin && subCommand.equals("admin") && args[1].equalsIgnoreCase("forceleave")) {
+            if (args.length == 3) {
+                return null; // プレイヤー名（Bukkit 既定の補完）
+            }
+            if (args.length == 4) {
+                return JobNameResolver.suggest(args[3], jobDisplayNames());
+            }
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Tab 補完に出すサブコマンド。管理用のものは権限がある人にだけ出す。
+     */
+    static List<String> subCommandsFor(boolean admin) {
+        List<String> subCommands = new ArrayList<>(PLAYER_SUB_COMMANDS);
+        if (admin) {
+            subCommands.addAll(ADMIN_SUB_COMMANDS);
+        }
+        return subCommands;
+    }
+
+    private static List<String> filterByPrefix(List<String> candidates, String typed) {
+        String prefix = typed == null ? "" : typed.toLowerCase(Locale.ROOT);
+        List<String> matched = new ArrayList<>();
+        for (String candidate : candidates) {
+            if (candidate.toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                matched.add(candidate);
+            }
+        }
+        return matched;
+    }
+
+    /** 今そのプレイヤーが就職できる職業（Lv50 未到達なら上級職を除く） */
+    private Map<String, String> joinableJobDisplayNames(Player player) {
+        Map<String, String> names = jobDisplayNames();
+        if (!jobManager.hasReachedLevel50(player)) {
+            names.keySet().removeIf(configManager::isAdvancedJob);
+        }
+        return names;
+    }
+
+    /** 今そのプレイヤーが就いている職業 */
+    private Map<String, String> currentJobDisplayNames(Player player) {
+        Map<String, String> names = new LinkedHashMap<>();
+        for (PlayerJob playerJob : jobManager.getPlayerJobs(player)) {
+            Job job = jobManager.getJobById(playerJob.getJobId());
+            if (job != null) {
+                names.put(job.getName(), job.getDisplayName());
+            }
+        }
+        return names;
     }
 }

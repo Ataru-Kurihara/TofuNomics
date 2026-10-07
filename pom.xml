@@ -79,6 +79,13 @@
       <resource>
         <directory>src/main/resources</directory>
         <filtering>true</filtering>
+        <!-- 本番設定の写しとバックアップを jar に入れない（本番の接続先や NPC 座標を含む） -->
+        <excludes>
+          <exclude>server_config*</exclude>
+          <exclude>**/*.backup</exclude>
+          <exclude>**/*.backup.*</exclude>
+          <exclude>**/*.bak</exclude>
+        </excludes>
       </resource>
     </resources>
   </build>

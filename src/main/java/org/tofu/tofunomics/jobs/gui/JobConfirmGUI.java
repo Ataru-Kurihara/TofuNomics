@@ -77,11 +77,16 @@ public class JobConfirmGUI {
         gui.setItem(SLOT_INFO, GuiUtil.createButton(JobsGUIIconMapper.getIcon(jobName),
                 "§f" + displayName,
                 join
-                        ? Arrays.asList(question, "§7※他の職業からの転職にはレベル50が必要です")
+                        ? Arrays.asList(question,
+                                "",
+                                "§c§l※ Lv50 になるまで選び直せません",
+                                "§7就職すると、この職業が Lv50 になるまで",
+                                "§7辞職も転職もできません。")
                         : Arrays.asList(question, "§7※レベル50以上で辞職できます")));
 
         gui.setItem(SLOT_YES, GuiUtil.createButton(Material.LIME_WOOL, "§a§lはい",
-                Collections.singletonList(join ? "§7就職を確定します" : "§7辞職を確定します")));
+                join ? Arrays.asList("§7就職を確定します", "§c※ Lv50 まで選び直せません")
+                        : Collections.singletonList("§7辞職を確定します")));
         gui.setItem(SLOT_NO, GuiUtil.createButton(Material.RED_WOOL, "§c§lいいえ",
                 Collections.singletonList("§7前の画面へ戻ります")));
 

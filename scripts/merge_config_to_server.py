@@ -17,7 +17,7 @@
 
 使い方:
   python3 scripts/merge_config_to_server.py \
-      src/main/resources/config.yml src/main/resources/server_config.yml [--dry-run]
+      src/main/resources/config.yml server-config/server_config.yml [--dry-run]
 """
 import os
 import sys

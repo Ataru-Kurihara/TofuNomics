@@ -7,7 +7,7 @@
 
 - **jar 名は `TofuNomics-1.0-SNAPSHOT.jar`**（pom.xml の `<version>` が `1.0-SNAPSHOT`）。`mvn clean package` はこの名前で shaded jar（依存同梱・約11MB）を生成する。
 - 本番サーバーがロードするのは **`/opt/minecraft/servers/lobby-1.21/plugins/TofuNomics-1.0-SNAPSHOT.jar`**。この**正確な名前を上書き**しないとデプロイは反映されない（別名 `TofuNomics-1.0.jar` 等を置いても無効）。
-- ネットワーク: local `192.168.100.200:22222`（`tofu-mc-deploy` が auto 判定）。
+- ネットワーク: `ssh lobby`（`tofu-mc-deploy` が auto 判定）。
 - デプロイ後の反映は `/tofunomics reload`（config のみ）/ `/plugman reload TofuNomics`（jar 含む）/ サーバー再起動（最も確実）。
 
 ## config.yml 反映の仕組み（重要）

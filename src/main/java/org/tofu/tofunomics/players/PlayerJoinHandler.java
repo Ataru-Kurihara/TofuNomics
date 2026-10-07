@@ -9,15 +9,20 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.PlayerDAO;
+import org.tofu.tofunomics.inventory.InventoryRestoreTracker;
 import org.tofu.tofunomics.inventory.PlayerInventoryManager;
+import org.tofu.tofunomics.jobs.JobManager;
+import org.tofu.tofunomics.models.Job;
 import org.tofu.tofunomics.rules.RulesManager;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -44,6 +49,156 @@ public class PlayerJoinHandler implements Listener {
         this.inventoryManager = inventoryManager;
         this.rulesManager = rulesManager;
         this.logger = plugin.getLogger();
+
+        handlePlayersAlreadyInWorld();
+    }
+
+    /**
+     * プラグイン起動時（リロード含む）に、すでに tofuNomics にいるプレイヤーを保存できる状態にする。
+     * 入場イベントは起きないので、ここで扱わないと以後ずっと保存されなくなる。
+     * 手持ちが空の人は、復元待ちの途中でリロードされた可能性があるので保存データから復元する。
+     */
+    private void handlePlayersAlreadyInWorld() {
+        if (inventoryManager == null || Bukkit.getServer() == null) {
+            return;
+        }
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getWorld().getName().equals("tofuNomics")) {
+                makeSavableWithoutEntryEvent(player);
+            }
+        }
+    }
+
+    /**
+     * 入場イベントを経ずに tofuNomics にいるプレイヤーを、保存できる状態にする。
+     * すでに復元済みなら何もしない。
+     */
+    private void makeSavableWithoutEntryEvent(Player player) {
+        if (inventoryManager.getRestoreTracker().canSave(player.getUniqueId())) {
+            return;
+        }
+        InventoryRestoreTracker.StartupAction action =
+                InventoryRestoreTracker.decideStartupAction(isInventoryEmptyExceptNavigation(player));
+        if (action == InventoryRestoreTracker.StartupAction.LOAD_FROM_SAVED) {
+            restoreInventory(player);
+        } else {
+            inventoryManager.getRestoreTracker().markRestored(player.getUniqueId());
+        }
+    }
+
+    /**
+     * サーバーに接続した時の処理
+     * 通常はロビーから始まり、tofuNomics へはワールド移動で入る（onPlayerChangedWorld が扱う）。
+     * 接続した時点で tofuNomics にいて、そのまま残った場合はワールド移動が起きないので、
+     * 2秒待ってから保存できる状態にする（待つあいだにロビーへ移された場合は何もしない）。
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        if (inventoryManager == null) {
+            return;
+        }
+        InventoryRestoreTracker tracker = inventoryManager.getRestoreTracker();
+        // 前回の接続の印が残っていても使わない
+        tracker.clear(player.getUniqueId());
+
+        if (!player.getWorld().getName().equals("tofuNomics")) {
+            return;
+        }
+        // この接続の番号。待つあいだにワールド移動や切断があれば、番号が変わるので何もしない
+        final long entryId = tracker.beginEntry(player.getUniqueId());
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (tracker.isLatestEntry(player.getUniqueId(), entryId)
+                    && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
+                makeSavableWithoutEntryEvent(player);
+            }
+        }, 40L);
+    }
+
+    /**
+     * ナビゲーションアイテムの置き場（スロット9〜11）を除いて、手持ち・防具・オフハンドが空か
+     */
+    private boolean isInventoryEmptyExceptNavigation(Player player) {
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; i++) {
+            if (i >= 9 && i <= 11) {
+                continue;
+            }
+            ItemStack item = contents[i];
+            if (item != null && !item.getType().isAir()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * ナビゲーションアイテムの置き場にあった私物を、空いているスロットへ移す。
+     * 空きが無い分は足元に落とし、本人に知らせる。
+     */
+    private void relocatePersonalItems(Player player, List<ItemStack> personalItems) {
+        if (personalItems.isEmpty()) {
+            return;
+        }
+        java.util.Map<Integer, ItemStack> leftovers =
+                player.getInventory().addItem(personalItems.toArray(new ItemStack[0]));
+        for (ItemStack leftover : leftovers.values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
+        if (leftovers.isEmpty()) {
+            player.sendMessage(ChatColor.YELLOW + "ロビーのアイテムを置く場所にあった持ち物を、空いているスロットへ移しました。");
+        } else {
+            player.sendMessage(ChatColor.RED + "手持ちに空きが無いため、持ち物の一部を足元に落としました。拾ってください。");
+        }
+        logger.info("ナビゲーションスロットの私物を移しました: " + player.getName()
+                + "（" + personalItems.size() + "件、うち足元に落とした分 " + leftovers.size() + "件）");
+    }
+
+    /**
+     * 保存済みの手持ちを復元する。
+     * TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）は復元後に置き直す。
+     * 読み込みに失敗したときは復元済みの印が付かないので、以後この回は保存されない
+     * （保存データを空の手持ちで上書きしないため）。
+     */
+    private void restoreInventory(Player player) {
+        // 短時間に出入りを繰り返したときの二重復元を防ぐ
+        if (inventoryManager.getRestoreTracker().canSave(player.getUniqueId())) {
+            return;
+        }
+
+        // TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）を一時保存
+        int[] navigationSlots = NavigationSlotPolicy.NAVIGATION_SLOTS;
+        ItemStack[] navigationItems = new ItemStack[navigationSlots.length];
+        for (int i = 0; i < navigationSlots.length; i++) {
+            navigationItems[i] = player.getInventory().getItem(navigationSlots[i]);
+        }
+
+        // インベントリを復元
+        InventoryRestoreTracker.LoadResult result = inventoryManager.loadInventory(player);
+        if (result == InventoryRestoreTracker.LoadResult.FAILED) {
+            logger.severe("インベントリの復元に失敗しました。このプレイヤーの手持ちは今回保存されません: " + player.getName());
+            player.sendMessage(ChatColor.RED + "手持ちの読み込みに失敗しました。保存済みの手持ちは残っています。");
+            player.sendMessage(ChatColor.RED + "一度ロビーに戻って入り直すか、管理者に連絡してください。");
+            return;
+        }
+
+        // ナビゲーションアイテムを置き直す（TofuHomePluginのアイテムを優先）。
+        // 同じスロットに私物が保存されていた場合は、消さずに別の場所へ移す。
+        List<ItemStack> personalItems = new ArrayList<>();
+        for (int i = 0; i < navigationSlots.length; i++) {
+            ItemStack savedItem = player.getInventory().getItem(navigationSlots[i]);
+            NavigationSlotPolicy.Action action = NavigationSlotPolicy.decide(navigationItems[i], savedItem);
+            if (action == NavigationSlotPolicy.Action.KEEP_SAVED) {
+                continue;
+            }
+            if (action == NavigationSlotPolicy.Action.PLACE_NAVIGATION_AND_RELOCATE_SAVED) {
+                personalItems.add(savedItem);
+            }
+            player.getInventory().setItem(navigationSlots[i], navigationItems[i]);
+        }
+        relocatePersonalItems(player, personalItems);
+
+        logger.info("インベントリ復元完了（ナビゲーションアイテム保護済み）: " + player.getName());
     }
     
     /**
@@ -61,30 +216,16 @@ public class PlayerJoinHandler implements Listener {
         if (currentWorldName.equals("tofuNomics")) {
             // TofuNomicsワールドからTofuNomicsワールドへの移動は処理しない
             if (!previousWorldName.equals("tofuNomics")) {
+                // この入場の番号。短時間に出入りを繰り返したとき、前の入場で予約した復元を動かさないために使う
+                final long entryId = inventoryManager != null
+                        ? inventoryManager.getRestoreTracker().beginEntry(player.getUniqueId()) : 0L;
                 // 遅延してインベントリを復元（TofuHomePluginのナビゲーションアイテム付与の後）
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    // 復元時点でtofuNomicsワールドにいるか再チェック
-                    if (inventoryManager != null && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
-                        // TofuHomePluginのナビゲーションアイテム（スロット9, 10, 11）を一時保存
-                        ItemStack slot9 = player.getInventory().getItem(9);
-                        ItemStack slot10 = player.getInventory().getItem(10);
-                        ItemStack slot11 = player.getInventory().getItem(11);
-
-                        // インベントリを復元
-                        inventoryManager.loadInventory(player);
-
-                        // ナビゲーションアイテムを復元（TofuHomePluginのアイテムを優先）
-                        if (slot9 != null) {
-                            player.getInventory().setItem(9, slot9);
-                        }
-                        if (slot10 != null) {
-                            player.getInventory().setItem(10, slot10);
-                        }
-                        if (slot11 != null) {
-                            player.getInventory().setItem(11, slot11);
-                        }
-
-                        logger.info("インベントリ復元完了（ナビゲーションアイテム保護済み）: " + player.getName());
+                    // 復元時点で、この入場が今も最新か・tofuNomicsワールドにいるかを再チェック
+                    if (inventoryManager != null
+                            && inventoryManager.getRestoreTracker().isLatestEntry(player.getUniqueId(), entryId)
+                            && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
+                        restoreInventory(player);
                     }
                 }, 40L); // 2秒後に復元（TofuHomePluginの処理完了を待つ）
             }
@@ -105,7 +246,10 @@ public class PlayerJoinHandler implements Listener {
         else if (previousWorldName.equals("tofuNomics")) {
             logger.info("プレイヤー " + player.getName() + " がTofuNomicsワールドから退出 - インベントリを保存します");
             if (inventoryManager != null) {
+                // 復元前（入場から2秒以内）に出た場合は saveInventory が保存を見送る
                 inventoryManager.saveInventory(player);
+                // 次に入ったときは、復元が済むまで保存しない
+                inventoryManager.getRestoreTracker().clear(player.getUniqueId());
             }
         }
     }
@@ -160,10 +304,11 @@ public class PlayerJoinHandler implements Listener {
             logger.info("プレイヤー " + player.getName() + " がサーバーから退出 - データを保存します");
             
             try {
-                // インベントリを保存
+                // インベントリを保存（復元前に切断した場合は見送る。保存データを空で上書きしないため）
                 if (inventoryManager != null) {
-                    boolean inventorySaved = inventoryManager.saveInventory(player);
-                    if (inventorySaved) {
+                    if (!inventoryManager.getRestoreTracker().canSave(player.getUniqueId())) {
+                        logger.info("手持ちの復元前に退出したため、インベントリは保存しません: " + player.getName());
+                    } else if (inventoryManager.saveInventory(player)) {
                         logger.info("インベントリ保存成功: " + player.getName());
                     } else {
                         logger.severe("インベントリ保存失敗: " + player.getName());
@@ -185,6 +330,11 @@ public class PlayerJoinHandler implements Listener {
                 logger.severe("プレイヤー退出時のデータ保存中にエラー: " + player.getName());
                 logger.severe("エラー詳細: " + e.getMessage());
             }
+        }
+
+        // どのワールドで切断しても印を消す（次の入場では復元が済むまで保存しない）
+        if (inventoryManager != null) {
+            inventoryManager.getRestoreTracker().clear(player.getUniqueId());
         }
     }
 
@@ -498,8 +648,9 @@ public class PlayerJoinHandler implements Listener {
             List<String> newPlayerMessages = configManager.getNewPlayerMessages();
             if (newPlayerMessages != null && !newPlayerMessages.isEmpty()) {
                 player.sendMessage("");
-                player.sendMessage(ChatColor.translateAlternateColorCodes('&', 
-                    "&6▬▬▬▬▬▬ 新規プレイヤー特典 ▬▬▬▬▬▬"));
+                // 資金を配らない設定のときは「特典」ではなく案内として見せる
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&',
+                    bonusAmount > 0 ? "&6▬▬▬▬▬▬ 新規プレイヤー特典 ▬▬▬▬▬▬" : "&6▬▬▬▬▬▬ はじめての方へ ▬▬▬▬▬▬"));
                 
                 for (String message : newPlayerMessages) {
                     String formattedMessage = formatMessage(message, player);
@@ -576,17 +727,82 @@ public class PlayerJoinHandler implements Listener {
                 return;
             }
             
-            player.sendMessage("");
-            player.sendMessage(ChatColor.GOLD + "▬▬▬▬▬▬ 職業システム案内 ▬▬▬▬▬▬");
-            player.sendMessage(ChatColor.YELLOW + "• " + ChatColor.WHITE + "/jobs join <職業名> - 職業に就職");
-            player.sendMessage(ChatColor.YELLOW + "• " + ChatColor.WHITE + "/jobs stats - 現在の職業状況を確認");
-            player.sendMessage(ChatColor.YELLOW + "• " + ChatColor.WHITE + "/jobstats - 詳細な職業統計を表示");
-            player.sendMessage(ChatColor.YELLOW + "• " + ChatColor.WHITE + "/quest - 職業クエストを確認");
-            player.sendMessage("");
-            player.sendMessage(ChatColor.GREEN + "利用可能な職業:");
-            player.sendMessage(ChatColor.AQUA + "鉱夫 | 木こり | 農家 | 釣り人 | 鍛冶屋 | ポーション屋 | エンチャンター | 建築家");
-            player.sendMessage(ChatColor.GOLD + "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+            for (String line : buildJobGuideLines(findCurrentJobDisplayName(player), findStarterJobDisplayNames())) {
+                player.sendMessage(line);
+            }
         }
+    }
+
+    /**
+     * 入場時の職業案内の文面を組み立てる。
+     * 職業に就いている人には 1 行だけ、まだの人には選び方と注意を出す。
+     * 職業名を打たせる案内はしない（/jobs の画面から選べる）。
+     *
+     * @param currentJobDisplayName 現在の職業の表示名。未就職なら null
+     * @param starterJobDisplayNames 最初から選べる職業の表示名（上級職は含めない）
+     */
+    static List<String> buildJobGuideLines(String currentJobDisplayName, List<String> starterJobDisplayNames) {
+        List<String> lines = new ArrayList<>();
+        if (currentJobDisplayName != null && !currentJobDisplayName.isEmpty()) {
+            lines.add(ChatColor.GRAY + "現在の職業: " + ChatColor.AQUA + currentJobDisplayName
+                    + ChatColor.GRAY + " ｜ " + ChatColor.WHITE + "/jobs" + ChatColor.GRAY + " で職業メニューを開けます");
+            return lines;
+        }
+
+        lines.add("");
+        lines.add(ChatColor.GOLD + "▬▬▬▬▬▬ 職業を選ぼう ▬▬▬▬▬▬");
+        lines.add(ChatColor.YELLOW + "• " + ChatColor.WHITE + "/jobs" + ChatColor.GRAY + " と入力すると、職業を選ぶ画面が開きます");
+        if (starterJobDisplayNames != null && !starterJobDisplayNames.isEmpty()) {
+            lines.add(ChatColor.YELLOW + "• " + ChatColor.GRAY + "最初に選べる職業: "
+                    + ChatColor.AQUA + String.join(" | ", starterJobDisplayNames));
+        }
+        lines.add(ChatColor.RED + "• 職業は Lv50 になるまで選び直せません。" + ChatColor.GRAY + "説明を読んでから決めましょう");
+        lines.add(ChatColor.GOLD + "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        return lines;
+    }
+
+    private JobManager getJobManager() {
+        if (plugin instanceof org.tofu.tofunomics.TofuNomics) {
+            return ((org.tofu.tofunomics.TofuNomics) plugin).getJobManager();
+        }
+        return null;
+    }
+
+    /** 現在の職業の表示名。未就職・取得できないときは null */
+    private String findCurrentJobDisplayName(Player player) {
+        try {
+            JobManager jobManager = getJobManager();
+            if (jobManager == null) {
+                return null;
+            }
+            String jobName = jobManager.getPlayerJob(player.getUniqueId());
+            if (jobName == null || jobName.isEmpty()) {
+                return null;
+            }
+            return ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', jobManager.getJobDisplayName(jobName)));
+        } catch (Exception e) {
+            logger.warning("職業案内の表示中に現在の職業を取得できませんでした: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** 最初から選べる職業（上級職を除く）の表示名 */
+    private List<String> findStarterJobDisplayNames() {
+        List<String> names = new ArrayList<>();
+        try {
+            JobManager jobManager = getJobManager();
+            if (jobManager == null) {
+                return names;
+            }
+            for (Job job : jobManager.getAllJobs()) {
+                if (!configManager.isAdvancedJob(job.getName())) {
+                    names.add(ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', job.getDisplayName())));
+                }
+            }
+        } catch (Exception e) {
+            logger.warning("職業案内の表示中に職業一覧を取得できませんでした: " + e.getMessage());
+        }
+        return names;
     }
     
     private class SpawnTeleportTask extends BukkitRunnable {

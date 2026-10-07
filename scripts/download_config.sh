@@ -2,6 +2,7 @@
 
 # config.ymlダウンロードスクリプト
 # サーバーからconfig.ymlをダウンロードしてローカルに保存
+# 注意: 旧サーバー（1.16.5、廃止済み）用。現行サーバーは ssh lobby で入り、直接編集する。
 
 set -e  # エラーが発生したら即座に終了
 
@@ -36,6 +37,15 @@ if [ -z "${SERVER_HOST}" ] || [ -z "${SERVER_USER}" ] || [ -z "${SERVER_CONFIG_P
     echo "SERVER_HOST, SERVER_USER, SERVER_CONFIG_PATH, LOCAL_CONFIG_PATH を .server-config.env に設定してください"
     exit 1
 fi
+
+# 本番設定の写しを src/main/resources に置くと、jar に同梱され、公開リポジトリにも入りかねない
+case "${LOCAL_CONFIG_PATH}" in
+    src/main/resources/*)
+        echo -e "${RED}エラー: LOCAL_CONFIG_PATH が src/main/resources の中を指しています${NC}"
+        echo ".server-config.env の LOCAL_CONFIG_PATH を server-config/server_config.yml に変えてください"
+        exit 1
+        ;;
+esac
 
 # ローカルの保存先ディレクトリを作成
 LOCAL_DIR="$(dirname "${PROJECT_ROOT}/${LOCAL_CONFIG_PATH}")"
