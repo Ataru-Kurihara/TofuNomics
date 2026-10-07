@@ -75,18 +75,19 @@ public class HousingDetailGUI {
                 Arrays.asList(
                         "§7ID: §f" + property.getId(),
                         "§7ワールド: §f" + property.getWorldName(),
+                        "§7場所: §f" + org.tofu.tofunomics.housing.HousingLocationFormatter.format(property),
                         property.getDescription() != null ? "§7説明: §f" + property.getDescription() : "§7説明: §8なし",
                         "§7状態: " + (property.isAvailable() ? "§a利用可能" : "§c賃貸中")
                 )));
 
         gui.setItem(SLOT_RENT_DAILY, GuiUtil.createButton(Material.LIME_CONCRETE, "§a§l日で借りる",
-                Arrays.asList("§7日額: §a" + GuiUtil.formatPrice(property.getDailyRent()),
+                Arrays.asList("§7日額: §a" + GuiUtil.formatPrice(property.getDailyRent()) + " " + configManager.getCurrencySymbol(),
                         "§7クリック後、日数をチャット入力")));
         gui.setItem(SLOT_RENT_WEEKLY, GuiUtil.createButton(Material.LIME_CONCRETE, "§a§l週で借りる",
-                Arrays.asList("§7週額: §a" + GuiUtil.formatPrice(property.getWeeklyRent()),
+                Arrays.asList("§7週額: §a" + GuiUtil.formatPrice(property.getWeeklyRent()) + " " + configManager.getCurrencySymbol(),
                         "§7クリック後、週数をチャット入力")));
         gui.setItem(SLOT_RENT_MONTHLY, GuiUtil.createButton(Material.LIME_CONCRETE, "§a§l月で借りる",
-                Arrays.asList("§7月額: §a" + GuiUtil.formatPrice(property.getMonthlyRent()),
+                Arrays.asList("§7月額: §a" + GuiUtil.formatPrice(property.getMonthlyRent()) + " " + configManager.getCurrencySymbol(),
                         "§7クリック後、月数をチャット入力")));
 
         gui.setItem(SLOT_BACK, GuiUtil.createButton(Material.BARRIER, "§e戻る",

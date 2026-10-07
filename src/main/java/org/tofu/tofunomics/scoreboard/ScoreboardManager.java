@@ -36,6 +36,43 @@ public class ScoreboardManager implements Listener {
     
     // プレイヤーのスコアボード表示設定を保存
     private final Map<UUID, Boolean> scoreboardEnabled = new HashMap<>();
+
+    /** DB から読む値（職業・レベル・銀行残高）を使い回す時間 */
+    static final long STATUS_CACHE_MILLIS = 5000L;
+
+    // プレイヤーごとのサイドバー。一度作ったものを使い回し、変わった行だけ書き換える
+    // （以前は毎秒、全員ぶんのスコアボードを作り直していた）
+    private final Map<UUID, PlayerSidebar> sidebars = new HashMap<>();
+    // DB から読む値の写し。毎秒の更新では DB を読まず、数秒に 1 回だけ読み直す
+    private final TimedCache<UUID, PlayerStatusSnapshot> statusCache = new TimedCache<>(STATUS_CACHE_MILLIS);
+
+    /**
+     * 職業・レベル・銀行残高が変わったと分かったときに呼ぶ。次の更新で DB から読み直す。
+     */
+    public void invalidateStatus(UUID uuid) {
+        statusCache.invalidate(uuid);
+    }
+
+    /**
+     * DB から読む値の写しを返す。プレイヤーデータが無いときは null。
+     */
+    private PlayerStatusSnapshot loadStatus(Player player) {
+        UUID uuid = player.getUniqueId();
+        return statusCache.get(uuid, () -> {
+            try {
+                if (playerDAO.getPlayer(uuid) == null) {
+                    // プレイヤーデータが存在しない場合はスキップ（警告レベルを下げる）
+                    plugin.getLogger().fine("Player data not found for scoreboard: " + player.getName());
+                    return null;
+                }
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().warning("Failed to get player data for scoreboard: " + e.getMessage());
+                return null;
+            }
+            return PlayerStatusSnapshot.load(uuid, jobManager, configManager,
+                    currencyConverter.getBankBalance(player));
+        });
+    }
     
     // 定期更新タスク
     private BukkitTask updateTask;
@@ -82,6 +119,7 @@ public class ScoreboardManager implements Listener {
      * プレイヤーのスコアボードをメインスコアボードに戻す（サイドバー表示を消す）
      */
     private void clearScoreboard(Player player) {
+        sidebars.remove(player.getUniqueId());
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
@@ -116,7 +154,8 @@ public class ScoreboardManager implements Listener {
                 objective.getScore(coloredLine).setScore(score--);
             }
 
-            // プレイヤーにスコアボードを適用
+            // プレイヤーにスコアボードを適用（通常のサイドバーは捨て、再表示のときに作り直す）
+            sidebars.remove(player.getUniqueId());
             player.setScoreboard(scoreboard);
 
         } catch (Exception e) {
@@ -149,9 +188,17 @@ public class ScoreboardManager implements Listener {
     }
     
     /**
-     * プレイヤーのスコアボードを更新
+     * プレイヤーのスコアボードを更新（値が変わった直後に呼ぶ用。DB から読み直して反映する）
      */
     public void updatePlayerScoreboard(Player player) {
+        invalidateStatus(player.getUniqueId());
+        renderPlayerScoreboard(player);
+    }
+
+    /**
+     * プレイヤーのスコアボードを描く（定期更新用。DB は数秒に 1 回だけ読む）
+     */
+    private void renderPlayerScoreboard(Player player) {
         if (!isScoreboardEnabled(player)) {
             return;
         }
@@ -164,64 +211,40 @@ public class ScoreboardManager implements Listener {
         }
         
         try {
-            Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
-            Objective objective = scoreboard.registerNewObjective("tofunomics", "dummy", 
-                    ChatColor.translateAlternateColorCodes('&', configManager.getScoreboardTitle()));
-            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-        
-            // プレイヤーデータを取得
-        org.tofu.tofunomics.models.Player playerData;
-        try {
-            playerData = playerDAO.getPlayer(player.getUniqueId());
-            if (playerData == null) {
-                // プレイヤーデータが存在しない場合はスキップ（警告レベルを下げる）
-                plugin.getLogger().fine("Player data not found for scoreboard: " + player.getName());
+            // DB から読む値（数秒のあいだ使い回す）
+            PlayerStatusSnapshot status = loadStatus(player);
+            if (status == null) {
                 return;
             }
-        } catch (java.sql.SQLException e) {
-            // エラーログを出力してメソッドを終了（頻繁すぎるログを防ぐ）
-            plugin.getLogger().warning("Failed to get player data for scoreboard (" + player.getName() + "): " + e.getMessage());
-            return;
-        }
-        
-            // 職業情報を取得
-            PlayerJob currentJob = jobManager.getCurrentJob(player.getUniqueId());
-            String jobInfo = "なし";
-            // 画面に出す職業名（内部名 miner ではなく表示名 鉱夫）
-            String jobDisplayName = "なし";
+
+            // 表示する行（上から順）
+            List<String> lines = new java.util.ArrayList<>();
+
+            // 職業情報
+            String jobDisplayName = status.jobDisplayName;
             String levelInfo = "";
             String experienceInfo = "";
-        
-            if (currentJob != null) {
-                Job jobData = jobManager.getJobById(currentJob.getJobId());
-                if (jobData != null) {
-                    String jobTitle = jobManager.getJobTitle(currentJob.getJobId(), currentJob.getLevel());
-                    jobInfo = jobData.getName();
-                    jobDisplayName = ChatColor.stripColor(
-                            ChatColor.translateAlternateColorCodes('&', jobManager.getJobDisplayName(jobInfo)));
-                    levelInfo = "Lv." + currentJob.getLevel() + " " + jobTitle;
-                    
-                    // 次レベルまでの経験値計算
-                    // レベル上限は職業別設定(既定75)を使用する。getMaxJobLevel()(=100固定)
-                    // ではないことに注意(JobLevelBossBarManager と共通)。
-                    if (currentJob.getLevel() >= configManager.getJobMaxLevel(jobInfo)) {
-                        experienceInfo = "MAX";
-                    } else {
-                        // [0,100]クランプ＋0除算ガード付きの共通ヘルパーで計算(負値・100超え・NaN防止)
-                        double progress = PlayerJob.calculateLevelProgressPercent(
-                                currentJob.getLevel(), currentJob.getExperience());
-                        experienceInfo = String.format("%.1f%%", progress);
-                    }
+            if (status.hasJob) {
+                levelInfo = "Lv." + status.level + " " + status.jobTitle;
+                // 次レベルまでの経験値計算
+                // レベル上限は職業別設定(既定75)を使用する。getMaxJobLevel()(=100固定)
+                // ではないことに注意(JobLevelBossBarManager と共通)。
+                if (status.isMaxLevel()) {
+                    experienceInfo = "MAX";
+                } else {
+                    // [0,100]クランプ＋0除算ガード付きの共通ヘルパーで計算(負値・100超え・NaN防止)
+                    double progress = PlayerJob.calculateLevelProgressPercent(status.level, status.experience);
+                    experienceInfo = String.format("%.1f%%", progress);
                 }
             }
         
             // 現金・預金情報を分けて取得
             double cashBalance = currencyConverter.getCashBalance(player);
-            double bankBalance = currencyConverter.getBankBalance(player);
+            double bankBalance = status.bankBalance;
             String currencySymbol = configManager.getCurrencySymbol();
             
-            String cashText = currencyConverter.formatCurrency(cashBalance) + currencySymbol;
-            String bankText = currencyConverter.formatCurrency(bankBalance) + currencySymbol;
+            String cashText = currencyConverter.formatCurrency(cashBalance) + " " + currencySymbol;
+            String bankText = currencyConverter.formatCurrency(bankBalance) + " " + currencySymbol;
             
             // オンライン時間（分単位で計算）
             long onlineTime = player.getStatistic(org.bukkit.Statistic.PLAY_ONE_MINUTE) / 20 / 60; // tick -> minutes
@@ -259,67 +282,66 @@ public class ScoreboardManager implements Listener {
                 }
             }
             
-            // スコアを設定（下から上の順番で表示される）
-            int score = 10;
+            // 行を上から順に並べる
         
             // 空行を追加してレイアウトを整える
-            objective.getScore(ChatColor.WHITE + " ").setScore(score--);
+            lines.add(ChatColor.WHITE + " ");
             
             // 時刻表示
             if (showCurrentTime) {
-                objective.getScore(ChatColor.AQUA + "⏰ 時刻: " + ChatColor.WHITE + currentTimeText).setScore(score--);
+                lines.add(ChatColor.AQUA + "⏰ 時刻: " + ChatColor.WHITE + currentTimeText);
             }
             
             // 取引時間表示
             if (showTradingHours && !tradingStatusText.isEmpty()) {
-                objective.getScore(ChatColor.GOLD + "💼 取引: " + tradingStatusText).setScore(score--);
+                lines.add(ChatColor.GOLD + "💼 取引: " + tradingStatusText);
             }
 
             // 中心都市の距離・方角表示
             if (configManager.isScoreboardShowCenterCity()) {
                 String centerCityText = buildCenterCityLine(player);
                 if (centerCityText != null) {
-                    objective.getScore(centerCityText).setScore(score--);
+                    lines.add(centerCityText);
                 }
             }
             
             // 職業経験値情報
             if (configManager.isScoreboardShowExperience() && !experienceInfo.isEmpty()) {
-                objective.getScore(ChatColor.YELLOW + "次レベル: " + ChatColor.WHITE + experienceInfo).setScore(score--);
+                lines.add(ChatColor.YELLOW + "次レベル: " + ChatColor.WHITE + experienceInfo);
             }
             
             // 職業レベル
             if (configManager.isScoreboardShowJobLevel() && !levelInfo.isEmpty()) {
-                objective.getScore(ChatColor.GREEN + levelInfo).setScore(score--);
+                lines.add(ChatColor.GREEN + levelInfo);
             }
             
             // 職業名
             if (configManager.isScoreboardShowJob()) {
-                objective.getScore(ChatColor.AQUA + "職業: " + ChatColor.WHITE + jobDisplayName).setScore(score--);
+                lines.add(ChatColor.AQUA + "職業: " + ChatColor.WHITE + jobDisplayName);
             }
             
             // 預金残高
             if (configManager.isScoreboardShowBalance()) {
-                objective.getScore(ChatColor.GOLD + "預金: " + ChatColor.WHITE + bankText).setScore(score--);
+                lines.add(ChatColor.GOLD + "預金: " + ChatColor.WHITE + bankText);
             }
             
             // 現金残高（金塊）
             if (configManager.isScoreboardShowBalance()) {
-                objective.getScore(ChatColor.GREEN + "現金: " + ChatColor.WHITE + cashText).setScore(score--);
+                lines.add(ChatColor.GREEN + "現金: " + ChatColor.WHITE + cashText);
             }
         
             // プレイヤー名
             if (configManager.isScoreboardShowPlayerName()) {
-                objective.getScore(ChatColor.YELLOW + player.getName()).setScore(score--);
+                lines.add(ChatColor.YELLOW + player.getName());
             }
             
             // ルールコマンド表示
             if (configManager.isScoreboardShowRulesCommand()) {
                 // 空行を追加して視認性向上
-                objective.getScore(ChatColor.WHITE + "  ").setScore(score--);
+                lines.add(ChatColor.WHITE + "  ");
                 // ルールコマンドテキスト
                 String rulesCommandText = ChatColor.translateAlternateColorCodes('&', configManager.getScoreboardRulesCommandText());
-                objective.getScore(rulesCommandText).setScore(score--);
+                lines.add(rulesCommandText);
             }
 
             // トグルヒント表示
@@ -327,10 +349,16 @@ public class ScoreboardManager implements Listener {
                 // トグルヒントテキスト
                 String toggleHintText = ChatColor.translateAlternateColorCodes('&',
                         configManager.getScoreboardToggleHintText());
-                objective.getScore(toggleHintText).setScore(score--);
+                lines.add(toggleHintText);
             }
 
-            player.setScoreboard(scoreboard);
+            // 一度作ったサイドバーを使い回し、変わった行だけ書き換える
+            PlayerSidebar sidebar = sidebars.computeIfAbsent(player.getUniqueId(), uuid ->
+                    new PlayerSidebar(ChatColor.translateAlternateColorCodes('&', configManager.getScoreboardTitle())));
+            sidebar.show(lines);
+            if (player.getScoreboard() != sidebar.getScoreboard()) {
+                player.setScoreboard(sidebar.getScoreboard());
+            }
             
         } catch (Exception e) {
             // スコアボード作成・更新中のエラーをキャッチ
@@ -404,9 +432,12 @@ public class ScoreboardManager implements Listener {
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (isScoreboardEnabled(player)) {
-                        updatePlayerScoreboard(player);
+                        renderPlayerScoreboard(player);
                     }
                 }
+                // ログアウトした人のサイドバーと写しを片付ける
+                sidebars.keySet().removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
+                statusCache.removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
             }
         }.runTaskTimer(plugin, 0L, updateInterval * 20L); // 秒をtickに変換（同期処理）
     }
@@ -446,6 +477,8 @@ public class ScoreboardManager implements Listener {
      */
     public void onPlayerQuit(Player player) {
         scoreboardEnabled.remove(player.getUniqueId());
+        sidebars.remove(player.getUniqueId());
+        statusCache.invalidate(player.getUniqueId());
     }
     
     /**
@@ -473,6 +506,8 @@ public class ScoreboardManager implements Listener {
         }
         
         scoreboardEnabled.clear();
+        sidebars.clear();
+        statusCache.clear();
     }
     
     /**

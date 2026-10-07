@@ -510,7 +510,7 @@ npc_system:
       greeting: "§6いらっしゃいませ、%player%さん！木材加工サービスへようこそ。"
       service_start: "§a原木を板材に加工いたします。"
       woodcutter_special: "§e木こりの方は加工料金が無料です！"
-      insufficient_funds: "§c残高が不足しています。必要: %amount%"
+      insufficient_funds: "§c手持ちの現金が不足しています。必要: %amount%"
       no_logs: "§c加工できる原木が見つかりません。"
       no_space: "§cインベントリに空きがありません。"
       success: "§a%log_amount%個の原木を%plank_amount%個の板材に加工しました。"

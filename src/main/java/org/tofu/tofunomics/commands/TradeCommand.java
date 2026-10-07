@@ -121,13 +121,14 @@ public class TradeCommand implements CommandExecutor, TabCompleter {
                 String.format(" [%s Lv.%d]", configManager.getJobDisplayName(history.getPlayerJob()), 
                              history.getPlayerJobLevel()) : "";
             
-            player.sendMessage(String.format("%s%s %sx%d §f→ §a%.2f金塊%s", 
+            String currencySymbol = configManager.getCurrencySymbol();
+            player.sendMessage(String.format("%s%s %sx%d §f→ §a%.2f %s%s", 
                 ChatColor.YELLOW, dateStr, itemName, history.getItemAmount(),
-                history.getTotalPrice(), jobInfo));
+                history.getTotalPrice(), currencySymbol, jobInfo));
             
             if (history.getJobBonus() > 0) {
-                player.sendMessage(String.format("  %sボーナス: +%.2f金塊 (%.1f%%)", 
-                    ChatColor.GRAY, history.getJobBonus(), history.getBonusRate()));
+                player.sendMessage(String.format("  %sボーナス: +%.2f %s (%.1f%%)", 
+                    ChatColor.GRAY, history.getJobBonus(), currencySymbol, history.getBonusRate()));
             }
         }
         

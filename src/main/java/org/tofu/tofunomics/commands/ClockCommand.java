@@ -84,27 +84,21 @@ public class ClockCommand implements CommandExecutor, TabCompleter {
         double price = configManager.getClockItemPurchasePrice();
         
         try {
-            // プレイヤーの残高を確認
-            org.tofu.tofunomics.models.Player playerData = playerDAO.getPlayer(player.getUniqueId());
-            if (playerData == null) {
-                player.sendMessage("§cプレイヤーデータが見つかりません。");
-                return true;
-            }
-            
-            double balance = playerData.getBalance();
-            if (balance < price) {
+            // 支払いは、プレイヤーが実際に使えるお金（銀行残高）から行う。
+            // 残高が足りなければ subtractBalance が false を返し、何も引かれない。
+            org.tofu.tofunomics.economy.CurrencyConverter currencyConverter = plugin.getCurrencyConverter();
+            String priceText = currencyConverter.formatCurrency(price) + " " + configManager.getCurrencySymbol();
+            if (!currencyConverter.subtractBalance(player.getUniqueId(), price)) {
                 player.sendMessage(configManager.getClockItemInsufficientFundsMessage(price));
+                player.sendMessage("§7時計は銀行口座の残高（" + priceText + "）で支払います。先に銀行へ預けてください。");
                 return true;
             }
-            
-            // 残高から購入価格を差し引く
-            playerDAO.updateBalance(player.getUniqueId(), balance - price);
-            
+
             // 時計アイテムを付与
             clockItemManager.giveClockItem(player);
-            
-            player.sendMessage("§a時計を " + price + configManager.getCurrencySymbol() + " で購入しました！");
-            
+
+            player.sendMessage("§a時計を " + priceText + " で購入しました！（銀行口座から支払い）");
+
         } catch (Exception e) {
             player.sendMessage("§c時計の購入中にエラーが発生しました。");
             plugin.getLogger().severe("時計購入エラー: " + e.getMessage());
@@ -121,7 +115,8 @@ public class ClockCommand implements CommandExecutor, TabCompleter {
         boolean hasClockItem = clockItemManager.hasClockItem(player);
         
         player.sendMessage("§6§l=== TofuNomics時計情報 ===");
-        player.sendMessage("§e購入価格: §f" + price + configManager.getCurrencySymbol());
+        player.sendMessage("§e購入価格: §f" + plugin.getCurrencyConverter().formatCurrency(price)
+                + " " + configManager.getCurrencySymbol() + " §7（銀行口座から支払い）");
         player.sendMessage("§e所持状態: " + (hasClockItem ? "§a所持している" : "§c未所持"));
         player.sendMessage("");
         player.sendMessage("§e機能:");
