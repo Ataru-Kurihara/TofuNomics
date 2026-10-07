@@ -775,12 +775,6 @@ public final class TofuNomics extends JavaPlugin {
                 getLogger().info("食事バフリスナーを登録しました");
             }
             
-            // Phase 4 取引システムイベントリスナーの登録
-            if (tradeChestListener != null) {
-                getServer().getPluginManager().registerEvents(tradeChestListener, this);
-                getLogger().info("取引システムリスナーを登録しました");
-            }
-            
             // Phase 6 クラフト制限イベントハンドラーの登録（職業別クラフト制限の唯一の責任者）
             if (craftRestrictionEventHandler != null) {
                 getServer().getPluginManager().registerEvents(craftRestrictionEventHandler, this);
@@ -1050,6 +1044,10 @@ public final class TofuNomics extends JavaPlugin {
 
     public org.tofu.tofunomics.farming.FarmPlotManager getFarmPlotManager() {
         return farmPlotManager;
+    }
+
+    public org.tofu.tofunomics.dao.FirstAcquisitionDAO getFirstAcquisitionDAO() {
+        return firstAcquisitionDAO;
     }
     
     public org.tofu.tofunomics.scoreboard.ScoreboardManager getScoreboardManager() {

@@ -39,8 +39,8 @@ commands:
     usage: /jobstats [jobname|top jobname]
     permission: tofunomics.jobs.basic
   quest:
-    description: 職業クエスト管理
-    usage: /quest [list|accept|progress] [args]
+    description: クエストの受け方の案内（クエストは街の「依頼受付所」で受ける）
+    usage: /quest
     permission: tofunomics.jobs.basic
   trade:
     description: NPC取引の履歴表示
@@ -48,7 +48,7 @@ commands:
     permission: tofunomics.trade.basic
   eco:
     description: 管理者用経済コマンド
-    usage: /eco <give|take|set|reload> [args]
+    usage: /eco <give|take|set|log|reload> [args]
     permission: tofunomics.admin
   tofunomics:
     description: TofuNomicsメインコマンド（フェーズ6）
@@ -99,7 +99,7 @@ commands:
     permission: tofunomics.market.use
   tntest:
     description: 管理者テスト支援コマンド（テスト前提条件のセットアップ）
-    usage: /tntest <job|setlevel|exp|lv50|reward|money|reset|kit|time|stockreset|help> [args]
+    usage: /tntest <job|setlevel|exp|lv50|reward|money|reset|fullreset|kit|time|stockreset|help> [args]
     aliases: [tnt]
     permission: tofunomics.admin
 

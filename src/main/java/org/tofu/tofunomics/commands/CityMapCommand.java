@@ -34,7 +34,7 @@ public class CityMapCommand implements CommandExecutor {
         String mapId = configManager.getCityMapId();
         
         if (mapId == null || mapId.isEmpty()) {
-            player.sendMessage("§c地図がまだ設定されていません。管理者に連絡してください。");
+            player.sendMessage("§e中心都市の案内地図は準備中です。もうしばらくお待ちください。");
             return true;
         }
         

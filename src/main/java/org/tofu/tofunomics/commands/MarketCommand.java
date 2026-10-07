@@ -325,6 +325,12 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
      * 未使用のプレースホルダはメッセージ側で無視される。
      */
     private void sendBuyOrderMessage(Player player, MarketResult result, String item, int amount, double price) {
+        String fallback = fallbackMarketMessage(result.getMessageKey());
+        if (fallback != null && isMissingMessage(configManager.getMarketMessage(result.getMessageKey()))) {
+            // 本番の messages.yml にまだキーが無い場合でも、「メッセージが見つかりません」を見せない
+            player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', fallback));
+            return;
+        }
         player.sendMessage(configManager.getMarketMessage(result.getMessageKey(),
                 "item", item != null ? item : "",
                 "amount", String.valueOf(amount),
@@ -333,6 +339,28 @@ public class MarketCommand implements CommandExecutor, TabCompleter {
                 "currency", configManager.getCurrencyName(),
                 "min", String.valueOf((long) configManager.getMarketMinPrice()),
                 "max", String.valueOf((long) configManager.getMarketMaxPrice())));
+    }
+
+    /**
+     * あとから足したメッセージキーの既定文。
+     * 本番の config/messages.yml は jar で上書きされないので、手で写すまではキーが無い。
+     * そのあいだも読める文を出すために、コード側にも同じ文を持っておく。
+     *
+     * @return 既定文。対象のキーでなければ null
+     */
+    static String fallbackMarketMessage(String key) {
+        if ("listing_limit".equals(key)) {
+            return "&c出品数の上限に達しています。売れるのを待つか、取り下げてから出品してください。";
+        }
+        if ("buy_order_limit".equals(key)) {
+            return "&c買い注文数の上限に達しています。成立を待つか、取り下げてから出してください。";
+        }
+        return null;
+    }
+
+    /** 設定にキーが無いときに ConfigManager が返す文か */
+    static boolean isMissingMessage(String message) {
+        return message == null || message.contains("メッセージが見つかりません");
     }
 
     // ====================================================================

@@ -70,8 +70,10 @@ public class UnifiedEventHandler implements Listener {
     // 職業ブロック制限システム
     private final org.tofu.tofunomics.jobs.JobBlockPermissionManager blockPermissionManager;
     
-    // プレイヤーが設置したブロックの位置を記録（メモリ内追跡）
-    private final Set<String> playerPlacedBlocks;
+    // プレイヤーが設置したブロックの位置を記録（placed_blocks 表に残し、再起動後も覚えている）
+    private final PlacedBlockStore placedBlocks;
+    // 設置ブロックの記録を DB へまとめて書く間隔（10秒）
+    private static final long PLACED_BLOCK_FLUSH_TICKS = 200L;
     
     public UnifiedEventHandler(JavaPlugin plugin, ConfigManager configManager,
                               PlayerDAO playerDAO, PlayerJobDAO playerJobDAO,
@@ -91,7 +93,17 @@ public class UnifiedEventHandler implements Listener {
         this.blockPermissionManager = blockPermissionManager;
         
         // プレイヤー設置ブロック追跡システムの初期化
-        this.playerPlacedBlocks = new HashSet<>();
+        // 置く・壊すのたびには DB へ書かず、10秒ごとと停止時（cleanup）にまとめて書く
+        java.sql.Connection placedBlockConnection = null;
+        if (plugin instanceof org.tofu.tofunomics.TofuNomics
+                && ((org.tofu.tofunomics.TofuNomics) plugin).getDatabaseManager() != null) {
+            placedBlockConnection = ((org.tofu.tofunomics.TofuNomics) plugin).getDatabaseManager().getConnection();
+        }
+        this.placedBlocks = new PlacedBlockStore(placedBlockConnection, this.logger);
+        if (placedBlockConnection != null) {
+            org.bukkit.Bukkit.getScheduler().runTaskTimer(plugin, placedBlocks::flush,
+                    PLACED_BLOCK_FLUSH_TICKS, PLACED_BLOCK_FLUSH_TICKS);
+        }
         
         // サブシステムの初期化
         this.eventCache = new EventCache(plugin);
@@ -146,14 +158,10 @@ public class UnifiedEventHandler implements Listener {
             return;
         }
 
-        // プレイヤーが設置したブロックかチェック（メモリ内追跡）
-        String blockKey = getBlockLocationKey(event.getBlock().getLocation());
-        boolean isPlayerPlaced = playerPlacedBlocks.contains(blockKey);
-
-        // 設置ブロックの場合はセットから削除
-        if (isPlayerPlaced) {
-            playerPlacedBlocks.remove(blockKey);
-        }
+        // プレイヤーが設置したブロックかチェックし、記録があれば消す（壊されたので）
+        Location brokenAt = event.getBlock().getLocation();
+        boolean isPlayerPlaced = placedBlocks.remove(brokenAt.getWorld().getName(),
+                brokenAt.getBlockX(), brokenAt.getBlockY(), brokenAt.getBlockZ());
 
         // キャッシュチェック
         if (eventCache.isRecentlyProcessed(player, "block_break", 50)) {
@@ -165,7 +173,8 @@ public class UnifiedEventHandler implements Listener {
         if (!isPlayerPlaced) {
             experienceManager.onBlockBreak(event);
         }
-        questManager.onBlockBreak(event);
+        // コマンドのクエスト（/quest）は廃止し、進行処理は呼ばない。
+        // クエストは街の「依頼受付所」（クエスト NPC）で受ける。
 
         // キャッシュに記録
         eventCache.markAsProcessed(player, "block_break");
@@ -199,8 +208,9 @@ public class UnifiedEventHandler implements Listener {
         // プレイヤーが設置したブロックを記録（メモリ内追跡）
         // STONE, COBBLESTONEなど経験値対象ブロックのみ追跡（鉱石は除外）
         if (shouldTrackPlacedBlock(blockType)) {
-            String blockKey = getBlockLocationKey(event.getBlock().getLocation());
-            playerPlacedBlocks.add(blockKey);
+            Location placedAt = event.getBlock().getLocation();
+            placedBlocks.add(placedAt.getWorld().getName(),
+                    placedAt.getBlockX(), placedAt.getBlockY(), placedAt.getBlockZ());
         }
         
         // キャッシュチェック
@@ -215,6 +225,41 @@ public class UnifiedEventHandler implements Listener {
         eventCache.markAsProcessed(player, "block_place");
     }
     
+    /**
+     * ピストンが押したブロックの記録を、押した先へ移す。
+     * 移さないと、置いた石をピストンで 1 マス動かしてから掘るだけで経験値が入ってしまう。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonExtend(org.bukkit.event.block.BlockPistonExtendEvent event) {
+        movePlacedBlockRecords(event.getBlocks(), event.getDirection());
+    }
+
+    /**
+     * 粘着ピストンが引いたブロックの記録を、引いた先へ移す。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonRetract(org.bukkit.event.block.BlockPistonRetractEvent event) {
+        movePlacedBlockRecords(event.getBlocks(), event.getDirection());
+    }
+
+    private void movePlacedBlockRecords(List<org.bukkit.block.Block> movedBlocks, org.bukkit.block.BlockFace direction) {
+        // 先に動く前の記録をすべて消してから、動いた先に付ける
+        // （列になって動くので、1 つずつ移すと隣の記録を上書きしてしまう）
+        List<Location> movedRecords = new java.util.ArrayList<>();
+        for (org.bukkit.block.Block block : movedBlocks) {
+            Location from = block.getLocation();
+            if (placedBlocks.remove(from.getWorld().getName(), from.getBlockX(), from.getBlockY(), from.getBlockZ())) {
+                movedRecords.add(from);
+            }
+        }
+        for (Location from : movedRecords) {
+            placedBlocks.add(from.getWorld().getName(),
+                    from.getBlockX() + direction.getModX(),
+                    from.getBlockY() + direction.getModY(),
+                    from.getBlockZ() + direction.getModZ());
+        }
+    }
+
     /**
      * 種アイテムによる植え付け制限（農家以外の種まきを拒否）
      * 畑・ソウルサンドへの種まきは BlockPlaceEvent を発火しないため、
@@ -329,7 +374,6 @@ public class UnifiedEventHandler implements Listener {
         
         // 既存のマネージャーに処理を委譲（収入システムは無効化）
         experienceManager.onCraftItem(event);
-        questManager.onCraftItem(event);
         
         // キャッシュに記録
         eventCache.markAsProcessed(player, "craft_item");
@@ -424,7 +468,6 @@ public class UnifiedEventHandler implements Listener {
         
         // 既存のマネージャーに処理を委譲（収入システムは無効化）
         experienceManager.onPlayerFish(event);
-        questManager.onPlayerFish(event);
         
         // キャッシュに記録
         eventCache.markAsProcessed(player, "player_fish");
@@ -625,6 +668,8 @@ public class UnifiedEventHandler implements Listener {
      * システムのクリーンアップ
      */
     public void cleanup() {
+        // たまっている設置ブロックの記録を DB へ書く（停止時に失わないため）
+        placedBlocks.flush();
         eventCache.cleanup();
         asyncUpdater.shutdown();
         logger.info("UnifiedEventHandler cleaned up successfully");
