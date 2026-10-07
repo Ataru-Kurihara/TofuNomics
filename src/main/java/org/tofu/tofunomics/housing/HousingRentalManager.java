@@ -199,6 +199,14 @@ public class HousingRentalManager {
      * 賃貸契約を締結
      */
     public synchronized RentalResult rentProperty(UUID tenantUuid, int propertyId, String period, int units) {
+        // お金の記録に理由（住居の家賃）を残すための宣言。処理の中身は下の rentPropertyInternal のまま
+        try (org.tofu.tofunomics.economy.TransactionContext.Scope scope = org.tofu.tofunomics.economy.TransactionContext.open(
+                org.tofu.tofunomics.economy.TransactionType.RENT, null, "契約 物件ID " + propertyId)) {
+            return rentPropertyInternal(tenantUuid, propertyId, period, units);
+        }
+    }
+
+    private RentalResult rentPropertyInternal(UUID tenantUuid, int propertyId, String period, int units) {
         try {
             // 契約期間（単位数）の妥当性チェック（0以下だと即時期限切れや永久契約を招くため弾く）
             if (units <= 0) {
@@ -338,6 +346,14 @@ public class HousingRentalManager {
      * 契約を延長
      */
     public synchronized RentalResult extendRental(UUID tenantUuid, int propertyId, int additionalDays) {
+        // お金の記録に理由（住居の家賃）を残すための宣言。処理の中身は下の extendRentalInternal のまま
+        try (org.tofu.tofunomics.economy.TransactionContext.Scope scope = org.tofu.tofunomics.economy.TransactionContext.open(
+                org.tofu.tofunomics.economy.TransactionType.RENT, null, "延長 物件ID " + propertyId)) {
+            return extendRentalInternal(tenantUuid, propertyId, additionalDays);
+        }
+    }
+
+    private RentalResult extendRentalInternal(UUID tenantUuid, int propertyId, int additionalDays) {
         try {
             // 追加日数の妥当性チェック（0以下を弾く）
             if (additionalDays <= 0) {
@@ -440,6 +456,14 @@ public class HousingRentalManager {
      * 契約をキャンセル
      */
     public synchronized RentalResult cancelRental(UUID tenantUuid, int propertyId) {
+        // お金の記録に理由（住居の家賃）を残すための宣言。処理の中身は下の cancelRentalInternal のまま
+        try (org.tofu.tofunomics.economy.TransactionContext.Scope scope = org.tofu.tofunomics.economy.TransactionContext.open(
+                org.tofu.tofunomics.economy.TransactionType.RENT, null, "解約 物件ID " + propertyId)) {
+            return cancelRentalInternal(tenantUuid, propertyId);
+        }
+    }
+
+    private RentalResult cancelRentalInternal(UUID tenantUuid, int propertyId) {
         try {
             HousingRental rental = rentalDAO.getActiveRentalByProperty(propertyId);
             

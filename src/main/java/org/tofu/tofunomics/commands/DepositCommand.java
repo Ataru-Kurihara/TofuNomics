@@ -59,7 +59,7 @@ public class DepositCommand implements CommandExecutor {
         
         if (availableNuggets == 0) {
             player.sendMessage(ChatColor.RED + "インベントリに有効なTofuCoinまたはTofuGoldがありません。");
-            player.sendMessage(ChatColor.GRAY + "※ TofuGoldは通貨専用の金インゴットです（1個 = 9 TofuCoin）");
+            player.sendMessage(ChatColor.GRAY + "※ TofuGold は通貨専用の金インゴットです（1 個 = TofuCoin 9 枚分）");
             return true;
         }
         
@@ -80,9 +80,10 @@ public class DepositCommand implements CommandExecutor {
                 nuggetsToDeposit = currencyConverter.convertBalanceToNuggets(amount);
                 
                 if (nuggetsToDeposit > availableNuggets) {
-                    player.sendMessage(ChatColor.RED + "インベントリに十分なTofuCoinまたはTofuGoldがありません。");
-                    player.sendMessage(ChatColor.GRAY + "所有数: " + availableNuggets + " TofuCoin相当（TofuGold換算: " +
-                        availableNuggets + "/9 = " + (availableNuggets / 9) + " 個 + 余り " + (availableNuggets % 9) + " TofuCoin）");
+                    player.sendMessage(ChatColor.RED + "手持ちの現金（TofuCoin・TofuGold）が足りません。");
+                    player.sendMessage(ChatColor.GRAY + "手持ちの現金: "
+                        + currencyConverter.formatCurrency(currencyConverter.convertNuggetsToBalance(availableNuggets))
+                        + " " + configManager.getCurrencySymbol());
                     return true;
                 }
                 
@@ -112,8 +113,6 @@ public class DepositCommand implements CommandExecutor {
             
             player.sendMessage(ChatColor.translateAlternateColorCodes('&', 
                 configManager.getMessagePrefix() + message));
-            
-            player.sendMessage(ChatColor.GRAY + "預け入れた金塊: " + nuggetsToDeposit + " 個");
             
             // スコアボードを即座に更新
             TofuNomics plugin = TofuNomics.getInstance();

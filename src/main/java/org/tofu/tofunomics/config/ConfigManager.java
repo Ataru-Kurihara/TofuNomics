@@ -526,6 +526,26 @@ public class ConfigManager {
         return config.getDouble("market.sell_exp.multiplier", 0.3);
     }
 
+    // 経験値の稼ぎすぎ防止: 1 個あたりの価格が基準価格のこの割合に満たない取引には経験値を出さない
+    public double getMarketSellExpMinPriceRatio() {
+        return config.getDouble("market.sell_exp.min_price_ratio", 0.5);
+    }
+
+    // 経験値の稼ぎすぎ防止: 同じ 2 人の間で経験値が入るのは、この分数に 1 回まで
+    public int getMarketSellExpPairCooldownMinutes() {
+        return config.getInt("market.sell_exp.pair_cooldown_minutes", 60);
+    }
+
+    // 1 人あたりの売り出品数の上限（0 以下で無制限）
+    public int getMarketMaxListingsPerPlayer() {
+        return config.getInt("market.max_listings_per_player", 10);
+    }
+
+    // 1 人あたりの買い注文数の上限（0 以下で無制限）
+    public int getMarketMaxBuyOrdersPerPlayer() {
+        return config.getInt("market.max_buy_orders_per_player", 10);
+    }
+
     // サービス依頼（修理・エンチャント募集）設定
     public boolean isMarketServiceEnabled() {
         return config.getBoolean("market.service.enabled", true);

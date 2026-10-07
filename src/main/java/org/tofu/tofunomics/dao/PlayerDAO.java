@@ -1,5 +1,6 @@
 package org.tofu.tofunomics.dao;
 
+import org.tofu.tofunomics.economy.TransactionRecorder;
 import org.tofu.tofunomics.models.Player;
 
 import java.sql.Connection;
@@ -31,6 +32,52 @@ public class PlayerDAO {
             statement.setTimestamp(5, player.getUpdatedAt());
             statement.executeUpdate();
         }
+        // 新規作成時に預金が入っていれば、0 からの増加として記録する
+        recordBankChange(player, 0.0);
+    }
+
+    /**
+     * 保存前の預金残高を読む。お金の記録（増減の算出）に使う。
+     * 記録係が登録されていないとき（テストなど）と、行が無いときは null。
+     */
+    private Double readBankBalanceForLog(UUID uuid) {
+        if (TransactionRecorder.global() == null || uuid == null) {
+            return null;
+        }
+        String query = "SELECT bank_balance FROM players WHERE uuid = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, uuid.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getDouble(1);
+                }
+            }
+        } catch (SQLException e) {
+            // 記録のための読み取りに失敗しても、保存そのものは続ける
+        }
+        return null;
+    }
+
+    /**
+     * 保存の前後で預金残高が変わっていれば、その差をお金の記録に残す。
+     * 残高を書き換える所はこの DAO の保存処理を必ず通るので、ここで拾えば漏れない。
+     * 理由は呼び出し側の宣言（TransactionContext）から読む。宣言が無ければ「その他」。
+     */
+    private void recordBankChange(Player player, Double balanceBefore) {
+        if (balanceBefore == null || player == null || player.getUuid() == null) {
+            return;
+        }
+        try {
+            TransactionRecorder.recordBankChange(
+                player.getUuid(), bankDelta(balanceBefore, player.getBankBalance()), player.getBankBalance());
+        } catch (RuntimeException e) {
+            // 記録の失敗でお金の操作を止めない
+        }
+    }
+
+    /** 預金残高の増減（増えたら正、減ったら負） */
+    static double bankDelta(double before, double after) {
+        return after - before;
     }
 
     public Player getPlayer(UUID uuid) throws SQLException {
@@ -75,6 +122,7 @@ public class PlayerDAO {
     }
 
     public void updatePlayer(Player player) throws SQLException {
+        Double balanceBefore = readBankBalanceForLog(player.getUuid());
         String query = "UPDATE players SET balance = ?, bank_balance = ?, updated_at = ? WHERE uuid = ?";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setDouble(1, player.getBalance());
@@ -83,6 +131,7 @@ public class PlayerDAO {
             statement.setString(4, player.getUuid().toString());
             statement.executeUpdate();
         }
+        recordBankChange(player, balanceBefore);
     }
 
     public void updateBalance(UUID uuid, double newBalance) throws SQLException {
@@ -96,12 +145,20 @@ public class PlayerDAO {
     }
 
     public void updateBankBalance(UUID uuid, double newBankBalance) throws SQLException {
+        Double balanceBefore = readBankBalanceForLog(uuid);
         String query = "UPDATE players SET bank_balance = ?, updated_at = ? WHERE uuid = ?";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setDouble(1, newBankBalance);
             statement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
             statement.setString(3, uuid.toString());
             statement.executeUpdate();
+        }
+        if (balanceBefore != null) {
+            try {
+                TransactionRecorder.recordBankChange(uuid, bankDelta(balanceBefore, newBankBalance), newBankBalance);
+            } catch (RuntimeException e) {
+                // 記録の失敗でお金の操作を止めない
+            }
         }
     }
 
@@ -161,8 +218,17 @@ public class PlayerDAO {
             fromPlayer.removeBankBalance(amount);
             toPlayer.addBankBalance(amount);
 
-            updatePlayer(fromPlayer);
-            updatePlayer(toPlayer);
+            // 送る側・受け取る側それぞれに、相手を添えて記録する
+            try (org.tofu.tofunomics.economy.TransactionContext.Scope scope =
+                     org.tofu.tofunomics.economy.TransactionContext.open(
+                         org.tofu.tofunomics.economy.TransactionType.PAY_SEND, toUuid.toString(), null)) {
+                updatePlayer(fromPlayer);
+            }
+            try (org.tofu.tofunomics.economy.TransactionContext.Scope scope =
+                     org.tofu.tofunomics.economy.TransactionContext.open(
+                         org.tofu.tofunomics.economy.TransactionType.PAY_RECEIVE, fromUuid.toString(), null)) {
+                updatePlayer(toPlayer);
+            }
 
             connection.commit();
             return true;
@@ -207,15 +273,8 @@ public class PlayerDAO {
     // 戻り値がbooleanのupdatePlayerメソッド
     public boolean updatePlayerData(Player player) {
         try {
-            String query = "UPDATE players SET balance = ?, bank_balance = ?, updated_at = ? WHERE uuid = ?";
-            try (PreparedStatement statement = connection.prepareStatement(query)) {
-                statement.setDouble(1, player.getBalance());
-                statement.setDouble(2, player.getBankBalance());
-                statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
-                statement.setString(4, player.getUuid().toString());
-                statement.executeUpdate();
-                return true;
-            }
+            updatePlayer(player);
+            return true;
         } catch (SQLException e) {
             return false;
         }

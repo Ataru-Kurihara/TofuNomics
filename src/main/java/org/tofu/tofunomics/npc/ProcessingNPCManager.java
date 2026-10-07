@@ -385,7 +385,7 @@ public class ProcessingNPCManager {
         
         // 料金徴収（現金から）
         if (totalFee > 0) {
-            if (!currencyConverter.payWithCash(player, totalFee)) {
+            if (!payProcessingFee(player, totalFee)) {
                 return new ProcessingResult(false, "§c料金の引き落としに失敗しました", totalLogs, 0, totalFee);
             }
         }
@@ -480,7 +480,7 @@ public class ProcessingNPCManager {
         
         // 料金徴収（現金から）
         if (totalFee > 0) {
-            if (!currencyConverter.payWithCash(player, totalFee)) {
+            if (!payProcessingFee(player, totalFee)) {
                 return new ProcessingResult(false, "§c料金の引き落としに失敗しました", actualQuantity, 0, totalFee);
             }
         }
@@ -811,5 +811,12 @@ public class ProcessingNPCManager {
         public int getLogsProcessed() { return logsProcessed; }
         public int getPlanksCreated() { return planksCreated; }
         public double getFeeCharged() { return feeCharged; }
+    }
+
+    /** 加工料の支払い（手持ちの現金から）。お金の記録に理由を残す */
+    private boolean payProcessingFee(Player player, double totalFee) {
+        try (org.tofu.tofunomics.economy.TransactionContext.Scope scope = org.tofu.tofunomics.economy.TransactionContext.open(org.tofu.tofunomics.economy.TransactionType.NPC_BUY, "NPC:加工", "加工料")) {
+            return currencyConverter.payWithCash(player, totalFee);
+        }
     }
 }

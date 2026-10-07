@@ -53,6 +53,10 @@ public enum MarketResult {
     SERVICE_NOT_OWNER("service_not_owner"),           // 自分の依頼ではない
     SERVICE_LIMIT("service_limit"),                   // 依頼上限超過
 
+    // 失敗（1 人あたりの件数の上限）
+    LISTING_LIMIT("listing_limit"),                   // 売り出品の上限超過
+    ORDER_LIMIT("buy_order_limit"),                   // 買い注文の上限超過
+
     // 失敗（共通）
     MARKET_DISABLED("error"),
     ERROR("error");

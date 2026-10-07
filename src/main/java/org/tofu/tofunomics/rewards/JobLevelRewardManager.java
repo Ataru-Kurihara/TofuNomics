@@ -96,7 +96,13 @@ public class JobLevelRewardManager {
      * @return 付与に成功した場合true
      */
     private boolean giveMoney(Player player, double amount) {
-        boolean ok = currencyConverter.addBalance(player.getUniqueId(), amount);
+        boolean ok;
+        // お金の記録に理由（レベルアップ報酬）を残す
+        try (org.tofu.tofunomics.economy.TransactionContext.Scope scope =
+                 org.tofu.tofunomics.economy.TransactionContext.open(
+                     org.tofu.tofunomics.economy.TransactionType.LEVEL_REWARD, null, null)) {
+            ok = currencyConverter.addBalance(player.getUniqueId(), amount);
+        }
         if (!ok) {
             // 残高上限到達やプレイヤー未登録などで付与できなかった場合
             org.bukkit.Bukkit.getLogger().warning(

@@ -457,7 +457,7 @@ public class ProcessingGUI implements Listener {
         int maxQuantity = Math.min(totalLogs, maxAffordable);
         
         if (maxQuantity <= 0) {
-            player.sendMessage("§c残高が不足しているため、加工できません。");
+            player.sendMessage("§c手持ちの現金が不足しているため、加工できません。");
             return;
         }
         

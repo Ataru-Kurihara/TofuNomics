@@ -89,7 +89,12 @@ public class PayCommand implements CommandExecutor {
         if (currencyConverter.transfer(fromPlayer, targetPlayer, amount)) {
             // 手数料がある場合は送金者から追加で差し引く
             if (fee > 0) {
-                currencyConverter.subtractBalance(fromPlayer.getUniqueId(), fee);
+                try (org.tofu.tofunomics.economy.TransactionContext.Scope scope =
+                         org.tofu.tofunomics.economy.TransactionContext.open(
+                             org.tofu.tofunomics.economy.TransactionType.PAY_FEE,
+                             targetPlayer.getUniqueId().toString(), null)) {
+                    currencyConverter.subtractBalance(fromPlayer.getUniqueId(), fee);
+                }
             }
             
             String formattedAmount = currencyConverter.formatCurrency(amount);

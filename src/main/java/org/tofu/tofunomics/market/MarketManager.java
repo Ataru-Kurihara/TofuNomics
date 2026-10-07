@@ -12,6 +12,8 @@ import org.tofu.tofunomics.dao.MarketListingDAO;
 import org.tofu.tofunomics.dao.MarketServiceRequestDAO;
 import org.tofu.tofunomics.dao.PlayerDAO;
 import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.economy.TransactionContext;
+import org.tofu.tofunomics.economy.TransactionType;
 import org.tofu.tofunomics.models.MarketBuyOrder;
 import org.tofu.tofunomics.models.MarketListing;
 import org.tofu.tofunomics.models.MarketServiceRequest;
@@ -137,6 +139,11 @@ public class MarketManager {
 
         synchronized (connection) {
             try {
+                // 1 人あたりの出品数の上限
+                if (isAtLimit(listingDAO.countActiveBySeller(sellerUuid),
+                        configManager.getMarketMaxListingsPerPlayer())) {
+                    return MarketResult.LISTING_LIMIT;
+                }
                 Long expiresAt = calculateExpiresAtMillis(nowMillis);
                 MarketListing listing = new MarketListing(
                         sellerUuid, sellerName, itemData, displayName, material, amount, price, expiresAt);
@@ -147,6 +154,13 @@ public class MarketManager {
                 return MarketResult.ERROR;
             }
         }
+    }
+
+    /**
+     * 件数が上限に達しているか。上限が 0 以下のときは制限しない。
+     */
+    static boolean isAtLimit(int currentCount, int limit) {
+        return limit > 0 && currentCount >= limit;
     }
 
     /**
@@ -184,7 +198,10 @@ public class MarketManager {
                 long proceeds = calculateSellerProceeds(listing.getPrice());
                 org.tofu.tofunomics.models.Player seller = playerDAO.getOrCreatePlayer(sellerUuid);
                 seller.addBankBalance(proceeds);
-                playerDAO.updatePlayer(seller);
+                try (TransactionContext.Scope scope = TransactionContext.open(
+                        TransactionType.MARKET_INCOME, buyerUuid.toString(), "出品の売上 " + listing.getMaterial() + " x" + listing.getAmount())) {
+                    playerDAO.updatePlayer(seller);
+                }
 
                 connection.commit();
                 return PurchaseOutcome.success(listing.getItemData(), sellerUuid, proceeds);
@@ -282,6 +299,11 @@ public class MarketManager {
 
         synchronized (connection) {
             try {
+                // 1 人あたりの買い注文数の上限
+                if (isAtLimit(buyOrderDAO.countOpenByRequester(requesterUuid),
+                        configManager.getMarketMaxBuyOrdersPerPlayer())) {
+                    return MarketResult.ORDER_LIMIT;
+                }
                 Long expiresAt = calculateExpiresAtMillis(nowMillis);
                 MarketBuyOrder order = new MarketBuyOrder(
                         requesterUuid, requesterName, material, amount, price, expiresAt);
@@ -322,7 +344,10 @@ public class MarketManager {
                 long proceeds = calculateSellerProceeds(order.getPrice());
                 org.tofu.tofunomics.models.Player supplier = playerDAO.getOrCreatePlayer(supplierUuid);
                 supplier.addBankBalance(proceeds);
-                playerDAO.updatePlayer(supplier);
+                try (TransactionContext.Scope scope = TransactionContext.open(
+                        TransactionType.MARKET_INCOME, order.getRequesterUuid().toString(), "買い注文への供給 " + order.getMaterial() + " x" + order.getAmount())) {
+                    playerDAO.updatePlayer(supplier);
+                }
 
                 connection.commit();
                 return FulfillOutcome.success(order.getRequesterUuid(), proceeds);
@@ -426,7 +451,10 @@ public class MarketManager {
                             MarketBuyOrder.STATUS_OPEN, MarketBuyOrder.STATUS_EXPIRED)) {
                         org.tofu.tofunomics.models.Player requester = playerDAO.getOrCreatePlayer(order.getRequesterUuid());
                         requester.addBankBalance(order.getPrice());
-                        playerDAO.updatePlayer(requester);
+                        try (TransactionContext.Scope scope = TransactionContext.open(
+                                TransactionType.MARKET_REFUND, null, "買い注文の期限切れ")) {
+                            playerDAO.updatePlayer(requester);
+                        }
                         count++;
                     }
                 }
@@ -509,7 +537,10 @@ public class MarketManager {
                 long proceeds = calculateSellerProceeds(req.getPrice());
                 org.tofu.tofunomics.models.Player worker = playerDAO.getOrCreatePlayer(workerUuid);
                 worker.addBankBalance(proceeds);
-                playerDAO.updatePlayer(worker);
+                try (TransactionContext.Scope scope = TransactionContext.open(
+                        TransactionType.MARKET_INCOME, req.getRequesterUuid().toString(), "サービス依頼の報酬")) {
+                    playerDAO.updatePlayer(worker);
+                }
 
                 connection.commit();
                 return ServiceFulfillOutcome.success(proceeds);
@@ -616,7 +647,10 @@ public class MarketManager {
                             MarketServiceRequest.STATUS_OPEN, MarketServiceRequest.STATUS_EXPIRED)) {
                         org.tofu.tofunomics.models.Player requester = playerDAO.getOrCreatePlayer(req.getRequesterUuid());
                         requester.addBankBalance(req.getPrice());
-                        playerDAO.updatePlayer(requester);
+                        try (TransactionContext.Scope scope = TransactionContext.open(
+                                TransactionType.MARKET_REFUND, null, "サービス依頼の期限切れ")) {
+                            playerDAO.updatePlayer(requester);
+                        }
                         count++;
                     }
                 }
@@ -708,7 +742,7 @@ public class MarketManager {
         double price = listing.getPrice();
 
         // 現金を先に回収（所持チェックと削除を原子的に行う）。不足なら資金不足
-        if (!currencyConverter.payWithCash(buyer, price)) {
+        if (!payForMarket(buyer, price)) {
             return MarketResult.INSUFFICIENT_FUNDS;
         }
 
@@ -746,6 +780,10 @@ public class MarketManager {
             }
             Material material = Material.matchMaterial(listing.getMaterial());
             if (material == null) {
+                return;
+            }
+            if (!isExpEligibleTrade(listing.getSellerUuid(), buyer.getUniqueId(),
+                    material, listing.getAmount(), listing.getPrice())) {
                 return;
             }
             jobExperienceManager.giveMarketSellExperience(
@@ -810,8 +848,25 @@ public class MarketManager {
             return MarketResult.INVALID_PRICE;
         }
 
+        // 上限に達していれば、前払いを受け取る前に断る
+        try {
+            synchronized (connection) {
+                if (isAtLimit(buyOrderDAO.countOpenByRequester(requester.getUniqueId()),
+                        configManager.getMarketMaxBuyOrdersPerPlayer())) {
+                    // 買い注文の結果の文は呼び出し側が設定ファイルから引く。文が無い環境でも理由が伝わるよう、
+                    // 件数つきの既定文をここで伝える
+                    requester.sendMessage(MarketMessages.limitDefaultMessage(MarketResult.ORDER_LIMIT, 0,
+                        configManager.getMarketMaxBuyOrdersPerPlayer()));
+                    return MarketResult.ORDER_LIMIT;
+                }
+            }
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "買い注文数の確認に失敗しました", e);
+            return MarketResult.ERROR;
+        }
+
         // 前払いの現金を先に回収（所持チェックと削除を原子的に行う）。不足なら資金不足
-        if (!currencyConverter.payWithCash(requester, price)) {
+        if (!payForMarket(requester, price)) {
             return MarketResult.INSUFFICIENT_FUNDS;
         }
 
@@ -898,6 +953,22 @@ public class MarketManager {
         return outcome.getResult();
     }
 
+    private final MarketExpGuard expGuard = new MarketExpGuard();
+
+    /**
+     * 経験値を出してよい取引かどうか（稼ぎすぎの防止。判定の中身は {@link MarketExpGuard}）。
+     * 安すぎる価格の取引と、同じ 2 人の間で短い間隔で繰り返される取引には経験値を出さない。
+     */
+    private boolean isExpEligibleTrade(UUID earner, UUID other, Material material, int amount, double totalPrice) {
+        double basePrice = configManager.getItemBasePrice(material.name());
+        if (!MarketExpGuard.meetsPriceFloor(totalPrice, amount, basePrice,
+                configManager.getMarketSellExpMinPriceRatio())) {
+            return false;
+        }
+        long cooldownMillis = configManager.getMarketSellExpPairCooldownMinutes() * 60_000L;
+        return expGuard.tryAcquire(earner, other, System.currentTimeMillis(), cooldownMillis);
+    }
+
     /**
      * 買取募集への供給成立に対し、供給者が対応職業に就いていれば職業経験値を付与する。
      * 自己供給（自分の募集に自分で供給）では付与しない（経験値ファーミング防止）。
@@ -909,6 +980,10 @@ public class MarketManager {
             }
             // 自己供給時は付与しない
             if (order.getRequesterUuid().equals(supplier.getUniqueId())) {
+                return;
+            }
+            if (!isExpEligibleTrade(supplier.getUniqueId(), order.getRequesterUuid(),
+                    material, amount, order.getPrice())) {
                 return;
             }
             jobExperienceManager.giveMarketSellExperience(supplier.getUniqueId(), material, amount);
@@ -1013,6 +1088,12 @@ public class MarketManager {
         if (item == null || item.getType() == Material.AIR) {
             return MarketResult.INVALID_SERVICE_ITEM;
         }
+        // バニラで付けられる範囲に絞る（付けられない種類・最大レベル超え・両立しない組み合わせは不可）
+        if (!ServiceProcessor.isVanillaEnchant(item, enchantment, level)) {
+            requester.sendMessage("§eその品には付けられない種類か、最大レベルを超えているか、"
+                + "すでに付いているエンチャントと両立しません。");
+            return MarketResult.INVALID_ENCHANT;
+        }
         String itemData = MarketItemSerializer.serialize(item);
         if (itemData == null) {
             return MarketResult.ERROR;
@@ -1042,7 +1123,7 @@ public class MarketManager {
             }
         }
 
-        if (!currencyConverter.payWithCash(requester, price)) {
+        if (!payForMarket(requester, price)) {
             return MarketResult.INSUFFICIENT_FUNDS;
         }
 
@@ -1107,6 +1188,10 @@ public class MarketManager {
                 return MarketResult.INVALID_ENCHANT;
             }
             int level = req.getEnchantLevel() != null ? req.getEnchantLevel() : 1;
+            // 制限を入れる前に登録された依頼も、作業の時点でバニラの範囲に絞る
+            if (!ServiceProcessor.isVanillaEnchant(original, enchantment, level)) {
+                return MarketResult.INVALID_ENCHANT;
+            }
             expCost = configManager.getMarketServiceEnchantExpCostPerLevel() * level;
             lapisCost = configManager.getMarketServiceEnchantLapisCost();
             processed = ServiceProcessor.applyEnchant(original, enchantment, level);
@@ -1274,10 +1359,25 @@ public class MarketManager {
      * 「空きが無ければ何も渡さない」受け取り方だと、満杯のときに返金が丸ごと消えるため使わない。
      */
     private void refundCash(Player player, double amount) {
-        int banked = currencyConverter.receiveCashWithBankFallback(player, amount);
-        if (banked > 0) {
-            player.sendMessage("§eインベントリに空きがないため、返金のうち" + banked + "コインを口座に入金しました。");
+        int banked;
+        try (TransactionContext.Scope scope = TransactionContext.open(TransactionType.MARKET_REFUND, null, null)) {
+            banked = currencyConverter.receiveCashWithBankFallback(player, amount);
         }
+        if (banked > 0) {
+            player.sendMessage("§eインベントリに空きがないため、返金のうち " + money(banked) + " を預金に入れました。");
+        }
+    }
+
+    /** マーケットの支払い（手持ちの現金から）。お金の記録に理由を残す */
+    private boolean payForMarket(Player player, double price) {
+        try (TransactionContext.Scope scope = TransactionContext.open(TransactionType.MARKET_PAY, null, null)) {
+            return currencyConverter.payWithCash(player, price);
+        }
+    }
+
+    /** 金額の表示（数値＋設定の通貨記号） */
+    private String money(double amount) {
+        return currencyConverter.formatCurrency(amount) + " " + configManager.getCurrencySymbol();
     }
 
     /**
