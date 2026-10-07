@@ -10,6 +10,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.testing.TestModeManager;
+import org.tofu.tofunomics.util.HousingWandMarker;
 
 /**
  * 住居賃貸システムのイベントリスナー
@@ -26,7 +27,7 @@ public class HousingListener implements Listener {
     }
 
     /**
-     * 木の斧での範囲選択
+     * 賃貸選択ツール（/housing admin wand で配った斧）での範囲選択
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -37,8 +38,13 @@ public class HousingListener implements Listener {
             return;
         }
 
-        // 木の斧をチェック
+        // 選択ツールをチェック
         if (event.getItem() == null || event.getItem().getType() != selectionManager.getSelectionTool()) {
+            return;
+        }
+
+        // 配布した選択ツールだけに反応する（普通の木の斧は木こりが掘るのに使う）
+        if (!HousingWandMarker.isMarked(plugin, event.getItem())) {
             return;
         }
 
