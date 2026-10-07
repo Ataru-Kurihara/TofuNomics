@@ -343,7 +343,7 @@ farmer_blocks:
 /tntest reward              # レベルアップ報酬の確認
 /tntest money <金額>        # 所持金を付与
 /tntest reset               # 職業データをリセット
-/tntest fullreset <対象> confirm  # 全データを消去（マーケット・住宅・畑区画・クエスト・取引履歴・ルール同意。元に戻せない）
+/tntest fullreset <対象> confirm  # 全データを消去（手持ち・エンダーチェスト・マーケット・住宅・畑区画・クエスト・取引履歴・ルール同意。元に戻せない）
 /tntest kit <職業名>        # 職業別の道具一式を配布
 /tntest time <open|close|hour>  # 取引所の営業時間を操作
 /tntest stockreset          # 食料NPCの在庫・購入制限をリセット

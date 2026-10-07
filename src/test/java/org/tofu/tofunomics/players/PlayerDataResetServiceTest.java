@@ -102,7 +102,7 @@ public class PlayerDataResetServiceTest {
             {"market_listings", "seller_uuid"}, {"market_buy_orders", "requester_uuid"},
             {"market_service_requests", "requester_uuid"}, {"land_ownership", "owner_uuid"},
             {"housing_rental_history", "tenant_uuid"}, {"housing_rentals", "tenant_uuid"},
-            {"farm_plots", "owner_uuid"},
+            {"farm_plots", "owner_uuid"}, {"player_inventories", "player_uuid"},
         };
         for (String[] table : cleared) {
             assertEquals(table[0] + " に対象の行が残っている", 0, count(table[0], table[1], target));
@@ -136,7 +136,6 @@ public class PlayerDataResetServiceTest {
             "SELECT is_available FROM housing_properties WHERE property_name = 'house-" + target + "'"));
         assertEquals(1, queryInt("SELECT COUNT(*) FROM farm_plots WHERE plot_name = 'plot-" + target + "'"));
         assertEquals(1, count("trade_chests", "created_by", target));
-        assertEquals(1, count("player_inventories", "player_uuid", target));
     }
 
     @Test
@@ -150,7 +149,7 @@ public class PlayerDataResetServiceTest {
             {"market_listings", "seller_uuid"}, {"market_buy_orders", "requester_uuid"},
             {"market_service_requests", "requester_uuid"}, {"land_ownership", "owner_uuid"},
             {"housing_rental_history", "tenant_uuid"}, {"housing_rentals", "tenant_uuid"},
-            {"farm_plots", "owner_uuid"},
+            {"farm_plots", "owner_uuid"}, {"player_inventories", "player_uuid"},
         };
         for (String[] table : tables) {
             assertEquals(table[0] + " から他プレイヤーの行が消えた", 1, count(table[0], table[1], other));
