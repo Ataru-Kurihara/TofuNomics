@@ -48,7 +48,7 @@ commands:
     permission: tofunomics.trade.basic
   eco:
     description: 管理者用経済コマンド
-    usage: /eco <give|take|set|reload> [args]
+    usage: /eco <give|take|set|log|reload> [args]
     permission: tofunomics.admin
   tofunomics:
     description: TofuNomicsメインコマンド（フェーズ6）

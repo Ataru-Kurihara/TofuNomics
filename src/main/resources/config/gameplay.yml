@@ -471,6 +471,8 @@ market:
   max_price: 1000000              # 最高出品価格
   allow_self_purchase: false      # 自分の出品を購入可能にするか（買い注文への自己供給可否も兼ねる）
   expire_check_interval: 3600     # 期限切れチェック間隔（秒）
+  max_listings_per_player: 10     # 1人が同時に出せる売り出品の上限
+  max_buy_orders_per_player: 10   # 1人が同時に出せる買い注文（募集）の上限
   # fee_rate / listing_duration_days / min_price / max_price は買い注文と共用
 
   # 取引成立時の職業経験値付与（市場への流通を促すインセンティブ）
@@ -478,6 +480,8 @@ market:
   sell_exp:
     enabled: true                 # 取引成立時、物を流した側の対応職業へ経験値を付与するか
     multiplier: 0.3               # 付与経験値の係数（基準値 × 数量 × multiplier。直接採取より控えめにする）
+    min_price_ratio: 0.5          # 取引価格が NPC の買取価格のこの割合に満たない取引には経験値を付与しない（安値での経験値稼ぎの防止）
+    pair_cooldown_minutes: 60     # 同じ相手との取引で経験値が入るのは、この分数に 1 回まで（仲間内での回し合いの防止）
 
   # 修理・エンチャント募集（サービス委託）設定
   service:

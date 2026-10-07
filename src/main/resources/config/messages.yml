@@ -7,6 +7,8 @@ messages:
   prefix: "&6[TofuNomics] &f"
   # プレイヤー間マーケット
   market:
+    listing_limit: "&c出品数の上限に達しています。売れるのを待つか、取り下げてから出品してください。"
+    buy_order_limit: "&c買い注文数の上限に達しています。成立を待つか、取り下げてから出してください。"
     listed: "&a%item% を &e%price% %currency%&a で出品しました。"
     purchased: "&a%item% を &e%price% %currency%&a で購入しました。"
     sold_notify: "&a出品した %item% が売れました！手数料を引いた &e%amount% %currency%&a を受け取りました。"
