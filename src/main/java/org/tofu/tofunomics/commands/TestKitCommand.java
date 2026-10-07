@@ -101,6 +101,9 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
             case "reset":
                 handleReset(player, args);
                 break;
+            case "fullreset":
+                handleFullReset(player, args);
+                break;
             case "kit":
                 handleKit(player, args);
                 break;
@@ -397,6 +400,81 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         logAction(sender, target, "reset");
     }
 
+    // ===== fullreset: TofuNomics の全データを消して新規参加者に戻す =====
+    private void handleFullReset(Player sender, String[] args) {
+        // /tntest fullreset <player> confirm
+        // 元に戻せないため、対象の省略（自分自身）は認めず、confirm も必須にする
+        if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
+            sender.sendMessage("§c使用法: /tntest fullreset <対象> confirm");
+            sender.sendMessage("§7職業・お金・クエスト・マーケット出品/依頼・住宅契約・畑区画・取引履歴・ルール同意を"
+                + "すべて消します。§c元に戻せません");
+            sender.sendMessage("§7出品中・受け取り待ちのアイテムと、買い注文に預けたお金も消えます。手持ちの持ち物は消しません");
+            return;
+        }
+        Player target = resolveTarget(sender, args[1]);
+        if (target == null) {
+            return;
+        }
+        java.util.UUID uuid = target.getUniqueId();
+
+        // WorldGuard のメンバー解除は DB の行が残っているうちに行う（行から領域を引くため）
+        int housingFailed = 0;
+        org.tofu.tofunomics.housing.HousingRentalManager housing = plugin.getHousingRentalManager();
+        if (housing != null) {
+            for (org.tofu.tofunomics.models.HousingRental rental : housing.getPlayerRentals(uuid)) {
+                if (!housing.cancelRental(uuid, rental.getPropertyId()).isSuccess()) {
+                    housingFailed++;
+                }
+            }
+        }
+        if (plugin.getFarmPlotManager() != null) {
+            plugin.getFarmPlotManager().releasePlot(uuid);
+        }
+
+        java.util.Map<String, Integer> affected;
+        try {
+            affected = new org.tofu.tofunomics.players.PlayerDataResetService(
+                plugin.getDatabaseManager().getConnection())
+                .resetPlayerData(uuid, configManager.getStartingBalance());
+        } catch (java.sql.SQLException e) {
+            plugin.getLogger().severe("[TestKit] fullreset に失敗しました: " + uuid + " - " + e.getMessage());
+            sender.sendMessage("§cDB の削除に失敗したため、データは消していません（住宅契約と畑区画の解除だけ済んでいます）。"
+                + "サーバーログを確認してください");
+            return;
+        }
+
+        // メモリ上の写しを DB に合わせる
+        if (plugin.getFirstAcquisitionDAO() != null) {
+            plugin.getFirstAcquisitionDAO().unloadCache(uuid);
+        }
+        if (plugin.getRulesManager() != null) {
+            plugin.getRulesManager().markAsUnagreed(uuid);
+        }
+        if (plugin.getScoreboardManager() != null) {
+            plugin.getScoreboardManager().updatePlayerScoreboard(target);
+        }
+
+        String detail = affected.entrySet().stream()
+            .filter(e -> e.getValue() > 0)
+            .map(e -> e.getKey() + "=" + e.getValue())
+            .collect(Collectors.joining(", "));
+        sender.sendMessage("§a" + target.getName() + " の TofuNomics データをすべて消しました");
+        sender.sendMessage("§7預金: " + (int) configManager.getStartingBalance() + configManager.getCurrencySymbol()
+            + " / 職業: なし / 変更行: " + (detail.isEmpty() ? "なし" : detail));
+        if (housingFailed > 0) {
+            sender.sendMessage("§e住宅契約 " + housingFailed + " 件は WorldGuard のメンバー解除を確認できませんでした。"
+                + "領域のメンバーを手動で確認してください");
+        }
+        int nuggets = itemManager.countGoldNuggetsInInventory(target);
+        if (nuggets > 0) {
+            sender.sendMessage("§7手持ちの金塊 " + nuggets + " 個は残しています（持ち物は対象外）");
+        }
+        if (!sender.equals(target)) {
+            target.sendMessage("§7管理者により TofuNomics のデータが初期化されました");
+        }
+        logAction(sender, target, "fullreset (" + detail + ")");
+    }
+
     // ===== kit: テストアイテムのプリセット配布 =====
     private void handleKit(Player sender, String[] args) {
         // /tntest kit <jobName|marker> [player]
@@ -599,6 +677,7 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/tntest reward <職業> <Lv> [対象] §7- レベルアップ報酬を手動付与");
         sender.sendMessage("§e/tntest money <cash|bank> <額> [対象] §7- 現金付与/預金設定");
         sender.sendMessage("§e/tntest reset [対象] §7- 新規プレイヤー相当に初期化");
+        sender.sendMessage("§e/tntest fullreset <対象> confirm §7- 全データを消去（マーケット・住宅・畑区画・クエスト含む。元に戻せない）");
         sender.sendMessage("§e/tntest kit <職業|marker> [対象] §7- テストアイテム配布");
         sender.sendMessage("§e/tntest time <open|close|hour> [時] §7- ワールド時刻を設定");
         sender.sendMessage("§e/tntest stockreset §7- 食料NPCの在庫/購入制限をリセット");
@@ -611,7 +690,7 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         List<String> result = new ArrayList<>();
         if (args.length == 1) {
             return filter(Arrays.asList(
-                "job", "setlevel", "exp", "lv50", "reward", "money", "reset", "kit", "time", "stockreset", "help"), args[0]);
+                "job", "setlevel", "exp", "lv50", "reward", "money", "reset", "fullreset", "kit", "time", "stockreset", "help"), args[0]);
         }
 
         String sub = args[0].toLowerCase();
@@ -630,6 +709,7 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
                     return filter(Arrays.asList("open", "close", "hour"), args[1]);
                 case "lv50":
                 case "reset":
+                case "fullreset":
                     return filter(onlinePlayerNames(), args[1]);
                 default:
                     return result;
