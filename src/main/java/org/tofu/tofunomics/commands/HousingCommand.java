@@ -490,6 +490,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             ));
             wand.setItemMeta(meta);
         }
+        // 配布した斧だけが範囲選択に反応するよう印を付ける
+        org.tofu.tofunomics.util.HousingWandMarker.mark(plugin, wand);
 
         // インベントリに追加し、入りきらない分は足元にドロップ
         java.util.Map<Integer, org.bukkit.inventory.ItemStack> leftover =
@@ -503,6 +505,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             player.sendMessage("§a範囲選択ツール（"
                 + org.tofu.tofunomics.gui.GuiUtil.prettifyMaterial(tool.name()) + "）を配布しました");
         }
+        player.sendMessage("§7※ 範囲選択に使えるのはこの専用ツールだけです（普通の"
+            + org.tofu.tofunomics.gui.GuiUtil.prettifyMaterial(tool.name()) + "や以前配ったものは反応しません）");
         player.sendMessage("§7左クリックで1点目、右クリックで2点目を選択してください");
 
         return true;
