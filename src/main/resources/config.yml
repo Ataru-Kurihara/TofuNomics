@@ -1037,11 +1037,16 @@ housing_rental:
     # リージョン自動設定の有効化
     auto_configure: true
     # 賃貸リージョンに自動設定するフラグ
+    # 注意: WorldGuard のフラグは、対象グループを指定しない限り「全員」に適用される
+    #       （allow と書いてもメンバー限定にはならない）
     default_flags:
-      use: allow           # ドア、ボタン、レバーの使用許可（メンバーのみ）
-      chest-access: allow  # チェストアクセス許可（メンバーのみ）
-      build: deny          # 建築は禁止（親の設定を継承）
-      interact: allow      # インタラクション許可（メンバーのみ）
+      use: allow           # ドア、ボタン、レバーの使用（全員）
+      chest-access: deny   # チェスト等の収納ブロック（下の対象グループで「借主以外」だけ拒否）
+      build: deny          # 建築は禁止（借主も不可）
+      interact: allow      # その他のインタラクション（全員。親リージョンの interact: deny を打ち消す）
+    # フラグの対象グループ（all / members / owners / nonmembers / nonowners）。書かないフラグは全員
+    default_flag_groups:
+      chest-access: nonmembers
     # 親リージョンの自動設定
     auto_set_parent: true
     # デフォルトの親リージョン名（city_protection.region_nameが優先）

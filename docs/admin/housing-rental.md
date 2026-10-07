@@ -352,10 +352,36 @@ WorldGuard統合を有効にすると、以下の処理が自動的に行われ�
 
 #### 物件登録時
 1. 選択範囲からWorldGuard保護領域を自動作成
-2. 以下のフラグを自動設定：
-   - `use: deny` - 非メンバーはドアやボタンを使用不可
-   - `chest-access: deny` - 非メンバーはチェストにアクセス不可
-   - `interact: deny` - 非メンバーはアイテムの使用不可
+2. config.yml の `housing_rental.worldguard_rental_regions.default_flags` のフラグを自動設定（既定値）：
+   - `use: allow` - ドアやボタンは全員が使える
+   - `chest-access: deny`（対象グループ `nonmembers`）- 借主以外はチェスト等の収納ブロックを開けられない
+   - `build: deny` - 建築は借主も含めて不可
+   - `interact: allow` - その他のインタラクションは全員可（親リージョンの `interact: deny` を打ち消す）
+
+> **注意**: WorldGuard のフラグは、対象グループを指定しない限り**全員**に適用される。
+> `chest-access: allow` と書いても「メンバーだけ許可」にはならない。
+> メンバーとそれ以外で分けたいフラグは `default_flag_groups` に対象グループ
+> （`all` / `members` / `owners` / `nonmembers` / `nonowners`）を書く。
+>
+> ドアも借主だけにしたい場合は、次のようにする（親リージョンの `interact: deny` が借主以外に効く）。
+>
+> ```yaml
+> default_flags:
+>   use: allow
+>   chest-access: allow
+>   build: deny
+>   interact: allow
+> default_flag_groups:
+>   interact: members
+>   chest-access: members
+> ```
+
+#### 既存物件へのフラグの付け直し
+`default_flags` / `default_flag_groups` を変えたあと、登録済みの全物件（貸出中も含む）に反映するには次を実行する。
+
+```
+/housing admin applyflags
+```
 
 #### 賃貸契約時
 1. プレイヤーを自動的にWorldGuard領域のメンバーに追加
