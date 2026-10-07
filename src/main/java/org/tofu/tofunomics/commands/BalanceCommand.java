@@ -53,7 +53,7 @@ public class BalanceCommand implements CommandExecutor {
         
         player.sendMessage(ChatColor.translateAlternateColorCodes('&', 
             configManager.getMessagePrefix() + "&6==== 残高情報 ===="));
-        player.sendMessage(ChatColor.GREEN + "現金（金塊）: " + ChatColor.WHITE + formattedCash + currencySymbol);
+        player.sendMessage(ChatColor.GREEN + "現金（手持ちのTofuCoin）: " + ChatColor.WHITE + formattedCash + currencySymbol);
         player.sendMessage(ChatColor.GOLD + "預金（銀行）: " + ChatColor.WHITE + formattedBank + currencySymbol);
         player.sendMessage(ChatColor.YELLOW + "総資産: " + ChatColor.WHITE + formattedTotal + currencySymbol);
         
@@ -85,7 +85,7 @@ public class BalanceCommand implements CommandExecutor {
         
         sender.sendMessage(ChatColor.translateAlternateColorCodes('&', 
             configManager.getMessagePrefix() + "&6==== " + targetPlayer.getName() + "の残高情報 ===="));
-        sender.sendMessage(ChatColor.GREEN + "現金（金塊）: " + ChatColor.WHITE + formattedCash + currencySymbol);
+        sender.sendMessage(ChatColor.GREEN + "現金（手持ちのTofuCoin）: " + ChatColor.WHITE + formattedCash + currencySymbol);
         sender.sendMessage(ChatColor.GOLD + "預金（銀行）: " + ChatColor.WHITE + formattedBank + currencySymbol);
         sender.sendMessage(ChatColor.YELLOW + "総資産: " + ChatColor.WHITE + formattedTotal + currencySymbol);
         

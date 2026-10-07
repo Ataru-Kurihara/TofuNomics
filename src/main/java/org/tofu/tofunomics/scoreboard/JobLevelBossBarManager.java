@@ -39,6 +39,11 @@ public class JobLevelBossBarManager implements Listener {
     private final JobManager jobManager;
 
     private final Map<UUID, BossBar> playerBars = new HashMap<>();
+
+    // 職業・レベル・経験値は DB から読むので、数秒のあいだ使い回す（以前は毎秒 2 回読んでいた）。
+    // 経験値を得たときは refresh() が呼ばれ、そこで捨てて読み直す。
+    private final TimedCache<UUID, PlayerStatusSnapshot> statusCache =
+            new TimedCache<>(ScoreboardManager.STATUS_CACHE_MILLIS);
     private BukkitTask updateTask;
 
     // 食事バフ表示用（初期化順序の都合で後から setter 注入。未注入でも動作する）
@@ -64,16 +69,29 @@ public class JobLevelBossBarManager implements Listener {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    refresh(player);
+                    refreshFromCache(player);
                 }
             }
         }.runTaskTimer(plugin, 0L, updateInterval * 20L);
     }
 
     /**
-     * 表示条件を満たせば BossBar を更新し、満たさなければ除去する（即時反映にも利用）。
+     * 値が変わったとき（経験値の獲得など）に呼ぶ。DB から読み直して、すぐに表示へ反映する。
+     * スコアボード側の写しも捨てるので、次の更新でスコアボードにも反映される。
      */
     public void refresh(Player player) {
+        statusCache.invalidate(player.getUniqueId());
+        ScoreboardManager scoreboardManager = plugin.getScoreboardManager();
+        if (scoreboardManager != null) {
+            scoreboardManager.invalidateStatus(player.getUniqueId());
+        }
+        refreshFromCache(player);
+    }
+
+    /**
+     * 表示条件を満たせば BossBar を更新し、満たさなければ除去する（定期更新用。DB は数秒に 1 回だけ読む）。
+     */
+    private void refreshFromCache(Player player) {
         if (shouldShow(player)) {
             updateBar(player);
         } else {
@@ -91,7 +109,13 @@ public class JobLevelBossBarManager implements Listener {
         if (!configManager.isScoreboardEnabledInWorld(player.getWorld().getName())) {
             return false;
         }
-        return jobManager.getCurrentJob(player.getUniqueId()) != null;
+        PlayerStatusSnapshot status = status(player);
+        return status != null && status.hasJob;
+    }
+
+    private PlayerStatusSnapshot status(Player player) {
+        UUID uuid = player.getUniqueId();
+        return statusCache.get(uuid, () -> PlayerStatusSnapshot.load(uuid, jobManager, configManager, 0));
     }
 
     /**
@@ -99,44 +123,38 @@ public class JobLevelBossBarManager implements Listener {
      */
     private void updateBar(Player player) {
         try {
-            PlayerJob currentJob = jobManager.getCurrentJob(player.getUniqueId());
-            if (currentJob == null) {
+            PlayerStatusSnapshot status = status(player);
+            if (status == null || !status.hasJob) {
                 removeBar(player.getUniqueId());
                 return;
             }
 
-            Job jobData = jobManager.getJobById(currentJob.getJobId());
-            String jobName = (jobData != null)
-                    ? configManager.getJobDisplayName(jobData.getName())
-                    : "職業";
+            // config キーには内部職業名(status.jobName)を渡すこと(表示名 jobName 変数は不可)。
+            String jobName = configManager.getJobDisplayName(status.jobName);
 
             // 進捗率（0.0〜1.0）を計算（ScoreboardManager と共通ヘルパーを使用）
-            // レベル上限は職業別設定(既定75)を使用。jobData が null の場合のみ 100 固定にフォールバック。
-            // config キーには内部職業名(jobData.getName())を渡すこと(表示名 jobName 変数は不可)。
-            int jobMaxLevel = (jobData != null) ? configManager.getJobMaxLevel(jobData.getName())
-                                                : configManager.getMaxJobLevel();
-
+            // レベル上限は職業別設定(既定75)を使用。
             float progress;
-            boolean maxLevel = currentJob.getLevel() >= jobMaxLevel;
+            boolean maxLevel = status.isMaxLevel();
             if (maxLevel) {
                 progress = 1.0f;
             } else {
                 progress = (float) (PlayerJob.calculateLevelProgressPercent(
-                        currentJob.getLevel(), currentJob.getExperience()) / 100.0);
+                        status.level, status.experience) / 100.0);
             }
 
             int percent = (int) Math.floor(progress * 100);
             String title = configManager.getJobBossBarTitleFormat()
                     .replace("%job%", jobName)
-                    .replace("%level%", String.valueOf(currentJob.getLevel()))
+                    .replace("%level%", String.valueOf(status.level))
                     .replace("%percent%", maxLevel ? "MAX" : String.valueOf(percent));
 
             // 食事バフが現在の職業にマッチして有効ならタイトル末尾に表示する。
-            // getActiveBuffInfo には内部職業名（jobData.getName()）を渡す。
+            // getActiveBuffInfo には内部職業名（status.jobName）を渡す。
             // 表示名の jobName 変数を渡すと常に非マッチになり suffix が出ないため注意。
-            if (foodBuffManager != null && jobData != null) {
+            if (foodBuffManager != null) {
                 FoodBuffManager.ActiveBuffInfo buffInfo =
-                        foodBuffManager.getActiveBuffInfo(player, jobData.getName());
+                        foodBuffManager.getActiveBuffInfo(player, status.jobName);
                 if (buffInfo != null) {
                     String suffix = configManager.getJobBossBarFoodBuffSuffix()
                             .replace("%percent%", String.valueOf(buffInfo.getBonusPercent()))
@@ -146,9 +164,18 @@ public class JobLevelBossBarManager implements Listener {
             }
 
             BossBar bar = getOrCreate(player);
-            bar.setColor(parseColor(configManager.getJobBossBarColor()));
-            bar.setTitle(ChatColor.translateAlternateColorCodes('&', title));
-            bar.setProgress(progress);
+            // 変わったときだけ書き換える（毎秒の無駄な送信を避ける）
+            BarColor color = parseColor(configManager.getJobBossBarColor());
+            if (bar.getColor() != color) {
+                bar.setColor(color);
+            }
+            String coloredTitle = ChatColor.translateAlternateColorCodes('&', title);
+            if (!coloredTitle.equals(bar.getTitle())) {
+                bar.setTitle(coloredTitle);
+            }
+            if (bar.getProgress() != progress) {
+                bar.setProgress(progress);
+            }
             if (!bar.getPlayers().contains(player)) {
                 bar.addPlayer(player);
             }
@@ -184,6 +211,7 @@ public class JobLevelBossBarManager implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         removeBar(event.getPlayer().getUniqueId());
+        statusCache.invalidate(event.getPlayer().getUniqueId());
     }
 
     /**

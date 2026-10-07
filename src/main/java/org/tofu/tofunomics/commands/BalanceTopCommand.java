@@ -47,7 +47,9 @@ public class BalanceTopCommand implements CommandExecutor {
             return true;
         }
         
-        List<org.tofu.tofunomics.models.Player> topPlayers = playerDAO.getTopPlayersByBalance(limit);
+        // 表示も並びも、プレイヤーが実際に使えるお金（銀行残高）にそろえる
+        List<org.tofu.tofunomics.models.Player> topPlayers =
+                sortByBankBalance(playerDAO.getTopPlayersByBalance(limit));
         
         if (topPlayers.isEmpty()) {
             sender.sendMessage(ChatColor.YELLOW + "残高データが見つかりませんでした。");
@@ -67,7 +69,7 @@ public class BalanceTopCommand implements CommandExecutor {
             int rank = i + 1;
 
             String playerName = getPlayerName(tofuPlayer.getUuid().toString());
-            String formattedBalance = currencyConverter.formatCurrency(tofuPlayer.getBalance());
+            String formattedBalance = currencyConverter.formatCurrency(tofuPlayer.getBankBalance());
 
             ChatColor rankColor = getRankColor(rank);
 
@@ -94,6 +96,16 @@ public class BalanceTopCommand implements CommandExecutor {
         return true;
     }
     
+    /**
+     * 銀行残高の多い順に並べ直す。
+     * 一覧の取得（DAO）は使われていない balance 列も足して並べるので、表示額（銀行残高）と順位が食い違うことがある。
+     */
+    static List<org.tofu.tofunomics.models.Player> sortByBankBalance(List<org.tofu.tofunomics.models.Player> players) {
+        List<org.tofu.tofunomics.models.Player> sorted = new java.util.ArrayList<>(players);
+        sorted.sort((a, b) -> Double.compare(b.getBankBalance(), a.getBankBalance()));
+        return sorted;
+    }
+
     private String getPlayerName(String uuidString) {
         try {
             UUID uuid = UUID.fromString(uuidString);

@@ -86,7 +86,7 @@ messages:
       cooldown_active: "&c少し時間を置いてから再度お試しください。"
       withdraw_failed: "&c引き出しに失敗しました。"
       no_gold_ingots: "&c手持ちに金塊がありません。"
-      no_tofu_coins: "&c手持ちに豆腐コインがありません。"
+      no_tofu_coins: "&c手持ちにTofuCoinがありません。"
       greeting: "&6「いらっしゃいませ、%player%様」"
       welcome: "&6いらっしゃいませ、%player%さん！銀行サービスをご利用いただけます。"
       too_far: "&c銀行NPCに近づいてからご利用ください。"

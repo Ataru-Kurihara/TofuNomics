@@ -120,15 +120,18 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         }
 
         player.sendMessage("§6========= 賃貸可能物件一覧 =========");
+        String symbol = configManager.getCurrencySymbol();
         for (HousingProperty property : properties) {
             player.sendMessage(String.format(
-                "§e#%d §f%s §7- 日額: §a%.1f §7/ 週額: §a%.1f §7/ 月額: §a%.1f",
+                "§e#%d §f%s §7- 日額: §a%s%s §7/ 週額: §a%s%s §7/ 月額: §a%s%s",
                 property.getId(),
                 property.getPropertyName(),
-                property.getDailyRent(),
-                property.getWeeklyRent(),
-                property.getMonthlyRent()
+                org.tofu.tofunomics.gui.GuiUtil.formatPrice(property.getDailyRent()), symbol,
+                org.tofu.tofunomics.gui.GuiUtil.formatPrice(property.getWeeklyRent()), symbol,
+                org.tofu.tofunomics.gui.GuiUtil.formatPrice(property.getMonthlyRent()), symbol
             ));
+            player.sendMessage("   §7場所: §f" + property.getWorldName() + " "
+                + org.tofu.tofunomics.housing.HousingLocationFormatter.format(property));
         }
         player.sendMessage("§6=====================================");
         player.sendMessage("§7詳細: /housing info <物件ID>");
@@ -158,13 +161,15 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
             player.sendMessage("§eID: §f" + property.getId());
             player.sendMessage("§e名前: §f" + property.getPropertyName());
             player.sendMessage("§eワールド: §f" + property.getWorldName());
+            player.sendMessage("§e場所: §f" + org.tofu.tofunomics.housing.HousingLocationFormatter.format(property));
             if (property.getDescription() != null) {
                 player.sendMessage("§e説明: §f" + property.getDescription());
             }
             player.sendMessage("§e賃料: ");
-            player.sendMessage("  §7日額: §a" + property.getDailyRent());
-            player.sendMessage("  §7週額: §a" + property.getWeeklyRent());
-            player.sendMessage("  §7月額: §a" + property.getMonthlyRent());
+            String symbol = configManager.getCurrencySymbol();
+            player.sendMessage("  §7日額: §a" + org.tofu.tofunomics.gui.GuiUtil.formatPrice(property.getDailyRent()) + symbol);
+            player.sendMessage("  §7週額: §a" + org.tofu.tofunomics.gui.GuiUtil.formatPrice(property.getWeeklyRent()) + symbol);
+            player.sendMessage("  §7月額: §a" + org.tofu.tofunomics.gui.GuiUtil.formatPrice(property.getMonthlyRent()) + symbol);
             player.sendMessage("§e状態: " + (property.isAvailable() ? "§a利用可能" : "§c賃貸中"));
             player.sendMessage("§6============================");
             

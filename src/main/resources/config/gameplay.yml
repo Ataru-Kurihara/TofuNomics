@@ -230,8 +230,8 @@ scoreboard:
   # スコアボード表示対象ワールド
   enabled_worlds:
     - "tofuNomics"
-    - "tofunomics_nether"
-    - "tofunomics_the_end"
+    - "tofuNomics_nether"
+    - "tofuNomics_the_end"
   
   # 表示項目の設定
   display_settings:
