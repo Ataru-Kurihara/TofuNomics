@@ -1,6 +1,11 @@
 # サーバー接続設定（秘密情報）
 .server-config.env
 
+# サーバーからダウンロードした本番設定の写し（本番の接続先を含むので追跡しない）
+src/main/resources/server_config*.yml
+# scp の宛先を書き損ねてできるファイル（例: ubuntu@<IP> という名前の jar）
+/*@*
+
 # サーバーからダウンロードしたconfig.ymlのバックアップ
 src/main/resources/server_config.yml.backup.*
 src/main/resources/*.backup
