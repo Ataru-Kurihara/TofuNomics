@@ -27,7 +27,7 @@ messages:
     request_cancelled: "&a募集をキャンセルし、前払い分を返金しました。"
     request_reclaimed: "&a成立した募集からアイテムを回収しました。"
     request_expired_refund: "&e募集が期限切れになり、前払い分を返金しました。"
-    no_matching_item: "&c供給するアイテム（%item% x%amount%）を所持していません。"
+    no_matching_item: "&c供給するアイテム（%item% x%amount%）を所持していません。（名前・エンチャント付きや、耐久の減った物は出せません）"
     request_not_available: "&cこの募集は既に成立済みか、存在しません。"
     request_not_owner: "&cこれはあなたの募集ではありません。"
     error: "&c処理中にエラーが発生しました。もう一度お試しください。"

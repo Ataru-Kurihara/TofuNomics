@@ -98,14 +98,18 @@ public class PlayerJoinHandler implements Listener {
         if (inventoryManager == null) {
             return;
         }
+        InventoryRestoreTracker tracker = inventoryManager.getRestoreTracker();
         // 前回の接続の印が残っていても使わない
-        inventoryManager.getRestoreTracker().clear(player.getUniqueId());
+        tracker.clear(player.getUniqueId());
 
         if (!player.getWorld().getName().equals("tofuNomics")) {
             return;
         }
+        // この接続の番号。待つあいだにワールド移動や切断があれば、番号が変わるので何もしない
+        final long entryId = tracker.beginEntry(player.getUniqueId());
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
+            if (tracker.isLatestEntry(player.getUniqueId(), entryId)
+                    && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
                 makeSavableWithoutEntryEvent(player);
             }
         }, 40L);
@@ -212,10 +216,15 @@ public class PlayerJoinHandler implements Listener {
         if (currentWorldName.equals("tofuNomics")) {
             // TofuNomicsワールドからTofuNomicsワールドへの移動は処理しない
             if (!previousWorldName.equals("tofuNomics")) {
+                // この入場の番号。短時間に出入りを繰り返したとき、前の入場で予約した復元を動かさないために使う
+                final long entryId = inventoryManager != null
+                        ? inventoryManager.getRestoreTracker().beginEntry(player.getUniqueId()) : 0L;
                 // 遅延してインベントリを復元（TofuHomePluginのナビゲーションアイテム付与の後）
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    // 復元時点でtofuNomicsワールドにいるか再チェック
-                    if (inventoryManager != null && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
+                    // 復元時点で、この入場が今も最新か・tofuNomicsワールドにいるかを再チェック
+                    if (inventoryManager != null
+                            && inventoryManager.getRestoreTracker().isLatestEntry(player.getUniqueId(), entryId)
+                            && player.isOnline() && player.getWorld().getName().equals("tofuNomics")) {
                         restoreInventory(player);
                     }
                 }, 40L); // 2秒後に復元（TofuHomePluginの処理完了を待つ）
