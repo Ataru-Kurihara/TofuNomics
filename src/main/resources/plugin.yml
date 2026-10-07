@@ -43,8 +43,8 @@ commands:
     usage: /quest [list|accept|progress] [args]
     permission: tofunomics.jobs.basic
   trade:
-    description: 取引チェスト管理
-    usage: /trade <setup|remove|list|history|reload> [args]
+    description: NPC取引の履歴表示
+    usage: /trade <history|reload> [args]
     permission: tofunomics.trade.basic
   eco:
     description: 管理者用経済コマンド
@@ -119,12 +119,14 @@ permissions:
       tofunomics.admin: false
     default: op
   
+  # 他人の残高（balance.others）を含むので OP のみ。
+  # default: true のままだと、子の balance.others: true が全員に付いてしまう。
   tofunomics.balance.*:
     description: 残高確認権限（全て）
     children:
       tofunomics.balance.self: true
       tofunomics.balance.others: true
-    default: true
+    default: op
   
   tofunomics.balance.self:
     description: 自分の残高を確認

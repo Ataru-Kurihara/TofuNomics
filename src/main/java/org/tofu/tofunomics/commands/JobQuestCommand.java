@@ -33,7 +33,11 @@ public class JobQuestCommand implements CommandExecutor {
         }
         
         Player player = (Player) sender;
-        
+
+        if (EconomyWorldGuard.blockIfOutside(player, configManager)) {
+            return true;
+        }
+
         if (args.length == 0) {
             showActiveQuests(player);
             return true;

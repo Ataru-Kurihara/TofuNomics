@@ -108,11 +108,11 @@ public class JobBlockPermissionManagerTest {
 
     @Test
     public void testPlantingDeniedMessage() {
-        // 拒否メッセージに必要職業名とブロック名が含まれる
+        // 拒否メッセージに必要職業名が含まれ、内部のブロックID（英字）は出さない
         String message = permissionManager.getPlantingDeniedMessage(player, Material.WHEAT);
 
         assertTrue(message.contains("農家"));
-        assertTrue(message.contains("WHEAT"));
+        assertFalse(message.contains("WHEAT"));
         assertTrue(message.contains("植える"));
     }
 
@@ -183,13 +183,13 @@ public class JobBlockPermissionManagerTest {
 
     @Test
     public void testMiningDeniedMessage() {
-        // 拒否メッセージに必要職業名とブロック名が含まれる
+        // 拒否メッセージに必要職業名が含まれ、内部のブロックID（英字）は出さない
         when(jobManager.getJobDisplayName("miner")).thenReturn("鉱夫");
 
         String message = permissionManager.getDeniedMessage(player, Material.COAL_ORE);
 
         assertTrue(message.contains("鉱夫"));
-        assertTrue(message.contains("COAL_ORE"));
+        assertFalse(message.contains("COAL_ORE"));
         assertTrue(message.contains("採掘"));
     }
 }

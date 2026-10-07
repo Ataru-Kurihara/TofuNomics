@@ -46,7 +46,11 @@ public class ClockCommand implements CommandExecutor, TabCompleter {
         }
         
         Player player = (Player) sender;
-        
+
+        if (EconomyWorldGuard.blockIfOutside(player, configManager)) {
+            return true;
+        }
+
         if (args.length == 0) {
             sendUsage(sender);
             return true;

@@ -254,7 +254,7 @@ public class JobBlockPermissionManager {
         }
         
         String jobDisplayName = jobManager.getJobDisplayName(requiredJob);
-        return "§c" + blockType.name() + " を採掘するには " + jobDisplayName + " の職業が必要です。";
+        return "§cこのブロックを採掘するには「" + jobDisplayName + "」の職業が必要です。";
     }
 
     /**
@@ -315,7 +315,7 @@ public class JobBlockPermissionManager {
         }
 
         String jobDisplayName = jobManager.getJobDisplayName(requiredJob);
-        return "§c" + blockType.name() + " を植えるには " + jobDisplayName + " の職業が必要です。";
+        return "§cこれを植えるには「" + jobDisplayName + "」の職業が必要です。";
     }
 
     /**

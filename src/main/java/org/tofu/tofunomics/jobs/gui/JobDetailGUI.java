@@ -141,7 +141,7 @@ public class JobDetailGUI {
             gui.setItem(SLOT_JOIN, GuiUtil.createButton(Material.LIME_DYE, "§a§l就職する",
                     java.util.Arrays.asList(
                             "§7この職業に就職します",
-                            "§7※他の職業からの転職にはレベル50が必要です",
+                            "§c※ Lv50 になるまで選び直せません",
                             "§eクリックで確認画面へ")));
         }
 

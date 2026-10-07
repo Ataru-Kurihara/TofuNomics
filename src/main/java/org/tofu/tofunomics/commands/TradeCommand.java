@@ -155,8 +155,15 @@ public class TradeCommand implements CommandExecutor, TabCompleter {
      */
     private void showTradeHelp(Player player) {
         player.sendMessage(ChatColor.GOLD + "=== TofuNomics NPC取引システム ===");
-        player.sendMessage(ChatColor.YELLOW + "/trade history [プレイヤー名] [件数] " + ChatColor.GRAY + "- NPC取引履歴表示");
-        player.sendMessage(ChatColor.YELLOW + "/trade reload " + ChatColor.GRAY + "- 設定再読み込み");
+        // 権限が無い人に、使えないコマンドを見せない
+        if (player.hasPermission("tofunomics.trade.history.others")) {
+            player.sendMessage(ChatColor.YELLOW + "/trade history [プレイヤー名] [件数] " + ChatColor.GRAY + "- NPC取引履歴表示");
+        } else {
+            player.sendMessage(ChatColor.YELLOW + "/trade history " + ChatColor.GRAY + "- 自分のNPC取引履歴を表示");
+        }
+        if (player.hasPermission("tofunomics.trade.reload")) {
+            player.sendMessage(ChatColor.YELLOW + "/trade reload " + ChatColor.GRAY + "- 設定再読み込み");
+        }
         player.sendMessage(ChatColor.GRAY + "取引はNPCを右クリックして行います。");
         player.sendMessage(ChatColor.GRAY + "職業: " + String.join(", ", VALID_JOBS));
     }
@@ -176,6 +183,10 @@ public class TradeCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             String[] subCommands = {"history", "reload"};
             for (String subCommand : subCommands) {
+                // reload は権限がある人にだけ出す
+                if (subCommand.equals("reload") && !sender.hasPermission("tofunomics.trade.reload")) {
+                    continue;
+                }
                 if (subCommand.startsWith(args[0].toLowerCase())) {
                     completions.add(subCommand);
                 }

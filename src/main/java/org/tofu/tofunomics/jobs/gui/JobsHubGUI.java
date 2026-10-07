@@ -134,7 +134,7 @@ public class JobsHubGUI {
             lore.add("§7いずれかの職業でLv50に到達すると就職できます");
         } else {
             lore.add("§eクリックで詳細・就職");
-            lore.add("§7※転職にはレベル50が必要です");
+            lore.add("§c※ 職業は Lv50 になるまで選び直せません");
         }
 
         Material icon = advancedLocked ? Material.BARRIER : JobsGUIIconMapper.getIcon(jobName);
