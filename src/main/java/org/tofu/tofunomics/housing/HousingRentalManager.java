@@ -176,23 +176,35 @@ public class HousingRentalManager {
         
         // フラグの自動設定
         if (configManager.isRentalRegionAutoConfigure()) {
-            java.util.Map<String, String> defaultFlags = configManager.getRentalRegionDefaultFlags();
-            
-            for (java.util.Map.Entry<String, String> entry : defaultFlags.entrySet()) {
-                String flagName = entry.getKey();
-                String flagState = entry.getValue();
-                
-                boolean flagSet = worldGuardIntegration.setRegionFlag(regionId, world, flagName, flagState);
-                
-                if (flagSet) {
-                    logger.info("リージョン " + regionId + " にフラグ " + flagName + "=" + flagState + " を設定しました");
-                } else {
-                    logger.warning("リージョン " + regionId + " のフラグ " + flagName + " の設定に失敗しました");
-                }
-            }
+            applyDefaultRegionFlags(regionId, world);
         }
         
         return true;
+    }
+
+    /**
+     * 賃貸リージョンに config の既定フラグ（default_flags / default_flag_groups）を設定する
+     * 新規作成時と、既存リージョンへの付け直し（/housing admin applyflags）の両方で使う
+     *
+     * @return 全てのフラグを設定できた場合true
+     */
+    public boolean applyDefaultRegionFlags(String regionId, World world) {
+        if (worldGuardIntegration == null || !worldGuardIntegration.isEnabled()) {
+            return false;
+        }
+
+        java.util.Map<String, String> defaultFlags = configManager.getRentalRegionDefaultFlags();
+        java.util.Map<String, String> flagGroups = configManager.getRentalRegionDefaultFlagGroups();
+
+        int applied = worldGuardIntegration.applyRegionFlags(regionId, world, defaultFlags, flagGroups);
+
+        if (applied == defaultFlags.size()) {
+            logger.info("リージョン " + regionId + " に既定フラグ " + applied + " 個を設定しました");
+            return true;
+        }
+        logger.warning("リージョン " + regionId + " の既定フラグは " + defaultFlags.size() + " 個中 "
+            + applied + " 個しか設定できませんでした");
+        return false;
     }
 
     /**

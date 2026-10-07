@@ -7,6 +7,7 @@ import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.domains.DefaultDomain;
 import com.sk89q.worldguard.protection.flags.Flag;
 import com.sk89q.worldguard.protection.flags.Flags;
+import com.sk89q.worldguard.protection.flags.RegionGroup;
 import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.flags.SetFlag;
 import com.sk89q.worldedit.world.entity.EntityType;
@@ -585,102 +586,153 @@ public class WorldGuardIntegration {
     }
 
     /**
-     * リージョンにフラグを設定
+     * リージョンにフラグを設定（対象グループの指定なし＝全員に適用）
      *
      * @param regionId リージョンID
      * @param world ワールド
-     * @param flagName フラグ名（"build", "use", "pvp"など）
+     * @param flagName フラグ名（"build", "use", "chest-access" など WorldGuard に登録された状態フラグ）
      * @param state フラグの状態（"allow", "deny"）
      * @return 成功した場合true
      */
     public boolean setRegionFlag(String regionId, World world, String flagName, String state) {
+        java.util.Map<String, String> flags = new java.util.LinkedHashMap<>();
+        flags.put(flagName, state);
+        return applyRegionFlags(regionId, world, flags, java.util.Collections.<String, String>emptyMap()) == 1;
+    }
+
+    /**
+     * リージョンに複数のフラグをまとめて設定し、最後に1回だけ保存する
+     *
+     * WorldGuard のフラグは対象グループを指定しないと全員に適用される。
+     * 「メンバー以外だけ拒否」のようにしたい場合は groups で対象を指定する。
+     * groups に無いフラグは対象グループを既定（全員）に戻す。
+     *
+     * @param regionId リージョンID
+     * @param world ワールド
+     * @param flags フラグ名 → 状態（"allow", "deny"）
+     * @param groups フラグ名 → 対象グループ（"all", "members", "owners", "nonmembers", "nonowners"）
+     * @return 設定できたフラグの数。リージョンが見つからない等で何も設定できなければ0
+     */
+    public int applyRegionFlags(String regionId, World world,
+                                java.util.Map<String, String> flags,
+                                java.util.Map<String, String> groups) {
         if (!enabled) {
             logger.warning("WorldGuardが無効なためフラグを設定できません");
-            return false;
+            return 0;
         }
 
         try {
             RegionManager regionManager = regionContainer.get(BukkitAdapter.adapt(world));
             if (regionManager == null) {
                 logger.warning("WorldGuardのRegionManagerを取得できませんでした");
-                return false;
+                return 0;
             }
 
             ProtectedRegion region = regionManager.getRegion(regionId);
             if (region == null) {
                 logger.warning("リージョン " + regionId + " が見つかりません");
-                return false;
+                return 0;
             }
 
-            // フラグの取得
-            Flag<?> flag = null;
-            switch (flagName.toLowerCase()) {
-                case "build":
-                    flag = Flags.BUILD;
-                    break;
-                case "use":
-                    flag = Flags.USE;
-                    break;
-                case "pvp":
-                    flag = Flags.PVP;
-                    break;
-                case "interact":
-                    flag = Flags.INTERACT;
-                    break;
-                case "block-break":
-                    flag = Flags.BLOCK_BREAK;
-                    break;
-                case "block-place":
-                    flag = Flags.BLOCK_PLACE;
-                    break;
-                case "mob-spawning":
-                    flag = Flags.MOB_SPAWNING;
-                    break;
-                case "mob-damage":
-                    flag = Flags.MOB_DAMAGE;
-                    break;
-                case "creeper-explosion":
-                    flag = Flags.CREEPER_EXPLOSION;
-                    break;
-                case "ghast-fireball":
-                    flag = Flags.GHAST_FIREBALL;
-                    break;
-                default:
-                    logger.warning("未対応のフラグ: " + flagName);
-                    return false;
+            int applied = applyFlagsToRegion(region, flags, groups, worldGuard.getFlagRegistry(), logger);
+
+            if (applied > 0) {
+                try {
+                    regionManager.save();
+                } catch (Exception saveException) {
+                    logger.severe("フラグ設定の保存に失敗しました: " + saveException.getMessage());
+                    return 0;
+                }
             }
 
-            // 状態の設定
-            StateFlag.State flagState = null;
-            switch (state.toLowerCase()) {
-                case "allow":
-                    flagState = StateFlag.State.ALLOW;
-                    break;
-                case "deny":
-                    flagState = StateFlag.State.DENY;
-                    break;
-                default:
-                    logger.warning("未対応の状態: " + state);
-                    return false;
-            }
-
-            // フラグを設定
-            region.setFlag((StateFlag) flag, flagState);
-            
-            // 変更を保存
-            try {
-                regionManager.save();
-                logger.info("リージョン " + regionId + " のフラグ " + flagName + " を " + state + " に設定し、保存しました");
-            } catch (Exception saveException) {
-                logger.severe("フラグ設定の保存に失敗しました: " + saveException.getMessage());
-                return false;
-            }
-            
-            return true;
+            return applied;
 
         } catch (Exception e) {
             logger.severe("フラグの設定に失敗しました: " + e.getMessage());
-            return false;
+            return 0;
+        }
+    }
+
+    /**
+     * フラグ名を WorldGuard の登録簿から引いてリージョンに設定する（保存はしない）
+     *
+     * @return 設定できたフラグの数
+     */
+    static int applyFlagsToRegion(ProtectedRegion region,
+                                  java.util.Map<String, String> flags,
+                                  java.util.Map<String, String> groups,
+                                  com.sk89q.worldguard.protection.flags.registry.FlagRegistry registry,
+                                  Logger logger) {
+        int applied = 0;
+
+        for (java.util.Map.Entry<String, String> entry : flags.entrySet()) {
+            String flagName = entry.getKey();
+
+            Flag<?> flag = registry.get(flagName.toLowerCase());
+            if (!(flag instanceof StateFlag)) {
+                logger.warning("未対応のフラグ: " + flagName);
+                continue;
+            }
+
+            StateFlag.State flagState = parseState(entry.getValue());
+            if (flagState == null) {
+                logger.warning("未対応の状態: " + entry.getValue() + " (フラグ " + flagName + ")");
+                continue;
+            }
+
+            String groupName = groups == null ? null : groups.get(flagName);
+            RegionGroup group = null;
+            if (groupName != null) {
+                group = parseRegionGroup(groupName);
+                if (group == null) {
+                    logger.warning("未対応の対象グループ: " + groupName + " (フラグ " + flagName + ")");
+                    continue;
+                }
+            }
+
+            region.setFlag((StateFlag) flag, flagState);
+            // 対象グループが未指定なら既定（全員）に戻す
+            region.setFlag(flag.getRegionGroupFlag(), group);
+            applied++;
+        }
+
+        return applied;
+    }
+
+    static StateFlag.State parseState(String state) {
+        if (state == null) {
+            return null;
+        }
+        switch (state.trim().toLowerCase()) {
+            case "allow":
+                return StateFlag.State.ALLOW;
+            case "deny":
+                return StateFlag.State.DENY;
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * 対象グループ名を解釈する。"nonmembers" / "non_members" / "non-members" のどれでも受け付ける
+     */
+    static RegionGroup parseRegionGroup(String name) {
+        if (name == null) {
+            return null;
+        }
+        switch (name.trim().toLowerCase().replace("_", "").replace("-", "")) {
+            case "all":
+                return RegionGroup.ALL;
+            case "members":
+                return RegionGroup.MEMBERS;
+            case "owners":
+                return RegionGroup.OWNERS;
+            case "nonmembers":
+                return RegionGroup.NON_MEMBERS;
+            case "nonowners":
+                return RegionGroup.NON_OWNERS;
+            default:
+                return null;
         }
     }
 

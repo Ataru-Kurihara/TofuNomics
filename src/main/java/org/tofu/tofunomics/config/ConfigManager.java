@@ -4844,11 +4844,30 @@ public class ConfigManager {
         } else {
             // デフォルト値
             flags.put("use", "allow");
-            flags.put("chest-access", "allow");
+            flags.put("chest-access", "deny");
             flags.put("build", "deny");
             flags.put("interact", "allow");
         }
         return flags;
+    }
+
+    /**
+     * 賃貸リージョンのデフォルトフラグの対象グループ（フラグ名 → all / members / nonmembers など）を取得
+     * 指定の無いフラグは全員に適用される
+     */
+    public java.util.Map<String, String> getRentalRegionDefaultFlagGroups() {
+        java.util.Map<String, String> groups = new java.util.HashMap<>();
+        String base = "housing_rental.worldguard_rental_regions";
+        ConfigurationSection section = config.getConfigurationSection(base + ".default_flag_groups");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                groups.put(key, section.getString(key));
+            }
+        } else if (config.getConfigurationSection(base + ".default_flags") == null) {
+            // default_flags も無いときのデフォルト値（getRentalRegionDefaultFlags と対）
+            groups.put("chest-access", "nonmembers");
+        }
+        return groups;
     }
     
     /**

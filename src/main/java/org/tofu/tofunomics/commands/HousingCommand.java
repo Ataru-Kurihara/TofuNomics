@@ -371,6 +371,8 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                 return handleAdminCreateCityRegion(sender, args);
             case "setparent":
                 return handleAdminSetParent(sender, args);
+            case "applyflags":
+                return handleAdminApplyFlags(sender);
             case "mobspawn":
                 return handleAdminMobspawn(sender, args);
             default:
@@ -1026,6 +1028,65 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
 
 
     /**
+     * 管理者: 登録済みの全物件のリージョンに config の既定フラグを付け直す
+     * 使用法: /housing admin applyflags
+     */
+    private boolean handleAdminApplyFlags(CommandSender sender) {
+        org.tofu.tofunomics.integration.WorldGuardIntegration wgIntegration =
+            plugin.getWorldGuardIntegration();
+
+        if (wgIntegration == null || !wgIntegration.isEnabled()) {
+            sender.sendMessage("§cWorldGuard統合が無効です");
+            return true;
+        }
+
+        // 貸出中の物件も対象にする
+        List<HousingProperty> properties = rentalManager.getAllProperties();
+
+        if (properties.isEmpty()) {
+            sender.sendMessage("§e登録済みの物件がありません");
+            return true;
+        }
+
+        int successCount = 0;
+        int skipCount = 0;
+        List<String> failed = new ArrayList<>();
+
+        for (HousingProperty property : properties) {
+            if (!property.hasWorldGuardRegion()) {
+                skipCount++;
+                continue;
+            }
+
+            org.bukkit.World world = org.bukkit.Bukkit.getWorld(property.getWorldName());
+            if (world == null) {
+                failed.add(property.getWorldguardRegionId());
+                continue;
+            }
+
+            if (rentalManager.applyDefaultRegionFlags(property.getWorldguardRegionId(), world)) {
+                successCount++;
+            } else {
+                failed.add(property.getWorldguardRegionId());
+            }
+        }
+
+        sender.sendMessage("§a既定フラグの付け直し完了");
+        sender.sendMessage("§7フラグ: " + configManager.getRentalRegionDefaultFlags()
+            + " §7対象グループ: " + configManager.getRentalRegionDefaultFlagGroups());
+        sender.sendMessage("§7成功: " + successCount + " 件");
+        if (skipCount > 0) {
+            sender.sendMessage("§7スキップ: " + skipCount + " 件 (WorldGuardリージョン未設定)");
+        }
+        if (!failed.isEmpty()) {
+            sender.sendMessage("§c失敗: " + failed.size() + " 件 " + failed);
+            sender.sendMessage("§7詳細はサーバーログを確認してください");
+        }
+
+        return true;
+    }
+
+    /**
      * モブスポーン制御コマンド処理
      * /housing admin mobspawn <リージョン名> <allow/deny>
      */
@@ -1138,6 +1199,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/housing admin remove <ID> §7- 物件削除");
         sender.sendMessage("§e/housing admin createcityregion <名前> §7- 都市保護リージョン作成");
         sender.sendMessage("§e/housing admin setparent <親リージョン名> §7- 全物件を子リージョンに設定");
+        sender.sendMessage("§e/housing admin applyflags §7- 全物件のリージョンに既定フラグを付け直す");
         sender.sendMessage("§e/housing admin mobspawn <リージョン名> <allow/deny> §7- 敵対的モブスポーン制御");
         sender.sendMessage("§6===========================");
     }
@@ -1159,7 +1221,7 @@ public class HousingCommand implements CommandExecutor, TabCompleter {
                 completions.add("admin");
             }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
-            completions.addAll(Arrays.asList("wand", "register", "quickregister", "import", "gui", "manage", "checkregion", "list", "setrent", "remove"));
+            completions.addAll(Arrays.asList("wand", "register", "quickregister", "import", "gui", "manage", "checkregion", "list", "setrent", "remove", "applyflags"));
         }
 
         return completions;
