@@ -225,14 +225,23 @@ public class FoodGUI implements Listener {
             lore.add("§c購入できません");
         }
         
-        String displayName = "§a" + getItemDisplayName(material);
-        return createGUIItem(material, displayName, lore);
+        // 店独自の呼び名が無い品は表示名を付けない（クライアントが自分の言語の名前で表示する）
+        String shopName = getItemDisplayName(material);
+        return createGUIItem(material, shopName != null ? "§a" + shopName : null, lore);
     }
     
     /**
      * マテリアルの表示名を取得
      */
     private String getItemDisplayName(Material material) {
+        return foodDisplayName(material);
+    }
+
+    /**
+     * 店独自の呼び名（「焼き肉」など）がある食料の名前。無い品は null。
+     * null の品は内部名（cooked_cod 等）を見せず、クライアントの翻訳名で表示する。
+     */
+    public static String foodDisplayName(Material material) {
         switch (material) {
             case BREAD: return "パン";
             case COOKED_BEEF: return "焼き肉";
@@ -244,7 +253,7 @@ public class FoodGUI implements Listener {
             case CARROT: return "ニンジン";
             case BEETROOT: return "ビートルート";
             case MUSHROOM_STEW: return "キノコシチュー";
-            default: return material.toString().toLowerCase().replace("_", " ");
+            default: return null;
         }
     }
     
@@ -370,13 +379,17 @@ public class FoodGUI implements Listener {
         );
         
         if (result.isSuccess()) {
-            player.sendMessage("§a" + getItemDisplayName(material) + " を " + amount + "個購入しました！");
+            String shopName = getItemDisplayName(material);
+            String purchased = "§a" + (shopName != null ? shopName : "{item}") + " を " + amount + "個購入しました！";
+            org.tofu.tofunomics.economy.ItemNameText.send(player, purchased, "{item}", material);
             player.sendMessage("§7支払い: " + currencyConverter.formatCurrency(result.getTotalPrice()));
             
             // GUIを更新
             setupFoodGUIItems(session.getInventory(), player, session.getNpcId());
         } else {
-            player.sendMessage("§c購入に失敗しました: " + result.getMessage());
+            // 失敗の理由に品名が入る場合は、内部名ではなくクライアントの翻訳名で表示する
+            org.tofu.tofunomics.economy.ItemNameText.send(
+                player, "§c購入に失敗しました: " + result.getMessage(), "{item}", material);
         }
     }
     

@@ -33,6 +33,46 @@ public class CurrencyConverter {
     public ItemManager getItemManager() {
         return itemManager;
     }
+
+    // 現金（手持ち）が動いたことを知らせる先。手持ちの保存の予約に使う。未設定なら何もしない
+    private java.util.function.Consumer<Player> cashChangeListener;
+
+    public void setCashChangeListener(java.util.function.Consumer<Player> cashChangeListener) {
+        this.cashChangeListener = cashChangeListener;
+    }
+
+    /**
+     * 現金（手持ちの TofuCoin / TofuGold）が動いたことを知らせる。
+     * 銀行残高はすぐ DB に保存されるので、手持ちも近いうちに保存して食い違いを防ぐ。
+     * この入口を通らずに手持ちの通貨を動かした所（銀行 GUI の換金など）からも呼ぶ。
+     */
+    public void notifyCashChanged(Player player) {
+        if (player == null) {
+            return;
+        }
+        // 残高の表示（スコアボード）にも知らせる
+        BalanceDisplayRefresher.notifyChanged(player.getUniqueId());
+        if (cashChangeListener == null) {
+            return;
+        }
+        try {
+            cashChangeListener.accept(player);
+        } catch (RuntimeException e) {
+            // 保存の予約に失敗しても、お金の操作は止めない
+        }
+    }
+
+    /** 手持ちの現金の増減を記録し、手持ちの保存を予約する */
+    private void cashMoved(Player player, int nuggets) {
+        if (nuggets != 0) {
+            TransactionRecorder.recordCashChange(player.getUniqueId(), convertSignedNuggets(nuggets));
+        }
+        notifyCashChanged(player);
+    }
+
+    private double convertSignedNuggets(int nuggets) {
+        return nuggets < 0 ? -convertNuggetsToBalance(-nuggets) : convertNuggetsToBalance(nuggets);
+    }
     
     public String formatCurrency(double amount) {
         // 価格を四捨五入で丸める
@@ -57,17 +97,21 @@ public class CurrencyConverter {
         
         // TofuGold を崩したお釣りが手持ちに入りきらなかった分は、一緒に預け入れる
         double bankAmount = convertNuggetsToBalance(nuggetAmount + unplacedChange);
+        notifyCashChanged(player);
         
-        org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());
-        if (tofuPlayer == null) {
-            tofuPlayer = new org.tofu.tofunomics.models.Player();
-            tofuPlayer.setUuid(player.getUniqueId().toString());
-            tofuPlayer.setBalance(0.0); // 現金は0
-            tofuPlayer.setBankBalance(bankAmount); // 銀行預金に追加
-            return playerDAO.insertPlayer(tofuPlayer);
-        } else {
-            tofuPlayer.addBankBalance(bankAmount); // 銀行預金に追加
-            return playerDAO.updatePlayerData(tofuPlayer);
+        try (TransactionContext.Scope scope =
+                 TransactionContext.openIfUndeclared(TransactionType.DEPOSIT, null, null)) {
+            org.tofu.tofunomics.models.Player tofuPlayer = playerDAO.getPlayerByUUID(player.getUniqueId().toString());
+            if (tofuPlayer == null) {
+                tofuPlayer = new org.tofu.tofunomics.models.Player();
+                tofuPlayer.setUuid(player.getUniqueId().toString());
+                tofuPlayer.setBalance(0.0); // 現金は0
+                tofuPlayer.setBankBalance(bankAmount); // 銀行預金に追加
+                return playerDAO.insertPlayer(tofuPlayer);
+            } else {
+                tofuPlayer.addBankBalance(bankAmount); // 銀行預金に追加
+                return playerDAO.updatePlayerData(tofuPlayer);
+            }
         }
     }
     
@@ -101,17 +145,21 @@ public class CurrencyConverter {
             return WithdrawResult.INSUFFICIENT_INVENTORY_SPACE;
         }
         
-        tofuPlayer.removeBankBalance(exactAmount); // 銀行預金から引き出し
-        if (!playerDAO.updatePlayerData(tofuPlayer)) {
-            return WithdrawResult.DATABASE_ERROR;
+        try (TransactionContext.Scope scope =
+                 TransactionContext.openIfUndeclared(TransactionType.WITHDRAW, null, null)) {
+            tofuPlayer.removeBankBalance(exactAmount); // 銀行預金から引き出し
+            if (!playerDAO.updatePlayerData(tofuPlayer)) {
+                return WithdrawResult.DATABASE_ERROR;
+            }
+            
+            if (!itemManager.addGoldNuggetsToInventory(player, nuggetAmount)) {
+                tofuPlayer.addBankBalance(exactAmount); // ロールバック
+                playerDAO.updatePlayerData(tofuPlayer);
+                return WithdrawResult.INSUFFICIENT_INVENTORY_SPACE;
+            }
         }
         
-        if (!itemManager.addGoldNuggetsToInventory(player, nuggetAmount)) {
-            tofuPlayer.addBankBalance(exactAmount); // ロールバック
-            playerDAO.updatePlayerData(tofuPlayer);
-            return WithdrawResult.INSUFFICIENT_INVENTORY_SPACE;
-        }
-        
+        notifyCashChanged(player);
         return WithdrawResult.SUCCESS;
     }
     
@@ -144,7 +192,7 @@ public class CurrencyConverter {
      */
     public String getCoinValueDescription() {
         double coinValue = getCurrentCoinValue();
-        return String.format("1コイン = $%.1f", coinValue);
+        return String.format("TofuCoin 1 枚 = $%.1f", coinValue);
     }
     
     public double roundToDecimalPlaces(double amount) {
@@ -263,6 +311,7 @@ public class CurrencyConverter {
         }
         // TofuGold を崩したお釣りが手持ちに入りきらなかった分は口座へ入金する
         bankUnplacedNuggets(player, unplacedChange);
+        cashMoved(player, -(requiredNuggets + unplacedChange));
         return true;
     }
 
@@ -295,7 +344,11 @@ public class CurrencyConverter {
         }
         
         // 金塊をインベントリに追加
-        return itemManager.addGoldNuggetsToInventory(player, nuggetAmount);
+        boolean added = itemManager.addGoldNuggetsToInventory(player, nuggetAmount);
+        if (added) {
+            cashMoved(player, nuggetAmount);
+        }
+        return added;
     }
 
     // 所持金での受取り処理（金塊をインベントリに追加）- スペースチェックスキップオプション付き
@@ -322,6 +375,9 @@ public class CurrencyConverter {
         // 金塊をインベントリに追加
         boolean result = itemManager.addGoldNuggetsToInventory(player, nuggetAmount);
         org.bukkit.Bukkit.getLogger().info("[CurrencyConverter] addGoldNuggetsToInventory result: " + result);
+        if (result) {
+            cashMoved(player, nuggetAmount);
+        }
         return result;
     }
     
@@ -333,6 +389,7 @@ public class CurrencyConverter {
 
         // インベントリに入る分だけ金塊を付与し、入りきらなかった枚数を取得
         int leftover = itemManager.addGoldNuggetsWithLeftover(player, nuggetAmount);
+        cashMoved(player, nuggetAmount - leftover);
 
         // 入りきらなかった分を銀行口座へ入金（金塊1枚=残高1の1:1換算）
         if (leftover > 0) {

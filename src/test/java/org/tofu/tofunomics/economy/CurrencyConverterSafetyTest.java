@@ -93,4 +93,75 @@ public class CurrencyConverterSafetyTest {
 
         verify(itemManager).dropGoldNuggetsAtLocation(player, 4);
     }
+
+    // ===== 現金が動いたら手持ちの保存を予約する =====
+
+    @Test
+    public void 現金で支払うと手持ちの保存が予約される() {
+        java.util.List<Player> notified = new java.util.ArrayList<>();
+        converter.setCashChangeListener(notified::add);
+        when(itemManager.countGoldNuggetsInInventory(player)).thenReturn(9);
+        when(itemManager.removeGoldNuggetsReturningUnplacedChange(player, 5)).thenReturn(0);
+
+        assertTrue(converter.payWithCash(player, 5));
+
+        assertEquals(1, notified.size());
+        assertSame(player, notified.get(0));
+    }
+
+    @Test
+    public void 支払えなかったときは保存を予約しない() {
+        java.util.List<Player> notified = new java.util.ArrayList<>();
+        converter.setCashChangeListener(notified::add);
+        when(itemManager.countGoldNuggetsInInventory(player)).thenReturn(0);
+
+        assertFalse(converter.payWithCash(player, 5));
+
+        assertTrue(notified.isEmpty());
+    }
+
+    @Test
+    public void 預け入れと引き出しと受け取りでも保存が予約される() {
+        java.util.List<Player> notified = new java.util.ArrayList<>();
+        converter.setCashChangeListener(notified::add);
+
+        when(itemManager.countGoldNuggetsInInventory(player)).thenReturn(50);
+        when(itemManager.removeGoldNuggetsReturningUnplacedChange(player, 50)).thenReturn(0);
+        assertTrue(converter.depositGoldNuggets(player, 50));
+        assertEquals(1050.0, account.getBankBalance(), 0.001);
+
+        when(itemManager.hasInventorySpace(player, 20)).thenReturn(true);
+        when(itemManager.addGoldNuggetsToInventory(player, 20)).thenReturn(true);
+        assertEquals(CurrencyConverter.WithdrawResult.SUCCESS, converter.withdrawToGoldNuggets(player, 20));
+
+        when(itemManager.addGoldNuggetsWithLeftover(player, 10)).thenReturn(0);
+        converter.receiveCashWithBankFallback(player, 10);
+
+        assertEquals(3, notified.size());
+    }
+
+    @Test
+    public void 保存の予約に失敗してもお金の操作は成功のまま() {
+        converter.setCashChangeListener(p -> { throw new IllegalStateException("保存の予約に失敗"); });
+        when(itemManager.countGoldNuggetsInInventory(player)).thenReturn(9);
+        when(itemManager.removeGoldNuggetsReturningUnplacedChange(player, 5)).thenReturn(0);
+
+        assertTrue(converter.payWithCash(player, 5));
+    }
+
+    @Test
+    public void 現金が動くと残高の表示側にも知らせる() {
+        java.util.List<UUID> notified = new java.util.ArrayList<>();
+        BalanceDisplayRefresher.install(notified::add);
+        try {
+            when(itemManager.countGoldNuggetsInInventory(player)).thenReturn(9);
+            when(itemManager.removeGoldNuggetsReturningUnplacedChange(player, 5)).thenReturn(0);
+
+            assertTrue(converter.payWithCash(player, 5));
+
+            assertTrue(notified.contains(uuid));
+        } finally {
+            BalanceDisplayRefresher.install(null);
+        }
+    }
 }

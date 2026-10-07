@@ -145,7 +145,39 @@ public class ServiceProcessor {
     }
 
     /**
+     * その品に、そのエンチャントをそのレベルで付けてよいか（バニラで付けられる範囲か）。
+     * 付けられない種類（例: 剣に幸運）、最大レベル超え（例: 幸運 V）、
+     * すでに付いているエンチャントと両立しない組み合わせ（例: シルクタッチと幸運）は不可。
+     */
+    public static boolean isVanillaEnchant(ItemStack item, Enchantment enchantment, int level) {
+        if (item == null || enchantment == null) {
+            return false;
+        }
+        boolean conflicts = false;
+        for (Enchantment existing : item.getEnchantments().keySet()) {
+            if (!existing.equals(enchantment) && enchantment.conflictsWith(existing)) {
+                conflicts = true;
+                break;
+            }
+        }
+        return isWithinVanillaLimits(enchantment.canEnchantItem(item), level, enchantment.getMaxLevel(), conflicts);
+    }
+
+    /**
+     * バニラで付けられる範囲かの判定（Bukkit 非依存・単体テスト可能）。
+     *
+     * @param applicable その品に付けられる種類か
+     * @param level      依頼されたレベル
+     * @param maxLevel   その種類の最大レベル
+     * @param conflicts  すでに付いているエンチャントと両立しないか
+     */
+    public static boolean isWithinVanillaLimits(boolean applicable, int level, int maxLevel, boolean conflicts) {
+        return applicable && level >= 1 && level <= maxLevel && !conflicts;
+    }
+
+    /**
      * エンチャントを付与する（addEnchant(..., true) でレベル・互換制限を無視）。
+     * 付けてよいかは、呼び出し側が {@link #isVanillaEnchant} で先に確かめること。
      * 元のエンチャント・カスタム名・NBT は保持される。
      *
      * @return 加工後の ItemStack。メタ取得不可・エンチャント null なら null

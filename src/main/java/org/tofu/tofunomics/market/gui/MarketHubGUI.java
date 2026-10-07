@@ -392,6 +392,9 @@ public class MarketHubGUI {
     }
 
     private void sendBuyOrderMessage(Player player, MarketResult result, String item, int amount, double price) {
+        if (isLimitWithoutMessage(result)) {
+            return;
+        }
         player.sendMessage(configManager.getMarketMessage(result.getMessageKey(),
                 "item", item != null ? item : "",
                 "amount", String.valueOf(amount),
@@ -400,6 +403,18 @@ public class MarketHubGUI {
                 "currency", configManager.getCurrencyName(),
                 "min", String.valueOf((long) configManager.getMarketMinPrice()),
                 "max", String.valueOf((long) configManager.getMarketMaxPrice())));
+    }
+
+    /**
+     * 件数の上限で断られ、かつ設定ファイルにその文が無い場合。
+     * 件数つきの既定文は MarketManager が本人に伝えているので、「メッセージが見つかりません」は出さない。
+     */
+    private boolean isLimitWithoutMessage(MarketResult result) {
+        if (result != MarketResult.LISTING_LIMIT && result != MarketResult.ORDER_LIMIT) {
+            return false;
+        }
+        return configManager.getMarketMessage(result.getMessageKey())
+                .startsWith(org.tofu.tofunomics.market.MarketMessages.MISSING_MESSAGE_PREFIX);
     }
 
     private void sendServiceMessage(Player player, MarketResult result, String item, String service, double price) {

@@ -1034,7 +1034,11 @@ public class TradingGUI implements Listener {
         }
         
         // 購入処理（インベントリから金塊を削除）
-        boolean success = currencyConverter.payWithCash(player, totalPrice);
+        boolean success;
+        try (org.tofu.tofunomics.economy.TransactionContext.Scope scope = org.tofu.tofunomics.economy.TransactionContext.open(
+                org.tofu.tofunomics.economy.TransactionType.NPC_BUY, "NPC:" + tradingPost.getName(), material.name() + " x" + purchaseAmount)) {
+            success = currencyConverter.payWithCash(player, totalPrice);
+        }
         if (!success) {
             player.sendMessage("§c購入処理に失敗しました");
             return;

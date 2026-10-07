@@ -146,7 +146,7 @@ public class QuestGUI implements Listener {
         lore.add("");
         lore.add("§f対象: §e" + def.getTargetMaterial().name());
         lore.add("§f必要数: §e" + def.getRequiredAmount() + " 個");
-        lore.add("§f報酬: §6" + def.getRewardNuggets() + " 金塊");
+        lore.add("§f報酬: §6" + questNPCManager.formatReward(def.getRewardNuggets()));
         lore.add("§f所持数: " + (held >= def.getRequiredAmount() ? "§a" : "§c") + held + " / " + def.getRequiredAmount());
         lore.add("§f受注枠: §e" + acceptedCount + " / " + maxQuests);
         lore.add("");

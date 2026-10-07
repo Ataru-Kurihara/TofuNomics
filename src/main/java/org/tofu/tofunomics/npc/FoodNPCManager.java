@@ -378,7 +378,8 @@ public class FoodNPCManager {
             String limitStatus = remaining > 0 ? "§7(残り" + remaining + "個購入可能)" : "§c(本日上限達成)";
             
             String formattedPrice = currencyConverter.formatCurrency(price);
-            player.sendMessage("§f• " + material.toString().toLowerCase() + ": §e" + formattedPrice + " " + stockStatus + " " + limitStatus);
+            org.tofu.tofunomics.economy.ItemNameText.send(player,
+                "§f• {item}: §e" + formattedPrice + " " + stockStatus + " " + limitStatus, "{item}", material);
         }
         
         player.sendMessage("§e手に持ったアイテムと同じものを右クリックで購入できます");
@@ -404,14 +405,14 @@ public class FoodNPCManager {
         
         // アイテム販売チェック
         if (!foodStore.sellsItem(itemType)) {
-            return new PurchaseResult(false, itemType.toString() + "は販売していません", 0.0);
+            return new PurchaseResult(false, "{item}は販売していません", 0.0);
         }
         
         // 在庫チェック
         Map<Material, Integer> storeInventory = storeInventories.get(npcId);
         int currentStock = storeInventory.getOrDefault(itemType, 0);
         if (currentStock < amount) {
-            return new PurchaseResult(false, itemType.toString() + "の在庫が不足しています（在庫: " + currentStock + "個）", 0.0);
+            return new PurchaseResult(false, "{item}の在庫が不足しています（在庫: " + currentStock + "個）", 0.0);
         }
         
         // 購入制限チェック
@@ -430,7 +431,8 @@ public class FoodNPCManager {
         
         // 所持金チェック
         if (!currencyConverter.canAffordWithCash(player, totalPrice)) {
-            return new PurchaseResult(false, "所持金が不足しています（必要: " + currencyConverter.formatCurrency(totalPrice) + "）", 0.0);
+            return new PurchaseResult(false, "手持ちの現金が不足しています（必要: " + currencyConverter.formatCurrency(totalPrice)
+                + " " + configManager.getCurrencySymbol() + "）", 0.0);
         }
         
         // 渡す品を先に作る
@@ -450,7 +452,14 @@ public class FoodNPCManager {
         }
         
         // 購入処理実行（所持金から支払い）
-        if (!currencyConverter.payWithCash(player, totalPrice)) {
+        boolean paid;
+        try (org.tofu.tofunomics.economy.TransactionContext.Scope scope =
+                 org.tofu.tofunomics.economy.TransactionContext.open(
+                     org.tofu.tofunomics.economy.TransactionType.NPC_BUY, "NPC:" + foodStore.getName(),
+                     itemType.name() + " x" + amount)) {
+            paid = currencyConverter.payWithCash(player, totalPrice);
+        }
+        if (!paid) {
             return new PurchaseResult(false, "支払い処理に失敗しました", 0.0);
         }
         

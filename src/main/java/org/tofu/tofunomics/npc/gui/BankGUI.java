@@ -15,6 +15,8 @@ import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.economy.CurrencyConverter;
 import org.tofu.tofunomics.economy.ItemManager;
+import org.tofu.tofunomics.economy.TransactionContext;
+import org.tofu.tofunomics.economy.TransactionType;
 import org.tofu.tofunomics.npc.NPCManager;
 
 import java.util.*;
@@ -104,10 +106,10 @@ public class BankGUI implements Listener {
             Material.HOPPER,
             "§c出金",
             Arrays.asList(
-                "§7銀行残高からコインを引き出します",
-                "§7左クリック: §f10コイン",
-                "§7右クリック: §f100コイン",
-                "§7シフト左クリック: §f500コイン",
+                "§7預金を手持ちの現金（TofuCoin）として引き出します",
+                "§7左クリック: §f" + money(10),
+                "§7右クリック: §f" + money(100),
+                "§7シフト左クリック: §f" + money(500),
                 "§7シフト右クリック: §f全額引き出し"
             )
         );
@@ -118,10 +120,10 @@ public class BankGUI implements Listener {
             Material.CHEST,
             "§a入金",
             Arrays.asList(
-                "§7手持ちのコインを銀行に入金します",
-                "§7左クリック: §fコイン1個入金",
-                "§7右クリック: §fコイン9個入金",
-                "§7シフト+クリック: §f全てのコイン入金"
+                "§7手持ちの現金（TofuCoin・TofuGold）を預金に入れます",
+                "§7左クリック: §f" + money(1) + " を入金",
+                "§7右クリック: §f" + money(9) + " を入金",
+                "§7シフト+クリック: §f手持ちの現金をすべて入金"
             )
         );
         gui.setItem(13, depositItem);
@@ -145,7 +147,7 @@ public class BankGUI implements Listener {
             "§6TofuCoin → TofuGold",
             Arrays.asList(
                 "§7TofuCoinをTofuGoldに換金します",
-                "§e" + nuggetsPerIngot + "コイン §7→ §61金貨",
+                "§eTofuCoin " + nuggetsPerIngot + " 枚 §7→ §6TofuGold 1 個",
                 "§7クリックして換金"
             )
         );
@@ -157,7 +159,7 @@ public class BankGUI implements Listener {
             "§6TofuGold → TofuCoin",
             Arrays.asList(
                 "§7TofuGoldをTofuCoinに換金します",
-                "§61金貨 §7→ §e" + nuggetsPerIngot + "コイン",
+                "§6TofuGold 1 個 §7→ §eTofuCoin " + nuggetsPerIngot + " 枚",
                 "§7クリックして換金"
             )
         );
@@ -181,6 +183,11 @@ public class BankGUI implements Listener {
         }
     }
     
+    /** 金額の表示（数値＋設定の通貨記号。単位を「コイン」などと決め打ちしない） */
+    private String money(double amount) {
+        return currencyConverter.formatCurrency(amount) + " " + configManager.getCurrencySymbol();
+    }
+
     private ItemStack createGUIItem(Material material, String name, List<String> lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
@@ -326,16 +333,21 @@ public class BankGUI implements Listener {
         }
         
         // 引き出し処理
-        if (!currencyConverter.subtractBalance(player.getUniqueId(), nuggets)) {
-            player.sendMessage(configManager.getMessage("npc.bank.withdraw_failed"));
-            return;
+        int notAdded;
+        try (TransactionContext.Scope scope = TransactionContext.open(TransactionType.WITHDRAW, null, "銀行")) {
+            if (!currencyConverter.subtractBalance(player.getUniqueId(), nuggets)) {
+                player.sendMessage(configManager.getMessage("npc.bank.withdraw_failed"));
+                return;
+            }
+            
+            // 手持ちに入った分だけを出金とし、入りきらなかった分は残高に戻す
+            notAdded = itemManager.addGoldNuggetsWithLeftover(player, nuggets);
+            if (notAdded > 0) {
+                currencyConverter.bankUnplacedNuggets(player, notAdded);
+            }
         }
-        
-        // 手持ちに入った分だけを出金とし、入りきらなかった分は残高に戻す
-        int notAdded = itemManager.addGoldNuggetsWithLeftover(player, nuggets);
-        if (notAdded > 0) {
-            currencyConverter.bankUnplacedNuggets(player, notAdded);
-        }
+        // 預金と手持ちが同時に動いたので、手持ちも近いうちに保存する
+        currencyConverter.notifyCashChanged(player);
         int withdrawn = withdrawnNuggets(nuggets, notAdded);
         
         if (withdrawn > 0) {
@@ -344,7 +356,7 @@ public class BankGUI implements Listener {
                 "currency", configManager.getCurrencyName()));
         }
         if (notAdded > 0) {
-            player.sendMessage("§eインベントリに空きがないため、" + notAdded + "コインは口座に残しました。");
+            player.sendMessage("§eインベントリに空きがないため、" + money(notAdded) + " は預金に残しました。");
         }
         
         // GUIを更新
@@ -392,7 +404,7 @@ public class BankGUI implements Listener {
 
         if (availableAmount == 0) {
             player.sendMessage("§cインベントリに有効なTofuCoinまたはTofuGoldがありません。");
-            player.sendMessage("§7※ TofuGoldは通貨専用の金インゴットです（1個 = 9 TofuCoin）");
+            player.sendMessage("§7※ TofuGold は通貨専用の金インゴットです（1 個 = TofuCoin 9 枚分）");
             return;
         }
 
@@ -414,14 +426,16 @@ public class BankGUI implements Listener {
 
         // 残高に追加
         double depositBalance = currencyConverter.convertNuggetsToBalance(depositAmount);
-        currencyConverter.addBalance(player.getUniqueId(), depositBalance);
+        try (TransactionContext.Scope scope = TransactionContext.open(TransactionType.DEPOSIT, null, "銀行")) {
+            currencyConverter.addBalance(player.getUniqueId(), depositBalance);
+        }
+        // 預金と手持ちが同時に動いたので、手持ちも近いうちに保存する
+        currencyConverter.notifyCashChanged(player);
 
         String amountText = currencyConverter.formatCurrency(depositBalance);
         player.sendMessage(configManager.getMessage("economy.deposit_success",
             "amount", amountText,
             "currency", configManager.getCurrencyName()));
-
-        player.sendMessage("§7預け入れた金額: " + depositAmount + " TofuCoin相当");
 
         // GUIを更新
         setupBankGUIItems(session.getInventory(), player);
@@ -451,7 +465,7 @@ public class BankGUI implements Listener {
         
         // 必要枚数があるかチェック
         if (coinCount < nuggetsPerIngot) {
-            player.sendMessage("§c" + nuggetsPerIngot + "枚以上のTofuCoinが必要です。(現在: " + coinCount + "枚)");
+            player.sendMessage("§cTofuCoin が " + nuggetsPerIngot + " 枚以上必要です。（現在: " + coinCount + " 枚）");
             return;
         }
         
@@ -475,11 +489,13 @@ public class BankGUI implements Listener {
         if (!player.getInventory().addItem(goldIngot).isEmpty()) {
             int notReturned = itemManager.addGoldNuggetsWithLeftover(player, nuggetsPerIngot);
             currencyConverter.bankUnplacedNuggets(player, notReturned);
+            currencyConverter.notifyCashChanged(player);
             player.sendMessage("§cインベントリに空きがないため換金できません。");
             return;
         }
         
-        player.sendMessage("§a" + nuggetsPerIngot + "枚のTofuCoinを1枚のTofuGoldに換金しました！");
+        currencyConverter.notifyCashChanged(player);
+        player.sendMessage("§aTofuCoin " + nuggetsPerIngot + " 枚を TofuGold 1 個に換金しました！");
     }
     
     /**
@@ -498,7 +514,7 @@ public class BankGUI implements Listener {
 
         // 1枚以上あるかチェック
         if (goldCount < 1) {
-            player.sendMessage("§cTofuGoldが必要です。");
+            player.sendMessage("§cTofuGold が必要です。");
             return;
         }
 
@@ -518,9 +534,9 @@ public class BankGUI implements Listener {
         // 金塊を追加。入りきらない分は口座へ入金する
         int banked = currencyConverter.receiveCashWithBankFallback(player, nuggetsPerIngot);
         
-        player.sendMessage("§a1枚のTofuGoldを" + nuggetsPerIngot + "枚のTofuCoinに換金しました！");
+        player.sendMessage("§aTofuGold 1 個を TofuCoin " + nuggetsPerIngot + " 枚に換金しました！");
         if (banked > 0) {
-            player.sendMessage("§eインベントリに空きがないため、" + banked + "コインは口座に入金しました。");
+            player.sendMessage("§eインベントリに空きがないため、" + money(banked) + " は預金に入れました。");
         }
     }
     

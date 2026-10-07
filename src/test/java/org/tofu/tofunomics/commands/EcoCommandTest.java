@@ -55,6 +55,9 @@ public class EcoCommandTest {
     public void setUp() {
         ecoCommand = new EcoCommand(configManager, currencyConverter, playerDAO);
 
+        // /eco はコード内でも権限を確かめる。既存のテストは運営（権限あり）として実行する
+        lenient().when(sender.hasPermission("tofunomics.admin")).thenReturn(true);
+
         // デフォルトの設定値をモック
         when(configManager.getCurrencySymbol()).thenReturn("G");
         when(configManager.getMessagePrefix()).thenReturn("§7[TofuNomics] ");
@@ -150,6 +153,8 @@ public class EcoCommandTest {
 
             // プレイヤー更新が成功
             when(playerDAO.updatePlayerData(existingPlayer)).thenReturn(true);
+            // 残高が足りていて、引き落とせた
+            when(existingPlayer.removeBankBalance(amount)).thenReturn(true);
 
             when(currencyConverter.formatCurrency(amount)).thenReturn("300");
 
@@ -332,5 +337,111 @@ public class EcoCommandTest {
 
         // エラーメッセージが表示される
         verify(sender).sendMessage(contains("使用法"));
+    }
+
+    // ===== 第 2 弾の直し =====
+
+    @Test
+    public void 権限が無ければ何もせず断る() {
+        when(sender.hasPermission("tofunomics.admin")).thenReturn(false);
+
+        String[] args = {"give", "TestPlayer", "1000"};
+        assertTrue(ecoCommand.onCommand(sender, command, "eco", args));
+
+        verify(sender).sendMessage(contains("権限がありません"));
+        verifyNoInteractions(playerDAO);
+    }
+
+    @Test
+    public void take_残高不足で引けなかったら取り上げましたと言わない() {
+        org.tofu.tofunomics.models.Player existingPlayer = new org.tofu.tofunomics.models.Player();
+        existingPlayer.setUuid(targetPlayer.getUniqueId().toString());
+        existingPlayer.setBankBalance(100.0);
+
+        try (MockedStatic<Bukkit> mockedBukkit = mockStatic(Bukkit.class)) {
+            mockedBukkit.when(() -> Bukkit.getPlayer("TestPlayer")).thenReturn(targetPlayer);
+            when(playerDAO.getPlayerByUUID(targetPlayer.getUniqueId().toString())).thenReturn(existingPlayer);
+            when(currencyConverter.formatCurrency(100.0)).thenReturn("100");
+
+            String[] args = {"take", "TestPlayer", "300"};
+            assertTrue(ecoCommand.onCommand(sender, command, "eco", args));
+
+            verify(sender).sendMessage(contains("残高が足りないため"));
+            verify(sender, never()).sendMessage(contains("取り上げました"));
+            verify(targetPlayer, never()).sendMessage(anyString());
+            verify(playerDAO, never()).updatePlayerData(any());
+            assertEquals("残高は変わらない", 100.0, existingPlayer.getBankBalance(), 0.001);
+        }
+    }
+
+    @Test
+    public void give_オフラインの相手にもUUID指定で付与できる() {
+        UUID offlineUuid = UUID.randomUUID();
+        org.tofu.tofunomics.models.Player existingPlayer = new org.tofu.tofunomics.models.Player();
+        existingPlayer.setUuid(offlineUuid.toString());
+        existingPlayer.setBankBalance(50.0);
+
+        try (MockedStatic<Bukkit> mockedBukkit = mockStatic(Bukkit.class)) {
+            // オンラインにはいない（名前でも UUID でも見つからない）
+            when(playerDAO.getPlayerByUUID(offlineUuid.toString())).thenReturn(existingPlayer);
+            when(playerDAO.updatePlayerData(existingPlayer)).thenReturn(true);
+            when(currencyConverter.formatCurrency(500.0)).thenReturn("500");
+
+            String[] args = {"give", offlineUuid.toString(), "500"};
+            assertTrue(ecoCommand.onCommand(sender, command, "eco", args));
+
+            assertEquals(550.0, existingPlayer.getBankBalance(), 0.001);
+            verify(sender).sendMessage(contains("500 G を付与しました"));
+            verify(sender).sendMessage(contains("オフライン"));
+        }
+    }
+
+    @Test
+    public void give_知らない名前のオフラインの相手は見つからない扱い() {
+        when(configManager.getMessage("player_not_found")).thenReturn("プレイヤーが見つかりません。");
+
+        try (MockedStatic<Bukkit> mockedBukkit = mockStatic(Bukkit.class)) {
+            String[] args = {"give", "Nobody", "500"};
+            assertTrue(ecoCommand.onCommand(sender, command, "eco", args));
+
+            verify(sender).sendMessage(contains("プレイヤーが見つかりません"));
+            verifyNoInteractions(playerDAO);
+        }
+    }
+
+    @Test
+    public void UUIDと金額と件数の読み取り() {
+        UUID uuid = UUID.randomUUID();
+        assertEquals(uuid, EcoCommand.parseUuidOrNull(uuid.toString()));
+        assertNull(EcoCommand.parseUuidOrNull("TestPlayer"));
+        assertNull(EcoCommand.parseUuidOrNull(null));
+
+        assertEquals(Double.valueOf(12.5), EcoCommand.parseAmountOrNull("12.5"));
+        assertNull(EcoCommand.parseAmountOrNull("abc"));
+        assertNull(EcoCommand.parseAmountOrNull("NaN"));
+        assertNull(EcoCommand.parseAmountOrNull("Infinity"));
+
+        assertEquals(EcoCommand.LOG_DEFAULT_COUNT, EcoCommand.clampLogCount(null));
+        assertEquals(EcoCommand.LOG_DEFAULT_COUNT, EcoCommand.clampLogCount("abc"));
+        assertEquals(1, EcoCommand.clampLogCount("0"));
+        assertEquals(EcoCommand.LOG_MAX_COUNT, EcoCommand.clampLogCount("99999"));
+        assertEquals(5, EcoCommand.clampLogCount("5"));
+    }
+
+    @Test
+    public void 記録の1行の表示() {
+        String bank = EcoCommand.formatLogLine("10/07 12:30", "預け入れ", 100.0, "100 G", false, "1,100 G", null, "銀行");
+        assertTrue(bank.contains("10/07 12:30"));
+        assertTrue(bank.contains("預け入れ"));
+        assertTrue(bank.contains("+100 G"));
+        assertTrue(bank.contains("(預金)"));
+        assertTrue(bank.contains("残高 §f1,100 G"));
+        assertTrue(bank.contains("銀行"));
+
+        String cash = EcoCommand.formatLogLine("10/07 12:31", "NPCからの購入", -30.0, "30 G", true, null, "NPC:食料品店", "BREAD x3");
+        assertTrue(cash.contains("-30 G"));
+        assertTrue(cash.contains("(手持ち)"));
+        assertFalse("手持ちだけの操作では預金残高を出さない", cash.contains("残高"));
+        assertTrue(cash.contains("相手 §fNPC:食料品店"));
     }
 }

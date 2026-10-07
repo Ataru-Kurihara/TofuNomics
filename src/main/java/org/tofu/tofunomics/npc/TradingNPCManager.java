@@ -667,7 +667,11 @@ public class TradingNPCManager {
         int payableNuggets = currencyConverter.convertBalanceToNuggets(totalEarnings);
         if (payableNuggets > 0) {
             // 入る分は金塊で受け取り、入りきらない分は口座へ自動入金（満杯でも代金を取りこぼさない）
-            int bankedNuggets = currencyConverter.receiveCashWithBankFallback(player, payableNuggets);
+            int bankedNuggets;
+            try (org.tofu.tofunomics.economy.TransactionContext.Scope scope = org.tofu.tofunomics.economy.TransactionContext.open(
+                    org.tofu.tofunomics.economy.TransactionType.NPC_SELL, "NPC:" + tradingPost.getName(), describeSoldItems(soldItems))) {
+                bankedNuggets = currencyConverter.receiveCashWithBankFallback(player, payableNuggets);
+            }
 
             recordSaleHistory(player, playerJob, soldItems, soldEarnings, soldJobBonus);
 
@@ -1069,6 +1073,24 @@ public class TradingNPCManager {
         return null;
     }
     
+    /**
+     * お金の記録に残す、売った品の一覧（例: COBBLESTONE x64, IRON_INGOT x3）。長すぎる場合は途中で切る。
+     */
+    static String describeSoldItems(Map<Material, Integer> soldItems) {
+        StringBuilder text = new StringBuilder();
+        for (Map.Entry<Material, Integer> entry : soldItems.entrySet()) {
+            if (text.length() > 0) {
+                text.append(", ");
+            }
+            if (text.length() > 120) {
+                text.append("ほか");
+                break;
+            }
+            text.append(entry.getKey().name()).append(" x").append(entry.getValue());
+        }
+        return text.toString();
+    }
+
     /**
      * TradingGUIが利用できない場合のフォールバック表示メソッド
      */

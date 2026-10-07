@@ -170,15 +170,15 @@ public class PlayerDAOTest {
         UUID uuid2 = UUID.randomUUID();
         UUID uuid3 = UUID.randomUUID();
         
-        playerDAO.createPlayer(new Player(uuid1, 1000.0));
-        playerDAO.createPlayer(new Player(uuid2, 2000.0));
-        playerDAO.createPlayer(new Player(uuid3, 500.0));
+        playerDAO.createPlayer(playerWithBank(uuid1, 1000.0));
+        playerDAO.createPlayer(playerWithBank(uuid2, 2000.0));
+        playerDAO.createPlayer(playerWithBank(uuid3, 500.0));
         
         List<Player> topPlayers = playerDAO.getTopPlayers(2);
         
         assertEquals("指定した件数が取得されるべき", 2, topPlayers.size());
-        assertEquals("1位の残高が正しい", 2000.0, topPlayers.get(0).getBalance(), DELTA);
-        assertEquals("2位の残高が正しい", 1000.0, topPlayers.get(1).getBalance(), DELTA);
+        assertEquals("1位の残高が正しい", 2000.0, topPlayers.get(0).getBankBalance(), DELTA);
+        assertEquals("2位の残高が正しい", 1000.0, topPlayers.get(1).getBankBalance(), DELTA);
         assertEquals("1位のUUIDが正しい", uuid2, topPlayers.get(0).getUuid());
         assertEquals("2位のUUIDが正しい", uuid1, topPlayers.get(1).getUuid());
     }
@@ -346,19 +346,46 @@ public class PlayerDAOTest {
         assertFalse("不正なUUID形式の場合は送金が失敗するべき", result);
     }
 
+    /** 銀行残高だけを持つプレイヤー（使われていない balance 列は 0） */
+    private Player playerWithBank(UUID uuid, double bankBalance) {
+        Player player = new Player(uuid, 0.0);
+        player.setBankBalance(bankBalance);
+        return player;
+    }
+
+    @Test
+    public void 残高ランキングは銀行残高の順_使われていないbalance列の値は順位に影響しない() throws SQLException {
+        UUID rich = UUID.randomUUID();
+        UUID middle = UUID.randomUUID();
+        UUID staleBalance = UUID.randomUUID();
+
+        playerDAO.createPlayer(playerWithBank(rich, 3000.0));
+        playerDAO.createPlayer(playerWithBank(middle, 1000.0));
+        // 昔の値が balance 列に残っているが、銀行残高は少ない人
+        Player stale = new Player(staleBalance, 99999.0);
+        stale.setBankBalance(10.0);
+        playerDAO.createPlayer(stale);
+
+        List<Player> topPlayers = playerDAO.getTopPlayersByBalance(2);
+
+        assertEquals(2, topPlayers.size());
+        assertEquals(rich, topPlayers.get(0).getUuid());
+        assertEquals(middle, topPlayers.get(1).getUuid());
+    }
+
     @Test
     public void testGetTopPlayersByBalance() {
         try {
             // テストデータ作成
-            playerDAO.createPlayer(new Player(UUID.randomUUID(), 1500.0));
-            playerDAO.createPlayer(new Player(UUID.randomUUID(), 800.0));
-            playerDAO.createPlayer(new Player(UUID.randomUUID(), 2200.0));
+            playerDAO.createPlayer(playerWithBank(UUID.randomUUID(), 1500.0));
+            playerDAO.createPlayer(playerWithBank(UUID.randomUUID(), 800.0));
+            playerDAO.createPlayer(playerWithBank(UUID.randomUUID(), 2200.0));
             
             List<Player> topPlayers = playerDAO.getTopPlayersByBalance(2);
             
             assertEquals("指定した件数が取得されるべき", 2, topPlayers.size());
-            assertEquals("1位の残高が正しい", 2200.0, topPlayers.get(0).getBalance(), DELTA);
-            assertEquals("2位の残高が正しい", 1500.0, topPlayers.get(1).getBalance(), DELTA);
+            assertEquals("1位の残高が正しい", 2200.0, topPlayers.get(0).getBankBalance(), DELTA);
+            assertEquals("2位の残高が正しい", 1500.0, topPlayers.get(1).getBankBalance(), DELTA);
         } catch (SQLException e) {
             fail("例外が発生してはいけない: " + e.getMessage());
         }

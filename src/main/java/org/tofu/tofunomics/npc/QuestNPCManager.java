@@ -9,6 +9,8 @@ import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.config.ConfigManager;
 import org.tofu.tofunomics.dao.QuestProgressDAO;
 import org.tofu.tofunomics.economy.CurrencyConverter;
+import org.tofu.tofunomics.economy.TransactionContext;
+import org.tofu.tofunomics.economy.TransactionType;
 import org.tofu.tofunomics.models.QuestProgress;
 import org.tofu.tofunomics.quests.QuestDefinition;
 
@@ -504,9 +506,13 @@ public class QuestNPCManager {
             removeHeldItems(player, def.getTargetMaterial(), def.getRequiredAmount());
 
             // 報酬付与（TofuCoin 1:1）。入りきらない分は口座へ入金する
-            int banked = currencyConverter.receiveCashWithBankFallback(player, def.getRewardNuggets());
+            int banked;
+            try (TransactionContext.Scope scope = TransactionContext.open(
+                    TransactionType.QUEST_REWARD, "NPC", def.getDisplayName())) {
+                banked = currencyConverter.receiveCashWithBankFallback(player, def.getRewardNuggets());
+            }
             if (banked > 0) {
-                player.sendMessage("§eインベントリに空きがなかったため、報酬のうち" + banked + "コインを口座に入金しました。");
+                player.sendMessage("§eインベントリに空きがなかったため、報酬のうち " + formatReward(banked) + " を預金に入れました。");
             }
 
             // 完了行は削除しない。completed_at をリピート受注クールダウンの起点として使う。
@@ -540,6 +546,12 @@ public class QuestNPCManager {
                 inventory.setItem(entry.getKey(), item);
             }
         }
+    }
+
+    /** 報酬額の表示（数値＋設定の通貨記号） */
+    public String formatReward(int nuggets) {
+        return currencyConverter.formatCurrency(currencyConverter.convertNuggetsToBalance(nuggets))
+            + " " + configManager.getCurrencySymbol();
     }
 
     private String locationKey(Location loc) {

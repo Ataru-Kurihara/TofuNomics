@@ -327,7 +327,11 @@ public class DatabaseManager {
             "    item_key TEXT NOT NULL," +
             "    acquired_at DATETIME DEFAULT CURRENT_TIMESTAMP," +
             "    UNIQUE(uuid, job_name, item_key)" +
-            ");"
+            ");",
+
+            // お金の記録（監査ログ）。いつ・誰が・何で・いくら・相手・操作後の残高を残す
+            org.tofu.tofunomics.dao.TransactionLogDAO.CREATE_TABLE_SQL,
+            org.tofu.tofunomics.dao.TransactionLogDAO.CREATE_INDEX_SQL
         };
 
         try (Statement statement = connection.createStatement()) {
