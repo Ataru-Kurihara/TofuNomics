@@ -39,8 +39,8 @@ commands:
     usage: /jobstats [jobname|top jobname]
     permission: tofunomics.jobs.basic
   quest:
-    description: 職業クエスト管理
-    usage: /quest [list|accept|progress] [args]
+    description: クエストの受け方の案内（クエストは街の「依頼受付所」で受ける）
+    usage: /quest
     permission: tofunomics.jobs.basic
   trade:
     description: NPC取引の履歴表示

@@ -54,8 +54,10 @@ public class PlacedBlockStore {
                 createTable();
                 trimToLimit();
                 load();
-            } catch (SQLException e) {
-                logger.severe("設置ブロックの記録を読み込めませんでした（今回はメモリの中だけで動きます）: " + e.getMessage());
+            } catch (Exception e) {
+                // 読み込みに失敗しても、プラグインの起動は止めない。途中まで読めた分は捨てて空で始める
+                placed.clear();
+                logger.severe("設置ブロックの記録を読み込めませんでした（空の状態で始めます）: " + e.getMessage());
             }
         }
     }

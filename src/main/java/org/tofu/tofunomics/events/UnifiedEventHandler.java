@@ -170,11 +170,11 @@ public class UnifiedEventHandler implements Listener {
 
         // 既存のマネージャーに処理を委譲（収入システムは無効化）
         // プレイヤーが設置したブロックの場合は経験値を付与しない
-        // （クエストの進捗も同じ。自分で置いて壊すだけで進められないようにする）
         if (!isPlayerPlaced) {
             experienceManager.onBlockBreak(event);
-            questManager.onBlockBreak(event);
         }
+        // コマンドのクエスト（/quest）は廃止し、進行処理は呼ばない。
+        // クエストは街の「依頼受付所」（クエスト NPC）で受ける。
 
         // キャッシュに記録
         eventCache.markAsProcessed(player, "block_break");
@@ -374,7 +374,6 @@ public class UnifiedEventHandler implements Listener {
         
         // 既存のマネージャーに処理を委譲（収入システムは無効化）
         experienceManager.onCraftItem(event);
-        questManager.onCraftItem(event);
         
         // キャッシュに記録
         eventCache.markAsProcessed(player, "craft_item");
@@ -469,7 +468,6 @@ public class UnifiedEventHandler implements Listener {
         
         // 既存のマネージャーに処理を委譲（収入システムは無効化）
         experienceManager.onPlayerFish(event);
-        questManager.onPlayerFish(event);
         
         // キャッシュに記録
         eventCache.markAsProcessed(player, "player_fish");

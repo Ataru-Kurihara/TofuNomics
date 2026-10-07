@@ -134,6 +134,35 @@ public class PlacedBlockStoreTest {
     }
 
     @Test
+    public void 保存に失敗したら変更を捨てずに次回へ持ち越す() throws Exception {
+        PlacedBlockStore store = new PlacedBlockStore(connection, LOGGER);
+        store.add("tofuNomics", 1, 2, 3);
+
+        // 表が無くなって保存に失敗する状況を作る
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("DROP TABLE placed_blocks");
+        }
+        store.flush();
+        assertEquals("失敗した分は持ったまま", 1, store.pendingCount());
+        assertTrue("失敗しても自動コミットを元に戻す", connection.getAutoCommit());
+
+        // 直ったあとの保存で書かれる
+        new PlacedBlockStore(connection, LOGGER);   // 表を作り直す
+        store.flush();
+        assertEquals(0, store.pendingCount());
+        assertEquals(1, rowCount());
+    }
+
+    @Test
+    public void 読み込みに失敗しても起動は止めず空で始める() throws Exception {
+        Connection closed = DriverManager.getConnection("jdbc:sqlite::memory:");
+        closed.close();
+        PlacedBlockStore store = new PlacedBlockStore(closed, LOGGER);
+        assertEquals(0, store.size());
+        assertFalse(store.contains("tofuNomics", 1, 2, 3));
+    }
+
+    @Test
     public void DBが無くてもメモリの中では動く() {
         PlacedBlockStore store = new PlacedBlockStore(null, LOGGER);
         store.add("tofuNomics", 1, 2, 3);
