@@ -406,9 +406,10 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         // 元に戻せないため、対象の省略（自分自身）は認めず、confirm も必須にする
         if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
             sender.sendMessage("§c使用法: /tntest fullreset <対象> confirm");
-            sender.sendMessage("§7職業・お金・クエスト・マーケット出品/依頼・住宅契約・畑区画・取引履歴・ルール同意を"
+            sender.sendMessage("§7職業・お金・持ち物・クエスト・マーケット出品/依頼・住宅契約・畑区画・取引履歴・ルール同意を"
                 + "すべて消します。§c元に戻せません");
-            sender.sendMessage("§7出品中・受け取り待ちのアイテムと、買い注文に預けたお金も消えます。手持ちの持ち物は消しません");
+            sender.sendMessage("§7出品中・受け取り待ちのアイテムと、買い注文に預けたお金も消えます");
+            sender.sendMessage("§7手持ち（保存データを含む）とエンダーチェストも空にします。エンダーチェストは全ワールド共通です");
             return;
         }
         Player target = resolveTarget(sender, args[1]);
@@ -443,6 +444,10 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        // 持ち物。保存データは DB 側で消えているので、ここでは実物を空にする
+        boolean liveInventoryCleared = clearLiveTofuNomicsInventory(target);
+        target.getEnderChest().clear();
+
         // メモリ上の写しを DB に合わせる
         if (plugin.getFirstAcquisitionDAO() != null) {
             plugin.getFirstAcquisitionDAO().unloadCache(uuid);
@@ -465,14 +470,42 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§e住宅契約 " + housingFailed + " 件は WorldGuard のメンバー解除を確認できませんでした。"
                 + "領域のメンバーを手動で確認してください");
         }
-        int nuggets = itemManager.countGoldNuggetsInInventory(target);
-        if (nuggets > 0) {
-            sender.sendMessage("§7手持ちの金塊 " + nuggets + " 個は残しています（持ち物は対象外）");
-        }
+        sender.sendMessage(liveInventoryCleared
+            ? "§7持ち物: 手持ちとエンダーチェストを空にしました（ロビーのナビゲーション枠 3 つはそのまま）"
+            : "§7持ち物: 保存データとエンダーチェストを空にしました（対象は tofuNomics の外にいるため、いまの手持ちはロビー側の物として触っていません）");
         if (!sender.equals(target)) {
             target.sendMessage("§7管理者により TofuNomics のデータが初期化されました");
         }
         logAction(sender, target, "fullreset (" + detail + ")");
+    }
+
+    /**
+     * tofuNomics ワールドで使っている手持ちを空にする。
+     * ワールドの外にいる間、または入場直後で保存データの復元前は、手にあるのはロビー側の持ち物なので触らない
+     * （tofuNomics 側の手持ちは保存データとして DB にあり、そちらは消えている）。
+     * ナビゲーションアイテムの置き場は、ロビー側プラグインの物と私物を見分けられないので残す。
+     *
+     * @return 手持ちを空にしたら true
+     */
+    private boolean clearLiveTofuNomicsInventory(Player target) {
+        org.tofu.tofunomics.inventory.PlayerInventoryManager inventoryManager = plugin.getPlayerInventoryManager();
+        if (!target.getWorld().getName().equals("tofuNomics") || inventoryManager == null
+                || !inventoryManager.getRestoreTracker().canSave(target.getUniqueId())) {
+            return false;
+        }
+        // 開いている画面（クラフト枠など）の物を手持ちに戻してから消す
+        target.closeInventory();
+        target.setItemOnCursor(null);
+        org.bukkit.inventory.PlayerInventory inventory = target.getInventory();
+        List<Integer> navigationSlots = Arrays.stream(
+            org.tofu.tofunomics.players.NavigationSlotPolicy.NAVIGATION_SLOTS).boxed().collect(Collectors.toList());
+        // getSize() は防具とオフハンドの枠も含む
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            if (!navigationSlots.contains(slot)) {
+                inventory.setItem(slot, null);
+            }
+        }
+        return true;
     }
 
     // ===== kit: テストアイテムのプリセット配布 =====
@@ -677,7 +710,7 @@ public class TestKitCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/tntest reward <職業> <Lv> [対象] §7- レベルアップ報酬を手動付与");
         sender.sendMessage("§e/tntest money <cash|bank> <額> [対象] §7- 現金付与/預金設定");
         sender.sendMessage("§e/tntest reset [対象] §7- 新規プレイヤー相当に初期化");
-        sender.sendMessage("§e/tntest fullreset <対象> confirm §7- 全データを消去（マーケット・住宅・畑区画・クエスト含む。元に戻せない）");
+        sender.sendMessage("§e/tntest fullreset <対象> confirm §7- 全データを消去（持ち物・マーケット・住宅・畑区画・クエスト含む。元に戻せない）");
         sender.sendMessage("§e/tntest kit <職業|marker> [対象] §7- テストアイテム配布");
         sender.sendMessage("§e/tntest time <open|close|hour> [時] §7- ワールド時刻を設定");
         sender.sendMessage("§e/tntest stockreset §7- 食料NPCの在庫/購入制限をリセット");

@@ -13,8 +13,10 @@ import java.util.UUID;
  * 1 トランザクションで行い、途中で失敗したら何も消さない。
  * WorldGuard のメンバー解除やメモリ上のキャッシュ更新は呼び出し側（/tntest fullreset）が行う。
  *
+ * 手持ちの保存データ（player_inventories）もここで消す。いま手に持っている物とエンダーチェストは呼び出し側が空にする。
+ *
  * 消さないもの:
- * - player_inventories（手持ちの保存データ。持ち物は今回の対象外）
+ * - transaction_log（お金の動きの記録。リセット後も経緯を追えるように残す）
  * - trade_chests.created_by / housing_properties.owner_uuid（管理者が設置した設備の記録）
  * - 他プレイヤーの出品・依頼に残る buyer_uuid / supplier_uuid / worker_uuid（相手側の記録）
  */
@@ -35,6 +37,7 @@ public class PlayerDataResetService {
         {"land_ownership", "owner_uuid"},
         {"housing_rental_history", "tenant_uuid"},
         {"housing_rentals", "tenant_uuid"},
+        {"player_inventories", "player_uuid"},
     };
 
     private final Connection connection;
