@@ -146,6 +146,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.gui.ChatInputManager chatInputManager;
     private org.tofu.tofunomics.jobs.gui.JobsGUIListener jobsGUIListener;
     private org.tofu.tofunomics.jobs.gui.JobsHubGUI jobsHubGUI;
+    private org.tofu.tofunomics.guide.GuideGUI guideGUI;
     private org.tofu.tofunomics.jobs.gui.JobDetailGUI jobDetailGUI;
     private org.tofu.tofunomics.jobs.JobGuideBookService jobGuideBookService;
     private org.tofu.tofunomics.jobs.gui.JobStatsGUI jobStatsGUI;
@@ -293,6 +294,9 @@ public final class TofuNomics extends JavaPlugin {
             } catch (Exception ignored) {
                 // 未スケジュール等は無視
             }
+        }
+        if (guideGUI != null) {
+            guideGUI.closeAll();
         }
         if (marketGUIListener != null) {
             marketGUIListener.closeAll();
@@ -486,6 +490,10 @@ public final class TofuNomics extends JavaPlugin {
             jobConfirmGUI.setGUIs(jobsHubGUI, jobDetailGUI);
             jobsGUIListener.setGUIs(jobsHubGUI, jobDetailGUI, jobStatsGUI, jobConfirmGUI);
             getLogger().info("職業GUIシステムを初期化しました");
+
+            // 遊び方ガイド（/guide）。職業一覧ボタンから職業GUIを開く
+            guideGUI = new org.tofu.tofunomics.guide.GuideGUI(this, configManager);
+            guideGUI.setJobsHubGUI(jobsHubGUI);
 
             // 期限切れ定期タスクの起動（expire_check_interval 秒 × 20 = ticks）
             long intervalTicks = Math.max(1L, (long) configManager.getMarketExpireCheckInterval() * 20L);
@@ -856,6 +864,11 @@ public final class TofuNomics extends JavaPlugin {
                 getLogger().info("職業GUIリスナーを登録しました");
             }
 
+            // 遊び方ガイドGUIリスナーの登録
+            if (guideGUI != null) {
+                getServer().getPluginManager().registerEvents(guideGUI, this);
+            }
+
             getLogger().info("全てのイベントリスナーを登録しました");
         } catch (Exception e) {
             getLogger().severe("イベントリスナー登録中にエラーが発生しました: " + e.getMessage());
@@ -965,6 +978,13 @@ public final class TofuNomics extends JavaPlugin {
             org.tofu.tofunomics.commands.CityMapCommand cityMapCommand =
                 new org.tofu.tofunomics.commands.CityMapCommand(configManager);
             getCommand("citymap").setExecutor(cityMapCommand);
+
+            if (guideGUI != null) {
+                org.tofu.tofunomics.commands.GuideCommand guideCommand =
+                    new org.tofu.tofunomics.commands.GuideCommand(guideGUI);
+                getCommand("guide").setExecutor(guideCommand);
+                getCommand("guide").setTabCompleter(guideCommand);
+            }
 
             // プレイヤー間マーケットコマンド
             if (marketManager != null) {

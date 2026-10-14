@@ -23,6 +23,7 @@ import java.util.List;
  *
  * 職業の説明・最大レベル・収入倍率・経験値倍率・自分のレベルを表示し、
  * 未就職なら「就職する」、就職中なら「辞職する」ボタンを表示する。
+ * 稼ぎ方（jobs.job_settings.<job>.how_to_earn）とガイドブックは、就職前でも見られる。
  * 就職/辞職は {@link JobConfirmGUI} の確認を経て {@link JobManager} を呼ぶ。
  */
 public class JobDetailGUI {
@@ -31,7 +32,7 @@ public class JobDetailGUI {
     private static final int SLOT_INFO = 13;
     private static final int SLOT_JOIN = 11;
     private static final int SLOT_LEAVE = 15;
-    private static final int SLOT_GUIDE = 22;   // 就職中のみ表示（ガイドブック入手）
+    private static final int SLOT_GUIDE = 22;   // 就職中は入手、就職前は読むだけ
     private static final int SLOT_BACK = 18;
     private static final int SLOT_CLOSE = 26;
 
@@ -99,6 +100,14 @@ public class JobDetailGUI {
         if (description != null && !description.isEmpty()) {
             infoLore.add("§7" + description);
         }
+        List<String> howToEarn = configManager.getJobHowToEarn(jobName);
+        if (!howToEarn.isEmpty()) {
+            infoLore.add("");
+            infoLore.add("§e§l稼ぎ方");
+            for (String line : howToEarn) {
+                infoLore.add(ChatColor.translateAlternateColorCodes('&', "&f・" + line));
+            }
+        }
         infoLore.add("");
         infoLore.add("§b最大レベル: §f" + maxLevel);
         infoLore.add("§b収入倍率: §f" + String.format("%.1f", incomeMultiplier) + "x");
@@ -122,15 +131,6 @@ public class JobDetailGUI {
                             "§7この職業を辞職します",
                             "§7※レベル50以上で辞職できます",
                             "§eクリックで確認画面へ")));
-            // 就職中のみ、ガイドブックが用意されていれば入手ボタンを表示
-            if (configManager.isJobGuideBookEnabled(jobName)
-                    && !configManager.getJobGuideBookPages(jobName).isEmpty()) {
-                gui.setItem(SLOT_GUIDE, GuiUtil.createButton(Material.WRITTEN_BOOK, "§6§lガイドブックを入手",
-                        java.util.Arrays.asList(
-                                "§7この職業のガイドブックを受け取ります",
-                                "§7仕事内容・稼ぎ方・経験値の上げ方を確認できます",
-                                "§eクリックで入手")));
-            }
         } else if (advancedLocked) {
             gui.setItem(SLOT_JOIN, GuiUtil.createButton(Material.BARRIER, "§c§l未解禁",
                     java.util.Arrays.asList(
@@ -143,6 +143,23 @@ public class JobDetailGUI {
                             "§7この職業に就職します",
                             "§c※ Lv50 になるまで選び直せません",
                             "§eクリックで確認画面へ")));
+        }
+
+        // ガイドブック: 就職中は入手、就職前は配らずに画面で読む（就職前に仕事内容を確かめられるように）
+        if (hasGuideBook(jobName)) {
+            if (employed) {
+                gui.setItem(SLOT_GUIDE, GuiUtil.createButton(Material.WRITTEN_BOOK, "§6§lガイドブックを入手",
+                        java.util.Arrays.asList(
+                                "§7この職業のガイドブックを受け取ります",
+                                "§7仕事内容・稼ぎ方・経験値の上げ方を確認できます",
+                                "§eクリックで入手")));
+            } else {
+                gui.setItem(SLOT_GUIDE, GuiUtil.createButton(Material.WRITTEN_BOOK, "§6§lガイドブックを読む",
+                        java.util.Arrays.asList(
+                                "§7仕事内容・稼ぎ方・経験値の上げ方を読めます",
+                                "§7（就職すると本を入手できます）",
+                                "§eクリックで読む")));
+            }
         }
 
         // 戻る・閉じる
@@ -160,6 +177,11 @@ public class JobDetailGUI {
                 }
             }
         }
+    }
+
+    private boolean hasGuideBook(String jobName) {
+        return configManager.isJobGuideBookEnabled(jobName)
+                && !configManager.getJobGuideBookPages(jobName).isEmpty();
     }
 
     /**
@@ -187,11 +209,20 @@ public class JobDetailGUI {
                 }
                 break;
             case SLOT_GUIDE:
-                // 就職中の職業のガイドブックのみ入手可能
-                if (jobName != null && jobManager.hasJob(player, jobName)
-                        && configManager.isJobGuideBookEnabled(jobName)) {
-                    if (guideBookService.giveGuideBook(player, jobName)) {
+                // 就職中なら入手、就職前なら読むだけ
+                if (jobName != null && configManager.isJobGuideBookEnabled(jobName)) {
+                    if (jobManager.hasJob(player, jobName)) {
+                        if (guideBookService.giveGuideBook(player, jobName)) {
+                            player.closeInventory();
+                        }
+                    } else {
+                        // 画面を閉じてから、次の tick で本を開く（クリック処理の中で開くと表示が崩れることがある）
                         player.closeInventory();
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            if (player.isOnline()) {
+                                guideBookService.openGuideBook(player, jobName);
+                            }
+                        });
                     }
                 }
                 break;

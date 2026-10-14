@@ -256,8 +256,8 @@ scoreboard:
     # 中心都市までの距離・方角表示（基準座標は player_join.spawn_location を流用）
     show_center_city: true
 
-  # スコアボードに表示するルールコマンドテキスト
-  rules_command_text: "&e/rules でルール確認"
+  # スコアボードに表示する案内コマンドのテキスト（/guide で遊び方ガイドを開く）
+  rules_command_text: "&e/guide で遊び方を確認"
 
   # スコアボード表示中のヒントメッセージ
   toggle_hint:
@@ -419,6 +419,7 @@ player_join:
     - "&e%player%さん、TofuNomicsワールドにようこそ！"
     - "&fこのワールドでは職業に就いて経済活動を楽しむことができます。"
     - "&b職業システムを活用して、豊かな経済生活を送りましょう！"
+    - "&e遊び方・ルール・NPCの使い方は &b/guide &eで確認できます"
     - "&6▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
   
   # ウェルカムタイトル設定

@@ -34,6 +34,11 @@ jobs:
     miner:
       display_name: "鉱夫"
       description: "鉱物資源と石材の供給を担当"
+      # 職業の詳細画面（/jobs → 職業）に出す稼ぎ方。就職前でも見える
+      how_to_earn:
+        - "鉱石や石を掘って経験値を得る"
+        - "掘った鉱石を鉱夫の取引所で売る"
+        - "金・ダイヤ・エメラルドは高く売れる"
       max_level: 75
       base_income_multiplier: 1.0
       # レベルアップに必要な経験値倍率
@@ -191,6 +196,11 @@ jobs:
     woodcutter:
       display_name: "木こり"
       description: "木材の供給を担当"
+      # 職業の詳細画面（/jobs → 職業）に出す稼ぎ方。就職前でも見える
+      how_to_earn:
+        - "木を切って経験値を得る"
+        - "原木は木こりの取引所で2倍の値段で売れる"
+        - "苗木も取引所で売れる"
       max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
@@ -336,6 +346,11 @@ jobs:
     farmer:
       display_name: "農家"
       description: "農作物・畜産物の供給を担当"
+      # 職業の詳細画面（/jobs → 職業）に出す稼ぎ方。就職前でも見える
+      how_to_earn:
+        - "自分の畑区画で作物を育てて収穫する"
+        - "収穫物を農家の取引所で売る"
+        - "かぼちゃ・スイカは高く売れる"
       max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
@@ -502,6 +517,11 @@ jobs:
     fisherman:
       display_name: "釣り人"
       description: "魚と宝の供給を担当"
+      # 職業の詳細画面（/jobs → 職業）に出す稼ぎ方。就職前でも見える
+      how_to_earn:
+        - "釣りで経験値を得る"
+        - "釣った魚を釣り人の取引所で売る"
+        - "レアな魚や宝物は高く売れる"
       max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
@@ -645,6 +665,11 @@ jobs:
     blacksmith:
       display_name: "鍛冶屋"
       description: "ツール、武器、防具の生産と修理を担当"
+      # 職業の詳細画面（/jobs → 職業）に出す稼ぎ方。就職前でも見える
+      how_to_earn:
+        - "道具・武器・防具を作って経験値を得る"
+        - "作った装備を鍛冶屋の取引所で売る"
+        - "/market で修理の依頼も受けられる"
       max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
@@ -804,6 +829,11 @@ jobs:
     alchemist:
       display_name: "ポーション屋"
       description: "ポーションの生産を担当"
+      # 職業の詳細画面（/jobs → 職業）に出す稼ぎ方。就職前でも見える
+      how_to_earn:
+        - "ポーションを醸造して経験値を得る"
+        - "ポーションを取引所で売る"
+        - "効果の高いものほど高く売れる"
       max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
@@ -935,6 +965,11 @@ jobs:
     enchanter:
       display_name: "エンチャンター"
       description: "エンチャントサービスを担当"
+      # 職業の詳細画面（/jobs → 職業）に出す稼ぎ方。就職前でも見える
+      how_to_earn:
+        - "エンチャントで経験値を得る"
+        - "エンチャント済みの品を取引所で売る"
+        - "高レベルのエンチャントほど高く売れる"
       max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
@@ -1066,6 +1101,11 @@ jobs:
     architect:
       display_name: "建築家"
       description: "建築と装飾を担当"
+      # 職業の詳細画面（/jobs → 職業）に出す稼ぎ方。就職前でも見える
+      how_to_earn:
+        - "ブロックを置いて建築すると経験値を得る"
+        - "建築ブロックを取引所で売る"
+        - "装飾ブロックは高く売れる"
       max_level: 75
       base_income_multiplier: 1.0
       exp_multiplier: 10.0
