@@ -73,6 +73,12 @@ public class TradingGUI implements Listener {
     private final TradePriceManager tradePriceManager;
     
     private final Map<UUID, TradingGUISession> activeSessions = new ConcurrentHashMap<>();
+
+    // 全部売りの確認画面（27枠）のボタン位置
+    private static final int CONFIRM_SIZE = 27;
+    private static final int CONFIRM_SLOT_YES = 11;
+    private static final int CONFIRM_SLOT_INFO = 13;
+    private static final int CONFIRM_SLOT_NO = 15;
     
     public TradingGUI(TofuNomics plugin, ConfigManager configManager, CurrencyConverter currencyConverter,
                      JobManager jobManager, TradingNPCManager tradingNPCManager, TradePriceManager tradePriceManager) {
@@ -87,7 +93,9 @@ public class TradingGUI implements Listener {
     private static class TradingGUISession {
         private final UUID playerId;
         private final String tradingPostId;
-        private final Inventory inventory;
+        private final Inventory mainInventory;
+        // いま開いている画面（取引画面か、全部売りの確認画面）
+        private Inventory inventory;
         private final long createdTime;
         private int currentPage;
         private ItemCategory currentCategory;
@@ -97,6 +105,7 @@ public class TradingGUI implements Listener {
         public TradingGUISession(UUID playerId, String tradingPostId, Inventory inventory) {
             this.playerId = playerId;
             this.tradingPostId = tradingPostId;
+            this.mainInventory = inventory;
             this.inventory = inventory;
             this.createdTime = System.currentTimeMillis();
             this.currentPage = 0;
@@ -108,6 +117,10 @@ public class TradingGUI implements Listener {
         public UUID getPlayerId() { return playerId; }
         public String getTradingPostId() { return tradingPostId; }
         public Inventory getInventory() { return inventory; }
+        public Inventory getMainInventory() { return mainInventory; }
+        public boolean isConfirming() { return inventory != mainInventory; }
+        public void showConfirm(Inventory confirmInventory) { this.inventory = confirmInventory; }
+        public void backToMain() { this.inventory = mainInventory; }
         public long getCreatedTime() { return createdTime; }
         public int getCurrentPage() { return currentPage; }
         public void setCurrentPage(int page) { this.currentPage = page; }
@@ -371,7 +384,7 @@ public class TradingGUI implements Listener {
             Arrays.asList(
                 "§7売却可能な全てのアイテムを一度に売却",
                 "§c※ 元に戻すことはできません",
-                "§eクリックで実行"
+                configManager.isTradeConfirmationRequired() ? "§eクリックで確認画面へ" : "§eクリックで実行"
             )
         );
         gui.setItem(49, sellAllItem);
@@ -760,6 +773,10 @@ public class TradingGUI implements Listener {
         }
         
         try {
+            if (session.isConfirming()) {
+                handleSellAllConfirmClick(player, session, event.getRawSlot());
+                return;
+            }
             handleTradingGUIClick(player, session, event.getRawSlot(), event.getClick(), clickedItem);
         } catch (Exception e) {
             plugin.getLogger().severe("取引GUIクリック処理中にエラーが発生しました: " + e.getMessage());
@@ -824,8 +841,12 @@ public class TradingGUI implements Listener {
                 break;
                 
             case 49: // 全て売却
-                handleSellAll(player, tradingPost);
-                setupTradingGUIItems(session.getInventory(), player, tradingPost, session);
+                if (configManager.isTradeConfirmationRequired()) {
+                    openSellAllConfirm(player, session, tradingPost);
+                } else {
+                    handleSellAll(player, tradingPost);
+                    setupTradingGUIItems(session.getInventory(), player, tradingPost, session);
+                }
                 break;
                 
             case 53: // 閉じる
@@ -1067,10 +1088,91 @@ public class TradingGUI implements Listener {
             return;
         }
 
-        // 通貨（TofuGold は種類としては金インゴット）と NPC 購入品は売らない。装備中・オフハンドも対象外
-        sellSelectedSlots(player, tradingPost,
-            item -> tradingPost.getItemPrice(item.getType()) > 0 && isSellableStack(item),
-            Integer.MAX_VALUE, true);
+        sellSelectedSlots(player, tradingPost, sellAllPredicate(tradingPost), Integer.MAX_VALUE, true);
+    }
+
+    /**
+     * 全部売りで売る品の条件。
+     * 通貨（TofuGold は種類としては金インゴット）と NPC 購入品は売らない。装備中・オフハンドも対象外
+     */
+    private java.util.function.Predicate<ItemStack> sellAllPredicate(TradingNPCManager.TradingPost tradingPost) {
+        return item -> tradingPost.getItemPrice(item.getType()) > 0 && isSellableStack(item);
+    }
+
+    /**
+     * 全部売りの確認画面を開く。売る個数と受け取る金額の見込みを見せ、「はい」で売る。
+     * 売る品は「はい」を押した時点で選び直す（確認中に持ち物が変わっても、その時の持ち物で売る）。
+     */
+    private void openSellAllConfirm(Player player, TradingGUISession session, TradingNPCManager.TradingPost tradingPost) {
+        // 売れない職業なら確認画面を出さずに断る
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        if (!tradingPost.acceptsJobForSale(playerJob)) {
+            sendJobMismatchMessage(player, tradingPost, playerJob, TradingMode.SELL);
+            return;
+        }
+
+        ItemStack[] storage = player.getInventory().getStorageContents();
+        Map<Integer, Integer> selected = GuiSafety.selectSellSlots(storage, sellAllPredicate(tradingPost), Integer.MAX_VALUE);
+        if (selected.isEmpty()) {
+            player.sendMessage(configManager.getMessage("npc.trading.no_sellable_items"));
+            return;
+        }
+
+        List<ItemStack> items = new ArrayList<>();
+        for (Map.Entry<Integer, Integer> entry : selected.entrySet()) {
+            ItemStack item = storage[entry.getKey()].clone();
+            item.setAmount(entry.getValue());
+            items.add(item);
+        }
+        int count = GuiSafety.totalAmount(selected);
+        int kinds = (int) items.stream().map(ItemStack::getType).distinct().count();
+        int nuggets = tradingNPCManager.estimateSaleNuggets(player, tradingPost, items);
+
+        Inventory confirm = Bukkit.createInventory(null, CONFIRM_SIZE, "§c全アイテム売却の確認");
+        confirm.setItem(CONFIRM_SLOT_INFO, createGUIItem(Material.CHEST, "§6売却する内容",
+            Arrays.asList(
+                "§f種類: §e" + kinds + "種類",
+                "§f個数: §e" + count + "個",
+                "§f受け取る金額（見込み）: §a" + currencyConverter.formatCurrency(nuggets),
+                "",
+                "§7装備中・オフハンドの品と、",
+                "§7通貨・NPCから買った品は売りません",
+                "§c※ 売却すると元に戻せません"
+            )));
+        confirm.setItem(CONFIRM_SLOT_YES, createGUIItem(Material.LIME_WOOL, "§a§lはい、全部売る",
+            Arrays.asList("§7上の内容で売却します")));
+        confirm.setItem(CONFIRM_SLOT_NO, createGUIItem(Material.RED_WOOL, "§c§lいいえ",
+            Arrays.asList("§7売らずに取引画面へ戻ります")));
+        if (configManager.isGuiDecorationEnabled()) {
+            ItemStack glassPane = createGUIItem(Material.GRAY_STAINED_GLASS_PANE, "§r", Collections.emptyList());
+            for (int i = 0; i < CONFIRM_SIZE; i++) {
+                if (confirm.getItem(i) == null) confirm.setItem(i, glassPane);
+            }
+        }
+
+        // 先に「いま開いている画面」を確認画面にしてから開く。
+        // 取引画面の close が届いたときに、セッションを消さないため
+        session.showConfirm(confirm);
+        player.openInventory(confirm);
+    }
+
+    private void handleSellAllConfirmClick(Player player, TradingGUISession session, int slot) {
+        if (slot != CONFIRM_SLOT_YES && slot != CONFIRM_SLOT_NO) {
+            return;
+        }
+        TradingNPCManager.TradingPost tradingPost = tradingNPCManager.getTradingPost(session.getTradingPostId());
+        if (tradingPost == null) {
+            player.closeInventory();
+            player.sendMessage(configManager.getMessage("npc.trading.post_not_found"));
+            return;
+        }
+        if (slot == CONFIRM_SLOT_YES) {
+            handleSellAll(player, tradingPost);
+        }
+        // はい・いいえのどちらでも取引画面へ戻る
+        session.backToMain();
+        setupTradingGUIItems(session.getMainInventory(), player, tradingPost, session);
+        player.openInventory(session.getMainInventory());
     }
     
     @EventHandler

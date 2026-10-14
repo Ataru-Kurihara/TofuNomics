@@ -134,4 +134,15 @@ public class GuiSafetyTest {
 
         assertEquals(68, GuiSafety.freeCapacityFor(storage, marked, 64));
     }
+
+    @Test
+    public void 合計個数_選んだマスの個数を足し合わせる() {
+        java.util.Map<Integer, Integer> selected = new java.util.LinkedHashMap<>();
+        selected.put(0, 64);
+        selected.put(5, 12);
+        selected.put(20, 1);
+        assertEquals(77, GuiSafety.totalAmount(selected));
+        assertEquals(0, GuiSafety.totalAmount(new java.util.HashMap<>()));
+        assertEquals(0, GuiSafety.totalAmount(null));
+    }
 }
