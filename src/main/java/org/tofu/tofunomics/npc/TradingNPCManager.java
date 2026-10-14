@@ -644,15 +644,7 @@ public class TradingNPCManager {
             
             if (basePrice > 0) {
                 int amount = item.getAmount();
-                // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素のitem_prices×1.0）
-                String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
-                double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), effectiveJob, basePrice);
-
-                // 木こりが原木を売る場合は価格を2倍に（職業専用取引所のみ）
-                if (!tradingPost.isGeneralStore() && isWoodcutter(player) && isLogItem(material)) {
-                    finalPrice *= 2.0;
-                    plugin.getLogger().info("木こりボーナス適用: " + material + " の価格を2倍に");
-                }
+                double finalPrice = calculateSaleUnitPrice(player, tradingPost, playerJob, material, basePrice);
                 
                 // アイテム単位では切り捨てず、合計に端数を累積する
                 // （安価アイテムが floor で0になり売却不能になるのを防ぐ）
@@ -682,6 +674,41 @@ public class TradingNPCManager {
         } else {
             return new TradeResult(false, "売却可能なアイテムがありませんでした", 0.0, new HashMap<>());
         }
+    }
+
+    /**
+     * 1 個あたりの売却価格（職業ボーナス・木こりの原木ボーナス込み）。
+     * 実際の売却と、全部売りの確認画面に出す見込み額で同じ計算を使う。
+     */
+    private double calculateSaleUnitPrice(Player player, TradingPost tradingPost, String playerJob,
+                                          Material material, double basePrice) {
+        // 職業ボーナスは職業専用取引所でのみ適用（総合取引所では素のitem_prices×1.0）
+        String effectiveJob = tradingPost.isGeneralStore() ? null : playerJob;
+        double finalPrice = tradePriceManager.calculateFinalPrice(material.toString().toLowerCase(), effectiveJob, basePrice);
+
+        // 木こりが原木を売る場合は価格を2倍に（職業専用取引所のみ）
+        if (!tradingPost.isGeneralStore() && isWoodcutter(player) && isLogItem(material)) {
+            finalPrice *= 2.0;
+        }
+        return finalPrice;
+    }
+
+    /**
+     * 売却した場合に受け取る金額（通貨の枚数）の見込みを返す。売却はしない。
+     * processItemSale と同じく、合計してから通貨に換算する。
+     */
+    public int estimateSaleNuggets(Player player, TradingPost tradingPost, List<ItemStack> items) {
+        String playerJob = jobManager.getPlayerJob(player.getUniqueId());
+        double total = 0.0;
+        for (ItemStack item : items) {
+            if (item == null || item.getType() == Material.AIR) continue;
+            if (NPCPurchaseMarker.isMarked(plugin, item)) continue;
+            double basePrice = tradingPost.getItemPrice(item.getType());
+            if (basePrice > 0) {
+                total += calculateSaleUnitPrice(player, tradingPost, playerJob, item.getType(), basePrice) * item.getAmount();
+            }
+        }
+        return currencyConverter.convertBalanceToNuggets(total);
     }
 
     /**

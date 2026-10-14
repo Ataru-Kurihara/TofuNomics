@@ -85,6 +85,20 @@ public final class GuiSafety {
     }
 
     /**
+     * selectSellSlots の結果から、売る個数の合計を数える。
+     */
+    public static int totalAmount(Map<Integer, Integer> selected) {
+        if (selected == null) {
+            return 0;
+        }
+        long total = 0;
+        for (int amount : selected.values()) {
+            total += amount;
+        }
+        return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    /**
      * 収納枠に、prototype と同じ品があと何個入るかを数える。
      *
      * 空きマスは 1 スタック分、同じ品（名前や印まで同じ）の途中まで入ったマスは残りの分だけ数える。
