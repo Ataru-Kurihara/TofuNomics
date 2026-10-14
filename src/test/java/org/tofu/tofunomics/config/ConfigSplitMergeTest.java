@@ -21,7 +21,7 @@ import static org.junit.Assert.*;
  */
 public class ConfigSplitMergeTest {
 
-    private static final String[] AUX_FILES = {"jobs.yml", "messages.yml", "gameplay.yml", "system.yml"};
+    private static final String[] AUX_FILES = {"jobs.yml", "messages.yml", "gameplay.yml", "system.yml", "guide.yml"};
 
     private YamlConfiguration loadMergedPrimary() {
         YamlConfiguration primary = YamlConfiguration.loadConfiguration(

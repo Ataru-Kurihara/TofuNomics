@@ -30,7 +30,7 @@ public class ConfigManager {
     // 読み込み後は config.yml のデフォルト層として注入し、統合ビューとして読み取る。
     private static final String AUX_DIR = "config";
     private static final String[] AUX_FILES = {
-        "jobs.yml", "messages.yml", "gameplay.yml", "system.yml"
+        "jobs.yml", "messages.yml", "gameplay.yml", "system.yml", "guide.yml"
     };
     private final Map<String, FileConfiguration> auxConfigs = new LinkedHashMap<>();
 
@@ -40,7 +40,7 @@ public class ConfigManager {
         "job_skills", "leveling", "messages", "event_rewards", "events", "time_announcement",
         "rules", "tutorial", "scoreboard", "trade_system", "clock_item", "player_join",
         "market", "food_buff", "first_acquisition_bonus", "guide_book_settings", "ux_enhancements",
-        "chat",
+        "chat", "guide",
         "performance", "api", "land_protection", "debug"
     ));
     
@@ -845,6 +845,20 @@ public class ConfigManager {
 
     public java.util.List<String> getJobGuideBookPages(String jobName) {
         return config.getStringList("jobs.job_settings." + jobName + ".guide_book.pages");
+    }
+
+    /** 職業の詳細画面に出す「稼ぎ方」（数行）。無ければ空 */
+    public java.util.List<String> getJobHowToEarn(String jobName) {
+        return config.getStringList("jobs.job_settings." + jobName + ".how_to_earn");
+    }
+
+    /** 遊び方ガイド（/guide）の項目一覧。config/guide.yml の guide.topics */
+    public org.bukkit.configuration.ConfigurationSection getGuideTopicsSection() {
+        return config.getConfigurationSection("guide.topics");
+    }
+
+    public String getGuideAuthor() {
+        return config.getString("guide.author", "TofuNomics");
     }
 
 
@@ -5035,9 +5049,9 @@ public class ConfigManager {
     
     /**
      * スコアボードに表示するルールコマンドテキストを取得
-     * @return ルールコマンドテキスト（デフォルト: &e/rules でルール確認）
+     * @return 案内コマンドのテキスト（デフォルト: &e/guide で遊び方を確認）
      */
     public String getScoreboardRulesCommandText() {
-        return config.getString("scoreboard.rules_command_text", "&e/rules でルール確認");
+        return config.getString("scoreboard.rules_command_text", "&e/guide で遊び方を確認");
     }
 }

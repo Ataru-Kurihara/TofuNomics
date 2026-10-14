@@ -88,6 +88,9 @@ commands:
     description: サーバールールを確認する
     usage: /rules [reset]
     permission: tofunomics.rules.view
+  guide:
+    description: 遊び方ガイド（ルール・NPC・お金・職業など）を開く
+    usage: /guide [項目]
   citymap:
     description: 中心都市の案内地図を入手する
     usage: /citymap
