@@ -231,6 +231,10 @@ public class DatabaseManager {
             "    inventory_data TEXT," +
             "    armor_data TEXT," +
             "    offhand_data TEXT," +
+            "    health REAL," +
+            "    food_level INTEGER," +
+            "    saturation REAL," +
+            "    exhaustion REAL," +
             "    last_saved TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
             "    FOREIGN KEY (player_uuid) REFERENCES players(uuid) ON DELETE CASCADE" +
             ");",
@@ -436,6 +440,22 @@ public class DatabaseManager {
                 logger.info("players テーブルに name カラムを追加しました");
             }
             
+            // player_inventories に体力・空腹度の列が無ければ足す（古い行は NULL のまま＝復元時に触らない）
+            String[][] inventoryStatColumns = {
+                {"health", "REAL"},
+                {"food_level", "INTEGER"},
+                {"saturation", "REAL"},
+                {"exhaustion", "REAL"}
+            };
+            for (String[] column : inventoryStatColumns) {
+                try {
+                    statement.executeQuery("SELECT " + column[0] + " FROM player_inventories LIMIT 1");
+                } catch (SQLException e) {
+                    logger.info("player_inventories テーブルに " + column[0] + " カラムを追加しています...");
+                    statement.executeUpdate("ALTER TABLE player_inventories ADD COLUMN " + column[0] + " " + column[1]);
+                }
+            }
+
             // last_login カラムが存在するかチェック
             try {
                 statement.executeQuery("SELECT last_login FROM players LIMIT 1");

@@ -21,6 +21,7 @@ import java.util.logging.Logger;
 /**
  * プレイヤーのインベントリを管理するクラス
  * データベースへの保存・復元を行う
+ * 体力・空腹度も一緒に保存する。ロビー（peaceful）で回復した状態のまま tofuNomics に入れないようにするため。
  */
 public class PlayerInventoryManager {
 
@@ -71,13 +72,18 @@ public class PlayerInventoryManager {
             String offhandData = itemStackToBase64(offhand);
 
             // データベースに保存（REPLACE INTOで既存データを上書き）
-            String sql = "REPLACE INTO player_inventories (player_uuid, inventory_data, armor_data, offhand_data, last_saved) VALUES (?, ?, ?, ?, datetime('now'))";
+            String sql = "REPLACE INTO player_inventories (player_uuid, inventory_data, armor_data, offhand_data, "
+                    + "health, food_level, saturation, exhaustion, last_saved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))";
 
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setString(1, playerUuid.toString());
                 stmt.setString(2, inventoryData);
                 stmt.setString(3, armorData);
                 stmt.setString(4, offhandData);
+                stmt.setDouble(5, player.getHealth());
+                stmt.setInt(6, player.getFoodLevel());
+                stmt.setDouble(7, player.getSaturation());
+                stmt.setDouble(8, player.getExhaustion());
                 stmt.executeUpdate();
             }
 
@@ -106,7 +112,8 @@ public class PlayerInventoryManager {
             UUID playerUuid = player.getUniqueId();
 
             // データベースから取得
-            String sql = "SELECT inventory_data, armor_data, offhand_data FROM player_inventories WHERE player_uuid = ?";
+            String sql = "SELECT inventory_data, armor_data, offhand_data, health, food_level, saturation, exhaustion "
+                    + "FROM player_inventories WHERE player_uuid = ?";
 
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setString(1, playerUuid.toString());
@@ -128,6 +135,11 @@ public class PlayerInventoryManager {
                         ? itemStackArrayFromBase64(armorData) : null;
                 ItemStack offhand = (offhandData != null && !offhandData.isEmpty())
                         ? itemStackFromBase64(offhandData) : null;
+                // 体力・空腹度（列を足す前に保存した行は NULL）
+                Double health = getNullableDouble(rs, "health");
+                Double foodLevel = getNullableDouble(rs, "food_level");
+                Double saturation = getNullableDouble(rs, "saturation");
+                Double exhaustion = getNullableDouble(rs, "exhaustion");
 
                 if (inventory != null) {
                     player.getInventory().setContents(inventory);
@@ -138,6 +150,7 @@ public class PlayerInventoryManager {
                 if (offhand != null) {
                     player.getInventory().setItemInOffHand(offhand);
                 }
+                applyStats(player, health, foodLevel, saturation, exhaustion);
 
                 logger.info("プレイヤー " + player.getName() + " のインベントリを復元しました");
                 return InventoryRestoreTracker.LoadResult.RESTORED;
@@ -148,6 +161,51 @@ public class PlayerInventoryManager {
                     + player.getName() + " - " + e.getMessage());
             return InventoryRestoreTracker.LoadResult.FAILED;
         }
+    }
+
+    /**
+     * 保存しておいた体力・空腹度を戻す。NULL の値には触らない。
+     * 体力 0 以下（死んだまま保存された等）は戻さない。範囲外の値は丸める。
+     */
+    private void applyStats(Player player, Double health, Double foodLevel, Double saturation, Double exhaustion) {
+        if (health != null && health > 0) {
+            player.setHealth(clampHealth(health, getMaxHealth(player)));
+        }
+        if (foodLevel != null) {
+            int food = clampFoodLevel(foodLevel.intValue());
+            player.setFoodLevel(food);
+            if (saturation != null) {
+                player.setSaturation(clampSaturation(saturation.floatValue(), food));
+            }
+        }
+        if (exhaustion != null) {
+            player.setExhaustion((float) Math.max(0.0, Math.min(4.0, exhaustion)));
+        }
+    }
+
+    // Attribute.MAX_HEALTH はレジストリを読むためテストで使えない。同じ値を返す getMaxHealth を使う
+    @SuppressWarnings("deprecation")
+    private double getMaxHealth(Player player) {
+        double max = player.getMaxHealth();
+        return max > 0 ? max : 20.0;
+    }
+
+    static double clampHealth(double health, double maxHealth) {
+        return Math.min(health, maxHealth);
+    }
+
+    static int clampFoodLevel(int foodLevel) {
+        return Math.max(0, Math.min(20, foodLevel));
+    }
+
+    /** 満腹度は空腹度を超えられない */
+    static float clampSaturation(float saturation, int foodLevel) {
+        return Math.max(0f, Math.min(foodLevel, saturation));
+    }
+
+    private static Double getNullableDouble(ResultSet rs, String column) throws SQLException {
+        double value = rs.getDouble(column);
+        return rs.wasNull() ? null : value;
     }
 
     /**
