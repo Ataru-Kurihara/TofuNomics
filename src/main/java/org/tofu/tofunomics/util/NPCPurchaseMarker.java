@@ -46,6 +46,22 @@ public final class NPCPurchaseMarker {
     }
 
     /**
+     * 取引所で売れる品（買取価格が正）のときだけNPC購入マーカーを付与する。
+     *
+     * 売れない品は転売のおそれが無いので、マーカーを付けずに手持ちの同じ品と重なるようにする
+     * （付けると、自分で焼いたステーキと買ったステーキが別スタックになる）。
+     *
+     * @param basePrice 取引所の買取価格（item_prices）。未設定なら0
+     * @return 引数と同一インスタンス
+     */
+    public static ItemStack markIfResellable(TofuNomics plugin, ItemStack item, double basePrice) {
+        if (basePrice > 0) {
+            return mark(plugin, item);
+        }
+        return item;
+    }
+
+    /**
      * アイテムがNPC購入マーカーを持つか判定する。
      */
     public static boolean isMarked(TofuNomics plugin, ItemStack item) {

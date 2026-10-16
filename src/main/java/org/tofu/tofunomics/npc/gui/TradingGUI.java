@@ -1044,9 +1044,10 @@ public class TradingGUI implements Listener {
         }
         
         // インベントリ空きチェック
-        // 購入品には NPC 購入マーカーが付くので、手持ちの同じ種類の品（マーカー無し）には重ならない。
+        // 取引所で売れる品には NPC 購入マーカーが付くので、手持ちの同じ種類の品（マーカー無し）には重ならない。
         // 実際に渡す品と同じ物で空きを数え、入りきらないなら代金を受け取る前に断る。
-        ItemStack purchasedItem = NPCPurchaseMarker.mark(plugin, new ItemStack(material, purchaseAmount));
+        ItemStack purchasedItem = NPCPurchaseMarker.markIfResellable(plugin,
+            new ItemStack(material, purchaseAmount), configManager.getItemBasePrice(material.name()));
         int capacity = GuiSafety.freeCapacityFor(
             player.getInventory().getStorageContents(), purchasedItem, material.getMaxStackSize());
         if (capacity < purchaseAmount) {
@@ -1066,7 +1067,8 @@ public class TradingGUI implements Listener {
         }
         
         // アイテムを付与
-        // NPC購入マーカー付きで渡し、購入したアイテムの取引所での再売却を防止する。
+        // 売れる品はNPC購入マーカー付きで渡し、購入したアイテムの取引所での再売却を防止する。
+        // 売れない品（cooked_beef 等）はマーカー無しで渡し、手持ちの同じ品と重なるようにする。
         // 売却価格には職業倍率がかかるが購入価格にはかからないため、マーカーが無いと
         // 「同一NPCで購入 → 即売却」で差額を無限に得られてしまう。
         // 支払いで金塊のマスが空くことはあっても埋まることは無いが、念のため入らなかった分は足元へ落とす
