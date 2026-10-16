@@ -439,10 +439,8 @@ public class FoodNPCManager {
         // 取引所で売却可能なアイテム（item_pricesに価格があるもの）のみNPC購入マーカーを付与し、
         // 食料NPC購入価格 < 取引所売却価格 を悪用した転売（アービトラージ）を防止する。
         // 非売却品（bread等）はマークせず、通常の手持ちアイテムと同一スタックになるようにする。
-        ItemStack item = new ItemStack(itemType, amount);
-        if (configManager.getItemBasePrice(itemType.name()) > 0) {
-            item = NPCPurchaseMarker.mark(plugin, item);
-        }
+        ItemStack item = NPCPurchaseMarker.markIfResellable(plugin,
+            new ItemStack(itemType, amount), configManager.getItemBasePrice(itemType.name()));
         
         // インベントリ空きチェック（入りきらないなら代金を受け取る前に断る）
         int capacity = org.tofu.tofunomics.npc.gui.GuiSafety.freeCapacityFor(

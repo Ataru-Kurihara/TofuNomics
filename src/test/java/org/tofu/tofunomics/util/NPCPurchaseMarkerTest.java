@@ -69,6 +69,26 @@ public class NPCPurchaseMarkerTest {
     }
 
     @Test
+    public void markIfResellable_買取価格が正ならマーカーを付与する() {
+        when(item.getItemMeta()).thenReturn(meta);
+        when(meta.getPersistentDataContainer()).thenReturn(pdc);
+
+        ItemStack result = NPCPurchaseMarker.markIfResellable(plugin, item, 10.0);
+
+        assertSame(item, result);
+        verify(pdc).set(any(NamespacedKey.class), eq(PersistentDataType.BYTE), eq((byte) 1));
+    }
+
+    @Test
+    public void markIfResellable_買取価格が0なら付与せず手持ちと重なるようにする() {
+        ItemStack result = NPCPurchaseMarker.markIfResellable(plugin, item, 0.0);
+
+        assertSame(item, result);
+        verify(item, never()).getItemMeta();
+        verify(item, never()).setItemMeta(any());
+    }
+
+    @Test
     public void isMarked_マーカー付きはtrue() {
         when(item.hasItemMeta()).thenReturn(true);
         when(item.getItemMeta()).thenReturn(meta);
