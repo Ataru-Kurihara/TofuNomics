@@ -1,0 +1,12 @@
+{
+  "pack": {
+    "description": "TofuNomics 通貨（TofuCoin / TofuGold）",
+    "pack_format": 34,
+    "supported_formats": [
+      34,
+      75
+    ],
+    "min_format": 34,
+    "max_format": 75
+  }
+}

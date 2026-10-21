@@ -1,0 +1,27 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "index": 0,
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/gold_ingot"
+    },
+    "entries": [
+      {
+        "threshold": 1002,
+        "model": {
+          "type": "minecraft:model",
+          "model": "tofunomics:item/tofu_gold"
+        }
+      },
+      {
+        "threshold": 1002.5,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/gold_ingot"
+        }
+      }
+    ]
+  }
+}
