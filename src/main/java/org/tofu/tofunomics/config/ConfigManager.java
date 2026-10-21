@@ -41,7 +41,7 @@ public class ConfigManager {
         "rules", "tutorial", "scoreboard", "trade_system", "clock_item", "player_join",
         "market", "food_buff", "first_acquisition_bonus", "guide_book_settings", "ux_enhancements",
         "chat", "guide",
-        "performance", "api", "land_protection", "debug"
+        "performance", "api", "land_protection", "debug", "resource_pack"
     ));
     
     public interface ConfigChangeListener {
@@ -875,6 +875,30 @@ public class ConfigManager {
         return config.getInt("land_protection.max_lands_per_player", 5);
     }
     
+    // 通貨のリソースパック設定（config/system.yml の resource_pack）
+    // 既存サーバーの system.yml は jar で上書きされないので、キーが無くても今のパックを送れるよう既定値を持つ。
+    // パックを更新したら、ここの既定値と system.yml の両方を新しい url / sha1 にする
+    public static final String DEFAULT_RESOURCE_PACK_URL =
+        "https://github.com/Ataru-Kurihara/TofuNomics/releases/download/resourcepack-v1/TofuNomics-resourcepack.zip";
+    public static final String DEFAULT_RESOURCE_PACK_SHA1 = "05aae30406a4bc1d9bcd89d227b71b2f519a2d9f";
+
+    public boolean isResourcePackEnabled() {
+        return config.getBoolean("resource_pack.enabled", true);
+    }
+
+    public String getResourcePackUrl() {
+        return config.getString("resource_pack.url", DEFAULT_RESOURCE_PACK_URL);
+    }
+
+    public String getResourcePackSha1() {
+        return config.getString("resource_pack.sha1", DEFAULT_RESOURCE_PACK_SHA1);
+    }
+
+    public String getResourcePackPrompt() {
+        return config.getString("resource_pack.prompt",
+            "&6TofuNomics の通貨（TofuCoin・TofuGold）の見た目を変えるリソースパックです");
+    }
+
     // メッセージ設定
     public String getMessagePrefix() {
         return config.getString("messages.prefix", "&6[TofuNomics] &f");

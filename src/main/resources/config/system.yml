@@ -141,3 +141,15 @@ debug:
   npc_debug: false
   # メッセージシステムのデバッグ
   message_debug: false
+
+# 通貨（TofuCoin / TofuGold）の見た目を変えるリソースパック
+# tofuNomics ワールドに入ったプレイヤーに送る（受け取りは任意）。
+# パックの素材はリポジトリの resourcepack/、zip は ./scripts/build_resourcepack.sh で作る。
+# パックを更新したら、zip を新しい Release に置き、url と sha1 を書き換える。
+resource_pack:
+  enabled: true
+  url: "https://github.com/Ataru-Kurihara/TofuNomics/releases/download/resourcepack-v1/TofuNomics-resourcepack.zip"
+  # zip の sha1（40 桁）。空にするとクライアントは確かめずに読み込む
+  sha1: "05aae30406a4bc1d9bcd89d227b71b2f519a2d9f"
+  # 受け取りの確認画面に出す文
+  prompt: "&6TofuNomics の通貨（TofuCoin・TofuGold）の見た目を変えるリソースパックです"

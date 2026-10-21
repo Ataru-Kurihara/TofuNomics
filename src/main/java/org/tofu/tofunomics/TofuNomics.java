@@ -797,6 +797,10 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(playerJoinHandler, this);
                 getLogger().info("プレイヤー参加時処理リスナーを登録しました");
             }
+
+            // 通貨のリソースパックを tofuNomics 入場時に送るリスナーの登録
+            getServer().getPluginManager().registerEvents(
+                new org.tofu.tofunomics.resourcepack.ResourcePackSender(configManager, getLogger()), this);
             
             // スコアボードマネージャーリスナーの登録
             if (scoreboardManager != null) {

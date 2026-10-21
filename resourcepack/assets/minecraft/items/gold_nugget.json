@@ -1,0 +1,27 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "index": 0,
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/gold_nugget"
+    },
+    "entries": [
+      {
+        "threshold": 1001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "tofunomics:item/tofu_coin"
+        }
+      },
+      {
+        "threshold": 1001.5,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/gold_nugget"
+        }
+      }
+    ]
+  }
+}
