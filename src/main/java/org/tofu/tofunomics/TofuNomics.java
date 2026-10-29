@@ -801,6 +801,10 @@ public final class TofuNomics extends JavaPlugin {
             // 通貨のリソースパックを tofuNomics 入場時に送るリスナーの登録
             getServer().getPluginManager().registerEvents(
                 new org.tofu.tofunomics.resourcepack.ResourcePackSender(configManager, getLogger()), this);
+
+            // tofuNomics で死んだ人を tofuNomics の中に復活させるリスナーの登録
+            getServer().getPluginManager().registerEvents(
+                new org.tofu.tofunomics.players.TofuNomicsRespawnListener(configManager, getLogger()), this);
             
             // スコアボードマネージャーリスナーの登録
             if (scoreboardManager != null) {
