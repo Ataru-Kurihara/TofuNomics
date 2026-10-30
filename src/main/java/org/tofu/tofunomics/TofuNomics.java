@@ -802,9 +802,9 @@ public final class TofuNomics extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                 new org.tofu.tofunomics.resourcepack.ResourcePackSender(configManager, getLogger()), this);
 
-            // tofuNomics で死んだ人を tofuNomics の中に復活させるリスナーの登録
+            // tofuNomics で死んだ人を tofuNomics の中に復活させるリスナーの登録（tofuNomics のベッドも別に記録する）
             getServer().getPluginManager().registerEvents(
-                new org.tofu.tofunomics.players.TofuNomicsRespawnListener(configManager, getLogger()), this);
+                new org.tofu.tofunomics.players.TofuNomicsRespawnListener(this, configManager, getLogger()), this);
             
             // スコアボードマネージャーリスナーの登録
             if (scoreboardManager != null) {
