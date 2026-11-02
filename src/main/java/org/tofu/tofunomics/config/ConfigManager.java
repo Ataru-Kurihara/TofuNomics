@@ -51,6 +51,7 @@ public class ConfigManager {
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
         reloadConfig();
+        pruneConfigBackups();
     }
     
     public void reloadConfig() {
@@ -1723,19 +1724,36 @@ public class ConfigManager {
     
     /**
      * 設定のバックアップ作成
+     * 内容が直近のバックアップと同じなら作らない（その場合も成功として true を返す）
      */
     public boolean createConfigBackup() {
         try {
             java.io.File configFile = new java.io.File(plugin.getDataFolder(), "config.yml");
-            java.io.File backupFile = new java.io.File(plugin.getDataFolder(), 
-                "config_backup_" + System.currentTimeMillis() + ".yml");
-                
-            java.nio.file.Files.copy(configFile.toPath(), backupFile.toPath());
-            plugin.getLogger().info("設定のバックアップを作成しました: " + backupFile.getName());
-            return true;
+            java.io.File backupFile = ConfigBackupStore.createIfChanged(
+                configFile, plugin.getDataFolder(), System.currentTimeMillis());
+            if (backupFile != null) {
+                plugin.getLogger().info("設定のバックアップを作成しました: " + backupFile.getName());
+            }
         } catch (Exception e) {
             plugin.getLogger().severe("設定のバックアップ作成に失敗: " + e.getMessage());
             return false;
+        }
+        pruneConfigBackups();
+        return true;
+    }
+    
+    /**
+     * 上限を超えた古いバックアップを消す。失敗しても本来の処理は止めない
+     */
+    private void pruneConfigBackups() {
+        try {
+            int deleted = ConfigBackupStore.prune(plugin.getDataFolder(), ConfigBackupStore.MAX_GENERATIONS);
+            if (deleted > 0) {
+                plugin.getLogger().info("古い設定バックアップを削除しました: " + deleted + "個（残す上限: "
+                    + ConfigBackupStore.MAX_GENERATIONS + "個）");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("古い設定バックアップの削除に失敗: " + e.getMessage());
         }
     }
     
@@ -3694,9 +3712,6 @@ public class ConfigManager {
             FileConfiguration defaultConfig = YamlConfiguration.loadConfiguration(new InputStreamReader(defaultConfigStream, StandardCharsets.UTF_8));
             FileConfiguration currentConfig = plugin.getConfig();
             
-            // 設定バックアップ
-            createConfigBackup();
-            
             // 不足している設定を追加
             boolean configUpdated = false;
             List<String> addedKeys = new ArrayList<>();
@@ -3741,6 +3756,8 @@ public class ConfigManager {
             
             // 設定を保存
             if (configUpdated) {
+                // 書き換える直前にだけバックアップする（reloadConfig のたびに呼ばれるため）
+                createConfigBackup();
                 saveConfigSlim();
                 plugin.getLogger().info("設定ファイルを自動更新しました。追加された設定: " + addedKeys.size() + "項目");
                 
@@ -4796,7 +4813,6 @@ public class ConfigManager {
      */
     private boolean hasMissingKeys(FileConfiguration current, FileConfiguration template) {
         Set<String> templateKeys = template.getKeys(true);
-        Set<String> currentKeys = current.getKeys(true);
         
         for (String key : templateKeys) {
             // ConfigurationSectionはスキップ（値を持たない親キー）
@@ -4804,7 +4820,9 @@ public class ConfigManager {
                 continue;
             }
             
-            if (!currentKeys.contains(key)) {
+            // mergeConfigurations と同じ contains で判定する。getKeys はデフォルト層（jar 同梱の config.yml）を
+            // 数えないため、デフォルト層で足りているキーを欠落と誤判定し、起動のたびに追加 0 個のマイグレーションが走っていた
+            if (!current.contains(key)) {
                 return true; // 欠落しているキーが見つかった
             }
         }
