@@ -238,7 +238,7 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
         try {
             boolean success = configManager.createConfigBackup();
             if (success) {
-                sender.sendMessage("§a設定ファイルのバックアップが作成されました。");
+                sender.sendMessage("§a設定ファイルのバックアップを確認しました（直近と同じ内容なら新しく作りません）。");
             } else {
                 sender.sendMessage("§cバックアップの作成に失敗しました。詳細はコンソールを確認してください。");
             }
