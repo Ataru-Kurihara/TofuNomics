@@ -79,7 +79,9 @@ public class ResourcePackSender implements Listener {
         }
         byte[] hash = parseSha1(configManager.getResourcePackSha1());
         String prompt = ChatColor.translateAlternateColorCodes('&', configManager.getResourcePackPrompt());
-        player.setResourcePack(PACK_ID, url, hash, prompt, false);
+        // setResourcePack はクライアントのパックを全部外してから入れ替えるので、ほかのプラグインのパック
+        // （TofuPlugin のアイコンなど）まで外れて読み込み直しになる。addResourcePack で重ねて送る
+        player.addResourcePack(PACK_ID, url, hash, prompt, false);
         sent.add(player.getUniqueId());
     }
 
