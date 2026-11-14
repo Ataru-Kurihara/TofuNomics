@@ -1228,6 +1228,15 @@ public class MarketManager {
             removeMaterial(worker, Material.LAPIS_LAZULI, lapisCost);
         }
 
+        // 修理を引き受けた鍛冶屋に職業経験値を渡す（失敗しても取引結果には影響させない）
+        if (req.isRepair() && jobExperienceManager != null) {
+            try {
+                jobExperienceManager.giveRepairServiceExperience(worker, expCost);
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "修理の職業経験値の付与に失敗しました", e);
+            }
+        }
+
         notifyRequesterServiceFulfilled(req);
         return outcome.getResult();
     }

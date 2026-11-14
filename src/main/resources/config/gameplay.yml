@@ -69,7 +69,7 @@ rules:
         - "§f・木こり（Woodcutter） - 木の伐採で経験値"
         - "§f・農家（Farmer） - 作物栽培・畜産で経験値"
         - "§f・釣り人（Fisherman） - 釣りで経験値"
-        - "§f・鍛冶屋（Blacksmith） - 道具・武器の生産と修理"
+        - "§f・鍛冶屋（Blacksmith） - 武器・防具の生産と修理"
         - "§f・ポーション屋（Alchemist） - ポーション製造"
         - "§f・エンチャンター（Enchanter） - エンチャント付与"
         - "§f・建築家（Architect） - 建築と装飾で経験値"
@@ -301,7 +301,7 @@ trade_system:
     architect: 1.2   # 建築家は建材を20%高く買取
     
     # 上級職業（リリース前バランス調整: 格差縮小 2.0→1.4）
-    blacksmith: 1.4  # 鍛冶屋は道具・武器を40%高く買取
+    blacksmith: 1.4  # 鍛冶屋は自分の取引所で40%高く買取（インゴット・武器・防具）
     alchemist: 1.4   # 錬金術師はポーション材料を40%高く買取
     enchanter: 1.4   # エンチャンターはエンチャント関連を40%高く買取
   
@@ -491,6 +491,8 @@ market:
     repair_exp_cost: 5                # 修理引受で worker が消費する経験値レベル（損耗スケール時は完全損耗時の最大値）
     repair_exp_scale_by_damage: true  # 損耗率(damage/最大耐久)に比例して経験値コストを変動させる
     repair_exp_min_cost: 1            # 損耗スケール時の最低消費経験値レベル
+    # 修理を引き受けた鍛冶屋に入る職業経験値（消費した経験値レベル 1 あたり。職業の経験値倍率とレベル補正が掛かる）
+    repair_job_exp_per_level: 2.0
     enchant_exp_cost_per_level: 3     # エンチャント引受で消費する経験値レベル（×エンチャントレベル）
     enchant_lapis_cost: 3             # エンチャント引受で消費するラピスラズリ個数
     max_enchant_level: 5              # エンチャント依頼で指定可能な最大レベル

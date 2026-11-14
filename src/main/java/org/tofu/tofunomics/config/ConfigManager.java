@@ -579,6 +579,13 @@ public class ConfigManager {
     }
 
     /**
+     * 修理を引き受けた鍛冶屋に入る職業経験値（消費した経験値レベル 1 あたりの基本値）。
+     */
+    public double getMarketServiceRepairJobExpPerLevel() {
+        return config.getDouble("market.service.repair_job_exp_per_level", 2.0);
+    }
+
+    /**
      * エンチャント依頼を引き受ける際に worker が消費する、エンチャントレベル1あたりの経験値レベル数。
      */
     public int getMarketServiceEnchantExpCostPerLevel() {
@@ -3022,6 +3029,9 @@ public class ConfigManager {
             ensureMessagePath("messages.market.input_timeout", "&c入力がタイムアウトしました。最初からやり直してください。");
             ensureMessagePath("messages.market.input_cancelled", "&7入力を中止しました。");
             ensureMessagePath("messages.market.input_invalid_number", "&c数値で入力してください。");
+
+            // 取引所: 耐久が減った装備は買い取らない
+            ensureMessagePath("messages.npc.trading.worn_item_not_accepted", "&c耐久が減った装備は買い取れません。無傷の物だけ売れます。");
         } catch (Exception e) {
             plugin.getLogger().warning("マーケットメッセージの初期化に失敗しました: " + e.getMessage());
         }

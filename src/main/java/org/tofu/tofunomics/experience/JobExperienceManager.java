@@ -293,70 +293,32 @@ public class JobExperienceManager implements Listener {
         aquaticKillExperience.put(EntityType.ELDER_GUARDIAN, 8.0);
         
         // 製作経験値テーブル（鍛冶屋）
-        // インゴット精錬
-        craftingExperience.put(Material.IRON_INGOT, 3.0);
-        craftingExperience.put(Material.GOLD_INGOT, 5.0);
-        craftingExperience.put(Material.NETHERITE_INGOT, 50.0);
-        craftingExperience.put(Material.NETHERITE_SCRAP, 15.0);
         // 剣
-        craftingExperience.put(Material.WOODEN_SWORD, 2.0);
         craftingExperience.put(Material.STONE_SWORD, 3.0);
         craftingExperience.put(Material.IRON_SWORD, 8.0);
         craftingExperience.put(Material.GOLDEN_SWORD, 8.0);
         craftingExperience.put(Material.DIAMOND_SWORD, 20.0);
         craftingExperience.put(Material.NETHERITE_SWORD, 60.0);
-        // ツルハシ
-        craftingExperience.put(Material.WOODEN_PICKAXE, 2.0);
-        craftingExperience.put(Material.STONE_PICKAXE, 3.0);
-        craftingExperience.put(Material.IRON_PICKAXE, 10.0);
-        craftingExperience.put(Material.GOLDEN_PICKAXE, 10.0);
-        craftingExperience.put(Material.DIAMOND_PICKAXE, 25.0);
-        craftingExperience.put(Material.NETHERITE_PICKAXE, 70.0);
-        // 斧
-        craftingExperience.put(Material.WOODEN_AXE, 2.0);
-        craftingExperience.put(Material.STONE_AXE, 3.0);
-        craftingExperience.put(Material.IRON_AXE, 10.0);
-        craftingExperience.put(Material.GOLDEN_AXE, 10.0);
-        craftingExperience.put(Material.DIAMOND_AXE, 25.0);
-        craftingExperience.put(Material.NETHERITE_AXE, 70.0);
-        // シャベル
-        craftingExperience.put(Material.WOODEN_SHOVEL, 1.5);
-        craftingExperience.put(Material.STONE_SHOVEL, 2.0);
-        craftingExperience.put(Material.IRON_SHOVEL, 6.0);
-        craftingExperience.put(Material.GOLDEN_SHOVEL, 6.0);
-        craftingExperience.put(Material.DIAMOND_SHOVEL, 15.0);
-        craftingExperience.put(Material.NETHERITE_SHOVEL, 45.0);
-        // クワ
-        craftingExperience.put(Material.WOODEN_HOE, 1.5);
-        craftingExperience.put(Material.STONE_HOE, 2.0);
-        craftingExperience.put(Material.IRON_HOE, 6.0);
-        craftingExperience.put(Material.GOLDEN_HOE, 6.0);
-        craftingExperience.put(Material.DIAMOND_HOE, 15.0);
-        craftingExperience.put(Material.NETHERITE_HOE, 45.0);
         // ヘルメット
         craftingExperience.put(Material.LEATHER_HELMET, 2.0);
-        craftingExperience.put(Material.CHAINMAIL_HELMET, 12.0);
         craftingExperience.put(Material.IRON_HELMET, 9.0);
         craftingExperience.put(Material.GOLDEN_HELMET, 9.0);
         craftingExperience.put(Material.DIAMOND_HELMET, 22.0);
         craftingExperience.put(Material.NETHERITE_HELMET, 65.0);
         // チェストプレート
         craftingExperience.put(Material.LEATHER_CHESTPLATE, 3.0);
-        craftingExperience.put(Material.CHAINMAIL_CHESTPLATE, 18.0);
         craftingExperience.put(Material.IRON_CHESTPLATE, 14.0);
         craftingExperience.put(Material.GOLDEN_CHESTPLATE, 14.0);
         craftingExperience.put(Material.DIAMOND_CHESTPLATE, 35.0);
         craftingExperience.put(Material.NETHERITE_CHESTPLATE, 100.0);
         // レギンス
         craftingExperience.put(Material.LEATHER_LEGGINGS, 2.5);
-        craftingExperience.put(Material.CHAINMAIL_LEGGINGS, 16.0);
         craftingExperience.put(Material.IRON_LEGGINGS, 12.0);
         craftingExperience.put(Material.GOLDEN_LEGGINGS, 12.0);
         craftingExperience.put(Material.DIAMOND_LEGGINGS, 30.0);
         craftingExperience.put(Material.NETHERITE_LEGGINGS, 85.0);
         // ブーツ
         craftingExperience.put(Material.LEATHER_BOOTS, 2.0);
-        craftingExperience.put(Material.CHAINMAIL_BOOTS, 12.0);
         craftingExperience.put(Material.IRON_BOOTS, 9.0);
         craftingExperience.put(Material.GOLDEN_BOOTS, 9.0);
         craftingExperience.put(Material.DIAMOND_BOOTS, 22.0);
@@ -365,9 +327,6 @@ public class JobExperienceManager implements Listener {
         craftingExperience.put(Material.SHIELD, 10.0);
         craftingExperience.put(Material.BOW, 8.0);
         craftingExperience.put(Material.CROSSBOW, 10.0);
-        craftingExperience.put(Material.SHEARS, 5.0);
-        craftingExperience.put(Material.FLINT_AND_STEEL, 4.0);
-        craftingExperience.put(Material.FISHING_ROD, 6.0);
         
         // 醸造経験値テーブル
         brewingExperience.put(Material.POTION, 8.0);
@@ -489,6 +448,28 @@ public class JobExperienceManager implements Listener {
         marketSellExperience.put(Material.IRON_CHESTPLATE, new MarketSellEntry("blacksmith", 14.0));
         marketSellExperience.put(Material.DIAMOND_CHESTPLATE, new MarketSellEntry("blacksmith", 35.0));
         marketSellExperience.put(Material.NETHERITE_CHESTPLATE, new MarketSellEntry("blacksmith", 100.0));
+    }
+
+    /**
+     * マーケットの修理依頼を引き受けた鍛冶屋へ職業経験値を渡す。
+     * 量は「消費した経験値レベル × repair_job_exp_per_level」に職業倍率・レベル補正を掛けたもの。
+     * 鍛冶屋でない（エンチャンターが引き受けた）ときは何もしない。
+     *
+     * @param worker      引き受けたプレイヤー
+     * @param levelsSpent 修理で消費した経験値レベル
+     */
+    public void giveRepairServiceExperience(Player worker, int levelsSpent) {
+        if (worker == null || levelsSpent <= 0) {
+            return;
+        }
+        if (!jobManager.hasJob(worker, "blacksmith")) {
+            return;
+        }
+        double base = configManager.getMarketServiceRepairJobExpPerLevel() * levelsSpent;
+        if (base <= 0) {
+            return;
+        }
+        giveJobExperience(worker, "blacksmith", applyJobMultiplier(worker, "blacksmith", base));
     }
 
     /**
@@ -755,11 +736,75 @@ public class JobExperienceManager implements Listener {
         Material craftedItem = event.getRecipe().getResult().getType();
         
         if (jobManager.hasJob(player, "blacksmith") && craftingExperience.containsKey(craftedItem)) {
-            double baseExp = craftingExperience.get(craftedItem);
-            double multipliedExp = applyJobMultiplier(player, "blacksmith", baseExp);
-            multipliedExp = applyFirstAcquisitionBonus(player, "blacksmith", craftedItem.name(), multipliedExp);
-            giveJobExperience(player, "blacksmith", multipliedExp);
+            // 実際に作られる回数だけ経験値を渡す（作れないクリックでは 0、一括クラフトは回数分）
+            int crafts = countCrafts(event);
+            if (crafts <= 0) return;
+            double perCraft = applyJobMultiplier(player, "blacksmith", craftingExperience.get(craftedItem));
+            // 初回入手ボーナスは 1 回分にだけ掛ける
+            double total = applyFirstAcquisitionBonus(player, "blacksmith", craftedItem.name(), perCraft)
+                + perCraft * (crafts - 1);
+            giveJobExperience(player, "blacksmith", total);
         }
+    }
+
+    /**
+     * このクリックで実際に何回分作られるかを数える（判定は CraftCount）。
+     */
+    private int countCrafts(CraftItemEvent event) {
+        org.bukkit.inventory.ItemStack result = event.getRecipe().getResult();
+        org.bukkit.inventory.ItemStack cursor = event.getCursor();
+        boolean cursorEmpty = cursor == null || cursor.getType() == Material.AIR;
+        boolean cursorSame = !cursorEmpty && cursor.isSimilar(result);
+        int cursorAmount = cursorEmpty ? 0 : cursor.getAmount();
+
+        int minIngredient = Integer.MAX_VALUE;
+        for (org.bukkit.inventory.ItemStack ingredient : event.getInventory().getMatrix()) {
+            if (ingredient != null && ingredient.getType() != Material.AIR) {
+                minIngredient = Math.min(minIngredient, ingredient.getAmount());
+            }
+        }
+        if (minIngredient == Integer.MAX_VALUE) minIngredient = 0;
+
+        int maxStack = result.getMaxStackSize();
+        org.bukkit.inventory.PlayerInventory inventory = event.getWhoClicked().getInventory();
+
+        CraftCount.Click click;
+        int inventoryRoom = 0;
+        int hotbarRoom = 0;
+        switch (event.getClick()) {
+            case LEFT:
+            case RIGHT:
+                click = CraftCount.Click.CURSOR;
+                break;
+            case SHIFT_LEFT:
+            case SHIFT_RIGHT:
+                click = CraftCount.Click.SHIFT;
+                for (org.bukkit.inventory.ItemStack slot : inventory.getStorageContents()) {
+                    inventoryRoom += roomFor(slot, result, maxStack);
+                }
+                break;
+            case NUMBER_KEY:
+                click = CraftCount.Click.NUMBER_KEY;
+                hotbarRoom = roomFor(inventory.getItem(event.getHotbarButton()), result, maxStack);
+                break;
+            case DROP:
+                click = CraftCount.Click.DROP;
+                break;
+            case CONTROL_DROP:
+                click = CraftCount.Click.CONTROL_DROP;
+                break;
+            default:
+                click = CraftCount.Click.OTHER;
+        }
+        return CraftCount.crafts(click, result.getAmount(), maxStack,
+            cursorEmpty, cursorSame, cursorAmount, minIngredient, inventoryRoom, hotbarRoom);
+    }
+
+    /** マスにあと何個入るか（空なら最大スタック数、同じ物なら残り、違う物なら 0） */
+    private static int roomFor(org.bukkit.inventory.ItemStack slot, org.bukkit.inventory.ItemStack result, int maxStack) {
+        if (slot == null || slot.getType() == Material.AIR) return maxStack;
+        if (slot.isSimilar(result)) return Math.max(0, maxStack - slot.getAmount());
+        return 0;
     }
     
     @EventHandler
@@ -770,6 +815,10 @@ public class JobExperienceManager implements Listener {
         Player player = (Player) event.getWhoClicked();
         if (event.getCurrentItem() == null) return;
         Material smithedItem = event.getCurrentItem().getType();
+        // 装飾（トリム）は品が変わらないので経験値の対象外。強化（ダイヤ→ネザライト）だけ数える
+        // 鍛冶台のマス: 0=テンプレート 1=元の装備 2=素材 3=結果
+        org.bukkit.inventory.ItemStack base = event.getInventory().getItem(1);
+        if (base == null || base.getType() == smithedItem) return;
 
         if (jobManager.hasJob(player, "blacksmith") && craftingExperience.containsKey(smithedItem)) {
             double baseExp = craftingExperience.get(smithedItem);
