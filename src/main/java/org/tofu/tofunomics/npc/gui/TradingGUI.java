@@ -912,16 +912,35 @@ public class TradingGUI implements Listener {
             return;
         }
 
+        if (hasOnlyWornItems(player, material)) {
+            player.sendMessage(configManager.getMessage("npc.trading.worn_item_not_accepted"));
+            return;
+        }
+
         sellSelectedSlots(player, tradingPost,
             item -> matchesSellable(item.getType(), material) && isSellableStack(item),
             sellAmount, false);
     }
 
     /**
-     * 取引所で売ってよいスタックかどうか（通貨と NPC 購入品は売れない）。
+     * 取引所で売ってよいスタックかどうか（通貨・NPC 購入品・耐久が減った装備は売れない）。
      */
     private boolean isSellableStack(ItemStack item) {
-        return item != null && !isCurrencyItem(item) && !NPCPurchaseMarker.isMarked(plugin, item);
+        return item != null && !isCurrencyItem(item) && !NPCPurchaseMarker.isMarked(plugin, item)
+            && !org.tofu.tofunomics.util.ItemWear.isWorn(item);
+    }
+
+    /**
+     * 指定の品を、耐久が減った状態でだけ持っているか（売れない理由を伝えるため）。
+     */
+    private boolean hasOnlyWornItems(Player player, Material material) {
+        boolean worn = false;
+        for (ItemStack item : player.getInventory().getStorageContents()) {
+            if (item == null || !matchesSellable(item.getType(), material)) continue;
+            if (!org.tofu.tofunomics.util.ItemWear.isWorn(item)) return false;
+            worn = true;
+        }
+        return worn;
     }
 
     /**

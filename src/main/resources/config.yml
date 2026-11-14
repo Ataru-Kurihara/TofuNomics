@@ -697,10 +697,10 @@ npc_system:
   #   items: []  # 空リストまたは未指定で全アイテム対応
 # アイテム買取価格設定（基準価格）
   item_prices:
-    # 注: 耐久値を持つ装備・ツール（釣竿/各種防具/各種ツール/shield/bow/
-    #     crossbow/flint_and_steel/shears/turtle_helmet 等）は、耐久値を無視した
-    #     固定価格での転売悪用（安く買い消耗品を売り戻す）防止のため売却不可（item_prices非掲載）。
-    #     bucket/name_tag/saddle 等の耐久値を持たないアイテムは従来通り売却可。
+    # 注: 耐久値を持つ品は、取引所が「耐久が減っていない物」だけ買い取る（ItemWear）。
+    #     総合取引所は耐久値を持つ品を買い取らない（装備は鍛冶屋の取引所の商い）。
+    #     鍛冶屋が作る装備（剣・防具・盾・弓・クロスボウ）だけ価格を載せる。
+    #     ツール（ツルハシ等）・釣竿は他職業の道具なので載せない。
     # 鉱物系（リリース前バランス調整: 高額アイテムを抑制し職業間格差を縮小）
     coal: 1.5
     iron_ingot: 6
@@ -883,6 +883,31 @@ npc_system:
     saddle: 25
     # --- blacksmith: 装備・道具・netherite ---
     bucket: 4
+    # 装備は「材料の売値 × 約 1.3」（作って売るほうが材料のまま売るより得になるように）
+    # 鉄 6 / 金 10 / ダイヤ 35 / ネザライトインゴット 320 / 棒・糸・板材 1 で計算
+    iron_sword: 17
+    iron_helmet: 39
+    iron_chestplate: 62
+    iron_leggings: 55
+    iron_boots: 31
+    golden_sword: 27
+    golden_helmet: 65
+    golden_chestplate: 104
+    golden_leggings: 91
+    golden_boots: 52
+    diamond_sword: 92
+    diamond_helmet: 228
+    diamond_chestplate: 364
+    diamond_leggings: 319
+    diamond_boots: 182
+    netherite_sword: 508
+    netherite_helmet: 644
+    netherite_chestplate: 780
+    netherite_leggings: 735
+    netherite_boots: 598
+    shield: 16
+    bow: 8
+    crossbow: 20
     # --- alchemist: 醸造素材 ---
     spider_eye: 2
     golden_carrot: 3

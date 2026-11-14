@@ -429,6 +429,8 @@ public class TradingNPCManager {
     private Map<Material, Double> buildItemPrices(List<String> acceptedJobs, List<String> allowedItems) {
         Map<Material, Double> prices = new HashMap<>();
         Map<String, Double> basePrices = configManager.getItemBasePrices();
+        // 総合取引所では耐久のある装備・ツールを買い取らない（装備は鍛冶屋の取引所の商い）
+        boolean generalStore = acceptedJobs == null || acceptedJobs.isEmpty() || acceptedJobs.contains("all");
 
         for (Map.Entry<String, Double> entry : basePrices.entrySet()) {
             String itemName = entry.getKey();
@@ -440,6 +442,9 @@ public class TradingNPCManager {
 
             try {
                 Material material = Material.valueOf(itemName.toUpperCase());
+                if (generalStore && material.getMaxDurability() > 0) {
+                    continue;
+                }
                 double basePrice = entry.getValue();
 
                 // 基本価格をそのまま保存（職業倍率は売却時に適用）
@@ -638,6 +643,8 @@ public class TradingNPCManager {
             if (item == null || item.getType() == Material.AIR) continue;
             // NPC購入マーカー付きアイテムは転売不可（GUI側でも除外するが精算側でも防御）
             if (NPCPurchaseMarker.isMarked(plugin, item)) continue;
+            // 耐久が減った装備は買い取らない（使い古しを満額で売る転売の防止）
+            if (org.tofu.tofunomics.util.ItemWear.isWorn(item)) continue;
 
             Material material = item.getType();
             double basePrice = tradingPost.getItemPrice(material);
@@ -703,6 +710,7 @@ public class TradingNPCManager {
         for (ItemStack item : items) {
             if (item == null || item.getType() == Material.AIR) continue;
             if (NPCPurchaseMarker.isMarked(plugin, item)) continue;
+            if (org.tofu.tofunomics.util.ItemWear.isWorn(item)) continue;
             double basePrice = tradingPost.getItemPrice(item.getType());
             if (basePrice > 0) {
                 total += calculateSaleUnitPrice(player, tradingPost, playerJob, item.getType(), basePrice) * item.getAmount();

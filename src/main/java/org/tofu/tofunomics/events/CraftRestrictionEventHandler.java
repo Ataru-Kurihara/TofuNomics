@@ -10,6 +10,7 @@ import org.bukkit.block.Container;
 import org.bukkit.event.block.CrafterCraftEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.inventory.SmithItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.tofu.tofunomics.TofuNomics;
 import org.tofu.tofunomics.economy.ItemManager;
@@ -144,6 +145,53 @@ public class CraftRestrictionEventHandler implements Listener {
 
             plugin.getLogger().info("クラフト制限: " + player.getName() + " が " + craftedItem.name() + " のクラフトを禁止");
         }
+    }
+
+    /**
+     * 鍛冶台での強化（ダイヤ→ネザライト）にも、作業台と同じ職業の専売を当てる。
+     * ネザライトの剣・防具は鍛冶屋、ツルハシは鉱夫、のように完成品の専売で決める。
+     * 装飾（トリム）は品が変わらないので誰でもできる。
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onSmithItem(SmithItemEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
+        ItemStack result = event.getInventory().getResult();
+        // 鍛冶台のマス: 0=テンプレート 1=元の装備 2=素材 3=結果
+        ItemStack base = event.getInventory().getItem(1);
+        if (!isUpgrade(base, result)) {
+            return;
+        }
+
+        Player player = (Player) event.getWhoClicked();
+        if (!isCraftRestrictionEnabledWorld(player)) {
+            return;
+        }
+        JobCraftPermissionManager permissionManager = plugin.getJobCraftPermissionManager();
+        if (permissionManager == null) {
+            return;
+        }
+
+        Material upgraded = result.getType();
+        if (!permissionManager.canPlayerCraftItem(player, upgraded)) {
+            event.setCancelled(true);
+            String message = permissionManager.getCraftDeniedMessage(player, upgraded);
+            ItemNameText.send(player, message, JobCraftPermissionManager.ITEM_PLACEHOLDER, upgraded);
+        }
+    }
+
+    /**
+     * 鍛冶台の加工が「強化」（完成品の種類が元と違う）かどうか。
+     */
+    public static boolean isUpgrade(ItemStack base, ItemStack result) {
+        if (base == null || result == null) {
+            return false;
+        }
+        if (result.getType() == Material.AIR) {
+            return false;
+        }
+        return base.getType() != result.getType();
     }
 
     /**

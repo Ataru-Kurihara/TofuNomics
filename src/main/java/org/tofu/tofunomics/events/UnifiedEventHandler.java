@@ -356,27 +356,18 @@ public class UnifiedEventHandler implements Listener {
     
     // ========== クラフト・醸造・エンチャント関連イベント ==========
     
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCraftItem(CraftItemEvent event) {
         if (!shouldProcessEvent(event)) return;
         if (!(event.getWhoClicked() instanceof Player)) return;
 
-        Player player = (Player) event.getWhoClicked();
-
         // 職業別クラフト制限は CraftRestrictionEventHandler(LOWEST) が担当する。
         // そこでキャンセルされたイベントは ignoreCancelled = true により
-        // このハンドラーには届かないため、ここでは経験値・クエスト処理のみ行う。
-
-        // キャッシュチェック
-        if (eventCache.isRecentlyProcessed(player, "craft_item", 100)) {
-            return;
-        }
-        
-        // 既存のマネージャーに処理を委譲（収入システムは無効化）
+        // このハンドラーには届かないため、ここでは経験値処理のみ行う。
+        // ほかのプラグインが後からキャンセルしても経験値が入らないよう MONITOR で受ける。
+        // 経験値は実際に作られる回数で数える（JobExperienceManager.countCrafts）ので、
+        // 連打の間引き（キャッシュ）は使わない。間引くと素早い 2 回目のクラフトが数えられない。
         experienceManager.onCraftItem(event);
-        
-        // キャッシュに記録
-        eventCache.markAsProcessed(player, "craft_item");
     }
     
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
