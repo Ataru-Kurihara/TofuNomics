@@ -300,6 +300,13 @@ public class JobExperienceManager implements Listener {
         craftingExperience.put(Material.GOLDEN_SWORD, 8.0);
         craftingExperience.put(Material.DIAMOND_SWORD, 20.0);
         craftingExperience.put(Material.NETHERITE_SWORD, 60.0);
+        // 槍（木の槍は誰でも作れるので対象外。ネザライトは鍛冶台での強化）
+        craftingExperience.put(Material.STONE_SPEAR, 2.0);
+        craftingExperience.put(Material.COPPER_SPEAR, 3.0);
+        craftingExperience.put(Material.IRON_SPEAR, 5.0);
+        craftingExperience.put(Material.GOLDEN_SPEAR, 5.0);
+        craftingExperience.put(Material.DIAMOND_SPEAR, 12.0);
+        craftingExperience.put(Material.NETHERITE_SPEAR, 40.0);
         // ヘルメット
         craftingExperience.put(Material.LEATHER_HELMET, 2.0);
         craftingExperience.put(Material.COPPER_HELMET, 6.0);

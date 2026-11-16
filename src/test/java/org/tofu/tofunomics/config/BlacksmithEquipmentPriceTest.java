@@ -55,6 +55,14 @@ public class BlacksmithEquipmentPriceTest {
             recipe(metal + "_leggings", material, 7);
             recipe(metal + "_boots", material, 4);
         }
+        // 槍: 材料 1 個＋棒 2 本。ネザライトはダイヤの槍＋インゴット
+        recipe("wooden_spear", "oak_planks", 1, "stick", 2);
+        recipe("stone_spear", "cobblestone", 1, "stick", 2);
+        recipe("copper_spear", "copper_ingot", 1, "stick", 2);
+        recipe("iron_spear", "iron_ingot", 1, "stick", 2);
+        recipe("golden_spear", "gold_ingot", 1, "stick", 2);
+        recipe("diamond_spear", "diamond", 1, "stick", 2);
+        recipe("netherite_spear", "diamond_spear", 1, "netherite_ingot", 1);
         recipe("shield", "iron_ingot", 1, "oak_planks", 6);
         recipe("bow", "string", 3, "stick", 3);
     }
