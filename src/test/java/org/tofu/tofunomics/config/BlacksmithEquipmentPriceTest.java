@@ -109,6 +109,17 @@ public class BlacksmithEquipmentPriceTest {
     }
 
     @Test
+    public void 材料に売値が無い装備も1以上の整数で価格がある() {
+        // メイスの材料（ヘビーコア・ブリーズロッド）は売れないので、材料との比較はせず価格の有無だけ見る
+        for (String item : new String[]{"mace"}) {
+            assertTrue("価格があること: " + item, prices.contains(item));
+            double price = prices.getDouble(item);
+            assertTrue(item + " は 1 以上", price >= 1);
+            assertEquals(item + " は整数", Math.rint(price), price, 0.0);
+        }
+    }
+
+    @Test
     public void 鍛冶屋が作れないツールと釣竿は価格を載せない() {
         for (String metal : new String[]{"wooden", "stone", "iron", "golden", "diamond", "netherite"}) {
             for (String tool : new String[]{"pickaxe", "axe", "shovel", "hoe"}) {

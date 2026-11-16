@@ -905,6 +905,8 @@ npc_system:
     golden_spear: 16
     diamond_spear: 49
     netherite_spear: 465
+    # メイス（ヘビーコア＋ブリーズロッド。材料に売値が無いので直接決める。ヘビーコアはまれな戦利品）
+    mace: 200
     iron_sword: 17
     iron_helmet: 39
     iron_chestplate: 62

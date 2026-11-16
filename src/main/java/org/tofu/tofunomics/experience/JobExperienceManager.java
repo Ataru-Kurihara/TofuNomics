@@ -339,6 +339,7 @@ public class JobExperienceManager implements Listener {
         craftingExperience.put(Material.SHIELD, 10.0);
         craftingExperience.put(Material.BOW, 8.0);
         craftingExperience.put(Material.CROSSBOW, 10.0);
+        craftingExperience.put(Material.MACE, 30.0);
         
         // 醸造経験値テーブル
         brewingExperience.put(Material.POTION, 8.0);
