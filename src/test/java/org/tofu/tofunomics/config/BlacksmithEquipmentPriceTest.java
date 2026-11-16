@@ -55,6 +55,14 @@ public class BlacksmithEquipmentPriceTest {
             recipe(metal + "_leggings", material, 7);
             recipe(metal + "_boots", material, 4);
         }
+        // 槍: 材料 1 個＋棒 2 本。ネザライトはダイヤの槍＋インゴット
+        recipe("wooden_spear", "oak_planks", 1, "stick", 2);
+        recipe("stone_spear", "cobblestone", 1, "stick", 2);
+        recipe("copper_spear", "copper_ingot", 1, "stick", 2);
+        recipe("iron_spear", "iron_ingot", 1, "stick", 2);
+        recipe("golden_spear", "gold_ingot", 1, "stick", 2);
+        recipe("diamond_spear", "diamond", 1, "stick", 2);
+        recipe("netherite_spear", "diamond_spear", 1, "netherite_ingot", 1);
         recipe("shield", "iron_ingot", 1, "oak_planks", 6);
         recipe("bow", "string", 3, "stick", 3);
     }
@@ -94,6 +102,17 @@ public class BlacksmithEquipmentPriceTest {
     public void 装備の売値は1以上の整数() {
         // 通貨は整数。0.5 未満は 0 表示になり 1 個では売れない
         for (String item : RECIPES.keySet()) {
+            double price = prices.getDouble(item);
+            assertTrue(item + " は 1 以上", price >= 1);
+            assertEquals(item + " は整数", Math.rint(price), price, 0.0);
+        }
+    }
+
+    @Test
+    public void 材料に売値が無い装備も1以上の整数で価格がある() {
+        // メイスの材料（ヘビーコア・ブリーズロッド）は売れないので、材料との比較はせず価格の有無だけ見る
+        for (String item : new String[]{"mace"}) {
+            assertTrue("価格があること: " + item, prices.contains(item));
             double price = prices.getDouble(item);
             assertTrue(item + " は 1 以上", price >= 1);
             assertEquals(item + " は整数", Math.rint(price), price, 0.0);
