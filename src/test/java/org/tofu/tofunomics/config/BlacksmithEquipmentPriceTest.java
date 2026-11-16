@@ -44,6 +44,17 @@ public class BlacksmithEquipmentPriceTest {
         for (String part : new String[]{"sword", "helmet", "chestplate", "leggings", "boots"}) {
             recipe("netherite_" + part, "diamond_" + part, 1, "netherite_ingot", 1);
         }
+        // 序盤向け: 木・石・銅の剣、革・銅の防具
+        recipe("wooden_sword", "oak_planks", 2, "stick", 1);
+        recipe("stone_sword", "cobblestone", 2, "stick", 1);
+        recipe("copper_sword", "copper_ingot", 2, "stick", 1);
+        for (String metal : new String[]{"leather", "copper"}) {
+            String material = metal.equals("leather") ? "leather" : "copper_ingot";
+            recipe(metal + "_helmet", material, 5);
+            recipe(metal + "_chestplate", material, 8);
+            recipe(metal + "_leggings", material, 7);
+            recipe(metal + "_boots", material, 4);
+        }
         recipe("shield", "iron_ingot", 1, "oak_planks", 6);
         recipe("bow", "string", 3, "stick", 3);
     }

@@ -885,6 +885,18 @@ npc_system:
     bucket: 4
     # 装備は「材料の売値 × 約 1.3」（作って売るほうが材料のまま売るより得になるように）
     # 鉄 6 / 金 10 / ダイヤ 35 / ネザライトインゴット 320 / 棒・糸・板材 1 で計算
+    # 序盤向け（鉱石が無くても作れる）: 木・石・銅の剣、革・銅の防具
+    wooden_sword: 4
+    stone_sword: 4
+    copper_sword: 7
+    leather_helmet: 13
+    leather_chestplate: 21
+    leather_leggings: 18
+    leather_boots: 10
+    copper_helmet: 13
+    copper_chestplate: 21
+    copper_leggings: 18
+    copper_boots: 10
     iron_sword: 17
     iron_helmet: 39
     iron_chestplate: 62

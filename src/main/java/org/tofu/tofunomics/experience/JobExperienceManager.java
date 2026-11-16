@@ -295,30 +295,35 @@ public class JobExperienceManager implements Listener {
         // 製作経験値テーブル（鍛冶屋）
         // 剣
         craftingExperience.put(Material.STONE_SWORD, 3.0);
+        craftingExperience.put(Material.COPPER_SWORD, 5.0);
         craftingExperience.put(Material.IRON_SWORD, 8.0);
         craftingExperience.put(Material.GOLDEN_SWORD, 8.0);
         craftingExperience.put(Material.DIAMOND_SWORD, 20.0);
         craftingExperience.put(Material.NETHERITE_SWORD, 60.0);
         // ヘルメット
         craftingExperience.put(Material.LEATHER_HELMET, 2.0);
+        craftingExperience.put(Material.COPPER_HELMET, 6.0);
         craftingExperience.put(Material.IRON_HELMET, 9.0);
         craftingExperience.put(Material.GOLDEN_HELMET, 9.0);
         craftingExperience.put(Material.DIAMOND_HELMET, 22.0);
         craftingExperience.put(Material.NETHERITE_HELMET, 65.0);
         // チェストプレート
         craftingExperience.put(Material.LEATHER_CHESTPLATE, 3.0);
+        craftingExperience.put(Material.COPPER_CHESTPLATE, 9.0);
         craftingExperience.put(Material.IRON_CHESTPLATE, 14.0);
         craftingExperience.put(Material.GOLDEN_CHESTPLATE, 14.0);
         craftingExperience.put(Material.DIAMOND_CHESTPLATE, 35.0);
         craftingExperience.put(Material.NETHERITE_CHESTPLATE, 100.0);
         // レギンス
         craftingExperience.put(Material.LEATHER_LEGGINGS, 2.5);
+        craftingExperience.put(Material.COPPER_LEGGINGS, 8.0);
         craftingExperience.put(Material.IRON_LEGGINGS, 12.0);
         craftingExperience.put(Material.GOLDEN_LEGGINGS, 12.0);
         craftingExperience.put(Material.DIAMOND_LEGGINGS, 30.0);
         craftingExperience.put(Material.NETHERITE_LEGGINGS, 85.0);
         // ブーツ
         craftingExperience.put(Material.LEATHER_BOOTS, 2.0);
+        craftingExperience.put(Material.COPPER_BOOTS, 6.0);
         craftingExperience.put(Material.IRON_BOOTS, 9.0);
         craftingExperience.put(Material.GOLDEN_BOOTS, 9.0);
         craftingExperience.put(Material.DIAMOND_BOOTS, 22.0);
