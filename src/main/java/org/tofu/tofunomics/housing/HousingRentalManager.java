@@ -95,6 +95,14 @@ public class HousingRentalManager {
                     && z >= minZ && z <= maxZ;
         }
 
+        /** 横に margin マス広げた範囲に入っているか（物件の壁の外側に付いたドア用） */
+        public boolean containsWithMargin(String world, int x, int y, int z, int margin) {
+            return worldName.equals(world)
+                    && x >= minX - margin && x <= maxX + margin
+                    && y >= minY && y <= maxY
+                    && z >= minZ - margin && z <= maxZ + margin;
+        }
+
         public int getPropertyId() { return propertyId; }
         public int getRentalId() { return rentalId; }
         public UUID getTenantUuid() { return tenantUuid; }
@@ -144,6 +152,24 @@ public class HousingRentalManager {
         int z = location.getBlockZ();
         for (RentedArea area : rentedAreas) {
             if (area.contains(world, x, y, z)) {
+                return area;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * ドアの位置から、そのドアが入口になっている契約中の物件を探す。
+     * 範囲の中に無ければ、横に 1 マス広げて探す（範囲を壁の内側で選んだ物件の入口のドア用）。
+     */
+    public RentedArea findRentedAreaForDoor(Location location) {
+        RentedArea inside = findRentedAreaAt(location);
+        if (inside != null || location == null || location.getWorld() == null) {
+            return inside;
+        }
+        String world = location.getWorld().getName();
+        for (RentedArea area : rentedAreas) {
+            if (area.containsWithMargin(world, location.getBlockX(), location.getBlockY(), location.getBlockZ(), 1)) {
                 return area;
             }
         }
@@ -328,6 +354,44 @@ public class HousingRentalManager {
         } catch (SQLException e) {
             logger.severe("預かり荷物の受け取りに失敗しました: " + e.getMessage());
             return 0;
+        }
+    }
+
+    /**
+     * 物件の中の開いているドアを閉める（内見のときに開けたままのドアから、契約後に他の人が入れないように）。
+     */
+    private void closeDoors(HousingProperty property) {
+        if (!property.hasCoordinates()) {
+            return;
+        }
+        World world = Bukkit.getWorld(property.getWorldName());
+        if (world == null) {
+            return;
+        }
+        // 壁の外側に付いた入口のドアも閉めるよう、横に 1 マス広げる（findRentedAreaForDoor と同じ）
+        int minX = Math.min(property.getX1(), property.getX2()) - 1, maxX = Math.max(property.getX1(), property.getX2()) + 1;
+        int minY = Math.min(property.getY1(), property.getY2()), maxY = Math.max(property.getY1(), property.getY2());
+        int minZ = Math.min(property.getZ1(), property.getZ2()) - 1, maxZ = Math.max(property.getZ1(), property.getZ2()) + 1;
+        int closed = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    org.bukkit.block.Block block = world.getBlockAt(x, y, z);
+                    if (!HousingDoorListener.isDoor(block.getType())) {
+                        continue;
+                    }
+                    org.bukkit.block.data.BlockData data = block.getBlockData();
+                    if (data instanceof org.bukkit.block.data.type.Door
+                            && ((org.bukkit.block.data.type.Door) data).isOpen()) {
+                        ((org.bukkit.block.data.type.Door) data).setOpen(false);
+                        block.setBlockData(data, false);
+                        closed++;
+                    }
+                }
+            }
+        }
+        if (closed > 0) {
+            logger.info("物件 " + property.getId() + " の開いていたドアを " + closed + " か所閉めました");
         }
     }
 
@@ -624,6 +688,7 @@ public class HousingRentalManager {
                 }
                 
                 refreshRentedAreas();
+                closeDoors(property);
                 logger.info("賃貸契約を締結しました: " + player.getUuid() + " -> 物件ID: " + propertyId);
                 
                 // プレイヤーに通知（ゲーム内時間表示）
@@ -631,6 +696,7 @@ public class HousingRentalManager {
                     long realMinutes = rentalDays * 20; // 1ゲーム内日 = 20分
                     onlinePlayer.sendMessage("§a" + property.getPropertyName() + "の賃貸契約を締結しました");
                     onlinePlayer.sendMessage("§e期間: " + rentalDays + "日(" + realMinutes + "分) | 費用: " + totalCost);
+                    onlinePlayer.sendMessage("§7物件のドアはクリックすると通り抜けられます（契約者だけが入れます）");
                     onlinePlayer.sendMessage("§7物件の中の空いている所に、チェストや作業台などを置けます（元からあるブロックは壊せません）");
                     onlinePlayer.sendMessage("§7退去のときは置いた物が片付けられ、/housing の「預かり荷物」から受け取れます");
                 }
