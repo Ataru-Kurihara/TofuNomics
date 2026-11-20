@@ -24,7 +24,7 @@ commands:
     permission: tofunomics.balancetop
   withdraw:
     description: 銀行から金塊を引き出す
-    usage: /withdraw <amount>
+    usage: /withdraw <amount|all>
     permission: tofunomics.withdraw
   deposit:
     description: 金塊を銀行に預ける

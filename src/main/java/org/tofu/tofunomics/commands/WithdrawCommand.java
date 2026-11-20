@@ -30,7 +30,7 @@ public class WithdrawCommand implements CommandExecutor {
         }
         
         if (args.length != 1) {
-            sender.sendMessage(ChatColor.RED + "使用法: /withdraw <金額>");
+            sender.sendMessage(ChatColor.RED + "使用法: /withdraw <金額|all>");
             return true;
         }
         
@@ -54,7 +54,18 @@ public class WithdrawCommand implements CommandExecutor {
         
         double amount;
         try {
-            amount = Double.parseDouble(amountString);
+            if ("all".equalsIgnoreCase(amountString)) {
+                // 全額: コインは整数枚なので端数は残高に残し、1 回の上限を超える分も残す
+                amount = allWithdrawAmount(currencyConverter.getBalance(player.getUniqueId()),
+                    configManager.getMaxWithdraw());
+                if (amount < 1) {
+                    player.sendMessage(ChatColor.translateAlternateColorCodes('&',
+                        configManager.getMessagePrefix() + configManager.getMessage("insufficient_balance")));
+                    return true;
+                }
+            } else {
+                amount = Double.parseDouble(amountString);
+            }
         } catch (NumberFormatException e) {
             sender.sendMessage(ChatColor.translateAlternateColorCodes('&', 
                 configManager.getMessagePrefix() + configManager.getMessage("invalid_amount")));
@@ -116,5 +127,15 @@ public class WithdrawCommand implements CommandExecutor {
         }
         
         return true;
+    }
+    
+    /**
+     * /withdraw all で引き出す額。残高の整数部分を、1 回の上限までに抑える。
+     */
+    static double allWithdrawAmount(double balance, double maxWithdraw) {
+        if (Double.isNaN(balance) || balance < 1) {
+            return 0;
+        }
+        return Math.min(Math.floor(balance), Math.floor(maxWithdraw));
     }
 }

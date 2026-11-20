@@ -31,6 +31,15 @@ public class BankGUI implements Listener {
     
     private final Map<UUID, BankGUISession> activeSessions = new ConcurrentHashMap<>();
     
+    /** 左クリックだけで押せるボタン（統合版向け）。出金・入金ボタンの隣と下の段に置く */
+    static final int WITHDRAW_ALL_SLOT = 12;
+    static final int DEPOSIT_ALL_SLOT = 14;
+    static final int WITHDRAW_100_SLOT = 23;
+    static final int WITHDRAW_500_SLOT = 24;
+    
+    /** 出金額の指定で「全額」を表す値 */
+    static final double WITHDRAW_ALL = -1.0;
+    
     public BankGUI(TofuNomics plugin, ConfigManager configManager, 
                    CurrencyConverter currencyConverter, ItemManager itemManager) {
         this.plugin = plugin;
@@ -110,10 +119,28 @@ public class BankGUI implements Listener {
                 "§7左クリック: §f" + money(10),
                 "§7右クリック: §f" + money(100),
                 "§7シフト左クリック: §f" + money(500),
-                "§7シフト右クリック: §f全額引き出し"
+                "§7シフト右クリック: §f全額引き出し",
+                "§8統合版は右と下の段の金額ボタンも使えます"
             )
         );
         gui.setItem(11, withdrawItem);
+        
+        // 統合版（タッチ・コントローラ）はシフトクリックを送れないので、左クリックだけで押せるボタンを置く
+        gui.setItem(WITHDRAW_ALL_SLOT, createGUIItem(
+            Material.DROPPER,
+            "§c全額引き出し",
+            Arrays.asList("§7クリック: §f預金をすべて引き出します")
+        ));
+        gui.setItem(WITHDRAW_100_SLOT, createGUIItem(
+            Material.IRON_NUGGET,
+            "§c" + money(100) + " 引き出し",
+            Arrays.asList("§7クリック: §f" + money(100) + " を引き出します")
+        ));
+        gui.setItem(WITHDRAW_500_SLOT, createGUIItem(
+            Material.RAW_GOLD,
+            "§c" + money(500) + " 引き出し",
+            Arrays.asList("§7クリック: §f" + money(500) + " を引き出します")
+        ));
         
         // 入金ボタン
         ItemStack depositItem = createGUIItem(
@@ -123,10 +150,17 @@ public class BankGUI implements Listener {
                 "§7手持ちの現金（TofuCoin・TofuGold）を預金に入れます",
                 "§7左クリック: §f" + money(1) + " を入金",
                 "§7右クリック: §f" + money(9) + " を入金",
-                "§7シフト+クリック: §f手持ちの現金をすべて入金"
+                "§7シフト+クリック: §f手持ちの現金をすべて入金",
+                "§8統合版は右の「全額入金」ボタンも使えます"
             )
         );
         gui.setItem(13, depositItem);
+        
+        gui.setItem(DEPOSIT_ALL_SLOT, createGUIItem(
+            Material.ENDER_CHEST,
+            "§a全額入金",
+            Arrays.asList("§7クリック: §f手持ちの現金をすべて入金します")
+        ));
         
         // 送金ボタン
         ItemStack payItem = createGUIItem(
@@ -176,7 +210,7 @@ public class BankGUI implements Listener {
         // 装飾アイテム（銀行テーマ: 水色ガラス。無効時は装飾なし）
         if (configManager.isGuiDecorationEnabled()) {
             ItemStack glassPane = createGUIItem(Material.LIGHT_BLUE_STAINED_GLASS_PANE, "§r", Collections.emptyList());
-            int[] decorationSlots = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12, 14, 16, 17, 18, 20, 22, 23, 24, 25};
+            int[] decorationSlots = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 16, 17, 18, 20, 22, 25};
             for (int slot : decorationSlots) {
                 gui.setItem(slot, glassPane);
             }
@@ -250,6 +284,22 @@ public class BankGUI implements Listener {
                 handleDeposit(player, session, clickType);
                 break;
                 
+            case WITHDRAW_ALL_SLOT:
+                withdraw(player, session, WITHDRAW_ALL);
+                break;
+                
+            case WITHDRAW_100_SLOT:
+                withdraw(player, session, 100.0);
+                break;
+                
+            case WITHDRAW_500_SLOT:
+                withdraw(player, session, 500.0);
+                break;
+                
+            case DEPOSIT_ALL_SLOT:
+                deposit(player, session, Integer.MAX_VALUE);
+                break;
+                
             case 15: // 送金
                 handlePayInfo(player);
                 break;
@@ -286,28 +336,37 @@ public class BankGUI implements Listener {
     
     private void handleWithdraw(Player player, BankGUISession session, 
                               org.bukkit.event.inventory.ClickType clickType) {
-        double requestedAmount;
-        boolean withdrawAll = false;
-        
+        Double requested = withdrawRequestFor(clickType);
+        if (requested == null) {
+            return;
+        }
+        withdraw(player, session, requested);
+    }
+    
+    /**
+     * 出金ボタンのクリックの種類から、引き出す額を決める。
+     * 全額は {@link #WITHDRAW_ALL}、反応しないクリックは null。
+     */
+    static Double withdrawRequestFor(org.bukkit.event.inventory.ClickType clickType) {
         switch (clickType) {
             case LEFT:
-                requestedAmount = 10.0;
-                break;
+                return 10.0;
             case RIGHT:
-                requestedAmount = 100.0;
-                break;
+                return 100.0;
             case SHIFT_LEFT:
-                requestedAmount = 500.0;
-                break;
+                return 500.0;
             case SHIFT_RIGHT:
-                // 全額引き出し
-                withdrawAll = true;
-                requestedAmount = 0.0;
-                break;
+                return WITHDRAW_ALL;
             default:
-                return;
+                return null;
         }
-        
+    }
+    
+    /**
+     * 出金する。requestedAmount が {@link #WITHDRAW_ALL} なら全額、残高が足りなければ残高分。
+     */
+    private void withdraw(Player player, BankGUISession session, double requestedAmount) {
+        boolean withdrawAll = requestedAmount == WITHDRAW_ALL;
         double balance = currencyConverter.getBalance(player.getUniqueId());
         
         // 全額引き出しまたは残高が引き出し額より少ない場合は残高分を引き出し
@@ -382,23 +441,34 @@ public class BankGUI implements Listener {
     
     private void handleDeposit(Player player, BankGUISession session,
                              org.bukkit.event.inventory.ClickType clickType) {
-        int amount;
-
+        int amount = depositRequestFor(clickType);
+        if (amount <= 0) {
+            return;
+        }
+        deposit(player, session, amount);
+    }
+    
+    /**
+     * 入金ボタンのクリックの種類から、預ける枚数を決める。全額は Integer.MAX_VALUE、反応しないクリックは 0。
+     */
+    static int depositRequestFor(org.bukkit.event.inventory.ClickType clickType) {
         switch (clickType) {
             case LEFT:
-                amount = 1;
-                break;
+                return 1;
             case RIGHT:
-                amount = 9;
-                break;
+                return 9;
             case SHIFT_LEFT:
             case SHIFT_RIGHT:
-                amount = Integer.MAX_VALUE; // 全て
-                break;
+                return Integer.MAX_VALUE; // 全て
             default:
-                return;
+                return 0;
         }
-
+    }
+    
+    /**
+     * 入金する。amount が手持ちより多ければ手持ち分すべて。
+     */
+    private void deposit(Player player, BankGUISession session, int amount) {
         // ItemManagerのメソッドを使用してTofuCoinとTofuGoldの両方をカウント
         int availableAmount = itemManager.countGoldNuggetsInInventory(player);
 

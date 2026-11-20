@@ -57,6 +57,25 @@ public class FoodGUI implements Listener {
         public UUID getNpcId() { return npcId; }
         public String getNpcName() { return npcName; }
         public Inventory getInventory() { return inventory; }
+        // 数量切り替えボタンで選んだ段階（0=1個、1=5個、2=10個、3=上限まで）。統合版向け
+        private int quantityTier = 0;
+        public int getQuantityTier() { return quantityTier; }
+        public void setQuantityTier(int tier) { this.quantityTier = tier; }
+    }
+    
+    /** 数量切り替えボタンのスロット（最下段、閉じるボタンの右） */
+    static final int QUANTITY_SLOT = 51;
+    /** 数量の段階の数（左・右・シフト左・シフト右に当たる 4 段） */
+    static final int QUANTITY_TIERS = 4;
+    
+    /** 段階ごとの個数の説明 */
+    static String quantityLabel(int tier) {
+        switch (tier) {
+            case 1: return "5個";
+            case 2: return "10個";
+            case 3: return "上限まで";
+            default: return "1個";
+        }
     }
     
     /**
@@ -108,7 +127,9 @@ public class FoodGUI implements Listener {
         setupFoodItems(gui, player, npcId);
         
         // フッター部分（45-53）
-        setupFooterItems(gui);
+        FoodGUISession session = activeSessions.get(player.getUniqueId());
+        int tier = (session != null && session.getInventory().equals(gui)) ? session.getQuantityTier() : 0;
+        setupFooterItems(gui, tier);
     }
     
     /**
@@ -174,7 +195,7 @@ public class FoodGUI implements Listener {
     /**
      * フッターアイテムのセットアップ
      */
-    private void setupFooterItems(Inventory gui) {
+    private void setupFooterItems(Inventory gui, int quantityTier) {
         ItemStack glassPane = createGUIItem(Material.GRAY_STAINED_GLASS_PANE, "§7", Arrays.asList());
         for (int i = 45; i < 54; i++) {
             gui.setItem(i, glassPane);
@@ -187,6 +208,19 @@ public class FoodGUI implements Listener {
             Arrays.asList("§7クリックしてGUIを閉じます")
         );
         gui.setItem(49, closeItem);
+        
+        // 数量切り替え（左クリックで買う個数を選ぶ。統合版は右・シフトクリックが使えないため）
+        List<String> lore = new ArrayList<>();
+        lore.add("§f今の個数: §a" + quantityLabel(quantityTier));
+        lore.add("");
+        for (int t = 0; t < QUANTITY_TIERS; t++) {
+            lore.add((t == quantityTier ? "§a▶ " : "§7  ") + quantityLabel(t));
+        }
+        lore.add("");
+        lore.add("§eクリックで切り替え");
+        lore.add("§7品を左クリックしたときの個数が変わります");
+        gui.setItem(QUANTITY_SLOT, createGUIItem(Material.COMPARATOR,
+            "§6数量: " + quantityLabel(quantityTier), lore));
     }
     
     /**
@@ -218,6 +252,7 @@ public class FoodGUI implements Listener {
         lore.add("§7右クリック: §f5個");
         lore.add("§7Shift+左クリック: §f10個");
         lore.add("§7Shift+右クリック: §f上限まで");
+        lore.add("§8下の「数量」ボタンで左クリックの個数も変えられます");
         
         // 購入不可な場合
         if (stock == 0 || remaining == 0) {
@@ -345,6 +380,15 @@ public class FoodGUI implements Listener {
             player.closeInventory();
             return;
         }
+        
+        if (slot == QUANTITY_SLOT) { // 数量切り替え
+            session.setQuantityTier(ClickTier.next(session.getQuantityTier(), QUANTITY_TIERS));
+            setupFoodGUIItems(session.getInventory(), player, session.getNpcId());
+            return;
+        }
+        
+        // 数量ボタンで選んだ段階を左クリックに当てはめる（右・シフトはそのまま）
+        clickType = ClickTier.apply(clickType, session.getQuantityTier());
         
         // ヘッダー・フッター領域は無視
         if (slot < 9 || slot >= 45) {
