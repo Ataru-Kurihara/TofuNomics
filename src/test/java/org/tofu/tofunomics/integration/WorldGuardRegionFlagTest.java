@@ -153,7 +153,7 @@ public class WorldGuardRegionFlagTest {
     }
 
     @Test
-    public void 既定の設定では借主だけがチェストを開けられ_ドアは全員が使える() {
+    public void 以前の既定ではbuild_denyが全員に効き_借主も置けない() {
         WorldGuardIntegration.applyFlagsToRegion(house,
             map("use", "allow", "chest-access", "deny", "build", "deny", "interact", "allow"),
             map("chest-access", "nonmembers"), registry, LOGGER);
@@ -162,8 +162,45 @@ public class WorldGuardRegionFlagTest {
         assertFalse(canOpenChest(false));
         assertTrue(canUseDoor(true));
         assertTrue(canUseDoor(false));
-        // 建築は借主もできない
+        // 物件 92 の報告の原因: 借主もチェスト・作業台を置けなかった
         assertFalse(test(true, Flags.BLOCK_PLACE));
+    }
+
+    /** config.yml の worldguard_rental_regions の既定と同じ設定を付ける */
+    private void applyCurrentDefaults() {
+        WorldGuardIntegration.applyFlagsToRegion(house,
+            map("use", "allow", "chest-access", "deny", "build", "allow", "block-break", "allow",
+                "interact", "allow"),
+            map("chest-access", "nonmembers", "build", "members", "block-break", "members"),
+            registry, LOGGER);
+    }
+
+    @Test
+    public void 今の既定では借主だけが置けて壊せる() {
+        // 本番の city と同じく、親で block-break も禁止しておく
+        city.setFlag(Flags.BLOCK_BREAK, State.DENY);
+        applyCurrentDefaults();
+
+        assertTrue(test(true, Flags.BLOCK_PLACE));
+        assertTrue(test(true, Flags.BLOCK_BREAK));
+        assertFalse(test(false, Flags.BLOCK_PLACE));
+        assertFalse(test(false, Flags.BLOCK_BREAK));
+
+        // チェスト・ドアの扱いは変わらない
+        assertTrue(canOpenChest(true));
+        assertFalse(canOpenChest(false));
+        assertTrue(canUseDoor(true));
+        assertTrue(canUseDoor(false));
+    }
+
+    @Test
+    public void block_breakを借主に許さないと_親のdenyで借主も壊せない() {
+        city.setFlag(Flags.BLOCK_BREAK, State.DENY);
+        WorldGuardIntegration.applyFlagsToRegion(house,
+            map("build", "allow"), map("build", "members"), registry, LOGGER);
+
+        assertTrue(test(true, Flags.BLOCK_PLACE));
+        assertFalse(test(true, Flags.BLOCK_BREAK));
     }
 
     @Test

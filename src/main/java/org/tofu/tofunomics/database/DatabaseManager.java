@@ -225,6 +225,31 @@ public class DatabaseManager {
             "    FOREIGN KEY (rental_id) REFERENCES housing_rentals(id) ON DELETE CASCADE" +
             ");",
 
+            // 借主が物件内に置いたブロックの記録（退去時の原状回復と、壊してよいブロックの判定に使う）
+            "CREATE TABLE IF NOT EXISTS housing_placed_blocks (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    rental_id INTEGER NOT NULL," +
+            "    property_id INTEGER NOT NULL," +
+            "    tenant_uuid TEXT NOT NULL," +
+            "    world_name TEXT NOT NULL," +
+            "    x INTEGER NOT NULL," +
+            "    y INTEGER NOT NULL," +
+            "    z INTEGER NOT NULL," +
+            "    material TEXT NOT NULL," +
+            "    item_data TEXT," +
+            "    placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "    UNIQUE(world_name, x, y, z)" +
+            ");",
+
+            // 退去時に預かった荷物（借主が /housing から受け取る）
+            "CREATE TABLE IF NOT EXISTS housing_parcels (" +
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "    tenant_uuid TEXT NOT NULL," +
+            "    property_id INTEGER NOT NULL," +
+            "    item_data TEXT NOT NULL," +
+            "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+            ");",
+
             // プレイヤーインベントリ保存テーブル
             "CREATE TABLE IF NOT EXISTS player_inventories (" +
             "    player_uuid TEXT PRIMARY KEY," +
@@ -497,6 +522,10 @@ public class DatabaseManager {
             // 期限切れ検索高速化用インデックス（存在しなければ作成）
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_housing_rentals_end_tick ON housing_rentals(end_tick)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_housing_rentals_status_end_tick ON housing_rentals(status, end_tick)");
+
+            // 借主の設置記録・預かり荷物の検索用インデックス
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_housing_placed_rental ON housing_placed_blocks(rental_id)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_housing_parcels_tenant ON housing_parcels(tenant_uuid)");
 
             // マーケット出品検索高速化用インデックス（存在しなければ作成）
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_market_status ON market_listings(status)");

@@ -57,6 +57,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.housing.HousingRentalManager housingRentalManager;
     private org.tofu.tofunomics.housing.SelectionManager selectionManager;
     private org.tofu.tofunomics.housing.HousingListener housingListener;
+    private org.tofu.tofunomics.housing.HousingBuildListener housingBuildListener;
     private org.tofu.tofunomics.housing.gui.HousingHubGUI housingHubGUI;
     private org.tofu.tofunomics.housing.gui.HousingAdminRegisterGUI housingAdminRegisterGUI;
     private org.tofu.tofunomics.housing.gui.HousingAdminListGUI housingAdminListGUI;
@@ -838,6 +839,10 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(housingListener, this);
                 getLogger().info("住居賃貸システムリスナーを登録しました");
             }
+            if (housingBuildListener != null) {
+                getServer().getPluginManager().registerEvents(housingBuildListener, this);
+                getLogger().info("借主の設置・破壊リスナーを登録しました");
+            }
 
             // WorldGuardテストモードリスナーの登録
             if (worldGuardTestModeListener != null) {
@@ -1499,6 +1504,15 @@ public final class TofuNomics extends JavaPlugin {
             
             // HousingListener の初期化
             this.housingListener = new org.tofu.tofunomics.housing.HousingListener(this, selectionManager, testModeManager);
+
+            // 借主による物件内の設置・破壊の制限（空気の所にだけ置ける・自分で置いた物だけ壊せる）
+            if (getConfig().getBoolean("housing_rental.tenant_build.enabled", true)) {
+                org.tofu.tofunomics.housing.TenantBuildRules tenantBuildRules =
+                    org.tofu.tofunomics.housing.TenantBuildRules.fromNames(
+                        getConfig().getStringList("housing_rental.tenant_build.denied_materials"), getLogger());
+                this.housingBuildListener = new org.tofu.tofunomics.housing.HousingBuildListener(
+                    this, housingRentalManager, testModeManager, tenantBuildRules);
+            }
             
             // 期限切れチェックタスクの開始
             startHousingExpiryTask();
@@ -1536,9 +1550,13 @@ public final class TofuNomics extends JavaPlugin {
                 new org.tofu.tofunomics.housing.gui.HousingAdminListGUI(this, configManager, housingRentalManager, housingGUIListener);
             org.tofu.tofunomics.housing.gui.HousingAdminEditGUI adminEdit =
                 new org.tofu.tofunomics.housing.gui.HousingAdminEditGUI(this, configManager, housingRentalManager, chatInputManager, housingGUIListener);
+            org.tofu.tofunomics.housing.gui.ParcelGUI parcels =
+                new org.tofu.tofunomics.housing.gui.ParcelGUI(this, housingRentalManager, housingGUIListener);
 
             // 相互参照を注入（循環依存の解決）
             hub.setGUIs(browse, myRentals);
+            hub.setParcelGUI(parcels);
+            parcels.setHub(hub);
             browse.setGUIs(hub, detail);
             detail.setGUIs(hub, browse);
             myRentals.setGUIs(hub, manage);
@@ -1546,6 +1564,7 @@ public final class TofuNomics extends JavaPlugin {
             adminList.setGUIs(adminEdit);
             adminEdit.setGUIs(adminList);
             housingGUIListener.setGUIs(hub, browse, detail, myRentals, manage, adminRegister, adminList, adminEdit);
+            housingGUIListener.setParcelGUI(parcels);
 
             getServer().getPluginManager().registerEvents(housingGUIListener, this);
             housingHubGUI = hub;

@@ -1089,16 +1089,35 @@ housing_rental:
     default_flags:
       use: allow           # ドア、ボタン、レバーの使用（全員）
       chest-access: deny   # チェスト等の収納ブロック（下の対象グループで「借主以外」だけ拒否）
-      build: deny          # 建築は禁止（借主も不可）
+      build: allow         # 設置（下の対象グループで「借主だけ」許可。借主以外は親リージョンの deny）
+      block-break: allow   # 破壊（同上。元からあるブロックは TofuNomics 側で守る）
       interact: allow      # その他のインタラクション（全員。親リージョンの interact: deny を打ち消す）
     # フラグの対象グループ（all / members / owners / nonmembers / nonowners）。書かないフラグは全員
     default_flag_groups:
       chest-access: nonmembers
+      build: members
+      block-break: members
     # 親リージョンの自動設定
     auto_set_parent: true
     # デフォルトの親リージョン名（city_protection.region_nameが優先）
     default_parent_region: ""
   
+  # 借主による物件内の設置・破壊
+  # 借主は空気の所にだけブロックを置け、壊せるのは自分が置いたブロックだけ（元からある建物は壊せない）。
+  # 退去（期限切れ・解約）時は、置いたブロックを消して、ブロックと中身を「預かり荷物」にする（/housing から受け取る）。
+  tenant_build:
+    enabled: true
+    # 置けないブロック（元の建物を壊せるもの）。砂・砂利など落ちるブロックは別に常に不可
+    denied_materials:
+      - PISTON
+      - STICKY_PISTON
+      - TNT
+      - DISPENSER
+      - CRAFTER
+      - SPONGE
+      - WET_SPONGE
+      - RESPAWN_ANCHOR
+
   # メッセージ設定
   messages:
     list_header: "&6========= 賃貸可能物件一覧 ========="

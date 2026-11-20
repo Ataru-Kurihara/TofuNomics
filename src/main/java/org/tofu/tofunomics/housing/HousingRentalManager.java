@@ -34,6 +34,11 @@ public class HousingRentalManager {
     private HousingPropertyDAO propertyDAO;
     private HousingRentalDAO rentalDAO;
     private PlayerDAO playerDAO;
+    private org.tofu.tofunomics.dao.HousingPlacedBlockDAO placedBlockDAO;
+    private org.tofu.tofunomics.dao.HousingParcelDAO parcelDAO;
+
+    /** 契約中の物件の範囲（設置・破壊のたびに DB を引かないための写し）。契約・解約・期限切れで作り直す */
+    private volatile List<RentedArea> rentedAreas = java.util.Collections.emptyList();
 
     public HousingRentalManager(TofuNomics plugin, ConfigManager configManager, DatabaseManager databaseManager, WorldGuardIntegration worldGuardIntegration) {
         this.plugin = plugin;
@@ -44,6 +49,7 @@ public class HousingRentalManager {
         this.currencyConverter = plugin.getCurrencyConverter();
         
         initializeDAOs();
+        refreshRentedAreas();
     }
 
     private void initializeDAOs() {
@@ -51,6 +57,288 @@ public class HousingRentalManager {
             this.propertyDAO = new HousingPropertyDAO(databaseManager.getConnection());
             this.rentalDAO = new HousingRentalDAO(databaseManager.getConnection());
             this.playerDAO = new PlayerDAO(databaseManager.getConnection());
+            this.placedBlockDAO = new org.tofu.tofunomics.dao.HousingPlacedBlockDAO(databaseManager.getConnection());
+            this.parcelDAO = new org.tofu.tofunomics.dao.HousingParcelDAO(databaseManager.getConnection());
+        }
+    }
+
+    // ===== 借主による物件内の設置・破壊 =====
+
+    /**
+     * 契約中の物件 1 件の範囲と借主。
+     */
+    public static final class RentedArea {
+        private final int propertyId;
+        private final int rentalId;
+        private final UUID tenantUuid;
+        private final String worldName;
+        private final int minX, minY, minZ, maxX, maxY, maxZ;
+
+        public RentedArea(int propertyId, int rentalId, UUID tenantUuid, String worldName,
+                          int x1, int y1, int z1, int x2, int y2, int z2) {
+            this.propertyId = propertyId;
+            this.rentalId = rentalId;
+            this.tenantUuid = tenantUuid;
+            this.worldName = worldName;
+            this.minX = Math.min(x1, x2);
+            this.minY = Math.min(y1, y2);
+            this.minZ = Math.min(z1, z2);
+            this.maxX = Math.max(x1, x2);
+            this.maxY = Math.max(y1, y2);
+            this.maxZ = Math.max(z1, z2);
+        }
+
+        public boolean contains(String world, int x, int y, int z) {
+            return worldName.equals(world)
+                    && x >= minX && x <= maxX
+                    && y >= minY && y <= maxY
+                    && z >= minZ && z <= maxZ;
+        }
+
+        public int getPropertyId() { return propertyId; }
+        public int getRentalId() { return rentalId; }
+        public UUID getTenantUuid() { return tenantUuid; }
+        public String getWorldName() { return worldName; }
+    }
+
+    /**
+     * 契約中の物件の範囲を DB から読み直す。
+     */
+    public void refreshRentedAreas() {
+        if (rentalDAO == null || propertyDAO == null) {
+            return;
+        }
+        try {
+            List<RentedArea> areas = new java.util.ArrayList<>();
+            for (HousingRental rental : rentalDAO.getAllActiveRentals()) {
+                HousingProperty property = propertyDAO.getProperty(rental.getPropertyId());
+                if (property == null) {
+                    continue;
+                }
+                if (!property.hasCoordinates()) {
+                    // 座標の無い物件は範囲が分からず、元からあるブロックを守れない
+                    logger.warning("物件 " + property.getId() + " に座標が無いため、借主の設置・破壊の制限が効きません");
+                    continue;
+                }
+                areas.add(new RentedArea(property.getId(), rental.getId(), rental.getTenantUuid(),
+                        property.getWorldName(),
+                        property.getX1(), property.getY1(), property.getZ1(),
+                        property.getX2(), property.getY2(), property.getZ2()));
+            }
+            this.rentedAreas = java.util.Collections.unmodifiableList(areas);
+        } catch (SQLException e) {
+            logger.severe("契約中の物件の読み込みに失敗しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * その場所を含む契約中の物件（無ければ null）。
+     */
+    public RentedArea findRentedAreaAt(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return null;
+        }
+        String world = location.getWorld().getName();
+        int x = location.getBlockX();
+        int y = location.getBlockY();
+        int z = location.getBlockZ();
+        for (RentedArea area : rentedAreas) {
+            if (area.contains(world, x, y, z)) {
+                return area;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 借主の設置を記録する。
+     *
+     * @param itemData 置いたアイテム（Base64）。2 個目以降のブロック（ドアの上半分など）は null
+     */
+    public void recordTenantPlacement(RentedArea area, org.bukkit.block.Block block, String itemData) {
+        if (placedBlockDAO == null) {
+            return;
+        }
+        try {
+            placedBlockDAO.record(area.getRentalId(), area.getPropertyId(), area.getTenantUuid(),
+                    block.getWorld().getName(), block.getX(), block.getY(), block.getZ(),
+                    block.getType().name(), itemData);
+        } catch (SQLException e) {
+            logger.severe("借主の設置の記録に失敗しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * そのブロックを、その契約の借主が置いたか。
+     */
+    public boolean isPlacedByTenant(RentedArea area, org.bukkit.block.Block block) {
+        if (placedBlockDAO == null) {
+            return false;
+        }
+        try {
+            org.tofu.tofunomics.dao.HousingPlacedBlockDAO.PlacedBlock placed = placedBlockDAO.find(
+                    block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+            return placed != null && placed.getRentalId() == area.getRentalId();
+        } catch (SQLException e) {
+            logger.severe("借主の設置の確認に失敗しました: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 借主が壊したブロックの記録を消す。
+     */
+    public void forgetTenantPlacement(org.bukkit.block.Block block) {
+        if (placedBlockDAO == null) {
+            return;
+        }
+        try {
+            placedBlockDAO.delete(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+        } catch (SQLException e) {
+            logger.severe("借主の設置の記録の削除に失敗しました: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 退去時の原状回復。借主が置いたブロックを消し、ブロック自体と中身を預かり荷物にする。
+     *
+     * @return 預かった荷物の数（スタック数）
+     */
+    public int restoreTenantBlocks(HousingRental rental) {
+        if (placedBlockDAO == null || parcelDAO == null) {
+            return 0;
+        }
+        int parcels = 0;
+        try {
+            List<org.tofu.tofunomics.dao.HousingPlacedBlockDAO.PlacedBlock> placedBlocks =
+                    placedBlockDAO.findByRental(rental.getId());
+            for (org.tofu.tofunomics.dao.HousingPlacedBlockDAO.PlacedBlock placed : placedBlocks) {
+                World world = Bukkit.getWorld(placed.getWorldName());
+                if (world == null) {
+                    continue;
+                }
+                org.bukkit.block.Block block = world.getBlockAt(placed.getX(), placed.getY(), placed.getZ());
+                List<org.bukkit.inventory.ItemStack> items = new java.util.ArrayList<>();
+
+                // 借主が壊した後（空気）なら、ブロックはもう手元にあるので何もしない。
+                // 空気でなければ、借主しか置けない場所なので、種類が変わっていても（銅の錆び・大釜の水など）借主の物として扱う
+                if (!block.getType().isAir()) {
+                    items.addAll(takeContents(block));
+                    block.setType(org.bukkit.Material.AIR, false);
+                    org.bukkit.inventory.ItemStack placedItem =
+                            org.tofu.tofunomics.market.MarketItemSerializer.deserialize(placed.getItemData());
+                    if (placedItem != null) {
+                        items.add(placedItem);
+                    }
+                }
+
+                for (org.bukkit.inventory.ItemStack item : items) {
+                    String data = org.tofu.tofunomics.market.MarketItemSerializer.serialize(item);
+                    if (data == null) {
+                        logger.warning("預かり荷物の保存に失敗しました: " + item.getType() + " x" + item.getAmount()
+                                + " (借主 " + rental.getTenantUuid() + ")");
+                        continue;
+                    }
+                    parcelDAO.add(rental.getTenantUuid(), rental.getPropertyId(), data);
+                    parcels++;
+                }
+            }
+            placedBlockDAO.deleteByRental(rental.getId());
+            if (!placedBlocks.isEmpty()) {
+                logger.info("退去の原状回復: 契約ID " + rental.getId() + " ブロック " + placedBlocks.size()
+                        + " 件を片付け、荷物 " + parcels + " 件を預かりました");
+            }
+        } catch (SQLException e) {
+            logger.severe("退去の原状回復に失敗しました (契約ID " + rental.getId() + "): " + e.getMessage());
+        }
+        return parcels;
+    }
+
+    /**
+     * コンテナ等の中身を取り出して空にする（ラージチェストは自分の半分だけ）。
+     */
+    private List<org.bukkit.inventory.ItemStack> takeContents(org.bukkit.block.Block block) {
+        List<org.bukkit.inventory.ItemStack> items = new java.util.ArrayList<>();
+        org.bukkit.block.BlockState state = block.getState();
+        org.bukkit.inventory.Inventory inventory = null;
+        if (state instanceof org.bukkit.block.Chest) {
+            inventory = ((org.bukkit.block.Chest) state).getBlockInventory();
+        } else if (state instanceof org.bukkit.inventory.BlockInventoryHolder) {
+            inventory = ((org.bukkit.inventory.BlockInventoryHolder) state).getInventory();
+        }
+        if (inventory == null) {
+            return items;
+        }
+        for (org.bukkit.inventory.ItemStack item : inventory.getContents()) {
+            if (item != null && !item.getType().isAir()) {
+                items.add(item.clone());
+            }
+        }
+        inventory.clear();
+        return items;
+    }
+
+    /**
+     * 借主の預かり荷物。
+     */
+    public List<org.tofu.tofunomics.dao.HousingParcelDAO.Parcel> getParcels(UUID tenantUuid) {
+        if (parcelDAO == null) {
+            return java.util.Collections.emptyList();
+        }
+        try {
+            return parcelDAO.findByTenant(tenantUuid);
+        } catch (SQLException e) {
+            logger.severe("預かり荷物の取得に失敗しました: " + e.getMessage());
+            return java.util.Collections.emptyList();
+        }
+    }
+
+    /**
+     * 預かり荷物を 1 件受け取る。手持ちが一杯で入りきらない分は荷物に残す。
+     *
+     * @return 受け取れた個数（0 なら受け取れなかった）
+     */
+    public int takeParcel(Player player, org.tofu.tofunomics.dao.HousingParcelDAO.Parcel parcel) {
+        if (parcelDAO == null) {
+            return 0;
+        }
+        org.bukkit.inventory.ItemStack item =
+                org.tofu.tofunomics.market.MarketItemSerializer.deserialize(parcel.getItemData());
+        if (item == null) {
+            logger.warning("預かり荷物を読めませんでした: ID " + parcel.getId());
+            return 0;
+        }
+        try {
+            int total = item.getAmount();
+            java.util.Map<Integer, org.bukkit.inventory.ItemStack> rest =
+                    player.getInventory().addItem(item.clone());
+            int left = 0;
+            for (org.bukkit.inventory.ItemStack r : rest.values()) {
+                left += r.getAmount();
+            }
+            if (left == 0) {
+                parcelDAO.delete(parcel.getId(), player.getUniqueId());
+            } else if (left < total) {
+                org.bukkit.inventory.ItemStack remain = item.clone();
+                remain.setAmount(left);
+                parcelDAO.updateItem(parcel.getId(),
+                        org.tofu.tofunomics.market.MarketItemSerializer.serialize(remain));
+            }
+            return total - left;
+        } catch (SQLException e) {
+            logger.severe("預かり荷物の受け取りに失敗しました: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    private void notifyParcels(UUID tenantUuid, int parcels) {
+        if (parcels <= 0) {
+            return;
+        }
+        Player online = Bukkit.getPlayer(tenantUuid);
+        if (online != null) {
+            online.sendMessage("§e物件に置いていた物を「預かり荷物」として預かりました（" + parcels + "件）");
+            online.sendMessage("§e/housing の「預かり荷物」から受け取れます");
         }
     }
 
@@ -335,6 +623,7 @@ public class HousingRentalManager {
                     }
                 }
                 
+                refreshRentedAreas();
                 logger.info("賃貸契約を締結しました: " + player.getUuid() + " -> 物件ID: " + propertyId);
                 
                 // プレイヤーに通知（ゲーム内時間表示）
@@ -342,6 +631,8 @@ public class HousingRentalManager {
                     long realMinutes = rentalDays * 20; // 1ゲーム内日 = 20分
                     onlinePlayer.sendMessage("§a" + property.getPropertyName() + "の賃貸契約を締結しました");
                     onlinePlayer.sendMessage("§e期間: " + rentalDays + "日(" + realMinutes + "分) | 費用: " + totalCost);
+                    onlinePlayer.sendMessage("§7物件の中の空いている所に、チェストや作業台などを置けます（元からあるブロックは壊せません）");
+                    onlinePlayer.sendMessage("§7退去のときは置いた物が片付けられ、/housing の「預かり荷物」から受け取れます");
                 }
                 
                 return new RentalResult(true, "賃貸契約を締結しました (契約ID: " + rentalId + ")");
@@ -516,6 +807,9 @@ public class HousingRentalManager {
             );
             rentalDAO.addRentalHistory(history);
             
+            refreshRentedAreas();
+            notifyParcels(tenantUuid, restoreTenantBlocks(rental));
+
             logger.info("契約をキャンセルしました: 契約ID " + rental.getId());
             
             return new RentalResult(true, "契約をキャンセルしました");
@@ -577,8 +871,12 @@ public class HousingRentalManager {
                     player.sendMessage("§c賃貸契約が期限切れになりました (物件ID: " + rental.getPropertyId() + ")");
                 }
                 
+                notifyParcels(rental.getTenantUuid(), restoreTenantBlocks(rental));
+
                 logger.info("契約が期限切れになりました: 契約ID " + rental.getId());
             }
+            // 期限切れの反映と、管理者による物件の座標の変更を拾うため、毎回読み直す
+            refreshRentedAreas();
             
         } catch (SQLException e) {
             logger.severe("期限切れ契約の処理に失敗しました: " + e.getMessage());
