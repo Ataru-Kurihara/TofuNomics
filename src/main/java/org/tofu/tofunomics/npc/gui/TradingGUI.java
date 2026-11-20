@@ -130,6 +130,10 @@ public class TradingGUI implements Listener {
         public void setTradingMode(TradingMode mode) { this.tradingMode = mode; }
         public String getSearchFilter() { return searchFilter; }
         public void setSearchFilter(String filter) { this.searchFilter = filter != null ? filter : ""; }
+        // 数量切り替えボタンで選んだ段階（0=1個、1=多め、2=全部/64個）。統合版向け
+        private int quantityTier = 0;
+        public int getQuantityTier() { return quantityTier; }
+        public void setQuantityTier(int tier) { this.quantityTier = tier; }
     }
     
     public void openTradingGUI(Player player, TradingNPCManager.TradingPost tradingPost) {
@@ -389,6 +393,9 @@ public class TradingGUI implements Listener {
         );
         gui.setItem(49, sellAllItem);
         
+        // 数量切り替え（左クリックで売買する個数を選ぶ。統合版は右・シフトクリックが使えないため）
+        gui.setItem(QUANTITY_SLOT, createQuantityButton(session.getTradingMode(), session.getQuantityTier()));
+        
         // 閉じるボタン
         ItemStack closeItem = createGUIItem(
             Material.BARRIER,
@@ -450,6 +457,7 @@ public class TradingGUI implements Listener {
                     lore.add("§e右クリック: §f10個売却");
                 }
                 lore.add("§eシフト+クリック: §f全て売却");
+                lore.add("§8右下の「数量」ボタンで左クリックの個数も変えられます");
             } else {
                 lore.add("§c売却可能なアイテムがありません");
             }
@@ -473,6 +481,7 @@ public class TradingGUI implements Listener {
             lore.add("§e左クリック: §f1個購入");
             lore.add("§e右クリック: §f16個購入");
             lore.add("§eシフト+クリック: §f64個購入");
+            lore.add("§8右下の「数量」ボタンで左クリックの個数も変えられます");
 
             meta.setLore(lore);
             item.setItemMeta(meta);
@@ -532,6 +541,41 @@ public class TradingGUI implements Listener {
     /**
      * モード切り替えボタンを設定
      */
+    /** 数量切り替えボタンのスロット（最下段の空き） */
+    static final int QUANTITY_SLOT = 52;
+    /** 数量の段階の数（左・右・シフトに当たる 3 段） */
+    static final int QUANTITY_TIERS = 3;
+    
+    /** 段階ごとの個数の説明 */
+    static String quantityLabel(TradingMode mode, int tier) {
+        if (mode == TradingMode.BUY) {
+            switch (tier) {
+                case 1: return "16個";
+                case 2: return "64個";
+                default: return "1個";
+            }
+        }
+        switch (tier) {
+            case 1: return "10個（原木は20個）";
+            case 2: return "持っている分すべて";
+            default: return "1個（原木は10個）";
+        }
+    }
+    
+    private ItemStack createQuantityButton(TradingMode mode, int tier) {
+        List<String> lore = new ArrayList<>();
+        lore.add("§f今の個数: §a" + quantityLabel(mode, tier));
+        lore.add("");
+        for (int t = 0; t < QUANTITY_TIERS; t++) {
+            lore.add((t == tier ? "§a▶ " : "§7  ") + quantityLabel(mode, t));
+        }
+        lore.add("");
+        lore.add("§eクリックで切り替え");
+        lore.add("§7品を左クリックしたときの個数が変わります");
+        return createGUIItem(Material.COMPARATOR,
+            "§6数量: " + quantityLabel(mode, tier), lore);
+    }
+    
     private void setupModeButton(Inventory gui, TradingMode currentMode, boolean purchaseEnabled) {
         if (!purchaseEnabled) {
             // 購入機能が無効な場合はボタンを表示しない
@@ -826,6 +870,16 @@ public class TradingGUI implements Listener {
             }
             return;
         }
+        
+        // 数量切り替え
+        if (slot == QUANTITY_SLOT) {
+            session.setQuantityTier(ClickTier.next(session.getQuantityTier(), QUANTITY_TIERS));
+            setupTradingGUIItems(session.getInventory(), player, tradingPost, session);
+            return;
+        }
+        
+        // 数量ボタンで選んだ段階を左クリックに当てはめる（右・シフトはそのまま）
+        clickType = ClickTier.apply(clickType, session.getQuantityTier());
         
         switch (slot) {
             case 48: // 前のページ
