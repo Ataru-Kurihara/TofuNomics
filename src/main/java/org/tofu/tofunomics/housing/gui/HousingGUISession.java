@@ -28,7 +28,8 @@ public class HousingGUISession {
         ADMIN_LIST,     // 管理者: 物件一覧
         ADMIN_EDIT,     // 管理者: 物件編集
         ADMIN_EDIT_DELETE_CONFIRM, // 管理者: 物件削除の確認
-        ADMIN_EDIT_WG   // 管理者: WG情報の編集
+        ADMIN_EDIT_WG,  // 管理者: WG情報の編集
+        PARCELS         // 退去時の預かり荷物
     }
 
     private final UUID playerId;

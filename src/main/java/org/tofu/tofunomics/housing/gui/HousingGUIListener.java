@@ -36,6 +36,7 @@ public class HousingGUIListener implements Listener {
     private HousingAdminRegisterGUI adminRegisterGUI;
     private HousingAdminListGUI adminListGUI;
     private HousingAdminEditGUI adminEditGUI;
+    private ParcelGUI parcelGUI;
 
     public HousingGUIListener(TofuNomics plugin) {
         this.plugin = plugin;
@@ -56,6 +57,10 @@ public class HousingGUIListener implements Listener {
         this.adminRegisterGUI = adminRegisterGUI;
         this.adminListGUI = adminListGUI;
         this.adminEditGUI = adminEditGUI;
+    }
+
+    public void setParcelGUI(ParcelGUI parcelGUI) {
+        this.parcelGUI = parcelGUI;
     }
 
     /**
@@ -124,6 +129,9 @@ public class HousingGUIListener implements Listener {
             case ADMIN_EDIT_DELETE_CONFIRM:
             case ADMIN_EDIT_WG:
                 if (adminEditGUI != null) adminEditGUI.handleClick(player, session, slot, clickType);
+                break;
+            case PARCELS:
+                if (parcelGUI != null) parcelGUI.handleClick(player, session, slot, clickType);
                 break;
             default:
                 break;

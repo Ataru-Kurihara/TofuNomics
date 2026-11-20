@@ -355,7 +355,7 @@ WorldGuard統合を有効にすると、以下の処理が自動的に行われ�
 2. config.yml の `housing_rental.worldguard_rental_regions.default_flags` のフラグを自動設定（既定値）：
    - `use: allow` - ドアやボタンは全員が使える
    - `chest-access: deny`（対象グループ `nonmembers`）- 借主以外はチェスト等の収納ブロックを開けられない
-   - `build: deny` - 建築は借主も含めて不可
+   - `build: allow` / `block-break: allow`（対象グループ `members`）- 借主だけが置ける・壊せる。借主以外は親リージョンの deny が効く
    - `interact: allow` - その他のインタラクションは全員可（親リージョンの `interact: deny` を打ち消す）
 
 > **注意**: WorldGuard のフラグは、対象グループを指定しない限り**全員**に適用される。
@@ -369,12 +369,29 @@ WorldGuard統合を有効にすると、以下の処理が自動的に行われ�
 > default_flags:
 >   use: allow
 >   chest-access: allow
->   build: deny
+>   build: allow
+>   block-break: allow
 >   interact: allow
 > default_flag_groups:
 >   interact: members
 >   chest-access: members
+>   build: members
+>   block-break: members
 > ```
+
+### 借主による物件内の設置・破壊（`housing_rental.tenant_build`）
+
+WorldGuard で借主に build / block-break を許した上で、TofuNomics が次を守らせる（管理者権限 `tofunomics.housing.admin` は対象外）。
+
+- 置けるのは**空気の所だけ**。草・花・雪などを置き換える設置は不可
+- 置けないブロック：`denied_materials`（既定はピストン・粘着ピストン・TNT・ディスペンサー・クラフター・スポンジ・リスポーンアンカー）と、砂・砂利など落ちるブロック
+- 壊せるのは**自分が置いたブロックだけ**。物件に元からあるブロックは壊せない
+- 水・溶岩などのバケツ、額縁・絵画・防具立て、元からある看板の書き換え、元からあるブロックへの斧（樹皮はぎ）・シャベル・クワ・ハニカム・火打石・染料などは不可
+- 置いたブロックは `housing_placed_blocks` に記録する
+
+**退去（期限切れ・解約）のとき**は、置いたブロックを消して物件を元に戻し、ブロック自体とコンテナの中身を「預かり荷物」（`housing_parcels`）にする。借主は `/housing` →「預かり荷物」から受け取る（手持ちが一杯なら入った分だけ）。
+
+`tenant_build.enabled: false` にすると TofuNomics 側の制限は外れる（WorldGuard のフラグだけになる）。設定を変えたらサーバーの再起動が要る。
 
 #### 既存物件へのフラグの付け直し
 `default_flags` / `default_flag_groups` を変えたあと、登録済みの全物件（貸出中も含む）に反映するには次を実行する。

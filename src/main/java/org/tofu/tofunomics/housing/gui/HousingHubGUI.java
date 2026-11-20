@@ -25,6 +25,7 @@ public class HousingHubGUI {
 
     private static final int SIZE = 27;
     private static final int SLOT_BROWSE = 11;
+    private static final int SLOT_PARCELS = 13;
     private static final int SLOT_MY_RENTALS = 15;
     private static final int SLOT_HELP = 22;
     private static final int SLOT_CLOSE = 26;
@@ -35,6 +36,7 @@ public class HousingHubGUI {
 
     private HousingBrowseGUI browseGUI;
     private MyRentalsGUI myRentalsGUI;
+    private ParcelGUI parcelGUI;
 
     public HousingHubGUI(TofuNomics plugin, ConfigManager configManager, HousingGUIListener listener) {
         this.plugin = plugin;
@@ -45,6 +47,10 @@ public class HousingHubGUI {
     public void setGUIs(HousingBrowseGUI browseGUI, MyRentalsGUI myRentalsGUI) {
         this.browseGUI = browseGUI;
         this.myRentalsGUI = myRentalsGUI;
+    }
+
+    public void setParcelGUI(ParcelGUI parcelGUI) {
+        this.parcelGUI = parcelGUI;
     }
 
     public void open(Player player) {
@@ -66,6 +72,8 @@ public class HousingHubGUI {
                 Arrays.asList("§7賃貸可能な物件を見て契約します", "§eクリックで開く")));
         gui.setItem(SLOT_MY_RENTALS, GuiUtil.createButton(Material.PAPER, "§b§l自分の契約",
                 Arrays.asList("§7契約中の物件を確認・延長・解約します", "§eクリックで開く")));
+        gui.setItem(SLOT_PARCELS, GuiUtil.createButton(Material.BARREL, "§6§l預かり荷物",
+                Arrays.asList("§7退去のとき物件に置いていた物を", "§7ここで受け取れます", "§eクリックで開く")));
         gui.setItem(SLOT_HELP, GuiUtil.createButton(Material.BOOK, "§e§lヘルプ",
                 Collections.singletonList("§7住居賃貸の使い方を表示します")));
         gui.setItem(SLOT_CLOSE, GuiUtil.createButton(Material.BARRIER, "§c閉じる",
@@ -90,6 +98,9 @@ public class HousingHubGUI {
             case SLOT_MY_RENTALS:
                 if (myRentalsGUI != null) myRentalsGUI.open(player);
                 break;
+            case SLOT_PARCELS:
+                if (parcelGUI != null) parcelGUI.open(player);
+                break;
             case SLOT_HELP:
                 player.closeInventory();
                 sendHelp(player);
@@ -107,6 +118,8 @@ public class HousingHubGUI {
         player.sendMessage("§e/housing §7- このGUIを開きます（全操作の入口）");
         player.sendMessage("§7・物件一覧 から物件を選び、日/週/月を選んで契約できます");
         player.sendMessage("§7・自分の契約 から延長・解約ができます");
+        player.sendMessage("§7・物件の中では、空いている所にチェスト等を置けます（元からあるブロックは壊せません）");
+        player.sendMessage("§7・退去のとき、置いた物は片付けられ 預かり荷物 から受け取れます");
         player.sendMessage("§7・契約時は期間（数）をチャットで入力します（cancel で中止）");
         player.sendMessage("§7従来のコマンド（/housing rent 等）も引き続き使えます");
     }
