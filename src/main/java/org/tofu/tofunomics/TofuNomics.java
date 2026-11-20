@@ -58,6 +58,7 @@ public final class TofuNomics extends JavaPlugin {
     private org.tofu.tofunomics.housing.SelectionManager selectionManager;
     private org.tofu.tofunomics.housing.HousingListener housingListener;
     private org.tofu.tofunomics.housing.HousingBuildListener housingBuildListener;
+    private org.tofu.tofunomics.housing.HousingDoorListener housingDoorListener;
     private org.tofu.tofunomics.housing.gui.HousingHubGUI housingHubGUI;
     private org.tofu.tofunomics.housing.gui.HousingAdminRegisterGUI housingAdminRegisterGUI;
     private org.tofu.tofunomics.housing.gui.HousingAdminListGUI housingAdminListGUI;
@@ -843,6 +844,10 @@ public final class TofuNomics extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(housingBuildListener, this);
                 getLogger().info("借主の設置・破壊リスナーを登録しました");
             }
+            if (housingDoorListener != null) {
+                getServer().getPluginManager().registerEvents(housingDoorListener, this);
+                getLogger().info("賃貸物件のドアのリスナーを登録しました");
+            }
 
             // WorldGuardテストモードリスナーの登録
             if (worldGuardTestModeListener != null) {
@@ -1512,6 +1517,11 @@ public final class TofuNomics extends JavaPlugin {
                         getConfig().getStringList("housing_rental.tenant_build.denied_materials"), getLogger());
                 this.housingBuildListener = new org.tofu.tofunomics.housing.HousingBuildListener(
                     this, housingRentalManager, testModeManager, tenantBuildRules);
+            }
+            // 借りられている物件のドア（契約者だけがクリックで通り抜けられる）
+            if (getConfig().getBoolean("housing_rental.door_entry.enabled", true)) {
+                this.housingDoorListener = new org.tofu.tofunomics.housing.HousingDoorListener(
+                    housingRentalManager, testModeManager);
             }
             
             // 期限切れチェックタスクの開始

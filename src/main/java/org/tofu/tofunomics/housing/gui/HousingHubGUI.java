@@ -118,6 +118,7 @@ public class HousingHubGUI {
         player.sendMessage("§e/housing §7- このGUIを開きます（全操作の入口）");
         player.sendMessage("§7・物件一覧 から物件を選び、日/週/月を選んで契約できます");
         player.sendMessage("§7・自分の契約 から延長・解約ができます");
+        player.sendMessage("§7・借りた物件のドアはクリックで通り抜けられます（契約者だけ。空き物件は誰でも内見できます）");
         player.sendMessage("§7・物件の中では、空いている所にチェスト等を置けます（元からあるブロックは壊せません）");
         player.sendMessage("§7・退去のとき、置いた物は片付けられ 預かり荷物 から受け取れます");
         player.sendMessage("§7・契約時は期間（数）をチャットで入力します（cancel で中止）");
