@@ -90,6 +90,10 @@ public class TofuNomicsCommand implements CommandExecutor, TabCompleter {
             if (foodNPCManager != null) {
                 foodNPCManager.reloadFoodPrices();
             }
+            // 資産ランキングの送信設定（有効・間隔・送り先）を読み直す
+            if (plugin.getAssetRankingSyncTask() != null) {
+                plugin.getAssetRankingSyncTask().start();
+            }
 
             sender.sendMessage("§aTofuNomicsプラグインのリロードが完了しました。");
             sender.sendMessage("§7（取引所・食料NPCの価格も再構築済み）");
