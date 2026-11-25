@@ -467,4 +467,17 @@ public class PlayerDAOTest {
         assertEquals("銀行預金が更新されるべき", newBankBalance, retrievedPlayer.getBankBalance(), DELTA);
         assertEquals("残高は変更されないべき", 500.0, retrievedPlayer.getBalance(), DELTA);
     }
+
+    @Test
+    public void testGetAllBankBalances_残高0の人も含めて全員返す() throws SQLException {
+        Player rich = new Player(UUID.randomUUID(), 0.0, 1500.75);
+        Player poor = new Player(UUID.randomUUID(), 0.0, 0.0);
+        playerDAO.createPlayer(rich);
+        playerDAO.createPlayer(poor);
+
+        java.util.Map<UUID, Double> balances = playerDAO.getAllBankBalances();
+        assertEquals(2, balances.size());
+        assertEquals(1500.75, balances.get(rich.getUuid()), DELTA);
+        assertEquals(0.0, balances.get(poor.getUuid()), DELTA);
+    }
 }

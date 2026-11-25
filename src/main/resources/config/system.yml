@@ -100,11 +100,23 @@ api:
     # APIベースURL
     base_url: "http://localhost:3000"
 
-    # 認証トークン（現時点では不要、将来の拡張用）
+    # 認証キー。X-Mc-Api-Key ヘッダーで送る（前後の空白・改行は取り除く。空ならヘッダーを付けない）
     token: ""
 
     # ワールドID（tohu-appのworld_idに対応）
     world_id: 1
+
+    # 資産ランキング（銀行残高）の定期送信
+    # 送るのは enabled（上）と asset_ranking.enabled の両方が true のときだけ。
+    # 送り先: {base_url から末尾の / と /api を除いたもの}/api/mc/stats/bulk/upsert
+    # ⚠️ tohu-app 側が bank_balance を「置き換え」で保存するようになるまで true にしない
+    #    （古い受け口は足し算で保存するため、送るたびに残高が膨らむ）
+    asset_ranking:
+      enabled: false
+      # 送る間隔（分）。前回から残高が変わった人だけ送る（起動直後は全員）
+      interval_minutes: 10
+      # 1 回の送信にまとめる人数
+      batch_size: 100
 
 
     # リトライ設定

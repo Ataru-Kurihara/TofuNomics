@@ -9,7 +9,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -241,6 +243,25 @@ public class PlayerDAO {
         } finally {
             connection.setAutoCommit(true);
         }
+    }
+
+    /**
+     * 全員の銀行残高を返す（資産ランキングの送信用）。残高が 0 の人も含める（減ったことを送るため）。
+     */
+    public Map<UUID, Double> getAllBankBalances() throws SQLException {
+        String query = "SELECT uuid, bank_balance FROM players";
+        Map<UUID, Double> balances = new LinkedHashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement(query);
+             ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                try {
+                    balances.put(UUID.fromString(resultSet.getString("uuid")), resultSet.getDouble("bank_balance"));
+                } catch (IllegalArgumentException e) {
+                    logger.warning("players の uuid が読めない行を飛ばしました: " + resultSet.getString("uuid"));
+                }
+            }
+        }
+        return balances;
     }
 
     public int getTotalPlayerCount() throws SQLException {

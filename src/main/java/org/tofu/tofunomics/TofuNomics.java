@@ -29,6 +29,8 @@ public final class TofuNomics extends JavaPlugin {
     private static TofuNomics instance;
     private DatabaseManager databaseManager;
     private PlayerDAO playerDAO;
+    // 資産ランキング（銀行残高）を tohu-app へ定期送信する係
+    private org.tofu.tofunomics.api.AssetRankingSyncTask assetRankingSyncTask;
     private JobDAO jobDAO;
     private PlayerJobDAO playerJobDAO;
     private JobChangeDAO jobChangeDAO;
@@ -233,6 +235,11 @@ public final class TofuNomics extends JavaPlugin {
         
         // コマンドハンドラーの登録
         registerCommands();
+
+        // 資産ランキングの定期送信（設定で無効なら何もしない）
+        assetRankingSyncTask = new org.tofu.tofunomics.api.AssetRankingSyncTask(
+                this, playerDAO, new org.tofu.tofunomics.api.HttpStatsUpsertClient());
+        assetRankingSyncTask.start();
         
         getLogger().info("TofuNomicsプラグインが正常に有効化されました！");
     }
@@ -240,6 +247,11 @@ public final class TofuNomics extends JavaPlugin {
     @Override
     public void onDisable() {
         getLogger().info("TofuNomicsプラグインを無効化しています...");
+
+        // 資産ランキングの定期送信を止める
+        if (assetRankingSyncTask != null) {
+            assetRankingSyncTask.stop();
+        }
 
         // インベントリ管理システムのクリーンアップ
         if (inventoryManager != null) {
@@ -1033,6 +1045,10 @@ public final class TofuNomics extends JavaPlugin {
     
     public PlayerDAO getPlayerDAO() {
         return playerDAO;
+    }
+
+    public org.tofu.tofunomics.api.AssetRankingSyncTask getAssetRankingSyncTask() {
+        return assetRankingSyncTask;
     }
     
     public JobDAO getJobDAO() {
