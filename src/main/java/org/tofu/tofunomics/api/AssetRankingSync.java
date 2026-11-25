@@ -153,8 +153,10 @@ public class AssetRankingSync {
                 }
             }
         } catch (Exception e) {
-            // 2xx なのに本文が読めないときは、送れたものとして扱う（次回また送ると二重にはならない＝置き換え保存のため）
-            logger.warning("[資産ランキング] 応答を読めませんでした: " + truncate(response.getBody()));
+            // 2xx なのに本文が読めないときは、保存されたか分からないので全員を次回また送る
+            // （受け口は置き換えで保存するので、送り直しても値は壊れない）
+            logger.warning("[資産ランキング] 応答を読めませんでした（次回また送ります）: " + truncate(response.getBody()));
+            return 0;
         }
 
         if (failedCount > 0) {

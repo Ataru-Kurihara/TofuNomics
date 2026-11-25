@@ -181,4 +181,12 @@ public class AssetRankingSyncTest {
         AssetRankingSync.Result r = sync.sync(entries(100, 50), active);
         assertEquals(2, r.sent());
     }
+
+    @Test
+    public void 応答が読めなければ全員を次回また送る() {
+        client.responseBody = "<html>gateway</html>";
+        AssetRankingSync.Result r = sync.sync(entries(100, 50), active);
+        assertEquals(0, r.succeeded());
+        assertTrue(sync.getLastSent().isEmpty());
+    }
 }
