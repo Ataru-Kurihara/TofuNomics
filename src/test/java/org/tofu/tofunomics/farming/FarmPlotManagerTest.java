@@ -249,4 +249,68 @@ public class FarmPlotManagerTest {
         verify(admin).sendMessage(contains("メンバー登録に失敗"));
         verify(player, never()).sendMessage(anyString());
     }
+
+    // ========== 作成・リサイズ・付け直し ==========
+
+    private void selectRange(int y) {
+        when(admin.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(world.getName()).thenReturn("tofuNomics");
+        manager.setPos1(admin, new Location(world, -148, y, -385));
+        manager.setPos2(admin, new Location(world, -159, y, -393));
+    }
+
+    @Test
+    public void testResizePlotExpandsYAndAppliesSettings() throws Exception {
+        stubRegionOk();
+        when(farmPlotDAO.getPlotByName("farmplot_1")).thenReturn(plotAt(72, 86));
+        when(worldGuard.getParentRegionName("farmplot_farmplot_1", world)).thenReturn("city");
+        // 足元の段（Y75）だけを選んでリサイズ
+        selectRange(75);
+
+        assertTrue(manager.resizePlot(admin, "farmplot_1"));
+
+        // WG と DB は 72〜86 に広げた範囲。保護設定の中では、もう広げない
+        verify(worldGuard, times(1)).redefineRegion(eq("farmplot_farmplot_1"), eq(world),
+                argThat((Location l) -> l.getBlockY() == 72), argThat((Location l) -> l.getBlockY() == 85));
+        verify(farmPlotDAO, times(1)).updateCoordinates(1, -148, 72, -385, -159, 85, -393);
+        verify(worldGuard).applyRegionFlags(eq("farmplot_farmplot_1"), eq(world), anyMap(), anyMap());
+    }
+
+    @Test
+    public void testCreatePlotUsesSameExpandedYForRegionAndDb() throws Exception {
+        stubRegionOk();
+        when(farmPlotDAO.getPlotByName("farmplot_1")).thenReturn(null);
+        when(worldGuard.createRegion(anyString(), any(), any(), any())).thenReturn(true);
+        when(farmPlotDAO.createPlot(any())).thenReturn(1);
+        selectRange(75);
+
+        assertTrue(manager.createPlot(admin, "farmplot_1"));
+
+        verify(worldGuard).createRegion(eq("farmplot_farmplot_1"), eq(world),
+                argThat((Location l) -> l.getBlockY() == 72), argThat((Location l) -> l.getBlockY() == 85));
+        verify(farmPlotDAO).createPlot(argThat((FarmPlot p) -> p.getY1() == 72 && p.getY2() == 85));
+        // 作成時に広げ済みなので、保護設定で再び広げない
+        verify(worldGuard, never()).redefineRegion(anyString(), any(), any(), any());
+        verify(worldGuard).setParentRegion("farmplot_farmplot_1", "city", world);
+        verify(worldGuard).applyRegionFlags(eq("farmplot_farmplot_1"), eq(world), anyMap(), anyMap());
+    }
+
+    @Test
+    public void testFixAllRegionsReportsPerPlot() throws Exception {
+        stubRegionOk();
+        FarmPlot ok = plotAt(75, 76);
+        FarmPlot lost = new FarmPlot("farmplot_2", "nowhere", 0, 75, 0, 1, 76, 1, "farmplot_farmplot_2");
+        when(farmPlotDAO.getAllPlots()).thenReturn(java.util.Arrays.asList(ok, lost));
+
+        Map<String, String> results;
+        try (org.mockito.MockedStatic<org.bukkit.Bukkit> bukkit = mockStatic(org.bukkit.Bukkit.class)) {
+            bukkit.when(() -> org.bukkit.Bukkit.getWorld("tofuNomics")).thenReturn(world);
+            bukkit.when(() -> org.bukkit.Bukkit.getWorld("nowhere")).thenReturn(null);
+            results = manager.fixAllRegions();
+        }
+
+        assertEquals(2, results.size());
+        assertNull(results.get("farmplot_1"));
+        assertNotNull(results.get("farmplot_2"));
+    }
 }

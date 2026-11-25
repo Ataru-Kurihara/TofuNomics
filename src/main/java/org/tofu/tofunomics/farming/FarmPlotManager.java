@@ -209,16 +209,21 @@ public class FarmPlotManager {
             Location oldP1 = new Location(world, plot.getX1(), plot.getY1(), plot.getZ1());
             Location oldP2 = new Location(world, plot.getX2(), plot.getY2(), plot.getZ2());
 
+            // 作成時と同じく Y を上下に広げる（足元の段だけだと耕す土の段が外れるため）
+            int[] y = expandedYRange(p1.getBlockY(), p2.getBlockY());
+            Location c1 = new Location(world, p1.getBlockX(), y[0], p1.getBlockZ());
+            Location c2 = new Location(world, p2.getBlockX(), y[1], p2.getBlockZ());
+
             // WGリージョンを新範囲で再構築（メンバー/オーナー/フラグを保持）
-            if (!wg.redefineRegion(regionId, world, p1, p2)) {
+            if (!wg.redefineRegion(regionId, world, c1, c2)) {
                 admin.sendMessage(ChatColor.RED + "WorldGuardリージョンの再構築に失敗しました。");
                 return false;
             }
 
-            // DBの座標を更新
+            // DBの座標を更新（WG と同じ範囲）
             boolean dbUpdated = farmPlotDAO.updateCoordinates(plot.getId(),
-                    p1.getBlockX(), p1.getBlockY(), p1.getBlockZ(),
-                    p2.getBlockX(), p2.getBlockY(), p2.getBlockZ());
+                    p1.getBlockX(), y[0], p1.getBlockZ(),
+                    p2.getBlockX(), y[1], p2.getBlockZ());
             if (!dbUpdated) {
                 // DB更新失敗時はWGリージョンを旧範囲に戻してロールバック
                 wg.redefineRegion(regionId, world, oldP1, oldP2);
@@ -231,6 +236,19 @@ public class FarmPlotManager {
             pos2.remove(admin.getUniqueId());
 
             invalidateCache();
+
+            // 親リージョンとフラグをそろえる（範囲は広げ済みなので、ここでは広げない）
+            plot.setX1(p1.getBlockX());
+            plot.setY1(y[0]);
+            plot.setZ1(p1.getBlockZ());
+            plot.setX2(p2.getBlockX());
+            plot.setY2(y[1]);
+            plot.setZ2(p2.getBlockZ());
+            String problem = applyPlotRegionSettings(plot, world);
+            if (problem != null) {
+                admin.sendMessage(ChatColor.YELLOW + "範囲は更新しましたが、保護の設定に失敗しました: " + problem
+                        + "（/farmplot fixregions で付け直せます）");
+            }
             admin.sendMessage(ChatColor.GREEN + "畑区画 '" + name + "' の範囲を更新しました。");
             return true;
         } catch (SQLException e) {
