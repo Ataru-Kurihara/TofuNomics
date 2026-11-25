@@ -13,6 +13,7 @@ import org.tofu.tofunomics.models.FarmPlot;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 畑区画(プロット)管理コマンド /farmplot
@@ -34,6 +35,11 @@ public class FarmPlotCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission(PERMISSION)) {
             sender.sendMessage(ChatColor.RED + "権限がありません。");
+            return true;
+        }
+        // fixregions は座標を使わないので、コンソールからも流せるようにする
+        if (args.length > 0 && args[0].equalsIgnoreCase("fixregions")) {
+            handleFixRegions(sender);
             return true;
         }
         if (!(sender instanceof Player)) {
@@ -147,6 +153,27 @@ public class FarmPlotCommand implements CommandExecutor, TabCompleter {
         farmPlotManager.assignPlotManually(admin, target, plotName);
     }
 
+    private void handleFixRegions(CommandSender sender) {
+        Map<String, String> results = farmPlotManager.fixAllRegions();
+        if (results.isEmpty()) {
+            sender.sendMessage(ChatColor.YELLOW + "付け直す畑区画がありません。");
+            return;
+        }
+        int fixed = 0;
+        List<String> failures = new ArrayList<>();
+        for (Map.Entry<String, String> e : results.entrySet()) {
+            if (e.getValue() == null) {
+                fixed++;
+            } else {
+                failures.add(e.getKey() + "（" + e.getValue() + "）");
+            }
+        }
+        sender.sendMessage(ChatColor.GREEN + "畑区画の保護を付け直しました: " + fixed + " / " + results.size() + " 区画");
+        for (String f : failures) {
+            sender.sendMessage(ChatColor.RED + "失敗: " + f);
+        }
+    }
+
     private void handleRelease(Player admin, String targetName) {
         Player target = plugin.getServer().getPlayerExact(targetName);
         if (target == null) {
@@ -180,6 +207,7 @@ public class FarmPlotCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.YELLOW + "/farmplot info <名前>" + ChatColor.GRAY + " - 区画詳細");
         player.sendMessage(ChatColor.YELLOW + "/farmplot assign <プレイヤー> [区画名]" + ChatColor.GRAY + " - 手動割り当て");
         player.sendMessage(ChatColor.YELLOW + "/farmplot release <プレイヤー>" + ChatColor.GRAY + " - 手動解放");
+        player.sendMessage(ChatColor.YELLOW + "/farmplot fixregions" + ChatColor.GRAY + " - 全区画の保護（高さ・親・フラグ）を付け直す");
     }
 
     @Override
@@ -188,7 +216,7 @@ public class FarmPlotCommand implements CommandExecutor, TabCompleter {
             return new ArrayList<>();
         }
         if (args.length == 1) {
-            List<String> subs = Arrays.asList("pos1", "pos2", "create", "delete", "resize", "list", "info", "assign", "release");
+            List<String> subs = Arrays.asList("pos1", "pos2", "create", "delete", "resize", "list", "info", "assign", "release", "fixregions");
             List<String> result = new ArrayList<>();
             for (String s : subs) {
                 if (s.startsWith(args[0].toLowerCase())) {

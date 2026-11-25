@@ -67,7 +67,7 @@ commands:
     permission: tofunomics.housing.use
   farmplot:
     description: 農家畑区画管理システム
-    usage: /farmplot <pos1|pos2|create|delete|list|info|assign|release> [args]
+    usage: /farmplot <pos1|pos2|create|delete|resize|list|info|assign|release|fixregions> [args]
     aliases: [plot, fp]
     permission: tofunomics.farmplot.admin
   testmode:

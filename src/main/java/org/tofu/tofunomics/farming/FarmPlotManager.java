@@ -13,6 +13,7 @@ import org.tofu.tofunomics.models.FarmPlot;
 
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,6 +25,13 @@ import java.util.UUID;
  * 窃盗防止はWorldGuardのメンバー機構（所有者をmember登録）で実現する。
  */
 public class FarmPlotManager {
+
+    // 区画のWGリージョンを登録範囲から広げる段数（耕す地面の段と、作物・足場の高さを含めるため）
+    static final int REGION_EXPAND_DOWN = 3;
+    static final int REGION_EXPAND_UP = 10;
+
+    // 区画リージョンに付けるフラグ（住居と同じ形。3つともメンバーだけ許可し、非メンバーは親(city)の deny に従う）
+    private static final String[] PLOT_FLAGS = {"build", "block-break", "interact"};
 
     private final TofuNomics plugin;
     private final ConfigManager configManager;
@@ -93,20 +101,33 @@ public class FarmPlotManager {
             String regionId = ("farmplot_" + name).toLowerCase();
             World world = p1.getWorld();
 
-            if (!wg.createRegion(regionId, world, p1, p2)) {
+            // 選択範囲の Y を上下に広げてから作る（WG と DB を同じ範囲にそろえる）
+            int[] y = expandedYRange(p1.getBlockY(), p2.getBlockY());
+            Location c1 = new Location(world, p1.getBlockX(), y[0], p1.getBlockZ());
+            Location c2 = new Location(world, p2.getBlockX(), y[1], p2.getBlockZ());
+
+            if (!wg.createRegion(regionId, world, c1, c2)) {
                 admin.sendMessage(ChatColor.RED + "WorldGuardリージョンの作成に失敗しました（同名リージョンが存在する可能性）。");
                 return false;
             }
 
             FarmPlot plot = new FarmPlot(name, world.getName(),
-                    p1.getBlockX(), p1.getBlockY(), p1.getBlockZ(),
-                    p2.getBlockX(), p2.getBlockY(), p2.getBlockZ(), regionId);
+                    p1.getBlockX(), y[0], p1.getBlockZ(),
+                    p2.getBlockX(), y[1], p2.getBlockZ(), regionId);
             int id = farmPlotDAO.createPlot(plot);
             if (id <= 0) {
                 // DB登録失敗時はWGリージョンをロールバック
                 wg.removeRegion(regionId, world);
                 admin.sendMessage(ChatColor.RED + "区画のDB登録に失敗しました。");
                 return false;
+            }
+            plot.setId(id);
+
+            // 親リージョンとフラグを付ける（範囲は広げ済みなので、ここでは広げない）
+            String problem = applyPlotRegionSettings(plot, world);
+            if (problem != null) {
+                admin.sendMessage(ChatColor.YELLOW + "区画は作成しましたが、保護の設定に失敗しました: " + problem
+                        + "（/farmplot fixregions で付け直せます）");
             }
 
             // 選択をクリア
@@ -376,7 +397,13 @@ public class FarmPlotManager {
                 admin.sendMessage(ChatColor.RED + "区画のワールドが見つかりません。");
                 return false;
             }
-            wg.addMember(plot.getWorldguardRegionId(), world, target.getUniqueId());
+            if (!wg.addMember(plot.getWorldguardRegionId(), world, target.getUniqueId())) {
+                // メンバー登録に失敗したまま所有者だけ書くと「割り当て済みなのに耕せない」状態になるため止める
+                admin.sendMessage(ChatColor.RED + "区画 '" + plot.getPlotName()
+                        + "' のWorldGuardメンバー登録に失敗しました。割り当ては行っていません。");
+                plugin.getLogger().warning("農家区画の手動割り当てでWGメンバー追加に失敗: " + plot.getPlotName());
+                return false;
+            }
             farmPlotDAO.updateOwner(plot.getId(), uuid);
             invalidateCache();
             admin.sendMessage(ChatColor.GREEN + target.getName() + " に区画 '" + plot.getPlotName() + "' を割り当てました。");
@@ -406,5 +433,134 @@ public class FarmPlotManager {
             plugin.getLogger().severe("農家区画の手動解放エラー: " + e.getMessage());
             return false;
         }
+    }
+
+    // ========== リージョンの保護設定（作成時・付け直しの共通処理） ==========
+
+    /**
+     * 登録範囲の Y を下に REGION_EXPAND_DOWN 段・上に REGION_EXPAND_UP 段広げた範囲を返す。
+     *
+     * @return {広げた後の下端, 広げた後の上端}
+     */
+    static int[] expandedYRange(int y1, int y2) {
+        return new int[]{Math.min(y1, y2) - REGION_EXPAND_DOWN, Math.max(y1, y2) + REGION_EXPAND_UP};
+    }
+
+    /**
+     * 範囲がもう広げてあるかを判定する。
+     * 広げた範囲は必ず (上端 - 下端) が REGION_EXPAND_DOWN + REGION_EXPAND_UP 以上になるので、それで見分ける。
+     * これで付け直しを何度流しても、範囲が広がり続けない。
+     */
+    static boolean isYRangeExpanded(int y1, int y2) {
+        return Math.abs(y2 - y1) >= REGION_EXPAND_DOWN + REGION_EXPAND_UP;
+    }
+
+    /**
+     * 親にするリージョン名を返す。都市保護が無効、または名前が空なら null（親を付けない）。
+     */
+    static String resolveParentRegionName(boolean cityProtectionEnabled, String regionName) {
+        if (!cityProtectionEnabled || regionName == null || regionName.trim().isEmpty()) {
+            return null;
+        }
+        return regionName.trim();
+    }
+
+    /**
+     * 区画の WG リージョンを「耕せて植えられる形」にそろえる。何度呼んでも同じ結果になる。
+     * 1. Y がまだ広げてなければ、上下に広げる（WG と DB の両方。plot の値も書き換える）
+     * 2. 親リージョンを housing_rental.city_protection.region_name にする（無効・空なら警告ログだけ）
+     * 3. build / block-break / interact を allow、3つとも対象をメンバーに限る
+     *
+     * @return 問題が無ければ null。失敗したときはその理由
+     */
+    String applyPlotRegionSettings(FarmPlot plot, World world) {
+        WorldGuardIntegration wg = wg();
+        if (wg == null || !wg.isEnabled()) {
+            return "WorldGuardが無効です";
+        }
+        String regionId = plot.getWorldguardRegionId();
+        if (regionId == null || !wg.hasRegion(regionId, world)) {
+            return "リージョン " + regionId + " が見つかりません";
+        }
+
+        // 1. 高さを広げる
+        if (!isYRangeExpanded(plot.getY1(), plot.getY2())) {
+            int[] y = expandedYRange(plot.getY1(), plot.getY2());
+            Location c1 = new Location(world, plot.getX1(), y[0], plot.getZ1());
+            Location c2 = new Location(world, plot.getX2(), y[1], plot.getZ2());
+            if (!wg.redefineRegion(regionId, world, c1, c2)) {
+                return "リージョンの範囲を広げられませんでした";
+            }
+            boolean dbUpdated;
+            try {
+                dbUpdated = farmPlotDAO.updateCoordinates(plot.getId(),
+                        plot.getX1(), y[0], plot.getZ1(), plot.getX2(), y[1], plot.getZ2());
+            } catch (SQLException e) {
+                plugin.getLogger().severe("farm plot 座標更新エラー: " + e.getMessage());
+                dbUpdated = false;
+            }
+            if (!dbUpdated) {
+                // DB を直せなければ WG も元の範囲に戻し、WG と DB がずれないようにする
+                wg.redefineRegion(regionId, world,
+                        new Location(world, plot.getX1(), plot.getY1(), plot.getZ1()),
+                        new Location(world, plot.getX2(), plot.getY2(), plot.getZ2()));
+                return "DBの座標を更新できませんでした（範囲は元に戻しました）";
+            }
+            plot.setY1(y[0]);
+            plot.setY2(y[1]);
+            invalidateCache();
+        }
+
+        // 2. 親リージョン
+        String parent = resolveParentRegionName(configManager.isCityProtectionEnabled(),
+                configManager.getCityProtectionRegionName());
+        if (parent == null) {
+            plugin.getLogger().warning("都市保護が無効か親リージョン名が空のため、区画 " + regionId
+                    + " に親リージョンを付けません（housing_rental.city_protection を確認してください）");
+        } else if (!parent.equals(wg.getParentRegionName(regionId, world))
+                && !wg.setParentRegion(regionId, parent, world)) {
+            return "親リージョン '" + parent + "' を設定できませんでした";
+        }
+
+        // 3. フラグ（メンバーだけ許可）
+        Map<String, String> flags = new LinkedHashMap<>();
+        Map<String, String> groups = new LinkedHashMap<>();
+        for (String flag : PLOT_FLAGS) {
+            flags.put(flag, "allow");
+            groups.put(flag, "members");
+        }
+        int applied = wg.applyRegionFlags(regionId, world, flags, groups);
+        if (applied != flags.size()) {
+            return "フラグを " + flags.size() + " 個中 " + applied + " 個しか設定できませんでした";
+        }
+        return null;
+    }
+
+    /**
+     * 既存の全区画に保護設定を付け直す（/farmplot fixregions）。
+     *
+     * @return 区画名 → 失敗理由（成功した区画は値が null）。登録順
+     */
+    public Map<String, String> fixAllRegions() {
+        Map<String, String> results = new LinkedHashMap<>();
+        List<FarmPlot> plots;
+        try {
+            plots = farmPlotDAO.getAllPlots();
+        } catch (SQLException e) {
+            plugin.getLogger().severe("farm plot 一覧取得エラー: " + e.getMessage());
+            return results;
+        }
+        for (FarmPlot plot : plots) {
+            World world = Bukkit.getWorld(plot.getWorldName());
+            String problem = (world == null)
+                    ? "ワールド " + plot.getWorldName() + " が見つかりません"
+                    : applyPlotRegionSettings(plot, world);
+            results.put(plot.getPlotName(), problem);
+            if (problem != null) {
+                plugin.getLogger().warning("区画 " + plot.getPlotName() + " の付け直しに失敗: " + problem);
+            }
+        }
+        invalidateCache();
+        return results;
     }
 }
